@@ -6,19 +6,14 @@ import { useParams } from "next/navigation";
 import { supabase } from "../../../../../lib/supabase";
 
 const pozicije = [
-  { naziv: "Verlegung Wand", jedinica: "m²" },
-  { naziv: "Verlegung Boden", jedinica: "m²" },
-  { naziv: "Sockelleiste", jedinica: "lfm" },
-  { naziv: "Stufensockel", jedinica: "lfm" },
-  { naziv: "Schiene", jedinica: "lfm" },
-  { naziv: "Silikon", jedinica: "lfm" },
-  { naziv: "Acryl", jedinica: "lfm" },
-  { naziv: "Grundierung", jedinica: "m²" },
-  { naziv: "Abdichtung", jedinica: "m²" },
-  { naziv: "Dichtband", jedinica: "lfm" },
-  { naziv: "Ecken", jedinica: "Stk" },
-  { naziv: "Manschetten", jedinica: "Stk" },
-  { naziv: "Stufen", jedinica: "lfm" },
+  { naziv: "Pod / Boden", jedinica: "m²" },
+  { naziv: "Zid / Wand", jedinica: "m²" },
+  { naziv: "Randlajsne / Sockel", jedinica: "lfm" },
+  { naziv: "Sockel stepenice", jedinica: "lfm" },
+  { naziv: "Schiene / Lajsna", jedinica: "lfm" },
+  { naziv: "Silikon do 5 mm", jedinica: "lfm" },
+  { naziv: "Acryl do 5 mm", jedinica: "lfm" },
+  { naziv: "Stepenice", jedinica: "lfm" },
 ];
 
 export default function ProduktivnostPage() {
@@ -31,10 +26,12 @@ export default function ProduktivnostPage() {
   const [radnik, setRadnik] = useState("");
 
   const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
-  const [pozicija, setPozicija] = useState("Verlegung Wand");
+  const [pozicija, setPozicija] = useState("Pod / Boden");
   const [kolicina, setKolicina] = useState("");
+  const [format, setFormat] = useState("");
   const [napomena, setNapomena] = useState("");
   const [unosi, setUnosi] = useState<any[]>([]);
+  const [ukupnoSati, setUkupnoSati] = useState(0);
 
   const selected = pozicije.find((p) => p.naziv === pozicija);
   const jedinica = selected?.jedinica || "";
@@ -43,7 +40,6 @@ export default function ProduktivnostPage() {
     const { data, error } = await supabase
       .from("workers")
       .select("*")
-      .eq("aktivan", true)
       .order("ime", { ascending: true });
 
     if (error) {
@@ -73,6 +69,25 @@ export default function ProduktivnostPage() {
     setUnosi(data || []);
   }
 
+  async function loadUkupnoSati() {
+    const { data, error } = await supabase
+      .from("baustelle_hours")
+      .select("sati")
+      .eq("baustelle_id", Number(baustelleId))
+      .eq("room_id", Number(roomId));
+
+    if (error) {
+      setUkupnoSati(0);
+      return;
+    }
+
+    const suma = (data || []).reduce((total, row) => {
+      return total + Number(row.sati || 0);
+    }, 0);
+
+    setUkupnoSati(suma);
+  }
+
   async function saveProduktivnost() {
     if (!radnik) {
       alert("Odaberi radnika");
@@ -84,6 +99,17 @@ export default function ProduktivnostPage() {
       return;
     }
 
+    let finalNapomena = napomena.trim();
+
+    if (
+      (pozicija === "Pod / Boden" || pozicija === "Zid / Wand") &&
+      format.trim()
+    ) {
+      finalNapomena = finalNapomena
+        ? `Format: ${format.trim()} | ${finalNapomena}`
+        : `Format: ${format.trim()}`;
+    }
+
     const { error } = await supabase.from("produktivnost").insert([
       {
         baustelle_id: Number(baustelleId),
@@ -93,7 +119,7 @@ export default function ProduktivnostPage() {
         pozicija,
         kolicina: Number(kolicina),
         jedinica,
-        napomena: napomena.trim(),
+        napomena: finalNapomena,
       },
     ]);
 
@@ -103,8 +129,11 @@ export default function ProduktivnostPage() {
     }
 
     setKolicina("");
+    setFormat("");
     setNapomena("");
+
     await loadProduktivnost();
+    await loadUkupnoSati();
   }
 
   async function deleteProduktivnost(id: number) {
@@ -127,6 +156,7 @@ export default function ProduktivnostPage() {
   useEffect(() => {
     loadWorkers();
     loadProduktivnost();
+    loadUkupnoSati();
   }, []);
 
   return (
@@ -138,17 +168,23 @@ export default function ProduktivnostPage() {
         ← Nazad na prostoriju
       </Link>
 
-      <h1 style={styles.title}>Produktivität</h1>
+      <h1 style={styles.title}>Produktivnost</h1>
+
+      <section style={styles.infoBox}>
+        <h2 style={styles.infoTitle}>Trajanje posla</h2>
+        <p style={styles.infoNumber}>{ukupnoSati.toFixed(2)} h</p>
+        <p style={styles.infoSmall}>Zbir svih sati za ovu prostoriju</p>
+      </section>
 
       <section style={styles.box}>
-        <h2 style={styles.subtitle}>+ Neuer Eintrag</h2>
+        <h2 style={styles.subtitle}>+ Novi unos posla</h2>
 
         <select
           value={radnik}
           onChange={(e) => setRadnik(e.target.value)}
           style={styles.input}
         >
-          {workers.length === 0 && <option value="">Keine Mitarbeiter</option>}
+          {workers.length === 0 && <option value="">Nema radnika</option>}
 
           {workers.map((w) => (
             <option key={w.id} value={w.ime}>
@@ -176,31 +212,41 @@ export default function ProduktivnostPage() {
           ))}
         </select>
 
+        {(pozicija === "Pod / Boden" || pozicija === "Zid / Wand") && (
+          <input
+            type="text"
+            placeholder="Format keramike, npr. 60x120"
+            value={format}
+            onChange={(e) => setFormat(e.target.value)}
+            style={styles.input}
+          />
+        )}
+
         <input
           type="number"
-          placeholder={`Menge (${jedinica})`}
+          placeholder={`Količina (${jedinica})`}
           value={kolicina}
           onChange={(e) => setKolicina(e.target.value)}
           style={styles.input}
         />
 
         <textarea
-          placeholder="Notiz"
+          placeholder="Napomena"
           value={napomena}
           onChange={(e) => setNapomena(e.target.value)}
           style={styles.textarea}
         />
 
         <button onClick={saveProduktivnost} style={styles.saveButton}>
-          Speichern
+          Sačuvaj
         </button>
       </section>
 
       <section style={styles.box}>
-        <h2>Einträge ({unosi.length})</h2>
+        <h2>Unosi ({unosi.length})</h2>
 
         {unosi.length === 0 && (
-          <p style={styles.emptyText}>Noch keine Einträge vorhanden.</p>
+          <p style={styles.emptyText}>Još nema unosa.</p>
         )}
 
         {unosi.map((u) => (
@@ -209,16 +255,16 @@ export default function ProduktivnostPage() {
             <div>
               {u.kolicina} {u.jedinica}
             </div>
-            <div>Mitarbeiter: {u.radnik}</div>
+            <div>Radnik: {u.radnik}</div>
             <div>Datum: {u.datum}</div>
 
-            {u.napomena && <div>Notiz: {u.napomena}</div>}
+            {u.napomena && <div>Napomena: {u.napomena}</div>}
 
             <button
               onClick={() => deleteProduktivnost(u.id)}
               style={styles.deleteButton}
             >
-              Löschen
+              Obriši
             </button>
           </div>
         ))}
@@ -244,6 +290,27 @@ const styles: any = {
     fontWeight: "bold",
     marginTop: "25px",
     marginBottom: "30px",
+  },
+  infoBox: {
+    background: "#111",
+    padding: "20px",
+    borderRadius: "20px",
+    marginBottom: "30px",
+    border: "1px solid #222",
+  },
+  infoTitle: {
+    margin: 0,
+    marginBottom: "10px",
+    color: "#60a5fa",
+  },
+  infoNumber: {
+    fontSize: "34px",
+    fontWeight: "bold",
+    margin: 0,
+  },
+  infoSmall: {
+    color: "#aaa",
+    marginTop: "8px",
   },
   box: {
     background: "#111",

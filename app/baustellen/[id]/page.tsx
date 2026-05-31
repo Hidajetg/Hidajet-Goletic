@@ -52,15 +52,15 @@ export default function BaustelleDetailPage() {
     const photosCount = await countRows("room_photos");
     const produktivnostCount = await countRows("produktivnost");
 
-    const total =
+    return (
       prostorijeCount +
-      satiCount +
-      materijalCount +
-      roomMaterialCount +
-      photosCount +
-      produktivnostCount;
-
-    return total > 0;
+        satiCount +
+        materijalCount +
+        roomMaterialCount +
+        photosCount +
+        produktivnostCount >
+      0
+    );
   }
 
   async function archiveBaustelle() {
@@ -149,16 +149,12 @@ export default function BaustelleDetailPage() {
       </div>
 
       <div style={gridStyle}>
-        <Link href={`/baustellen/${baustelleId}/material`} style={buttonStyle}>
-          Materijal
-        </Link>
-
-        <Link href={`/baustellen/${baustelleId}/sati`} style={buttonStyle}>
-          Radni sati
-        </Link>
-
         <Link href={`/baustellen/${baustelleId}/prostorije`} style={buttonStyle}>
           Prostorije
+        </Link>
+
+        <Link href={`/baustellen/${baustelleId}/pregled`} style={buttonStyle}>
+          Pregled
         </Link>
       </div>
 
