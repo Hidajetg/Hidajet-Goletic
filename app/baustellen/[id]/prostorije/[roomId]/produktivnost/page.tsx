@@ -14,52 +14,52 @@ const pozicije = [
   { naziv: "Silikon do 5 mm", jedinica: "lfm" },
   { naziv: "Acryl do 5 mm", jedinica: "lfm" },
   { naziv: "Stepenice", jedinica: "lfm" },
+  { naziv: "Slobodno dodavanje", jedinica: "" },
 ];
 
 export default function ProduktivnostPage() {
   const params = useParams();
 
-  const baustelleId = params.id as string;
-  const roomId = params.roomId as string;
+  const baustelleId = String(params.id);
+  const roomId = String(params.roomId);
 
-  const [workers, setWorkers] = useState<any[]>([]);
   const [radnik, setRadnik] = useState("");
+  const [aktivnaPozicija, setAktivnaPozicija] = useState<any | null>(null);
 
-  const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
-  const [pozicija, setPozicija] = useState("Pod / Boden");
   const [kolicina, setKolicina] = useState("");
   const [format, setFormat] = useState("");
-  const [napomena, setNapomena] = useState("");
+
+  const [slobodniNaziv, setSlobodniNaziv] = useState("");
+  const [slobodnaJedinica, setSlobodnaJedinica] = useState("m²");
+
   const [unosi, setUnosi] = useState<any[]>([]);
   const [ukupnoSati, setUkupnoSati] = useState(0);
 
-  const selected = pozicije.find((p) => p.naziv === pozicija);
-  const jedinica = selected?.jedinica || "";
+  useEffect(() => {
+    const prijavljeniRadnik =
+      localStorage.getItem("worker_name") ||
+      localStorage.getItem("worker_ime") ||
+      localStorage.getItem("worker") ||
+      localStorage.getItem("radnik") ||
+      localStorage.getItem("ime") ||
+      localStorage.getItem("username") ||
+      localStorage.getItem("logged_worker") ||
+      localStorage.getItem("loggedWorker") ||
+      localStorage.getItem("current_worker") ||
+      "";
 
-  async function loadWorkers() {
-    const { data, error } = await supabase
-      .from("workers")
-      .select("*")
-      .order("ime", { ascending: true });
+    setRadnik(prijavljeniRadnik);
 
-    if (error) {
-      alert("LOAD WORKERS: " + error.message);
-      return;
-    }
-
-    setWorkers(data || []);
-
-    if (data && data.length > 0) {
-      setRadnik(data[0].ime);
-    }
-  }
+    loadProduktivnost();
+    loadUkupnoSati();
+  }, []);
 
   async function loadProduktivnost() {
     const { data, error } = await supabase
       .from("produktivnost")
       .select("*")
       .eq("room_id", Number(roomId))
-      .order("datum", { ascending: false });
+      .order("id", { ascending: false });
 
     if (error) {
       alert("LOAD PRODUKTIVNOST: " + error.message);
@@ -88,38 +88,54 @@ export default function ProduktivnostPage() {
     setUkupnoSati(suma);
   }
 
-  async function saveProduktivnost() {
+  async function dodajProduktivnost() {
+    if (!aktivnaPozicija) {
+      alert("Odaberi poziciju.");
+      return;
+    }
+
     if (!radnik) {
-      alert("Odaberi radnika");
+      alert("Nije pronađen prijavljeni radnik. Prijavi se ponovo.");
       return;
     }
 
     if (!kolicina || Number(kolicina) <= 0) {
-      alert("Unesi količinu");
+      alert("Unesi količinu.");
       return;
     }
 
-    let finalNapomena = napomena.trim();
+    let nazivZaSpremanje = aktivnaPozicija.naziv;
+    let jedinicaZaSpremanje = aktivnaPozicija.jedinica;
+    let napomena = "";
+
+    if (aktivnaPozicija.naziv === "Slobodno dodavanje") {
+      if (!slobodniNaziv.trim()) {
+        alert("Unesi naziv posla.");
+        return;
+      }
+
+      nazivZaSpremanje = slobodniNaziv.trim();
+      jedinicaZaSpremanje = slobodnaJedinica;
+    }
 
     if (
-      (pozicija === "Pod / Boden" || pozicija === "Zid / Wand") &&
+      (aktivnaPozicija.naziv === "Pod / Boden" ||
+        aktivnaPozicija.naziv === "Zid / Wand") &&
       format.trim()
     ) {
-      finalNapomena = finalNapomena
-        ? `Format: ${format.trim()} | ${finalNapomena}`
-        : `Format: ${format.trim()}`;
+      napomena = `Format: ${format.trim()}`;
     }
 
     const { error } = await supabase.from("produktivnost").insert([
       {
         baustelle_id: Number(baustelleId),
         room_id: Number(roomId),
-        datum,
+        datum: new Date().toISOString().split("T")[0],
         radnik,
-        pozicija,
+        pozicija: nazivZaSpremanje,
         kolicina: Number(kolicina),
-        jedinica,
-        napomena: finalNapomena,
+        jedinica: jedinicaZaSpremanje,
+        napomena,
       },
     ]);
 
@@ -130,13 +146,35 @@ export default function ProduktivnostPage() {
 
     setKolicina("");
     setFormat("");
-    setNapomena("");
+    setSlobodniNaziv("");
+    setSlobodnaJedinica("m²");
+    setAktivnaPozicija(null);
 
     await loadProduktivnost();
-    await loadUkupnoSati();
   }
 
-  async function deleteProduktivnost(id: number) {
+  async function promijeniKolicinu(id: number, trenutna: number, promjena: number) {
+    const novaKolicina = Number(trenutna) + promjena;
+
+    if (novaKolicina <= 0) {
+      await obrisiProduktivnost(id);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("produktivnost")
+      .update({ kolicina: novaKolicina })
+      .eq("id", id);
+
+    if (error) {
+      alert("UPDATE PRODUKTIVNOST: " + error.message);
+      return;
+    }
+
+    await loadProduktivnost();
+  }
+
+  async function obrisiProduktivnost(id: number) {
     const potvrda = confirm("Da li želiš obrisati ovaj unos?");
     if (!potvrda) return;
 
@@ -152,12 +190,6 @@ export default function ProduktivnostPage() {
 
     await loadProduktivnost();
   }
-
-  useEffect(() => {
-    loadWorkers();
-    loadProduktivnost();
-    loadUkupnoSati();
-  }, []);
 
   return (
     <main style={styles.page}>
@@ -177,95 +209,150 @@ export default function ProduktivnostPage() {
       </section>
 
       <section style={styles.box}>
-        <h2 style={styles.subtitle}>+ Novi unos posla</h2>
-
-        <select
-          value={radnik}
-          onChange={(e) => setRadnik(e.target.value)}
-          style={styles.input}
-        >
-          {workers.length === 0 && <option value="">Nema radnika</option>}
-
-          {workers.map((w) => (
-            <option key={w.id} value={w.ime}>
-              {w.ime}
-            </option>
-          ))}
-        </select>
+        <h2 style={styles.subtitle}>Radnik</h2>
 
         <input
-          type="date"
-          value={datum}
-          onChange={(e) => setDatum(e.target.value)}
+          value={radnik || "Nije pronađen prijavljeni radnik"}
+          readOnly
           style={styles.input}
         />
-
-        <select
-          value={pozicija}
-          onChange={(e) => setPozicija(e.target.value)}
-          style={styles.input}
-        >
-          {pozicije.map((p) => (
-            <option key={p.naziv} value={p.naziv}>
-              {p.naziv} ({p.jedinica})
-            </option>
-          ))}
-        </select>
-
-        {(pozicija === "Pod / Boden" || pozicija === "Zid / Wand") && (
-          <input
-            type="text"
-            placeholder="Format keramike, npr. 60x120"
-            value={format}
-            onChange={(e) => setFormat(e.target.value)}
-            style={styles.input}
-          />
-        )}
-
-        <input
-          type="number"
-          placeholder={`Količina (${jedinica})`}
-          value={kolicina}
-          onChange={(e) => setKolicina(e.target.value)}
-          style={styles.input}
-        />
-
-        <textarea
-          placeholder="Napomena"
-          value={napomena}
-          onChange={(e) => setNapomena(e.target.value)}
-          style={styles.textarea}
-        />
-
-        <button onClick={saveProduktivnost} style={styles.saveButton}>
-          Sačuvaj
-        </button>
       </section>
 
+      {!aktivnaPozicija && (
+        <section style={styles.box}>
+          <h2 style={styles.subtitle}>Odaberi poziciju</h2>
+
+          <div style={styles.grid}>
+            {pozicije.map((p) => (
+              <button
+                key={p.naziv}
+                onClick={() => setAktivnaPozicija(p)}
+                style={
+                  p.naziv === "Slobodno dodavanje"
+                    ? styles.freeButton
+                    : styles.positionButton
+                }
+              >
+                <strong>{p.naziv}</strong>
+                <span style={styles.unitText}>
+                  {p.jedinica || "ručni unos"}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {aktivnaPozicija && (
+        <section style={styles.box}>
+          <button
+            onClick={() => {
+              setAktivnaPozicija(null);
+              setKolicina("");
+              setFormat("");
+              setSlobodniNaziv("");
+              setSlobodnaJedinica("m²");
+            }}
+            style={styles.backButton}
+          >
+            ← Nazad na pozicije
+          </button>
+
+          <h2 style={styles.groupTitle}>{aktivnaPozicija.naziv}</h2>
+
+          {aktivnaPozicija.naziv === "Slobodno dodavanje" && (
+            <>
+              <input
+                value={slobodniNaziv}
+                onChange={(e) => setSlobodniNaziv(e.target.value)}
+                placeholder="Naziv posla"
+                style={styles.input}
+              />
+
+              <select
+                value={slobodnaJedinica}
+                onChange={(e) => setSlobodnaJedinica(e.target.value)}
+                style={styles.input}
+              >
+                <option value="m²">m²</option>
+                <option value="lfm">lfm</option>
+                <option value="kom">kom</option>
+                <option value="m">m</option>
+                <option value="h">h</option>
+              </select>
+            </>
+          )}
+
+          {(aktivnaPozicija.naziv === "Pod / Boden" ||
+            aktivnaPozicija.naziv === "Zid / Wand") && (
+            <input
+              value={format}
+              onChange={(e) => setFormat(e.target.value)}
+              placeholder="Format keramike, npr. 60x120"
+              style={styles.input}
+            />
+          )}
+
+          <input
+            value={kolicina}
+            onChange={(e) => setKolicina(e.target.value)}
+            placeholder={`Količina (${
+              aktivnaPozicija.naziv === "Slobodno dodavanje"
+                ? slobodnaJedinica
+                : aktivnaPozicija.jedinica
+            })`}
+            type="number"
+            style={styles.input}
+          />
+
+          <button onClick={dodajProduktivnost} style={styles.saveButton}>
+            Dodaj
+          </button>
+        </section>
+      )}
+
       <section style={styles.box}>
-        <h2>Unosi ({unosi.length})</h2>
+        <h2 style={styles.subtitle}>Lista učinka ({unosi.length})</h2>
 
         {unosi.length === 0 && (
           <p style={styles.emptyText}>Još nema unosa.</p>
         )}
 
         {unosi.map((u) => (
-          <div key={u.id} style={styles.card}>
+          <div key={u.id} style={styles.savedCard}>
             <strong>{u.pozicija}</strong>
-            <div>
+
+            <div style={styles.savedQuantity}>
               {u.kolicina} {u.jedinica}
             </div>
-            <div>Radnik: {u.radnik}</div>
-            <div>Datum: {u.datum}</div>
 
-            {u.napomena && <div>Napomena: {u.napomena}</div>}
+            {u.napomena && <div style={styles.note}>{u.napomena}</div>}
 
-            <button
-              onClick={() => deleteProduktivnost(u.id)}
-              style={styles.deleteButton}
-            >
-              Obriši
-            </button>
+            <div style={styles.note}>Radnik: {u.radnik}</div>
+            <div style={styles.note}>Datum: {u.datum}</div>
+
+            <div style={styles.buttonRow}>
+              <button
+                onClick={() => promijeniKolicinu(u.id, u.kolicina, 1)}
+                style={styles.plusButton}
+              >
+                +
+              </button>
+
+              <button
+                onClick={() => promijeniKolicinu(u.id, u.kolicina, -1)}
+                style={styles.minusButton}
+              >
+                -
+              </button>
+
+              <button
+                onClick={() => obrisiProduktivnost(u.id)}
+                style={styles.deleteButton}
+              >
+                Obriši
+              </button>
+            </div>
           </div>
         ))}
       </section>
@@ -331,45 +418,111 @@ const styles: any = {
     color: "white",
     fontSize: "16px",
   },
-  textarea: {
-    width: "100%",
-    minHeight: "90px",
-    padding: "16px",
-    marginBottom: "15px",
-    borderRadius: "10px",
-    border: "none",
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
+    gap: "15px",
+  },
+  positionButton: {
     background: "#222",
     color: "white",
-    fontSize: "16px",
+    border: "1px solid #333",
+    borderRadius: "16px",
+    padding: "22px",
+    textAlign: "left",
+    cursor: "pointer",
+    fontSize: "18px",
+    display: "grid",
+    gap: "8px",
+  },
+  freeButton: {
+    background: "#0f766e",
+    color: "white",
+    border: "1px solid #14b8a6",
+    borderRadius: "16px",
+    padding: "22px",
+    textAlign: "left",
+    cursor: "pointer",
+    fontSize: "18px",
+    display: "grid",
+    gap: "8px",
+  },
+  unitText: {
+    color: "#aaa",
+    fontSize: "15px",
+  },
+  backButton: {
+    background: "#222",
+    color: "#60a5fa",
+    border: "1px solid #333",
+    padding: "12px 18px",
+    borderRadius: "10px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    marginBottom: "20px",
+  },
+  groupTitle: {
+    color: "#60a5fa",
+    marginBottom: "20px",
+    fontSize: "32px",
   },
   saveButton: {
     background: "#16a34a",
     color: "white",
-    padding: "15px 25px",
+    padding: "16px 25px",
     border: "none",
     borderRadius: "10px",
     cursor: "pointer",
     fontWeight: "bold",
+    fontSize: "16px",
   },
   emptyText: {
     color: "#999",
   },
-  card: {
+  savedCard: {
     background: "#222",
     padding: "18px",
     borderRadius: "14px",
     marginTop: "15px",
-    display: "grid",
-    gap: "8px",
+  },
+  savedQuantity: {
+    marginTop: "10px",
+    color: "#ddd",
+  },
+  note: {
+    marginTop: "8px",
+    color: "#aaa",
+  },
+  buttonRow: {
+    display: "flex",
+    gap: "10px",
+    marginTop: "15px",
+  },
+  plusButton: {
+    background: "#16a34a",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    padding: "12px 18px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  },
+  minusButton: {
+    background: "#f59e0b",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    padding: "12px 18px",
+    fontWeight: "bold",
+    cursor: "pointer",
   },
   deleteButton: {
     background: "#dc2626",
     color: "white",
     border: "none",
-    padding: "10px 16px",
     borderRadius: "8px",
-    cursor: "pointer",
+    padding: "12px 18px",
     fontWeight: "bold",
-    width: "120px",
+    cursor: "pointer",
   },
 };

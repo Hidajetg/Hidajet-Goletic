@@ -11,127 +11,149 @@ export default function RoomDetailPage() {
   const baustelleId = String(params.id);
   const roomId = String(params.roomId);
 
-  const [baustelleName, setBaustelleName] = useState("Baustelle");
-  const [roomName, setRoomName] = useState("Prostorija");
+  const [baustelle, setBaustelle] = useState<any>(null);
+  const [room, setRoom] = useState<any>(null);
 
   useEffect(() => {
     loadData();
   }, []);
 
   async function loadData() {
-    const { data: baustelleData } = await supabase
+    const baustelleRes = await supabase
       .from("baustellen")
-      .select("naziv")
-      .eq("id", baustelleId)
+      .select("*")
+      .eq("id", Number(baustelleId))
       .single();
 
-    if (baustelleData?.naziv) {
-      setBaustelleName(baustelleData.naziv);
+    if (baustelleRes.error) {
+      alert("Greška kod učitavanja Baustelle: " + baustelleRes.error.message);
+      return;
     }
 
-    const { data: roomData } = await supabase
+    const roomRes = await supabase
       .from("prostorije")
-      .select("naziv")
-      .eq("id", roomId)
+      .select("*")
+      .eq("id", Number(roomId))
       .single();
 
-    if (roomData?.naziv) {
-      setRoomName(roomData.naziv);
+    if (roomRes.error) {
+      alert("Greška kod učitavanja prostorije: " + roomRes.error.message);
+      return;
     }
+
+    setBaustelle(baustelleRes.data);
+    setRoom(roomRes.data);
+  }
+
+  if (!room) {
+    return (
+      <main style={styles.page}>
+        <p>Učitavanje...</p>
+      </main>
+    );
   }
 
   return (
-    <main
-      style={{
-        background: "#000",
-        minHeight: "100vh",
-        color: "white",
-        padding: "40px",
-      }}
-    >
+    <main style={styles.page}>
       <Link
         href={`/baustellen/${baustelleId}/prostorije`}
-        style={{
-          color: "#3b82f6",
-          textDecoration: "none",
-          fontWeight: "bold",
-        }}
+        style={styles.backLink}
       >
         ← Nazad na prostorije
       </Link>
 
-      <h1
-        style={{
-          fontSize: "56px",
-          fontWeight: "bold",
-          marginTop: "30px",
-          marginBottom: "30px",
-        }}
-      >
-        {roomName}
-      </h1>
+      <h1 style={styles.title}>{room.naziv || "Prostorija"}</h1>
 
-      <div
-        style={{
-          background: "#111",
-          padding: "25px",
-          borderRadius: "20px",
-          marginBottom: "30px",
-        }}
-      >
-        <h2 style={{ marginTop: 0 }}>Baustelle: {baustelleName}</h2>
-        <h2 style={{ marginBottom: 0 }}>Prostorija: {roomName}</h2>
-      </div>
+      <section style={styles.infoBox}>
+        <p>
+          <strong>Baustelle:</strong> {baustelle?.naziv || ""}
+        </p>
+        <p>
+          <strong>Prostorija:</strong> {room.naziv || ""}
+        </p>
+      </section>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "20px",
-        }}
-      >
-        <Link href={`/baustellen/${baustelleId}/material`} style={buttonStyle}>
+      <section style={styles.grid}>
+        <Link
+          href={`/baustellen/${baustelleId}/prostorije/${roomId}/material`}
+          style={styles.blueButton}
+        >
           Materijal
         </Link>
 
-        <Link href={`/baustellen/${baustelleId}/sati`} style={buttonStyle}>
+        <Link
+          href={`/baustellen/${baustelleId}/sati`}
+          style={styles.blueButton}
+        >
           Radni sati
         </Link>
 
         <Link
           href={`/baustellen/${baustelleId}/prostorije/${roomId}/fotografije`}
-          style={photoButtonStyle}
+          style={styles.greenButton}
         >
           Fotografije
         </Link>
 
         <Link
           href={`/baustellen/${baustelleId}/prostorije/${roomId}/produktivnost`}
-          style={buttonStyle}
+          style={styles.blueButton}
         >
           Produktivnost
         </Link>
-      </div>
+      </section>
     </main>
   );
 }
 
-const buttonStyle: any = {
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  padding: "25px",
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "16px",
-  fontSize: "20px",
-  fontWeight: "bold",
-  cursor: "pointer",
-  textDecoration: "none",
-};
-
-const photoButtonStyle: any = {
-  ...buttonStyle,
-  background: "#16a34a",
+const styles: any = {
+  page: {
+    background: "#000",
+    minHeight: "100vh",
+    color: "white",
+    padding: "30px",
+  },
+  backLink: {
+    color: "#3b82f6",
+    textDecoration: "none",
+    fontWeight: "bold",
+  },
+  title: {
+    fontSize: "56px",
+    fontWeight: "bold",
+    marginTop: "35px",
+    marginBottom: "35px",
+  },
+  infoBox: {
+    background: "#111",
+    padding: "22px",
+    borderRadius: "18px",
+    marginBottom: "30px",
+    lineHeight: "1.6",
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "20px",
+  },
+  blueButton: {
+    background: "#2563eb",
+    color: "white",
+    textDecoration: "none",
+    padding: "28px",
+    borderRadius: "14px",
+    fontSize: "20px",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  greenButton: {
+    background: "#16a34a",
+    color: "white",
+    textDecoration: "none",
+    padding: "28px",
+    borderRadius: "14px",
+    fontSize: "20px",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
 };

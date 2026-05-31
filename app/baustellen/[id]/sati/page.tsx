@@ -19,6 +19,7 @@ export default function SatiPage() {
   const [pocetak, setPocetak] = useState("06:30");
   const [kraj, setKraj] = useState("15:30");
   const [pauza, setPauza] = useState("0.5");
+  const [opisPosla, setOpisPosla] = useState("");
 
   const [sati, setSati] = useState<any[]>([]);
 
@@ -44,7 +45,6 @@ export default function SatiPage() {
     if (tipUnosa !== "RAD") return 8.5;
 
     const total = timeToNumber(kraj) - timeToNumber(pocetak) - Number(pauza);
-
     if (total < 0) return 0;
 
     return Number(total.toFixed(2));
@@ -119,6 +119,7 @@ export default function SatiPage() {
         ukupno_sati: ukupno,
         prekovremeni,
         sati: ukupno,
+        opis_posla: opisPosla.trim(),
       },
     ]);
 
@@ -127,6 +128,7 @@ export default function SatiPage() {
       return;
     }
 
+    setOpisPosla("");
     await loadHours();
   }
 
@@ -233,6 +235,13 @@ export default function SatiPage() {
           </>
         )}
 
+        <textarea
+          value={opisPosla}
+          onChange={(e) => setOpisPosla(e.target.value)}
+          placeholder="Opis posla, npr. keramika WC, priprema podloge, silikoniranje..."
+          style={styles.textarea}
+        />
+
         <div style={styles.totalBox}>
           <div>Ukupno sati: {calcHours()}h</div>
           <div>Prekovremeni: {calcOvertime()}h</div>
@@ -261,6 +270,8 @@ export default function SatiPage() {
                 {s.pocetak} - {s.kraj} | Pauza: {s.pauza}h
               </div>
             )}
+
+            {s.opis_posla && <div>Opis posla: {s.opis_posla}</div>}
 
             <div>Ukupno: {s.ukupno_sati ?? s.sati}h</div>
             <div>Prekovremeni: {s.prekovremeni || 0}h</div>
@@ -309,6 +320,18 @@ const styles: any = {
     border: "none",
     borderRadius: "10px",
     fontSize: "16px",
+  },
+  textarea: {
+    width: "100%",
+    minHeight: "120px",
+    padding: "15px",
+    marginBottom: "15px",
+    background: "#222",
+    color: "white",
+    border: "none",
+    borderRadius: "10px",
+    fontSize: "16px",
+    resize: "vertical",
   },
   totalBox: {
     background: "#1f1f1f",
