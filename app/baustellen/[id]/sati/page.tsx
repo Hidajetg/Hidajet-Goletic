@@ -59,8 +59,8 @@ export default function SatiPage() {
     const { data, error } = await supabase
       .from("workers")
       .select("*")
-      .eq("aktivan", true)
-      .order("ime", { ascending: true });
+      .eq("active", true)
+      .order("name", { ascending: true });
 
     if (error) {
       alert("LOAD WORKERS: " + error.message);
@@ -70,7 +70,7 @@ export default function SatiPage() {
     setWorkers(data || []);
 
     if (data && data.length > 0 && !radnik) {
-      setRadnik(data[0].ime);
+      setRadnik(data[0].name);
     }
   }
 
@@ -160,8 +160,8 @@ export default function SatiPage() {
           {workers.length === 0 && <option value="">Nema radnika</option>}
 
           {workers.map((w) => (
-            <option key={w.id} value={w.ime}>
-              {w.ime}
+            <option key={w.id} value={w.name}>
+              {w.name}
             </option>
           ))}
         </select>
