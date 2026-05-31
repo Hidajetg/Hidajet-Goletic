@@ -56,6 +56,15 @@ export default function SatiPage() {
   }
 
   async function loadWorkers() {
+    const loggedName = localStorage.getItem("worker_name") || "";
+    const loggedRole = localStorage.getItem("worker_role") || "";
+
+    if (loggedRole === "worker") {
+      setWorkers([{ id: loggedName, name: loggedName }]);
+      setRadnik(loggedName);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("workers")
       .select("*")
