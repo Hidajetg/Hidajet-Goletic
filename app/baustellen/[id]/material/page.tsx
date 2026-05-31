@@ -5,23 +5,65 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 
+const REDOSLIJED_GRUPA = [
+  "Keramika",
+  "Priprema podloge",
+  "Estrich",
+  "Hidroizolacija",
+  "Ljepilo",
+  "Schienen",
+  "Fuge",
+  "Silikoni",
+  "Terase",
+  "Dodaci",
+];
+
 export default function BaustelleMaterialPage() {
   const params = useParams();
-  const baustelleId = params.id as string;
+  const baustelleId = String(params.id);
 
   const [grupe, setGrupe] = useState<any[]>([]);
   const [materijali, setMaterijali] = useState<any[]>([]);
   const [baustelleMaterijal, setBaustelleMaterijal] = useState<any[]>([]);
+  const [aktivnaGrupa, setAktivnaGrupa] = useState<any | null>(null);
+
   const [kolicine, setKolicine] = useState<{ [key: number]: string }>({});
 
+  const [keramikaNaziv, setKeramikaNaziv] = useState("");
+  const [keramikaKolicina, setKeramikaKolicina] = useState("");
+
+  const [dodatakNaziv, setDodatakNaziv] = useState("");
+  const [dodatakJedinica, setDodatakJedinica] = useState("kom");
+  const [dodatakKolicina, setDodatakKolicina] = useState("");
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  function sortirajGrupe(data: any[]) {
+    return [...data].sort((a, b) => {
+      const indexA = REDOSLIJED_GRUPA.indexOf(a.naziv);
+      const indexB = REDOSLIJED_GRUPA.indexOf(b.naziv);
+
+      if (indexA === -1 && indexB === -1) {
+        return a.naziv.localeCompare(b.naziv);
+      }
+
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+
+      return indexA - indexB;
+    });
+  }
+
   async function loadData() {
-    const grupeRes = await supabase.from("material_groups").select("*").order("naziv");
-    const materijaliRes = await supabase.from("materials").select("*").order("naziv");
+    const grupeRes = await supabase.from("material_groups").select("*");
+    const materijaliRes = await supabase.from("materials").select("*").order("id");
 
     const baustelleMaterijalRes = await supabase
       .from("baustelle_material")
       .select("*")
-      .eq("baustelle_id", baustelleId)
+      .eq("baustelle_id", Number(baustelleId))
       .order("id", { ascending: false });
 
     if (grupeRes.error) {
@@ -39,7 +81,7 @@ export default function BaustelleMaterialPage() {
       return;
     }
 
-    setGrupe(grupeRes.data || []);
+    setGrupe(sortirajGrupe(grupeRes.data || []));
     setMaterijali(materijaliRes.data || []);
     setBaustelleMaterijal(baustelleMaterijalRes.data || []);
   }
@@ -48,65 +90,124 @@ export default function BaustelleMaterialPage() {
     return materijali.find((m) => Number(m.id) === Number(materialId));
   }
 
-  function setKolicina(materialId: number, value: string) {
-    setKolicine((prev) => ({
-      ...prev,
-      [materialId]: value,
-    }));
+  function materijaliAktivneGrupe() {
+    if (!aktivnaGrupa) return [];
+
+    return materijali.filter(
+      (m) => Number(m.group_id) === Number(aktivnaGrupa.id)
+    );
   }
 
-  async function sacuvajSveKolicine() {
-    const unosi = Object.entries(kolicine).filter(
-      ([_, value]) => value && Number(value) > 0
-    );
+  async function dodajKataloskiMaterijal(material: any) {
+    const kolicina = kolicine[material.id];
 
-    if (unosi.length === 0) {
-      alert("Unesi barem jednu količinu");
+    if (!kolicina || Number(kolicina) <= 0) {
+      alert("Unesi količinu.");
       return;
     }
 
-    for (const [materialId, value] of unosi) {
-      const { data: existing, error: existingError } = await supabase
-        .from("baustelle_material")
-        .select("*")
-        .eq("baustelle_id", baustelleId)
-        .eq("material_id", Number(materialId))
-        .maybeSingle();
+    const { data: existing, error: existingError } = await supabase
+      .from("baustelle_material")
+      .select("*")
+      .eq("baustelle_id", Number(baustelleId))
+      .eq("material_id", Number(material.id))
+      .maybeSingle();
 
-      if (existingError) {
-        alert("CHECK EXISTING: " + existingError.message);
+    if (existingError) {
+      alert("CHECK EXISTING: " + existingError.message);
+      return;
+    }
+
+    if (existing) {
+      const { error } = await supabase
+        .from("baustelle_material")
+        .update({
+          kolicina: Number(existing.kolicina) + Number(kolicina),
+        })
+        .eq("id", existing.id);
+
+      if (error) {
+        alert("UPDATE: " + error.message);
         return;
       }
+    } else {
+      const { error } = await supabase.from("baustelle_material").insert([
+        {
+          baustelle_id: Number(baustelleId),
+          material_id: Number(material.id),
+          materijal: material.naziv,
+          kolicina: Number(kolicina),
+        },
+      ]);
 
-      if (existing) {
-        const { error } = await supabase
-          .from("baustelle_material")
-          .update({
-            kolicina: Number(existing.kolicina) + Number(value),
-          })
-          .eq("id", existing.id);
-
-        if (error) {
-          alert("UPDATE: " + error.message);
-          return;
-        }
-      } else {
-        const { error } = await supabase.from("baustelle_material").insert([
-          {
-            baustelle_id: Number(baustelleId),
-            material_id: Number(materialId),
-            kolicina: Number(value),
-          },
-        ]);
-
-        if (error) {
-          alert("INSERT: " + error.message);
-          return;
-        }
+      if (error) {
+        alert("INSERT: " + error.message);
+        return;
       }
     }
 
-    setKolicine({});
+    setKolicine((prev) => ({
+      ...prev,
+      [material.id]: "",
+    }));
+
+    await loadData();
+  }
+
+  async function dodajKeramiku() {
+    if (!keramikaNaziv || !keramikaKolicina || Number(keramikaKolicina) <= 0) {
+      alert("Unesi naziv/format keramike i količinu paketa.");
+      return;
+    }
+
+    const naziv = `Keramika - ${keramikaNaziv}`;
+
+    const { error } = await supabase.from("baustelle_material").insert([
+      {
+        baustelle_id: Number(baustelleId),
+        material_id: null,
+        materijal: naziv,
+        kolicina: Number(keramikaKolicina),
+        custom_naziv: naziv,
+        custom_jedinica: "paket",
+      },
+    ]);
+
+    if (error) {
+      alert("INSERT KERAMIKA: " + error.message);
+      return;
+    }
+
+    setKeramikaNaziv("");
+    setKeramikaKolicina("");
+    await loadData();
+  }
+
+  async function dodajDodatak() {
+    if (!dodatakNaziv || !dodatakJedinica || !dodatakKolicina || Number(dodatakKolicina) <= 0) {
+      alert("Unesi naziv, jedinicu i količinu.");
+      return;
+    }
+
+    const { error } = await supabase.from("baustelle_material").insert([
+      {
+        baustelle_id: Number(baustelleId),
+        material_id: null,
+        materijal: dodatakNaziv,
+        kolicina: Number(dodatakKolicina),
+        custom_naziv: dodatakNaziv,
+        custom_jedinica: dodatakJedinica,
+      },
+    ]);
+
+    if (error) {
+      alert("INSERT DODATAK: " + error.message);
+      return;
+    }
+
+    setDodatakNaziv("");
+    setDodatakJedinica("kom");
+    setDodatakKolicina("");
     await loadData();
   }
 
@@ -148,9 +249,20 @@ export default function BaustelleMaterialPage() {
     await loadData();
   }
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  function nazivUnosa(unos: any) {
+    if (unos.custom_naziv) return unos.custom_naziv;
+    if (unos.materijal) return unos.materijal;
+
+    const material = getMaterial(unos.material_id);
+    return material ? material.naziv : "Nepoznat materijal";
+  }
+
+  function jedinicaUnosa(unos: any) {
+    if (unos.custom_jedinica) return unos.custom_jedinica;
+
+    const material = getMaterial(unos.material_id);
+    return material ? material.jedinica : "";
+  }
 
   return (
     <main style={styles.page}>
@@ -160,40 +272,141 @@ export default function BaustelleMaterialPage() {
 
       <h1 style={styles.title}>Materijal gradilišta</h1>
 
-      <section style={styles.box}>
-        {grupe.map((g) => {
-          const materijaliGrupe = materijali.filter(
-            (m) => String(m.group_id) === String(g.id)
-          );
+      {!aktivnaGrupa && (
+        <section style={styles.box}>
+          <h2 style={styles.subtitle}>Odaberi grupu</h2>
 
-          return (
-            <div key={g.id} style={styles.groupBox}>
-              <h2 style={styles.groupTitle}>{g.naziv}</h2>
+          <div style={styles.groupGrid}>
+            {grupe.map((g) => {
+              const broj = materijali.filter(
+                (m) => Number(m.group_id) === Number(g.id)
+              ).length;
 
-              {materijaliGrupe.map((m) => (
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => setAktivnaGrupa(g)}
+                  style={styles.groupCard}
+                >
+                  <div style={styles.groupName}>{g.naziv}</div>
+                  <div style={styles.groupCount}>
+                    {g.naziv === "Keramika"
+                      ? "Ručni unos"
+                      : g.naziv === "Dodaci"
+                      ? "Ručni unos"
+                      : `${broj} materijala`}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {aktivnaGrupa && (
+        <section style={styles.box}>
+          <button onClick={() => setAktivnaGrupa(null)} style={styles.backButton}>
+            ← Nazad na grupe
+          </button>
+
+          <h2 style={styles.groupTitle}>{aktivnaGrupa.naziv}</h2>
+
+          {aktivnaGrupa.naziv === "Keramika" && (
+            <div style={styles.manualBox}>
+              <input
+                value={keramikaNaziv}
+                onChange={(e) => setKeramikaNaziv(e.target.value)}
+                placeholder="Unesi format / naziv keramike"
+                style={styles.input}
+              />
+
+              <input
+                value={keramikaKolicina}
+                onChange={(e) => setKeramikaKolicina(e.target.value)}
+                placeholder="Količina paketa"
+                type="number"
+                style={styles.input}
+              />
+
+              <button onClick={dodajKeramiku} style={styles.saveButton}>
+                Dodaj keramiku
+              </button>
+            </div>
+          )}
+
+          {aktivnaGrupa.naziv === "Dodaci" && (
+            <div style={styles.manualBox}>
+              <input
+                value={dodatakNaziv}
+                onChange={(e) => setDodatakNaziv(e.target.value)}
+                placeholder="Unesi naziv dodatka"
+                style={styles.input}
+              />
+
+              <select
+                value={dodatakJedinica}
+                onChange={(e) => setDodatakJedinica(e.target.value)}
+                style={styles.input}
+              >
+                <option value="kom">kom</option>
+                <option value="m">m</option>
+                <option value="m²">m²</option>
+                <option value="kg">kg</option>
+                <option value="vreća">vreća</option>
+                <option value="rola">rola</option>
+                <option value="paket">paket</option>
+              </select>
+
+              <input
+                value={dodatakKolicina}
+                onChange={(e) => setDodatakKolicina(e.target.value)}
+                placeholder="Količina"
+                type="number"
+                style={styles.input}
+              />
+
+              <button onClick={dodajDodatak} style={styles.saveButton}>
+                Dodaj dodatak
+              </button>
+            </div>
+          )}
+
+          {aktivnaGrupa.naziv !== "Keramika" && aktivnaGrupa.naziv !== "Dodaci" && (
+            <div>
+              {materijaliAktivneGrupe().map((m) => (
                 <div key={m.id} style={styles.materialRow}>
                   <div>
                     <strong>{m.naziv}</strong>
                     <div style={styles.smallText}>{m.jedinica}</div>
                   </div>
 
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={kolicine[m.id] || ""}
-                    onChange={(e) => setKolicina(m.id, e.target.value)}
-                    style={styles.quantityInput}
-                  />
+                  <div style={styles.addArea}>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={kolicine[m.id] || ""}
+                      onChange={(e) =>
+                        setKolicine((prev) => ({
+                          ...prev,
+                          [m.id]: e.target.value,
+                        }))
+                      }
+                      style={styles.quantityInput}
+                    />
+
+                    <button
+                      onClick={() => dodajKataloskiMaterijal(m)}
+                      style={styles.addButton}
+                    >
+                      Dodaj
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
-          );
-        })}
-
-        <button onClick={sacuvajSveKolicine} style={styles.saveButton}>
-          Sačuvaj sve unesene količine
-        </button>
-      </section>
+          )}
+        </section>
+      )}
 
       <section style={styles.box}>
         <h2 style={styles.subtitle}>
@@ -204,42 +417,38 @@ export default function BaustelleMaterialPage() {
           <p style={styles.emptyText}>Još nema unesenog materijala.</p>
         )}
 
-        {baustelleMaterijal.map((m) => {
-          const material = getMaterial(m.material_id);
+        {baustelleMaterijal.map((m) => (
+          <div key={m.id} style={styles.savedCard}>
+            <strong>{nazivUnosa(m)}</strong>
 
-          return (
-            <div key={m.id} style={styles.savedCard}>
-              <strong>{material?.naziv || "Nepoznat materijal"}</strong>
-
-              <div style={styles.savedQuantity}>
-                {m.kolicina} {material?.jedinica || ""}
-              </div>
-
-              <div style={styles.buttonRow}>
-                <button
-                  onClick={() => promijeniKolicinu(m.id, m.kolicina, 1)}
-                  style={styles.plusButton}
-                >
-                  +
-                </button>
-
-                <button
-                  onClick={() => promijeniKolicinu(m.id, m.kolicina, -1)}
-                  style={styles.minusButton}
-                >
-                  -
-                </button>
-
-                <button
-                  onClick={() => obrisiMaterijal(m.id)}
-                  style={styles.deleteButton}
-                >
-                  Obriši
-                </button>
-              </div>
+            <div style={styles.savedQuantity}>
+              {m.kolicina} {jedinicaUnosa(m)}
             </div>
-          );
-        })}
+
+            <div style={styles.buttonRow}>
+              <button
+                onClick={() => promijeniKolicinu(m.id, m.kolicina, 1)}
+                style={styles.plusButton}
+              >
+                +
+              </button>
+
+              <button
+                onClick={() => promijeniKolicinu(m.id, m.kolicina, -1)}
+                style={styles.minusButton}
+              >
+                -
+              </button>
+
+              <button
+                onClick={() => obrisiMaterijal(m.id)}
+                style={styles.deleteButton}
+              >
+                Obriši
+              </button>
+            </div>
+          </div>
+        ))}
       </section>
     </main>
   );
@@ -269,15 +478,60 @@ const styles: any = {
     borderRadius: "20px",
     marginBottom: "30px",
   },
-  groupBox: {
-    background: "#1a1a1a",
-    padding: "18px",
+  subtitle: {
+    marginBottom: "20px",
+  },
+  groupGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
+    gap: "15px",
+  },
+  groupCard: {
+    background: "#1f1f1f",
+    color: "white",
+    border: "1px solid #333",
     borderRadius: "16px",
-    marginBottom: "18px",
+    padding: "22px",
+    textAlign: "left",
+    cursor: "pointer",
+  },
+  groupName: {
+    fontSize: "22px",
+    fontWeight: "bold",
+    marginBottom: "8px",
+  },
+  groupCount: {
+    color: "#aaa",
+  },
+  backButton: {
+    background: "#222",
+    color: "#60a5fa",
+    border: "1px solid #333",
+    padding: "12px 18px",
+    borderRadius: "10px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    marginBottom: "20px",
   },
   groupTitle: {
     color: "#60a5fa",
-    marginBottom: "15px",
+    marginBottom: "20px",
+    fontSize: "32px",
+  },
+  manualBox: {
+    background: "#1a1a1a",
+    padding: "18px",
+    borderRadius: "16px",
+  },
+  input: {
+    width: "100%",
+    padding: "14px",
+    borderRadius: "10px",
+    border: "1px solid #333",
+    background: "#000",
+    color: "white",
+    fontSize: "16px",
+    marginBottom: "12px",
   },
   materialRow: {
     background: "#222",
@@ -293,14 +547,28 @@ const styles: any = {
     color: "#aaa",
     marginTop: "5px",
   },
+  addArea: {
+    display: "flex",
+    gap: "10px",
+    alignItems: "center",
+  },
   quantityInput: {
-    width: "120px",
+    width: "110px",
     padding: "14px",
     borderRadius: "8px",
     border: "1px solid #333",
     background: "#000",
     color: "white",
     fontSize: "18px",
+  },
+  addButton: {
+    background: "#16a34a",
+    color: "white",
+    padding: "14px 18px",
+    border: "none",
+    borderRadius: "10px",
+    cursor: "pointer",
+    fontWeight: "bold",
   },
   saveButton: {
     background: "#16a34a",
@@ -312,9 +580,6 @@ const styles: any = {
     fontWeight: "bold",
     fontSize: "16px",
   },
-  subtitle: {
-    marginBottom: "20px",
-  },
   emptyText: {
     color: "#999",
   },
@@ -325,38 +590,39 @@ const styles: any = {
     marginTop: "15px",
   },
   savedQuantity: {
-    marginTop: "8px",
-    marginBottom: "12px",
+    marginTop: "10px",
+    color: "#ddd",
   },
   buttonRow: {
     display: "flex",
     gap: "10px",
+    marginTop: "15px",
   },
   plusButton: {
     background: "#16a34a",
     color: "white",
     border: "none",
-    padding: "10px 16px",
     borderRadius: "8px",
-    cursor: "pointer",
+    padding: "12px 18px",
     fontWeight: "bold",
+    cursor: "pointer",
   },
   minusButton: {
     background: "#f59e0b",
     color: "white",
     border: "none",
-    padding: "10px 16px",
     borderRadius: "8px",
-    cursor: "pointer",
+    padding: "12px 18px",
     fontWeight: "bold",
+    cursor: "pointer",
   },
   deleteButton: {
     background: "#dc2626",
     color: "white",
     border: "none",
-    padding: "10px 16px",
     borderRadius: "8px",
-    cursor: "pointer",
+    padding: "12px 18px",
     fontWeight: "bold",
+    cursor: "pointer",
   },
 };

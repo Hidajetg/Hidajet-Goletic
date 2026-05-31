@@ -3,6 +3,19 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
+const REDOSLIJED_GRUPA = [
+  "Keramika",
+  "Priprema podloge",
+  "Estrich",
+  "Hidroizolacija",
+  "Ljepilo",
+  "Schienen",
+  "Fuge",
+  "Silikoni",
+  "Terase",
+  "Dodaci",
+];
+
 export default function KatalogPage() {
   const [grupe, setGrupe] = useState<any[]>([]);
   const [materijali, setMaterijali] = useState<any[]>([]);
@@ -17,11 +30,24 @@ export default function KatalogPage() {
     loadData();
   }, []);
 
+  function sortirajGrupe(data: any[]) {
+    return [...data].sort((a, b) => {
+      const indexA = REDOSLIJED_GRUPA.indexOf(a.naziv);
+      const indexB = REDOSLIJED_GRUPA.indexOf(b.naziv);
+
+      if (indexA === -1 && indexB === -1) {
+        return a.naziv.localeCompare(b.naziv);
+      }
+
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+
+      return indexA - indexB;
+    });
+  }
+
   async function loadData() {
-    const grupeRes = await supabase
-      .from("material_groups")
-      .select("*")
-      .order("naziv");
+    const grupeRes = await supabase.from("material_groups").select("*");
 
     const materijaliRes = await supabase
       .from("materials")
@@ -38,7 +64,7 @@ export default function KatalogPage() {
       return;
     }
 
-    setGrupe(grupeRes.data || []);
+    setGrupe(sortirajGrupe(grupeRes.data || []));
     setMaterijali(materijaliRes.data || []);
   }
 
@@ -51,8 +77,8 @@ export default function KatalogPage() {
     const { error } = await supabase.from("materials").insert([
       {
         group_id: Number(groupId),
-        naziv,
-        jedinica,
+        naziv: naziv.trim(),
+        jedinica: jedinica.trim(),
       },
     ]);
 
@@ -73,10 +99,7 @@ export default function KatalogPage() {
 
     if (!potvrda) return;
 
-    const { error } = await supabase
-      .from("materials")
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from("materials").delete().eq("id", id);
 
     if (error) {
       alert(error.message);
@@ -96,8 +119,7 @@ export default function KatalogPage() {
       ?.toLowerCase()
       .includes(pretraga.toLowerCase());
 
-    const matchGrupa =
-      aktivnaGrupa === null || m.group_id === aktivnaGrupa;
+    const matchGrupa = aktivnaGrupa === null || m.group_id === aktivnaGrupa;
 
     return matchNaziv && matchGrupa;
   });
@@ -181,13 +203,9 @@ export default function KatalogPage() {
           <div key={m.id} style={styles.card}>
             <h3 style={styles.cardTitle}>{m.naziv}</h3>
 
-            <p style={styles.cardText}>
-              Jedinica: {m.jedinica}
-            </p>
+            <p style={styles.cardText}>Jedinica: {m.jedinica}</p>
 
-            <p style={styles.cardSmall}>
-              Grupa: {imeGrupe(m.group_id)}
-            </p>
+            <p style={styles.cardSmall}>Grupa: {imeGrupe(m.group_id)}</p>
 
             <button
               onClick={() => obrisiMaterijal(m.id, m.naziv)}
