@@ -1,0 +1,17 @@
+{
+  "name": "Baustelle App",
+  "short_name": "Baustelle",
+  "description": "Evidencija sati, materijala i prostorija",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#2563eb",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
