@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
 export default function SatiPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const baustelleId = params.id as string;
+  const baustelleId = String(params.id);
+  const roomId = searchParams.get("roomId");
 
   const [workers, setWorkers] = useState<any[]>([]);
   const [radnik, setRadnik] = useState("");
@@ -45,22 +47,30 @@ export default function SatiPage() {
     if (tipUnosa !== "RAD") return 8.5;
 
     const total = timeToNumber(kraj) - timeToNumber(pocetak) - Number(pauza);
+
     if (total < 0) return 0;
 
     return Number(total.toFixed(2));
   }
 
-  function calcOvertime() {
-    const total = calcHours();
-    return total > 8.5 ? Number((total - 8.5).toFixed(2)) : 0;
-  }
+  const ukupnoSatiProstorije = sati.reduce((total, row) => {
+    return total + Number(row.sati ?? row.ukupno_sati ?? 0);
+  }, 0);
 
   async function loadWorkers() {
-    const loggedName = localStorage.getItem("worker_name") || "";
-    const loggedRole = localStorage.getItem("worker_role") || "";
+    const loggedName =
+      localStorage.getItem("worker_name") ||
+      localStorage.getItem("worker_ime") ||
+      localStorage.getItem("worker") ||
+      localStorage.getItem("radnik") ||
+      localStorage.getItem("ime") ||
+      localStorage.getItem("username") ||
+      "";
+
+    const loggedRole = localStorage.getItem("worker_role") || "worker";
 
     if (loggedRole === "worker") {
-      setWorkers([{ id: loggedName, name: loggedName }]);
+      setWorkers([{ id: loggedName || "worker", name: loggedName }]);
       setRadnik(loggedName);
       return;
     }
@@ -68,27 +78,38 @@ export default function SatiPage() {
     const { data, error } = await supabase
       .from("workers")
       .select("*")
-      .eq("active", true)
       .order("name", { ascending: true });
 
     if (error) {
-      alert("LOAD WORKERS: " + error.message);
+      setWorkers([{ id: loggedName || "worker", name: loggedName }]);
+      setRadnik(loggedName);
       return;
     }
 
-    setWorkers(data || []);
+    const formattedWorkers = (data || []).map((w) => ({
+      id: w.id,
+      name: w.name || w.ime || w.radnik || "",
+    }));
 
-    if (data && data.length > 0 && !radnik) {
-      setRadnik(data[0].name);
+    setWorkers(formattedWorkers);
+
+    if (formattedWorkers.length > 0 && !radnik) {
+      setRadnik(formattedWorkers[0].name);
     }
   }
 
   async function loadHours() {
-    const { data, error } = await supabase
+    let query = supabase
       .from("baustelle_hours")
       .select("*")
-      .eq("baustelle_id", baustelleId)
+      .eq("baustelle_id", Number(baustelleId))
       .order("datum", { ascending: false });
+
+    if (roomId) {
+      query = query.eq("room_id", Number(roomId));
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       alert("LOAD SATI: " + error.message);
@@ -105,11 +126,11 @@ export default function SatiPage() {
     }
 
     const ukupno = calcHours();
-    const prekovremeni = calcOvertime();
 
     const { error } = await supabase.from("baustelle_hours").insert([
       {
         baustelle_id: Number(baustelleId),
+        room_id: roomId ? Number(roomId) : null,
         radnik,
         datum,
         tip_unosa: tipUnosa,
@@ -117,7 +138,6 @@ export default function SatiPage() {
         kraj: tipUnosa === "RAD" ? kraj : null,
         pauza: tipUnosa === "RAD" ? Number(pauza) : 0,
         ukupno_sati: ukupno,
-        prekovremeni,
         sati: ukupno,
         opis_posla: opisPosla.trim(),
       },
@@ -161,6 +181,26 @@ export default function SatiPage() {
       </button>
 
       <h1 style={styles.title}>Radni sati</h1>
+
+      <section style={styles.summaryBox}>
+        <h2 style={styles.summaryTitle}>
+          {roomId ? "Ukupno sati u ovoj prostoriji" : "Ukupno sati na Baustelle"}
+        </h2>
+
+        <div style={styles.summaryGrid}>
+          <div>
+            <div style={styles.summaryLabel}>Ukupno sati</div>
+            <div style={styles.summaryNumber}>
+              {ukupnoSatiProstorije.toFixed(2)} h
+            </div>
+          </div>
+
+          <div>
+            <div style={styles.summaryLabel}>Broj unosa</div>
+            <div style={styles.summaryNumber}>{sati.length}</div>
+          </div>
+        </div>
+      </section>
 
       <section style={styles.box}>
         <select
@@ -243,8 +283,7 @@ export default function SatiPage() {
         />
 
         <div style={styles.totalBox}>
-          <div>Ukupno sati: {calcHours()}h</div>
-          <div>Prekovremeni: {calcOvertime()}h</div>
+          <div>Trenutni unos: {calcHours()}h</div>
         </div>
 
         <button onClick={saveHours} style={styles.saveButton}>
@@ -262,6 +301,7 @@ export default function SatiPage() {
         {sati.map((s) => (
           <div key={s.id} style={styles.card}>
             <strong>{s.radnik}</strong>
+
             <div>Datum: {s.datum}</div>
             <div>Tip: {s.tip_unosa}</div>
 
@@ -274,7 +314,6 @@ export default function SatiPage() {
             {s.opis_posla && <div>Opis posla: {s.opis_posla}</div>}
 
             <div>Ukupno: {s.ukupno_sati ?? s.sati}h</div>
-            <div>Prekovremeni: {s.prekovremeni || 0}h</div>
 
             <button onClick={() => deleteHours(s.id)} style={styles.deleteButton}>
               Obriši
@@ -304,6 +343,31 @@ const styles: any = {
   title: {
     fontSize: "60px",
     marginBottom: "30px",
+  },
+  summaryBox: {
+    background: "#111",
+    padding: "22px",
+    borderRadius: "20px",
+    marginBottom: "30px",
+    border: "1px solid #222",
+  },
+  summaryTitle: {
+    marginTop: 0,
+    marginBottom: "20px",
+    color: "#60a5fa",
+  },
+  summaryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "18px",
+  },
+  summaryLabel: {
+    color: "#aaa",
+    marginBottom: "8px",
+  },
+  summaryNumber: {
+    fontSize: "32px",
+    fontWeight: "bold",
   },
   box: {
     background: "#111",
@@ -340,8 +404,6 @@ const styles: any = {
     fontSize: "22px",
     fontWeight: "bold",
     marginBottom: "15px",
-    display: "grid",
-    gap: "8px",
   },
   saveButton: {
     background: "#16a34a",

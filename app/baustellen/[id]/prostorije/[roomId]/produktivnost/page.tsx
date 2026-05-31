@@ -58,6 +58,7 @@ export default function ProduktivnostPage() {
     const { data, error } = await supabase
       .from("produktivnost")
       .select("*")
+      .eq("baustelle_id", Number(baustelleId))
       .eq("room_id", Number(roomId))
       .order("id", { ascending: false });
 
@@ -72,20 +73,21 @@ export default function ProduktivnostPage() {
   async function loadUkupnoSati() {
     const { data, error } = await supabase
       .from("baustelle_hours")
-      .select("sati")
+      .select("sati, ukupno_sati, room_id, baustelle_id")
       .eq("baustelle_id", Number(baustelleId))
       .eq("room_id", Number(roomId));
 
     if (error) {
+      alert("LOAD UKUPNO SATI: " + error.message);
       setUkupnoSati(0);
       return;
     }
 
     const suma = (data || []).reduce((total, row) => {
-      return total + Number(row.sati || 0);
+      return total + Number(row.sati ?? row.ukupno_sati ?? 0);
     }, 0);
 
-    setUkupnoSati(suma);
+    setUkupnoSati(Number(suma.toFixed(2)));
   }
 
   async function dodajProduktivnost() {
@@ -151,6 +153,7 @@ export default function ProduktivnostPage() {
     setAktivnaPozicija(null);
 
     await loadProduktivnost();
+    await loadUkupnoSati();
   }
 
   async function promijeniKolicinu(id: number, trenutna: number, promjena: number) {
@@ -205,7 +208,7 @@ export default function ProduktivnostPage() {
       <section style={styles.infoBox}>
         <h2 style={styles.infoTitle}>Trajanje posla</h2>
         <p style={styles.infoNumber}>{ukupnoSati.toFixed(2)} h</p>
-        <p style={styles.infoSmall}>Zbir svih sati za ovu prostoriju</p>
+        <p style={styles.infoSmall}>Zbir svih sati dodanih u ovu prostoriju</p>
       </section>
 
       <section style={styles.box}>

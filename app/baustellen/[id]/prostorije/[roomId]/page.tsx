@@ -68,6 +68,7 @@ export default function RoomDetailPage() {
         <p>
           <strong>Baustelle:</strong> {baustelle?.naziv || ""}
         </p>
+
         <p>
           <strong>Prostorija:</strong> {room.naziv || ""}
         </p>
@@ -82,7 +83,7 @@ export default function RoomDetailPage() {
         </Link>
 
         <Link
-          href={`/baustellen/${baustelleId}/sati`}
+          href={`/baustellen/${baustelleId}/sati?roomId=${roomId}`}
           style={styles.blueButton}
         >
           Radni sati
@@ -113,17 +114,20 @@ const styles: any = {
     color: "white",
     padding: "30px",
   },
+
   backLink: {
     color: "#3b82f6",
     textDecoration: "none",
     fontWeight: "bold",
   },
+
   title: {
     fontSize: "56px",
     fontWeight: "bold",
     marginTop: "35px",
     marginBottom: "35px",
   },
+
   infoBox: {
     background: "#111",
     padding: "22px",
@@ -131,11 +135,13 @@ const styles: any = {
     marginBottom: "30px",
     lineHeight: "1.6",
   },
+
   grid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
     gap: "20px",
   },
+
   blueButton: {
     background: "#2563eb",
     color: "white",
@@ -146,6 +152,7 @@ const styles: any = {
     fontWeight: "bold",
     textAlign: "center",
   },
+
   greenButton: {
     background: "#16a34a",
     color: "white",
