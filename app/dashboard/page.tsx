@@ -11,10 +11,12 @@ export default function DashboardPage() {
   const [workerId, setWorkerId] = useState("");
   const [workerName, setWorkerName] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
+  const [lang, setLang] = useState("ba");
 
   useEffect(() => {
     const id = localStorage.getItem("worker_id");
     const name = localStorage.getItem("worker_name");
+    const savedLang = localStorage.getItem("lang") || "ba";
 
     if (!id || !name) {
       router.push("/login");
@@ -23,6 +25,7 @@ export default function DashboardPage() {
 
     setWorkerId(id);
     setWorkerName(name);
+    setLang(savedLang);
     loadMessages(id);
   }, [router]);
 
@@ -39,6 +42,11 @@ export default function DashboardPage() {
     }
 
     setMessages(data || []);
+  }
+
+  function changeLanguage(newLang: string) {
+    localStorage.setItem("lang", newLang);
+    setLang(newLang);
   }
 
   function logout() {
@@ -60,6 +68,36 @@ export default function DashboardPage() {
     <main style={mainStyle}>
       <h1 style={titleStyle}>STONE BOUTIQUE</h1>
       <h2 style={subtitleStyle}>Dobrodošao {workerName}</h2>
+
+      <div style={languageBoxStyle}>
+        <button
+          onClick={() => changeLanguage("de")}
+          style={lang === "de" ? activeLangButtonStyle : langButtonStyle}
+        >
+          DE
+        </button>
+
+        <button
+          onClick={() => changeLanguage("ba")}
+          style={lang === "ba" ? activeLangButtonStyle : langButtonStyle}
+        >
+          BA
+        </button>
+
+        <button
+          onClick={() => changeLanguage("uz")}
+          style={lang === "uz" ? activeLangButtonStyle : langButtonStyle}
+        >
+          UZ
+        </button>
+
+        <button
+          onClick={() => changeLanguage("en")}
+          style={lang === "en" ? activeLangButtonStyle : langButtonStyle}
+        >
+          EN
+        </button>
+      </div>
 
       <div style={gridStyle}>
         <Link href="/baustellen" style={buttonStyle}>
@@ -131,8 +169,32 @@ const titleStyle: any = {
 };
 
 const subtitleStyle: any = {
-  marginBottom: "40px",
+  marginBottom: "20px",
   color: "#ccc",
+};
+
+const languageBoxStyle: any = {
+  display: "flex",
+  gap: "10px",
+  marginBottom: "35px",
+  flexWrap: "wrap",
+};
+
+const langButtonStyle: any = {
+  background: "#111",
+  color: "white",
+  border: "1px solid #333",
+  borderRadius: "10px",
+  padding: "8px 16px",
+  fontSize: "16px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const activeLangButtonStyle: any = {
+  ...langButtonStyle,
+  background: "#f97316",
+  border: "1px solid #f97316",
 };
 
 const gridStyle: any = {
