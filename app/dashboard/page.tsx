@@ -5,13 +5,61 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 
+const translations: any = {
+  de: {
+    welcome: "Willkommen",
+    hours: "Stundenübersicht",
+    calendar: "Kalender",
+    soon: "bald",
+    info: "Info vom Admin",
+    notes: "Hinweise für Arbeiten und Material",
+    logout: "Abmelden",
+    noMessages: "Aktuell gibt es keine Info-Nachrichten.",
+    message: "Nachricht",
+  },
+  ba: {
+    welcome: "Dobrodošao",
+    hours: "Pregled sati",
+    calendar: "Kalendar",
+    soon: "uskoro",
+    info: "Info od Admina",
+    notes: "Napomene za radove i materijale",
+    logout: "Odjava",
+    noMessages: "Trenutno nema info poruka.",
+    message: "poruka",
+  },
+  uz: {
+    welcome: "Xush kelibsiz",
+    hours: "Ish soatlari",
+    calendar: "Kalendar",
+    soon: "tez orada",
+    info: "Admin xabari",
+    notes: "Ishlar va materiallar uchun eslatmalar",
+    logout: "Chiqish",
+    noMessages: "Hozircha xabar yo‘q.",
+    message: "xabar",
+  },
+  en: {
+    welcome: "Welcome",
+    hours: "Hours overview",
+    calendar: "Calendar",
+    soon: "soon",
+    info: "Admin info",
+    notes: "Notes for work and materials",
+    logout: "Logout",
+    noMessages: "There are currently no info messages.",
+    message: "message",
+  },
+};
+
 export default function DashboardPage() {
   const router = useRouter();
 
-  const [workerId, setWorkerId] = useState("");
   const [workerName, setWorkerName] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
   const [lang, setLang] = useState("ba");
+
+  const t = translations[lang] || translations.ba;
 
   useEffect(() => {
     const id = localStorage.getItem("worker_id");
@@ -23,7 +71,6 @@ export default function DashboardPage() {
       return;
     }
 
-    setWorkerId(id);
     setWorkerName(name);
     setLang(savedLang);
     loadMessages(id);
@@ -67,36 +114,20 @@ export default function DashboardPage() {
   return (
     <main style={mainStyle}>
       <h1 style={titleStyle}>STONE BOUTIQUE</h1>
-      <h2 style={subtitleStyle}>Dobrodošao {workerName}</h2>
+      <h2 style={subtitleStyle}>
+        {t.welcome} {workerName}
+      </h2>
 
       <div style={languageBoxStyle}>
-        <button
-          onClick={() => changeLanguage("de")}
-          style={lang === "de" ? activeLangButtonStyle : langButtonStyle}
-        >
-          DE
-        </button>
-
-        <button
-          onClick={() => changeLanguage("ba")}
-          style={lang === "ba" ? activeLangButtonStyle : langButtonStyle}
-        >
-          BA
-        </button>
-
-        <button
-          onClick={() => changeLanguage("uz")}
-          style={lang === "uz" ? activeLangButtonStyle : langButtonStyle}
-        >
-          UZ
-        </button>
-
-        <button
-          onClick={() => changeLanguage("en")}
-          style={lang === "en" ? activeLangButtonStyle : langButtonStyle}
-        >
-          EN
-        </button>
+        {["de", "ba", "uz", "en"].map((code) => (
+          <button
+            key={code}
+            onClick={() => changeLanguage(code)}
+            style={lang === code ? activeLangButtonStyle : langButtonStyle}
+          >
+            {code.toUpperCase()}
+          </button>
+        ))}
       </div>
 
       <div style={gridStyle}>
@@ -105,39 +136,39 @@ export default function DashboardPage() {
         </Link>
 
         <Link href="/pregled-sati" style={buttonStyle}>
-          ⏰ Pregled sati
+          ⏰ {t.hours}
         </Link>
 
         <div style={disabledStyle}>
-          📅 Kalendar
+          📅 {t.calendar}
           <br />
-          <small>uskoro</small>
+          <small>{t.soon}</small>
         </div>
 
         <Link href="/info" style={infoButtonStyle}>
-          📢 Info od Admina
+          📢 {t.info}
           <br />
-          <small>{messages.length} poruka</small>
+          <small>
+            {messages.length} {t.message}
+          </small>
         </Link>
 
         <div style={disabledStyle}>
-          📋 Napomene za radove i materijale
+          📋 {t.notes}
           <br />
-          <small>uskoro</small>
+          <small>{t.soon}</small>
         </div>
 
         <button onClick={logout} style={logoutButtonStyle}>
-          🚪 Odjava
+          🚪 {t.logout}
         </button>
       </div>
 
       <section style={infoBoxStyle}>
-        <h2 style={infoTitleStyle}>📢 Info od Admina</h2>
+        <h2 style={infoTitleStyle}>📢 {t.info}</h2>
 
         {messages.length === 0 ? (
-          <p style={{ color: "#aaa", fontSize: "20px" }}>
-            Trenutno nema info poruka.
-          </p>
+          <p style={{ color: "#aaa", fontSize: "20px" }}>{t.noMessages}</p>
         ) : (
           messages.map((msg) => (
             <div key={msg.id} style={messageStyle}>
