@@ -17,6 +17,7 @@ export default function ArchivBerichtPage() {
   const [roomMaterials, setRoomMaterials] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     loadReport();
@@ -202,7 +203,77 @@ export default function ArchivBerichtPage() {
 
   return (
     <main style={mainStyle}>
-      <div style={topBarStyle}>
+      <style>
+        {`
+          @media print {
+            body {
+              background: white !important;
+            }
+
+            main {
+              background: white !important;
+              color: black !important;
+              padding: 20px !important;
+            }
+
+            .no-print {
+              display: none !important;
+            }
+
+            .print-box {
+              background: white !important;
+              color: black !important;
+              border: 1px solid #ddd !important;
+              page-break-inside: avoid;
+            }
+
+            .print-room {
+              background: white !important;
+              color: black !important;
+              border: 1px solid #ddd !important;
+              page-break-inside: avoid;
+            }
+
+            .photo-grid {
+              grid-template-columns: repeat(3, 1fr) !important;
+              gap: 10px !important;
+            }
+
+            .photo-card {
+              background: white !important;
+              border: 1px solid #ddd !important;
+              padding: 6px !important;
+              page-break-inside: avoid;
+            }
+
+            .photo-img {
+              height: 120px !important;
+              object-fit: cover !important;
+            }
+
+            table {
+              font-size: 11px !important;
+            }
+
+            th, td {
+              color: black !important;
+              border-color: #ccc !important;
+              padding: 5px !important;
+            }
+
+            h1 {
+              font-size: 28px !important;
+              color: black !important;
+            }
+
+            h2, h3 {
+              color: black !important;
+            }
+          }
+        `}
+      </style>
+
+      <div style={topBarStyle} className="no-print">
         <Link href="/baustellen/archiv" style={backLinkStyle}>
           ← Zurück zum Archiv
         </Link>
@@ -214,7 +285,7 @@ export default function ArchivBerichtPage() {
 
       <h1 style={titleStyle}>ABSCHLUSSBERICHT BAUSTELLE</h1>
 
-      <section style={boxStyle}>
+      <section style={boxStyle} className="print-box">
         <h2 style={sectionTitleStyle}>Baustellenübersicht</h2>
 
         <div style={infoGridStyle}>
@@ -268,7 +339,7 @@ export default function ArchivBerichtPage() {
         </div>
       </section>
 
-      <section style={boxStyle}>
+      <section style={boxStyle} className="print-box">
         <h2 style={sectionTitleStyle}>Gesamtübersicht Arbeitsstunden</h2>
 
         {hours.length === 0 ? (
@@ -312,7 +383,7 @@ export default function ArchivBerichtPage() {
         )}
       </section>
 
-      <section style={boxStyle}>
+      <section style={boxStyle} className="print-box">
         <h2 style={sectionTitleStyle}>Raumübersicht</h2>
 
         {rooms.length === 0 && (
@@ -331,7 +402,7 @@ export default function ArchivBerichtPage() {
           );
 
           return (
-            <div key={room.id} style={roomBoxStyle}>
+            <div key={room.id} style={roomBoxStyle} className="print-room">
               <h2 style={roomTitleStyle}>Raum: {room.naziv}</h2>
 
               <h3 style={subTitleStyle}>Arbeitsstunden</h3>
@@ -443,18 +514,24 @@ export default function ArchivBerichtPage() {
               {roomPhotos.length === 0 ? (
                 <p style={mutedTextStyle}>Keine Fotos für diesen Raum.</p>
               ) : (
-                <div style={photoGridStyle}>
+                <div style={photoGridStyle} className="photo-grid">
                   {roomPhotos.map((photo: any) => {
                     const url = getPhotoUrl(photo);
 
                     if (!url) return null;
 
                     return (
-                      <div key={photo.id} style={photoCardStyle}>
+                      <div
+                        key={photo.id}
+                        style={photoCardStyle}
+                        className="photo-card"
+                      >
                         <img
                           src={url}
                           alt={getPhotoTitle(photo)}
                           style={photoStyle}
+                          className="photo-img"
+                          onClick={() => setSelectedPhoto(url)}
                         />
 
                         <p style={photoCaptionStyle}>{getPhotoTitle(photo)}</p>
@@ -468,7 +545,7 @@ export default function ArchivBerichtPage() {
         })}
       </section>
 
-      <section style={boxStyle}>
+      <section style={boxStyle} className="print-box">
         <h2 style={sectionTitleStyle}>Gesamtauswertung</h2>
 
         <p>
@@ -496,6 +573,16 @@ export default function ArchivBerichtPage() {
           {new Date().toLocaleDateString("de-AT")}
         </p>
       </section>
+
+      {selectedPhoto && (
+        <div
+          style={modalOverlayStyle}
+          className="no-print"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <img src={selectedPhoto} alt="Foto" style={modalImageStyle} />
+        </div>
+      )}
     </main>
   );
 }
@@ -606,8 +693,8 @@ const tdStyle: any = {
 
 const photoGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "18px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 260px))",
+  gap: "16px",
   marginTop: "15px",
 };
 
@@ -615,20 +702,41 @@ const photoCardStyle: any = {
   background: "#111",
   border: "1px solid #333",
   borderRadius: "14px",
-  padding: "12px",
+  padding: "10px",
+  maxWidth: "260px",
 };
 
 const photoStyle: any = {
   width: "100%",
-  height: "220px",
+  height: "150px",
   objectFit: "cover",
   borderRadius: "10px",
   display: "block",
+  cursor: "pointer",
 };
 
 const photoCaptionStyle: any = {
   color: "#aaa",
-  fontSize: "14px",
+  fontSize: "13px",
   marginTop: "8px",
   marginBottom: 0,
+};
+
+const modalOverlayStyle: any = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.85)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 9999,
+  padding: "30px",
+  cursor: "pointer",
+};
+
+const modalImageStyle: any = {
+  maxWidth: "90vw",
+  maxHeight: "90vh",
+  borderRadius: "14px",
+  objectFit: "contain",
 };
