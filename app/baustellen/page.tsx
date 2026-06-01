@@ -4,11 +4,83 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
+const translations: any = {
+  de: {
+    dashboard: "Dashboard",
+    archive: "Archiv",
+    title: "Baustellen",
+    overview: "Übersicht aktiver Baustellen",
+    newSite: "Neue Baustelle",
+    siteName: "Name der Baustelle",
+    location: "Ort",
+    description: "Beschreibung der Baustelle",
+    save: "Baustelle speichern",
+    enterName: "Bitte Namen der Baustelle eingeben",
+    empty: "Keine aktiven Baustellen.",
+    status: "Status",
+    active: "Aktiv",
+  },
+  ba: {
+    dashboard: "Dashboard",
+    archive: "Arhiva",
+    title: "Baustelle",
+    overview: "Pregled aktivnih Baustelle",
+    newSite: "Nova Baustelle",
+    siteName: "Naziv Baustelle",
+    location: "Lokacija",
+    description: "Opis Baustelle",
+    save: "Sačuvaj Baustelle",
+    enterName: "Unesi naziv Baustelle",
+    empty: "Nema aktivnih Baustelle.",
+    status: "Status",
+    active: "Aktiv",
+  },
+  uz: {
+    dashboard: "Dashboard",
+    archive: "Arxiv",
+    title: "Obyektlar",
+    overview: "Faol obyektlar ro‘yxati",
+    newSite: "Yangi obyekt",
+    siteName: "Obyekt nomi",
+    location: "Manzil",
+    description: "Obyekt tavsifi",
+    save: "Saqlash",
+    enterName: "Obyekt nomini kiriting",
+    empty: "Faol obyektlar yo‘q.",
+    status: "Holat",
+    active: "Faol",
+  },
+  en: {
+    dashboard: "Dashboard",
+    archive: "Archive",
+    title: "Construction Sites",
+    overview: "Overview of active construction sites",
+    newSite: "New Site",
+    siteName: "Site name",
+    location: "Location",
+    description: "Site description",
+    save: "Save Site",
+    enterName: "Enter site name",
+    empty: "No active construction sites.",
+    status: "Status",
+    active: "Active",
+  },
+};
+
 export default function BaustellenPage() {
   const [naziv, setNaziv] = useState("");
   const [lokacija, setLokacija] = useState("");
   const [opis, setOpis] = useState("");
   const [baustellen, setBaustellen] = useState<any[]>([]);
+  const [lang, setLang] = useState("ba");
+
+  const t = translations[lang] || translations.ba;
+
+  useEffect(() => {
+    const savedLang = localStorage.getItem("lang") || "ba";
+    setLang(savedLang);
+    loadBaustellen();
+  }, []);
 
   async function loadBaustellen() {
     const { data, error } = await supabase
@@ -27,7 +99,7 @@ export default function BaustellenPage() {
 
   async function saveBaustelle() {
     if (!naziv.trim()) {
-      alert("Unesi naziv Baustelle");
+      alert(t.enterName);
       return;
     }
 
@@ -51,10 +123,6 @@ export default function BaustellenPage() {
     await loadBaustellen();
   }
 
-  useEffect(() => {
-    loadBaustellen();
-  }, []);
-
   return (
     <main
       style={{
@@ -66,33 +134,31 @@ export default function BaustellenPage() {
     >
       <div style={topNavStyle}>
         <Link href="/dashboard" style={backLinkStyle}>
-          ← Dashboard
+          ← {t.dashboard}
         </Link>
 
         <Link href="/baustellen/archiv" style={archiveLinkStyle}>
-          Archiv
+          {t.archive}
         </Link>
       </div>
 
-      <h1 style={titleStyle}>Baustellen</h1>
+      <h1 style={titleStyle}>{t.title}</h1>
 
-      <p style={{ color: "#aaa", marginBottom: "40px" }}>
-        Übersicht aktiver Baustellen
-      </p>
+      <p style={{ color: "#aaa", marginBottom: "40px" }}>{t.overview}</p>
 
       <div style={boxStyle}>
-        <h2 style={{ marginBottom: "20px" }}>+ Neue Baustelle</h2>
+        <h2 style={{ marginBottom: "20px" }}>+ {t.newSite}</h2>
 
         <div style={formGridStyle}>
           <input
-            placeholder="Naziv Baustelle"
+            placeholder={t.siteName}
             value={naziv}
             onChange={(e) => setNaziv(e.target.value)}
             style={inputStyle}
           />
 
           <input
-            placeholder="Lokacija"
+            placeholder={t.location}
             value={lokacija}
             onChange={(e) => setLokacija(e.target.value)}
             style={inputStyle}
@@ -100,21 +166,19 @@ export default function BaustellenPage() {
         </div>
 
         <textarea
-          placeholder="Opis Baustelle"
+          placeholder={t.description}
           value={opis}
           onChange={(e) => setOpis(e.target.value)}
           style={textareaStyle}
         />
 
         <button onClick={saveBaustelle} style={saveButtonStyle}>
-          Baustelle speichern
+          {t.save}
         </button>
       </div>
 
       <div style={{ display: "grid", gap: "20px" }}>
-        {baustellen.length === 0 && (
-          <div style={emptyStyle}>Nema aktivnih Baustellen.</div>
-        )}
+        {baustellen.length === 0 && <div style={emptyStyle}>{t.empty}</div>}
 
         {baustellen.map((b) => (
           <Link
@@ -132,7 +196,7 @@ export default function BaustellenPage() {
               )}
 
               <p style={{ color: "#22c55e", fontWeight: "bold" }}>
-                Status: Aktiv
+                {t.status}: {t.active}
               </p>
             </div>
           </Link>
