@@ -7,6 +7,156 @@ import { supabase } from "../lib/supabase";
 const RADNICI = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
 const ADMINI = ["Hido", "Steffi", "Admin"];
 
+const translations: any = {
+  de: {
+    back: "Zurück zum Dashboard",
+    title: "Stundenübersicht",
+    loggedIn: "Angemeldet",
+    worker: "Mitarbeiter",
+    allWorkers: "Alle Mitarbeiter",
+    year: "Jahr",
+    month: "Monat",
+    totalHours: "Gesamtstunden",
+    targetHours: "Sollstunden",
+    balance: "Saldo",
+    sick: "Krankenstand",
+    vacation: "Urlaub",
+    holiday: "Feiertag",
+    entries: "Einträge im Monat",
+    download: "CSV herunterladen",
+    noEntries: "Keine Stundeneinträge für diesen Monat.",
+    workdays: "Arbeitstage",
+    workers: "Mitarbeiter",
+    days: "Tage",
+    location: "Ort",
+  },
+  ba: {
+    back: "Nazad na Dashboard",
+    title: "Pregled sati",
+    loggedIn: "Prijavljen",
+    worker: "Radnik",
+    allWorkers: "Svi radnici",
+    year: "Godina",
+    month: "Mjesec",
+    totalHours: "Ukupno sati",
+    targetHours: "Norma sati",
+    balance: "Saldo",
+    sick: "Bolovanje",
+    vacation: "Godišnji odmor",
+    holiday: "Praznik",
+    entries: "Unosi u mjesecu",
+    download: "Preuzmi CSV",
+    noEntries: "Nema unesenih sati za ovaj mjesec.",
+    workdays: "radnih dana",
+    workers: "radnika",
+    days: "dana",
+    location: "Lokacija",
+  },
+  uz: {
+    back: "Dashboardga qaytish",
+    title: "Ish soatlari",
+    loggedIn: "Kirish",
+    worker: "Ishchi",
+    allWorkers: "Barcha ishchilar",
+    year: "Yil",
+    month: "Oy",
+    totalHours: "Jami soatlar",
+    targetHours: "Norma soatlar",
+    balance: "Balans",
+    sick: "Kasallik",
+    vacation: "Ta’til",
+    holiday: "Bayram",
+    entries: "Oy yozuvlari",
+    download: "CSV yuklab olish",
+    noEntries: "Bu oy uchun yozuvlar yo‘q.",
+    workdays: "ish kuni",
+    workers: "ishchi",
+    days: "kun",
+    location: "Manzil",
+  },
+  en: {
+    back: "Back to Dashboard",
+    title: "Hours Overview",
+    loggedIn: "Logged in",
+    worker: "Worker",
+    allWorkers: "All Workers",
+    year: "Year",
+    month: "Month",
+    totalHours: "Total Hours",
+    targetHours: "Target Hours",
+    balance: "Balance",
+    sick: "Sick Leave",
+    vacation: "Vacation",
+    holiday: "Holiday",
+    entries: "Monthly Entries",
+    download: "Download CSV",
+    noEntries: "No hour entries for this month.",
+    workdays: "workdays",
+    workers: "workers",
+    days: "days",
+    location: "Location",
+  },
+};
+
+const monthNames: any = {
+  de: [
+    "Januar",
+    "Februar",
+    "März",
+    "April",
+    "Mai",
+    "Juni",
+    "Juli",
+    "August",
+    "September",
+    "Oktober",
+    "November",
+    "Dezember",
+  ],
+  ba: [
+    "Januar",
+    "Februar",
+    "Mart",
+    "April",
+    "Maj",
+    "Juni",
+    "Juli",
+    "August",
+    "Septembar",
+    "Oktobar",
+    "Novembar",
+    "Decembar",
+  ],
+  uz: [
+    "Yanvar",
+    "Fevral",
+    "Mart",
+    "Aprel",
+    "May",
+    "Iyun",
+    "Iyul",
+    "Avgust",
+    "Sentabr",
+    "Oktabr",
+    "Noyabr",
+    "Dekabr",
+  ],
+  en: [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ],
+};
+
 export default function PregledSatiPage() {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
@@ -17,11 +167,17 @@ export default function PregledSatiPage() {
   const [selectedWorker, setSelectedWorker] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [unosi, setUnosi] = useState<any[]>([]);
+  const [lang, setLang] = useState("ba");
+
+  const t = translations[lang] || translations.ba;
+  const months = monthNames[lang] || monthNames.ba;
 
   useEffect(() => {
     const name = localStorage.getItem("worker_name") || "";
+    const savedLang = localStorage.getItem("lang") || "ba";
     const adminStatus = ADMINI.includes(name);
 
+    setLang(savedLang);
     setWorkerName(name);
     setIsAdmin(adminStatus);
 
@@ -117,10 +273,10 @@ export default function PregledSatiPage() {
     const rows = [
       [
         "Datum",
-        "Radnik",
+        t.worker,
         "Tip",
         "Baustelle",
-        "Lokacija",
+        t.location,
         "Pocetak",
         "Kraj",
         "Pauza",
@@ -195,25 +351,25 @@ export default function PregledSatiPage() {
   return (
     <main style={mainStyle}>
       <Link href="/dashboard" style={backLinkStyle}>
-        ← Nazad na Dashboard
+        ← {t.back}
       </Link>
 
-      <h1 style={titleStyle}>Pregled sati</h1>
+      <h1 style={titleStyle}>{t.title}</h1>
 
       <p style={{ color: "#aaa", marginBottom: "30px" }}>
-        Prijavljen: {workerName}
+        {t.loggedIn}: {workerName}
       </p>
 
       <div style={filterBoxStyle}>
         <div>
-          <label>Radnik</label>
+          <label>{t.worker}</label>
           <select
             value={selectedWorker}
             onChange={(e) => setSelectedWorker(e.target.value)}
             style={selectStyle}
             disabled={!isAdmin}
           >
-            {isAdmin && <option value="ALL">Svi radnici</option>}
+            {isAdmin && <option value="ALL">{t.allWorkers}</option>}
             {isAdmin ? (
               RADNICI.map((r) => (
                 <option key={r} value={r}>
@@ -227,7 +383,7 @@ export default function PregledSatiPage() {
         </div>
 
         <div>
-          <label>Godina</label>
+          <label>{t.year}</label>
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
@@ -241,45 +397,40 @@ export default function PregledSatiPage() {
         </div>
 
         <div>
-          <label>Mjesec</label>
+          <label>{t.month}</label>
           <select
             value={month}
             onChange={(e) => setMonth(Number(e.target.value))}
             style={selectStyle}
           >
-            <option value={1}>Januar</option>
-            <option value={2}>Februar</option>
-            <option value={3}>Mart</option>
-            <option value={4}>April</option>
-            <option value={5}>Maj</option>
-            <option value={6}>Juni</option>
-            <option value={7}>Juli</option>
-            <option value={8}>August</option>
-            <option value={9}>Septembar</option>
-            <option value={10}>Oktobar</option>
-            <option value={11}>Novembar</option>
-            <option value={12}>Decembar</option>
+            {months.map((m: string, index: number) => (
+              <option key={m} value={index + 1}>
+                {m}
+              </option>
+            ))}
           </select>
         </div>
       </div>
 
       <div style={summaryGridStyle}>
         <div style={summaryBoxStyle}>
-          <p>Ukupno sati</p>
+          <p>{t.totalHours}</p>
           <h2>{ukupnoSati.toFixed(1)} h</h2>
         </div>
 
         <div style={summaryBoxStyle}>
-          <p>Norma sati</p>
+          <p>{t.targetHours}</p>
           <h2>{normaSati.toFixed(1)} h</h2>
           <small>
-            {radniDani} radnih dana × 8.5 h
-            {selectedWorker === "ALL" ? ` × ${RADNICI.length} radnika` : ""}
+            {radniDani} {t.workdays} × 8.5 h
+            {selectedWorker === "ALL"
+              ? ` × ${RADNICI.length} ${t.workers}`
+              : ""}
           </small>
         </div>
 
         <div style={summaryBoxStyle}>
-          <p>Saldo</p>
+          <p>{t.balance}</p>
           <h2 style={{ color: saldo >= 0 ? "#22c55e" : "#ef4444" }}>
             {saldo >= 0 ? "+" : ""}
             {saldo.toFixed(1)} h
@@ -287,32 +438,38 @@ export default function PregledSatiPage() {
         </div>
 
         <div style={summaryBoxStyle}>
-          <p>Bolovanje</p>
-          <h2>{bolovanjeDani} dana</h2>
+          <p>{t.sick}</p>
+          <h2>
+            {bolovanjeDani} {t.days}
+          </h2>
         </div>
 
         <div style={summaryBoxStyle}>
-          <p>Godišnji odmor</p>
-          <h2>{godisnjiDani} dana</h2>
+          <p>{t.vacation}</p>
+          <h2>
+            {godisnjiDani} {t.days}
+          </h2>
         </div>
 
         <div style={summaryBoxStyle}>
-          <p>Praznik</p>
-          <h2>{praznikDani} dana</h2>
+          <p>{t.holiday}</p>
+          <h2>
+            {praznikDani} {t.days}
+          </h2>
         </div>
       </div>
 
       <div style={listBoxStyle}>
         <div style={listHeaderStyle}>
-          <h2>Unosi u mjesecu</h2>
+          <h2>{t.entries}</h2>
 
           <button onClick={downloadCSV} style={downloadButtonStyle}>
-            Preuzmi CSV
+            {t.download}
           </button>
         </div>
 
         {unosi.length === 0 && (
-          <p style={{ color: "#999" }}>Nema unesenih sati za ovaj mjesec.</p>
+          <p style={{ color: "#999" }}>{t.noEntries}</p>
         )}
 
         {unosi.map((u) => (
@@ -321,7 +478,7 @@ export default function PregledSatiPage() {
               <strong>{formatDate(u.datum)}</strong>
 
               <p style={{ margin: "6px 0 0 0", color: "#f97316" }}>
-                Radnik: <strong>{u.radnik}</strong>
+                {t.worker}: <strong>{u.radnik}</strong>
               </p>
 
               <p style={{ margin: "6px 0 0 0", color: "#aaa" }}>
@@ -333,7 +490,7 @@ export default function PregledSatiPage() {
               </p>
 
               <p style={{ margin: "6px 0 0 0", color: "#aaa" }}>
-                Lokacija: {u.baustelle_lokacija}
+                {t.location}: {u.baustelle_lokacija}
               </p>
             </div>
 
