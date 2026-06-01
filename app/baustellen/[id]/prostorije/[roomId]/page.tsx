@@ -5,6 +5,60 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
+const translations: any = {
+  de: {
+    back: "Zurück zu Räumen",
+    room: "Raum",
+    site: "Baustelle",
+    material: "Material",
+    workHours: "Arbeitsstunden",
+    photos: "Fotos",
+    productivity: "Produktivität",
+    loading: "Wird geladen...",
+    loadSiteError: "Fehler beim Laden der Baustelle: ",
+    loadRoomError: "Fehler beim Laden des Raums: ",
+  },
+
+  ba: {
+    back: "Nazad na prostorije",
+    room: "Prostorija",
+    site: "Baustelle",
+    material: "Materijal",
+    workHours: "Radni sati",
+    photos: "Fotografije",
+    productivity: "Produktivnost",
+    loading: "Učitavanje...",
+    loadSiteError: "Greška kod učitavanja Baustelle: ",
+    loadRoomError: "Greška kod učitavanja prostorije: ",
+  },
+
+  uz: {
+    back: "Xonalarga qaytish",
+    room: "Xona",
+    site: "Obyekt",
+    material: "Material",
+    workHours: "Ish soatlari",
+    photos: "Rasmlar",
+    productivity: "Mahsuldorlik",
+    loading: "Yuklanmoqda...",
+    loadSiteError: "Obyekt yuklash xatosi: ",
+    loadRoomError: "Xona yuklash xatosi: ",
+  },
+
+  en: {
+    back: "Back to Rooms",
+    room: "Room",
+    site: "Site",
+    material: "Material",
+    workHours: "Work Hours",
+    photos: "Photos",
+    productivity: "Productivity",
+    loading: "Loading...",
+    loadSiteError: "Error loading site: ",
+    loadRoomError: "Error loading room: ",
+  },
+};
+
 export default function RoomDetailPage() {
   const params = useParams();
 
@@ -13,12 +67,20 @@ export default function RoomDetailPage() {
 
   const [baustelle, setBaustelle] = useState<any>(null);
   const [room, setRoom] = useState<any>(null);
+  const [lang, setLang] = useState("ba");
+
+  const t = translations[lang] || translations.ba;
 
   useEffect(() => {
-    loadData();
+    const savedLang = localStorage.getItem("lang") || "ba";
+    setLang(savedLang);
+
+    loadData(savedLang);
   }, []);
 
-  async function loadData() {
+  async function loadData(currentLang = "ba") {
+    const tr = translations[currentLang] || translations.ba;
+
     const baustelleRes = await supabase
       .from("baustellen")
       .select("*")
@@ -26,7 +88,7 @@ export default function RoomDetailPage() {
       .single();
 
     if (baustelleRes.error) {
-      alert("Greška kod učitavanja Baustelle: " + baustelleRes.error.message);
+      alert(tr.loadSiteError + baustelleRes.error.message);
       return;
     }
 
@@ -37,7 +99,7 @@ export default function RoomDetailPage() {
       .single();
 
     if (roomRes.error) {
-      alert("Greška kod učitavanja prostorije: " + roomRes.error.message);
+      alert(tr.loadRoomError + roomRes.error.message);
       return;
     }
 
@@ -48,7 +110,7 @@ export default function RoomDetailPage() {
   if (!room) {
     return (
       <main style={styles.page}>
-        <p>Učitavanje...</p>
+        <p>{t.loading}</p>
       </main>
     );
   }
@@ -59,18 +121,18 @@ export default function RoomDetailPage() {
         href={`/baustellen/${baustelleId}/prostorije`}
         style={styles.backLink}
       >
-        ← Nazad na prostorije
+        ← {t.back}
       </Link>
 
-      <h1 style={styles.title}>{room.naziv || "Prostorija"}</h1>
+      <h1 style={styles.title}>{room.naziv || t.room}</h1>
 
       <section style={styles.infoBox}>
         <p>
-          <strong>Baustelle:</strong> {baustelle?.naziv || ""}
+          <strong>{t.site}:</strong> {baustelle?.naziv || ""}
         </p>
 
         <p>
-          <strong>Prostorija:</strong> {room.naziv || ""}
+          <strong>{t.room}:</strong> {room.naziv || ""}
         </p>
       </section>
 
@@ -79,28 +141,28 @@ export default function RoomDetailPage() {
           href={`/baustellen/${baustelleId}/prostorije/${roomId}/material`}
           style={styles.blueButton}
         >
-          Materijal
+          {t.material}
         </Link>
 
         <Link
           href={`/baustellen/${baustelleId}/sati?roomId=${roomId}`}
           style={styles.blueButton}
         >
-          Radni sati
+          {t.workHours}
         </Link>
 
         <Link
           href={`/baustellen/${baustelleId}/prostorije/${roomId}/fotografije`}
           style={styles.greenButton}
         >
-          Fotografije
+          {t.photos}
         </Link>
 
         <Link
           href={`/baustellen/${baustelleId}/prostorije/${roomId}/produktivnost`}
           style={styles.blueButton}
         >
-          Produktivnost
+          {t.productivity}
         </Link>
       </section>
     </main>
