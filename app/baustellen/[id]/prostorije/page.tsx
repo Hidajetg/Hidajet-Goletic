@@ -5,12 +5,69 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 
+const translations: any = {
+  de: {
+    dashboard: "Dashboard",
+    back: "Zurück zur Baustelle",
+    rooms: "Räume",
+    siteId: "Baustelle ID",
+    addRoom: "Raum hinzufügen",
+    roomName: "Raumname",
+    saveRoom: "Raum speichern",
+    roomList: "Raumliste",
+    noRooms: "Keine Räume vorhanden.",
+    enterRoom: "Bitte Raumnamen eingeben",
+  },
+
+  ba: {
+    dashboard: "Dashboard",
+    back: "Nazad na Baustelle",
+    rooms: "Prostorije",
+    siteId: "Baustelle ID",
+    addRoom: "Dodaj prostoriju",
+    roomName: "Naziv prostorije",
+    saveRoom: "Sačuvaj prostoriju",
+    roomList: "Lista prostorija",
+    noRooms: "Nema unesenih prostorija.",
+    enterRoom: "Unesi naziv prostorije",
+  },
+
+  uz: {
+    dashboard: "Dashboard",
+    back: "Obyektga qaytish",
+    rooms: "Xonalar",
+    siteId: "Obyekt ID",
+    addRoom: "Xona qo‘shish",
+    roomName: "Xona nomi",
+    saveRoom: "Xonani saqlash",
+    roomList: "Xonalar ro‘yxati",
+    noRooms: "Xonalar mavjud emas.",
+    enterRoom: "Xona nomini kiriting",
+  },
+
+  en: {
+    dashboard: "Dashboard",
+    back: "Back to Site",
+    rooms: "Rooms",
+    siteId: "Site ID",
+    addRoom: "Add Room",
+    roomName: "Room Name",
+    saveRoom: "Save Room",
+    roomList: "Room List",
+    noRooms: "No rooms entered.",
+    enterRoom: "Enter room name",
+  },
+};
+
 export default function ProstorijePage() {
   const params = useParams();
   const baustelleId = String(params.id);
 
   const [naziv, setNaziv] = useState("");
   const [prostorije, setProstorije] = useState<any[]>([]);
+  const [lang, setLang] = useState("ba");
+
+  const t = translations[lang] || translations.ba;
 
   async function loadProstorije() {
     const { data, error } = await supabase
@@ -29,7 +86,7 @@ export default function ProstorijePage() {
 
   async function saveProstorija() {
     if (!naziv.trim()) {
-      alert("Unesi naziv prostorije");
+      alert(t.enterRoom);
       return;
     }
 
@@ -50,6 +107,8 @@ export default function ProstorijePage() {
   }
 
   useEffect(() => {
+    const savedLang = localStorage.getItem("lang") || "ba";
+    setLang(savedLang);
     loadProstorije();
   }, []);
 
@@ -64,11 +123,11 @@ export default function ProstorijePage() {
     >
       <div style={{ display: "flex", gap: "20px", marginBottom: "25px" }}>
         <Link href="/dashboard" style={backLinkStyle}>
-          ← Dashboard
+          ← {t.dashboard}
         </Link>
 
         <Link href="/baustellen" style={backLinkStyle}>
-          ← Nazad na Baustelle
+          ← {t.back}
         </Link>
       </div>
 
@@ -79,33 +138,35 @@ export default function ProstorijePage() {
           marginBottom: "30px",
         }}
       >
-        Prostorije
+        {t.rooms}
       </h1>
 
       <div style={boxStyle}>
-        <h2>Baustelle ID: {baustelleId}</h2>
+        <h2>
+          {t.siteId}: {baustelleId}
+        </h2>
       </div>
 
       <div style={boxStyle}>
-        <h2>+ Dodaj prostoriju</h2>
+        <h2>+ {t.addRoom}</h2>
 
         <input
-          placeholder="Naziv prostorije"
+          placeholder={t.roomName}
           value={naziv}
           onChange={(e) => setNaziv(e.target.value)}
           style={inputStyle}
         />
 
         <button onClick={saveProstorija} style={buttonStyle}>
-          Sačuvaj prostoriju
+          {t.saveRoom}
         </button>
       </div>
 
       <div style={boxStyle}>
-        <h2>Lista prostorija</h2>
+        <h2>{t.roomList}</h2>
 
         {prostorije.length === 0 && (
-          <p style={{ color: "#999" }}>Nema unesenih prostorija.</p>
+          <p style={{ color: "#999" }}>{t.noRooms}</p>
         )}
 
         {prostorije.map((p) => (
