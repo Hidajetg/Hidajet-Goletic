@@ -27,11 +27,16 @@ export default function DashboardPage() {
   }, [router]);
 
   async function loadMessages(currentWorkerId: string) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("info_messages")
       .select("*")
       .or(`visible_to_all.eq.true,target_worker_id.eq.${currentWorkerId}`)
       .order("created_at", { ascending: false });
+
+    if (error) {
+      alert("Greška kod učitavanja info poruka: " + error.message);
+      return;
+    }
 
     setMessages(data || []);
   }
@@ -57,9 +62,13 @@ export default function DashboardPage() {
       <h2 style={subtitleStyle}>Dobrodošao {workerName}</h2>
 
       <div style={gridStyle}>
-        <Link href="/baustellen" style={buttonStyle}>🏗️ Baustelle</Link>
+        <Link href="/baustellen" style={buttonStyle}>
+          🏗️ Baustelle
+        </Link>
 
-        <Link href="/pregled-sati" style={buttonStyle}>⏰ Pregled sati</Link>
+        <Link href="/pregled-sati" style={buttonStyle}>
+          ⏰ Pregled sati
+        </Link>
 
         <div style={disabledStyle}>
           📅 Kalendar
@@ -67,7 +76,11 @@ export default function DashboardPage() {
           <small>uskoro</small>
         </div>
 
-        <Link href="/info" style={buttonStyle}>📢 Info</Link>
+        <Link href="/info" style={infoButtonStyle}>
+          📢 Info od Admina
+          <br />
+          <small>{messages.length} poruka</small>
+        </Link>
 
         <div style={disabledStyle}>
           📋 Napomene za radove i materijale
@@ -75,21 +88,23 @@ export default function DashboardPage() {
           <small>uskoro</small>
         </div>
 
-        <button onClick={logout} style={{ ...buttonStyle, background: "#dc2626" }}>
+        <button onClick={logout} style={logoutButtonStyle}>
           🚪 Odjava
         </button>
       </div>
 
       <section style={infoBoxStyle}>
-        <h2 style={infoTitleStyle}>📢 Info poruke</h2>
+        <h2 style={infoTitleStyle}>📢 Info od Admina</h2>
 
         {messages.length === 0 ? (
-          <p style={{ color: "#aaa" }}>Nema poruka.</p>
+          <p style={{ color: "#aaa", fontSize: "20px" }}>
+            Trenutno nema info poruka.
+          </p>
         ) : (
           messages.map((msg) => (
             <div key={msg.id} style={messageStyle}>
               <div style={messageTopStyle}>
-                <strong>{msg.sender_name}</strong>
+                <strong>{msg.sender_name || "Admin"}</strong>
                 <span>{formatDateTime(msg.created_at)}</span>
               </div>
 
@@ -139,6 +154,16 @@ const buttonStyle: any = {
   cursor: "pointer",
 };
 
+const infoButtonStyle: any = {
+  ...buttonStyle,
+  background: "#f97316",
+};
+
+const logoutButtonStyle: any = {
+  ...buttonStyle,
+  background: "#dc2626",
+};
+
 const disabledStyle: any = {
   background: "#111",
   color: "white",
@@ -175,6 +200,7 @@ const messageStyle: any = {
 const messageTopStyle: any = {
   display: "flex",
   justifyContent: "space-between",
+  gap: "15px",
   color: "#f97316",
   marginBottom: "10px",
 };
@@ -182,4 +208,5 @@ const messageTopStyle: any = {
 const messageTextStyle: any = {
   fontSize: "20px",
   whiteSpace: "pre-wrap",
+  margin: 0,
 };
