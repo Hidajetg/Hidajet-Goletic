@@ -9,14 +9,14 @@ export default function LoginPage() {
 
   function login() {
     const users = [
-      { name: "Arnes", pin: "1111", role: "worker" },
-      { name: "Ramiz", pin: "2222", role: "worker" },
-      { name: "Abror", pin: "3333", role: "worker" },
-      { name: "Shohruh", pin: "4444", role: "worker" },
-      { name: "Harun", pin: "5555", role: "worker" },
-      { name: "Hido", pin: "0000", role: "admin" },
-      { name: "Steffi", pin: "0001", role: "admin" },
-      { name: "Admin", pin: "0000", role: "admin" },
+      { id: 1, name: "Arnes", pin: "1111", role: "worker" },
+      { id: 2, name: "Ramiz", pin: "2222", role: "worker" },
+      { id: 3, name: "Abror", pin: "3333", role: "worker" },
+      { id: 4, name: "Shohruh", pin: "4444", role: "worker" },
+      { id: 5, name: "Harun", pin: "5555", role: "worker" },
+      { id: 6, name: "Hido", pin: "0000", role: "admin" },
+      { id: 7, name: "Steffi", pin: "0001", role: "admin" },
+      { id: 8, name: "Admin", pin: "0000", role: "admin" },
     ];
 
     const user = users.find(
@@ -30,6 +30,7 @@ export default function LoginPage() {
       return;
     }
 
+    localStorage.setItem("worker_id", String(user.id));
     localStorage.setItem("worker_name", user.name);
     localStorage.setItem("worker_role", user.role);
 

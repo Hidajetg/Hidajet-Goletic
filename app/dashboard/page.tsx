@@ -27,30 +27,22 @@ export default function DashboardPage() {
   }, [router]);
 
   async function loadMessages(currentWorkerId: string) {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("info_messages")
       .select("*")
       .or(`visible_to_all.eq.true,target_worker_id.eq.${currentWorkerId}`)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.log("Greška kod učitavanja info poruka:", error.message);
-      return;
-    }
-
     setMessages(data || []);
   }
 
   function logout() {
-    localStorage.removeItem("worker_id");
-    localStorage.removeItem("worker_name");
-    localStorage.removeItem("worker_role");
+    localStorage.clear();
     router.push("/login");
   }
 
   function formatDateTime(value: string) {
-    const date = new Date(value);
-    return date.toLocaleString("de-AT", {
+    return new Date(value).toLocaleString("de-AT", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -59,21 +51,15 @@ export default function DashboardPage() {
     });
   }
 
-  const lastMessage = messages[0];
-
   return (
     <main style={mainStyle}>
       <h1 style={titleStyle}>STONE BOUTIQUE</h1>
       <h2 style={subtitleStyle}>Dobrodošao {workerName}</h2>
 
       <div style={gridStyle}>
-        <Link href="/baustellen" style={buttonStyle}>
-          🏗️ Baustelle
-        </Link>
+        <Link href="/baustellen" style={buttonStyle}>🏗️ Baustelle</Link>
 
-        <Link href="/pregled-sati" style={buttonStyle}>
-          ⏰ Pregled sati
-        </Link>
+        <Link href="/pregled-sati" style={buttonStyle}>⏰ Pregled sati</Link>
 
         <div style={disabledStyle}>
           📅 Kalendar
@@ -81,21 +67,7 @@ export default function DashboardPage() {
           <small>uskoro</small>
         </div>
 
-        <Link href="/info" style={infoButtonStyle}>
-          <div style={infoTitleStyle}>📢 Info ({messages.length})</div>
-
-          {lastMessage ? (
-            <div style={lastMessageStyle}>
-              <strong>{lastMessage.sender_name}</strong>
-              <br />
-              {lastMessage.message}
-              <br />
-              <small>{formatDateTime(lastMessage.created_at)}</small>
-            </div>
-          ) : (
-            <small>Nema poruka</small>
-          )}
-        </Link>
+        <Link href="/info" style={buttonStyle}>📢 Info</Link>
 
         <div style={disabledStyle}>
           📋 Napomene za radove i materijale
@@ -103,13 +75,29 @@ export default function DashboardPage() {
           <small>uskoro</small>
         </div>
 
-        <button
-          onClick={logout}
-          style={{ ...buttonStyle, background: "#dc2626" }}
-        >
+        <button onClick={logout} style={{ ...buttonStyle, background: "#dc2626" }}>
           🚪 Odjava
         </button>
       </div>
+
+      <section style={infoBoxStyle}>
+        <h2 style={infoTitleStyle}>📢 Info poruke</h2>
+
+        {messages.length === 0 ? (
+          <p style={{ color: "#aaa" }}>Nema poruka.</p>
+        ) : (
+          messages.map((msg) => (
+            <div key={msg.id} style={messageStyle}>
+              <div style={messageTopStyle}>
+                <strong>{msg.sender_name}</strong>
+                <span>{formatDateTime(msg.created_at)}</span>
+              </div>
+
+              <p style={messageTextStyle}>{msg.message}</p>
+            </div>
+          ))
+        )}
+      </section>
     </main>
   );
 }
@@ -151,35 +139,6 @@ const buttonStyle: any = {
   cursor: "pointer",
 };
 
-const infoButtonStyle: any = {
-  background: "#111",
-  color: "white",
-  textDecoration: "none",
-  padding: "25px",
-  borderRadius: "18px",
-  textAlign: "center",
-  fontSize: "22px",
-  fontWeight: "bold",
-  border: "1px solid #333",
-};
-
-const infoTitleStyle: any = {
-  fontSize: "24px",
-  marginBottom: "12px",
-};
-
-const lastMessageStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "12px",
-  fontSize: "15px",
-  lineHeight: "1.4",
-  color: "#ddd",
-  textAlign: "left",
-  whiteSpace: "pre-wrap",
-};
-
 const disabledStyle: any = {
   background: "#111",
   color: "white",
@@ -189,4 +148,38 @@ const disabledStyle: any = {
   fontSize: "24px",
   fontWeight: "bold",
   border: "1px solid #333",
+};
+
+const infoBoxStyle: any = {
+  marginTop: "35px",
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "18px",
+  padding: "25px",
+};
+
+const infoTitleStyle: any = {
+  color: "#f97316",
+  fontSize: "30px",
+  marginBottom: "20px",
+};
+
+const messageStyle: any = {
+  background: "#000",
+  border: "1px solid #333",
+  borderRadius: "14px",
+  padding: "18px",
+  marginBottom: "15px",
+};
+
+const messageTopStyle: any = {
+  display: "flex",
+  justifyContent: "space-between",
+  color: "#f97316",
+  marginBottom: "10px",
+};
+
+const messageTextStyle: any = {
+  fontSize: "20px",
+  whiteSpace: "pre-wrap",
 };
