@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
+const RADNICI = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
+const ADMINI = ["Hido", "Steffi", "Admin"];
+
 export default function PregledSatiPage() {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
@@ -11,30 +14,48 @@ export default function PregledSatiPage() {
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState(currentMonth);
   const [workerName, setWorkerName] = useState("");
+  const [selectedWorker, setSelectedWorker] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [unosi, setUnosi] = useState<any[]>([]);
 
   useEffect(() => {
     const name = localStorage.getItem("worker_name") || "";
+    const adminStatus = ADMINI.includes(name);
+
     setWorkerName(name);
+    setIsAdmin(adminStatus);
+
+    if (adminStatus) {
+      setSelectedWorker("ALL");
+    } else {
+      setSelectedWorker(name);
+    }
   }, []);
 
   useEffect(() => {
-    if (workerName) {
+    if (selectedWorker) {
       loadData();
     }
-  }, [workerName, year, month]);
+  }, [selectedWorker, year, month]);
 
   async function loadData() {
     const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
     const endDate = getNextMonthDate(year, month);
 
-    const { data: hoursData, error } = await supabase
+    let query = supabase
       .from("baustelle_hours")
       .select("*")
-      .eq("radnik", workerName)
       .gte("datum", startDate)
       .lt("datum", endDate)
       .order("datum", { ascending: true });
+
+    if (selectedWorker !== "ALL") {
+      query = query.eq("radnik", selectedWorker);
+    } else {
+      query = query.in("radnik", RADNICI);
+    }
+
+    const { data: hoursData, error } = await query;
 
     if (error) {
       alert(error.message);
@@ -43,15 +64,21 @@ export default function PregledSatiPage() {
 
     const baustelleIds = [
       ...new Set((hoursData || []).map((h: any) => h.baustelle_id)),
-    ];
+    ].filter(Boolean);
 
-    const { data: baustellenData } = await supabase
-      .from("baustellen")
-      .select("id, naziv, lokacija")
-      .in("id", baustelleIds);
+    let baustellenData: any[] = [];
+
+    if (baustelleIds.length > 0) {
+      const { data } = await supabase
+        .from("baustellen")
+        .select("id, naziv, lokacija")
+        .in("id", baustelleIds);
+
+      baustellenData = data || [];
+    }
 
     const merged = (hoursData || []).map((h: any) => {
-      const b = (baustellenData || []).find(
+      const b = baustellenData.find(
         (x: any) => String(x.id) === String(h.baustelle_id)
       );
 
@@ -88,10 +115,20 @@ export default function PregledSatiPage() {
 
   function downloadCSV() {
     const rows = [
-      ["Datum", "Radnik", "Tip", "Baustelle", "Lokacija", "Pocetak", "Kraj", "Pauza", "Sati"],
+      [
+        "Datum",
+        "Radnik",
+        "Tip",
+        "Baustelle",
+        "Lokacija",
+        "Pocetak",
+        "Kraj",
+        "Pauza",
+        "Sati",
+      ],
       ...unosi.map((u) => [
         u.datum,
-        workerName,
+        u.radnik || "",
         u.tip_unosa || "RAD",
         u.baustelle_naziv,
         u.baustelle_lokacija,
@@ -116,10 +153,9 @@ export default function PregledSatiPage() {
     const a = document.createElement("a");
 
     a.href = url;
-    a.download = `pregled-sati-${workerName}-${year}-${String(month).padStart(
-      2,
-      "0"
-    )}.csv`;
+    a.download = `pregled-sati-${selectedWorker}-${year}-${String(
+      month
+    ).padStart(2, "0")}.csv`;
 
     document.body.appendChild(a);
     a.click();
@@ -149,12 +185,11 @@ export default function PregledSatiPage() {
     (item) => item.tip_unosa === "GODISNJI" || item.tip_unosa === "GODIŠNJI"
   ).length;
 
-  const praznikDani = unosi.filter(
-    (item) => item.tip_unosa === "PRAZNIK"
-  ).length;
+  const praznikDani = unosi.filter((item) => item.tip_unosa === "PRAZNIK").length;
 
   const radniDani = getWorkdaysInMonth(year, month);
-  const normaSati = radniDani * 8.5;
+  const brojRadnikaZaNormu = selectedWorker === "ALL" ? RADNICI.length : 1;
+  const normaSati = radniDani * 8.5 * brojRadnikaZaNormu;
   const saldo = ukupnoSati - normaSati;
 
   return (
@@ -166,10 +201,31 @@ export default function PregledSatiPage() {
       <h1 style={titleStyle}>Pregled sati</h1>
 
       <p style={{ color: "#aaa", marginBottom: "30px" }}>
-        Radnik: {workerName}
+        Prijavljen: {workerName}
       </p>
 
       <div style={filterBoxStyle}>
+        <div>
+          <label>Radnik</label>
+          <select
+            value={selectedWorker}
+            onChange={(e) => setSelectedWorker(e.target.value)}
+            style={selectStyle}
+            disabled={!isAdmin}
+          >
+            {isAdmin && <option value="ALL">Svi radnici</option>}
+            {isAdmin ? (
+              RADNICI.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))
+            ) : (
+              <option value={workerName}>{workerName}</option>
+            )}
+          </select>
+        </div>
+
         <div>
           <label>Godina</label>
           <select
@@ -216,7 +272,10 @@ export default function PregledSatiPage() {
         <div style={summaryBoxStyle}>
           <p>Norma sati</p>
           <h2>{normaSati.toFixed(1)} h</h2>
-          <small>{radniDani} radnih dana × 8.5 h</small>
+          <small>
+            {radniDani} radnih dana × 8.5 h
+            {selectedWorker === "ALL" ? ` × ${RADNICI.length} radnika` : ""}
+          </small>
         </div>
 
         <div style={summaryBoxStyle}>
@@ -260,6 +319,10 @@ export default function PregledSatiPage() {
           <div key={u.id} style={rowStyle}>
             <div>
               <strong>{formatDate(u.datum)}</strong>
+
+              <p style={{ margin: "6px 0 0 0", color: "#f97316" }}>
+                Radnik: <strong>{u.radnik}</strong>
+              </p>
 
               <p style={{ margin: "6px 0 0 0", color: "#aaa" }}>
                 {u.tip_unosa || "RAD"}
@@ -317,7 +380,7 @@ const filterBoxStyle: any = {
   padding: "25px",
   borderRadius: "20px",
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
   gap: "20px",
   marginBottom: "30px",
 };
