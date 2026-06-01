@@ -48,7 +48,7 @@ export default function ArchivPage() {
 
   async function vratiAktivno(id: number) {
     const potvrda = confirm(
-      "Da li sigurno želiš vratiti Baustelle u aktivne?"
+      "Möchten Sie diese Baustelle wirklich wieder aktivieren?"
     );
 
     if (!potvrda) return;
@@ -89,7 +89,7 @@ export default function ArchivPage() {
           fontWeight: "bold",
         }}
       >
-        ← Nazad na Baustellen
+        ← Zurück zu Baustellen
       </Link>
 
       <h1
@@ -111,7 +111,7 @@ export default function ArchivPage() {
             borderRadius: "20px",
           }}
         >
-          Nema arhiviranih Baustellen.
+          Keine archivierten Baustellen vorhanden.
         </div>
       )}
 
@@ -128,36 +128,61 @@ export default function ArchivPage() {
           <h2>{b.naziv}</h2>
 
           <p>
-            <strong>Lokacija:</strong> {b.lokacija || "-"}
+            <strong>Ort:</strong> {b.lokacija || "-"}
           </p>
 
           <p>
-            <strong>Prvi radni dan:</strong> {b.prviDan}
+            <strong>Erster Arbeitstag:</strong> {b.prviDan}
           </p>
 
           <p>
-            <strong>Posljednji radni dan:</strong> {b.zadnjiDan}
+            <strong>Letzter Arbeitstag:</strong> {b.zadnjiDan}
           </p>
 
           <p>
             <strong>Status:</strong> Archiv
           </p>
 
-          <button
-            onClick={() => vratiAktivno(b.id)}
+          <div
             style={{
-              background: "#16a34a",
-              color: "white",
-              border: "none",
-              padding: "12px 20px",
-              borderRadius: "10px",
-              cursor: "pointer",
-              marginTop: "10px",
-              fontWeight: "bold",
+              display: "flex",
+              gap: "15px",
+              flexWrap: "wrap",
+              marginTop: "15px",
             }}
           >
-            Vrati u Aktivne
-          </button>
+            <Link
+              href={`/baustellen/archiv/${b.id}`}
+              style={{
+                background: "#2563eb",
+                color: "white",
+                textDecoration: "none",
+                border: "none",
+                padding: "12px 20px",
+                borderRadius: "10px",
+                cursor: "pointer",
+                fontWeight: "bold",
+                display: "inline-block",
+              }}
+            >
+              📄 Bericht anzeigen
+            </Link>
+
+            <button
+              onClick={() => vratiAktivno(b.id)}
+              style={{
+                background: "#16a34a",
+                color: "white",
+                border: "none",
+                padding: "12px 20px",
+                borderRadius: "10px",
+                cursor: "pointer",
+                fontWeight: "bold",
+              }}
+            >
+              Zurück zu Aktiv
+            </button>
+          </div>
         </div>
       ))}
     </main>
