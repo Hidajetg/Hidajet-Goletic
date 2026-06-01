@@ -16,6 +16,7 @@ export default function ArchivBerichtPage() {
   const [productivity, setProductivity] = useState<any[]>([]);
   const [roomMaterials, setRoomMaterials] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<any[]>([]);
 
   useEffect(() => {
     loadReport();
@@ -57,14 +58,23 @@ export default function ArchivBerichtPage() {
     const roomIds = (roomsData || []).map((r: any) => r.id);
 
     let roomMaterialData: any[] = [];
+    let photosData: any[] = [];
 
     if (roomIds.length > 0) {
-      const { data } = await supabase
+      const { data: rmData } = await supabase
         .from("room_material")
         .select("*")
         .in("room_id", roomIds);
 
-      roomMaterialData = data || [];
+      roomMaterialData = rmData || [];
+
+      const { data: phData } = await supabase
+        .from("room_photos")
+        .select("*")
+        .in("room_id", roomIds)
+        .order("id", { ascending: true });
+
+      photosData = phData || [];
     }
 
     const materialIds = [
@@ -88,6 +98,7 @@ export default function ArchivBerichtPage() {
     setProductivity(productivityData || []);
     setRoomMaterials(roomMaterialData || []);
     setMaterials(materialsData || []);
+    setPhotos(photosData || []);
     setLoading(false);
   }
 
@@ -120,6 +131,28 @@ export default function ArchivBerichtPage() {
     );
   }
 
+  function getPhotoUrl(photo: any) {
+    return (
+      photo?.photo_url ||
+      photo?.url ||
+      photo?.image_url ||
+      photo?.public_url ||
+      photo?.bild_url ||
+      photo?.foto_url ||
+      ""
+    );
+  }
+
+  function getPhotoTitle(photo: any) {
+    return (
+      photo?.opis ||
+      photo?.napomena ||
+      photo?.description ||
+      photo?.title ||
+      "Foto"
+    );
+  }
+
   function getRoomName(roomId: number) {
     const room = rooms.find((r: any) => Number(r.id) === Number(roomId));
     return room?.naziv || `Raum ${roomId}`;
@@ -135,6 +168,10 @@ export default function ArchivBerichtPage() {
 
   function getMaterialsForRoom(roomId: number) {
     return roomMaterials.filter((m: any) => Number(m.room_id) === Number(roomId));
+  }
+
+  function getPhotosForRoom(roomId: number) {
+    return photos.filter((p: any) => Number(p.room_id) === Number(roomId));
   }
 
   const totalHours = hours.reduce(
@@ -286,6 +323,7 @@ export default function ArchivBerichtPage() {
           const roomHours = getHoursForRoom(room.id);
           const roomProd = getProductivityForRoom(room.id);
           const roomMat = getMaterialsForRoom(room.id);
+          const roomPhotos = getPhotosForRoom(room.id);
 
           const roomTotalHours = roomHours.reduce(
             (sum, h) => sum + Number(h.ukupno_sati || h.sati || 0),
@@ -399,6 +437,32 @@ export default function ArchivBerichtPage() {
                   </table>
                 </div>
               )}
+
+              <h3 style={subTitleStyle}>Fotodokumentation</h3>
+
+              {roomPhotos.length === 0 ? (
+                <p style={mutedTextStyle}>Keine Fotos für diesen Raum.</p>
+              ) : (
+                <div style={photoGridStyle}>
+                  {roomPhotos.map((photo: any) => {
+                    const url = getPhotoUrl(photo);
+
+                    if (!url) return null;
+
+                    return (
+                      <div key={photo.id} style={photoCardStyle}>
+                        <img
+                          src={url}
+                          alt={getPhotoTitle(photo)}
+                          style={photoStyle}
+                        />
+
+                        <p style={photoCaptionStyle}>{getPhotoTitle(photo)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
@@ -421,6 +485,10 @@ export default function ArchivBerichtPage() {
 
         <p>
           <strong>Anzahl Arbeitstage:</strong> {workDays.length}
+        </p>
+
+        <p>
+          <strong>Anzahl Fotos:</strong> {photos.length}
         </p>
 
         <p>
@@ -534,4 +602,33 @@ const tdStyle: any = {
   borderBottom: "1px solid #333",
   padding: "10px",
   verticalAlign: "top",
+};
+
+const photoGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "18px",
+  marginTop: "15px",
+};
+
+const photoCardStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "14px",
+  padding: "12px",
+};
+
+const photoStyle: any = {
+  width: "100%",
+  height: "220px",
+  objectFit: "cover",
+  borderRadius: "10px",
+  display: "block",
+};
+
+const photoCaptionStyle: any = {
+  color: "#aaa",
+  fontSize: "14px",
+  marginTop: "8px",
+  marginBottom: 0,
 };
