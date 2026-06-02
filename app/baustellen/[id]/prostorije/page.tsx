@@ -17,6 +17,10 @@ const translations: any = {
     roomList: "Raumliste",
     noRooms: "Keine Räume vorhanden.",
     enterRoom: "Bitte Raumnamen eingeben",
+    renameRoom: "Neuer Raumname:",
+    deleteQuestion: "Diesen Raum wirklich löschen?",
+    edit: "Bearbeiten",
+    delete: "Löschen",
   },
 
   ba: {
@@ -30,6 +34,10 @@ const translations: any = {
     roomList: "Lista prostorija",
     noRooms: "Nema unesenih prostorija.",
     enterRoom: "Unesi naziv prostorije",
+    renameRoom: "Novi naziv prostorije:",
+    deleteQuestion: "Da li sigurno želiš obrisati ovu prostoriju?",
+    edit: "Uredi",
+    delete: "Obriši",
   },
 
   uz: {
@@ -43,6 +51,10 @@ const translations: any = {
     roomList: "Xonalar ro‘yxati",
     noRooms: "Xonalar mavjud emas.",
     enterRoom: "Xona nomini kiriting",
+    renameRoom: "Yangi xona nomi:",
+    deleteQuestion: "Bu xonani o‘chirishni xohlaysizmi?",
+    edit: "Tahrirlash",
+    delete: "O‘chirish",
   },
 
   en: {
@@ -56,6 +68,10 @@ const translations: any = {
     roomList: "Room List",
     noRooms: "No rooms entered.",
     enterRoom: "Enter room name",
+    renameRoom: "New room name:",
+    deleteQuestion: "Do you really want to delete this room?",
+    edit: "Edit",
+    delete: "Delete",
   },
 };
 
@@ -106,6 +122,49 @@ export default function ProstorijePage() {
     loadProstorije();
   }
 
+  async function renameProstorija(id: number, oldName: string) {
+    const noviNaziv = prompt(t.renameRoom, oldName);
+
+    if (!noviNaziv) return;
+
+    if (!noviNaziv.trim()) {
+      alert(t.enterRoom);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("prostorije")
+      .update({
+        naziv: noviNaziv.trim(),
+      })
+      .eq("id", id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await loadProstorije();
+  }
+
+  async function deleteProstorija(id: number) {
+    const potvrda = confirm(t.deleteQuestion);
+
+    if (!potvrda) return;
+
+    const { error } = await supabase
+      .from("prostorije")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await loadProstorije();
+  }
+
   useEffect(() => {
     const savedLang = localStorage.getItem("lang") || "ba";
     setLang(savedLang);
@@ -113,14 +172,7 @@ export default function ProstorijePage() {
   }, []);
 
   return (
-    <main
-      style={{
-        background: "#000",
-        minHeight: "100vh",
-        color: "white",
-        padding: "30px",
-      }}
-    >
+    <main style={pageStyle}>
       <div style={{ display: "flex", gap: "20px", marginBottom: "25px" }}>
         <Link href="/dashboard" style={backLinkStyle}>
           ← {t.dashboard}
@@ -131,15 +183,7 @@ export default function ProstorijePage() {
         </Link>
       </div>
 
-      <h1
-        style={{
-          fontSize: "60px",
-          fontWeight: "bold",
-          marginBottom: "30px",
-        }}
-      >
-        {t.rooms}
-      </h1>
+      <h1 style={titleStyle}>{t.rooms}</h1>
 
       <div style={boxStyle}>
         <h2>
@@ -170,25 +214,53 @@ export default function ProstorijePage() {
         )}
 
         {prostorije.map((p) => (
-          <Link
-            key={p.id}
-            href={`/baustellen/${baustelleId}/prostorije/${p.id}`}
-            style={{ textDecoration: "none", color: "white" }}
-          >
-            <div style={roomCardStyle}>
+          <div key={p.id} style={roomRowStyle}>
+            <Link
+              href={`/baustellen/${baustelleId}/prostorije/${p.id}`}
+              style={roomButtonStyle}
+            >
               <strong>{p.naziv}</strong>
-            </div>
-          </Link>
+            </Link>
+
+            <button
+              onClick={() => renameProstorija(p.id, p.naziv)}
+              style={editButtonStyle}
+              title={t.edit}
+            >
+              ✏️
+            </button>
+
+            <button
+              onClick={() => deleteProstorija(p.id)}
+              style={deleteButtonStyle}
+              title={t.delete}
+            >
+              🗑️
+            </button>
+          </div>
         ))}
       </div>
     </main>
   );
 }
 
+const pageStyle: any = {
+  background: "#000",
+  minHeight: "100vh",
+  color: "white",
+  padding: "30px",
+};
+
 const backLinkStyle: any = {
   color: "#3b82f6",
   textDecoration: "none",
   fontWeight: "bold",
+};
+
+const titleStyle: any = {
+  fontSize: "60px",
+  fontWeight: "bold",
+  marginBottom: "30px",
 };
 
 const boxStyle: any = {
@@ -219,10 +291,40 @@ const buttonStyle: any = {
   fontWeight: "bold",
 };
 
-const roomCardStyle: any = {
-  background: "#222",
+const roomRowStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "1fr 55px 55px",
+  gap: "10px",
+  alignItems: "center",
+  marginTop: "15px",
+};
+
+const roomButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
   padding: "20px",
   borderRadius: "12px",
-  marginTop: "15px",
+  textDecoration: "none",
+  fontWeight: "bold",
+  display: "block",
+};
+
+const editButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  height: "55px",
+  borderRadius: "12px",
   cursor: "pointer",
+  fontSize: "22px",
+};
+
+const deleteButtonStyle: any = {
+  background: "#dc2626",
+  color: "white",
+  border: "none",
+  height: "55px",
+  borderRadius: "12px",
+  cursor: "pointer",
+  fontSize: "22px",
 };
