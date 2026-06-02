@@ -5,16 +5,241 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../../lib/supabase";
 
+const translations: any = {
+  de: {
+    back: "Zurück zum Raum",
+    title: "Leistung",
+    workDuration: "Arbeitsdauer",
+    workHours: "Arbeitsstunden",
+    productivityHours: "Leistungsstunden",
+    difference: "Differenz",
+    workHoursText: "Summe aller eingetragenen Arbeitsstunden in diesem Raum",
+    productivityHoursText: "Summe aller freien Eingaben mit Einheit h",
+    worker: "Mitarbeiter",
+    workerMissing: "Angemeldeter Mitarbeiter wurde nicht gefunden",
+    selectPosition: "Position auswählen",
+    freeInput: "Freie Eingabe",
+    manualInput: "manuelle Eingabe",
+    backPositions: "Zurück zu den Positionen",
+    workName: "Arbeitsbezeichnung",
+    format: "Fliesenformat, z.B. 60x120",
+    quantity: "Menge",
+    add: "Hinzufügen",
+    list: "Leistungsliste",
+    noEntries: "Noch keine Einträge vorhanden.",
+    employee: "Mitarbeiter",
+    date: "Datum",
+    delete: "Löschen",
+    choosePosition: "Position auswählen.",
+    loginAgain:
+      "Angemeldeter Mitarbeiter wurde nicht gefunden. Bitte erneut anmelden.",
+    enterQuantity: "Menge eingeben.",
+    enterWorkName: "Arbeitsbezeichnung eingeben.",
+    deleteConfirm: "Diesen Eintrag wirklich löschen?",
+    loadError: "FEHLER BEIM LADEN DER LEISTUNG: ",
+    loadHoursError: "FEHLER BEIM LADEN DER GESAMTSTUNDEN: ",
+    saveError: "FEHLER BEIM SPEICHERN DER LEISTUNG: ",
+    updateError: "FEHLER BEIM AKTUALISIEREN DER LEISTUNG: ",
+    deleteError: "FEHLER BEIM LÖSCHEN DER LEISTUNG: ",
+  },
+  ba: {
+    back: "Nazad na prostoriju",
+    title: "Produktivnost",
+    workDuration: "Trajanje posla",
+    workHours: "Radni sati",
+    productivityHours: "Sati u produktivnosti",
+    difference: "Razlika",
+    workHoursText: "Zbir svih sati dodanih u ovoj prostoriji",
+    productivityHoursText: "Zbir svih slobodnih unosa sa jedinicom h",
+    worker: "Radnik",
+    workerMissing: "Nije pronađen prijavljeni radnik",
+    selectPosition: "Odaberi poziciju",
+    freeInput: "Slobodno dodavanje",
+    manualInput: "ručni unos",
+    backPositions: "Nazad na pozicije",
+    workName: "Naziv posla",
+    format: "Format keramike, npr. 60x120",
+    quantity: "Količina",
+    add: "Dodaj",
+    list: "Lista učinka",
+    noEntries: "Još nema unosa.",
+    employee: "Radnik",
+    date: "Datum",
+    delete: "Obriši",
+    choosePosition: "Odaberi poziciju.",
+    loginAgain: "Nije pronađen prijavljeni radnik. Prijavi se ponovo.",
+    enterQuantity: "Unesi količinu.",
+    enterWorkName: "Unesi naziv posla.",
+    deleteConfirm: "Da li želiš obrisati ovaj unos?",
+    loadError: "GREŠKA KOD UČITAVANJA PRODUKTIVNOSTI: ",
+    loadHoursError: "GREŠKA KOD UČITAVANJA SATI: ",
+    saveError: "GREŠKA KOD SPREMANJA PRODUKTIVNOSTI: ",
+    updateError: "GREŠKA KOD AŽURIRANJA PRODUKTIVNOSTI: ",
+    deleteError: "GREŠKA KOD BRISANJA PRODUKTIVNOSTI: ",
+  },
+  uz: {
+    back: "Xonaga qaytish",
+    title: "Ish unumdorligi",
+    workDuration: "Ish davomiyligi",
+    workHours: "Ish soatlari",
+    productivityHours: "Unumdorlik soatlari",
+    difference: "Farq",
+    workHoursText: "Ushbu xonaga kiritilgan barcha ish soatlari yig‘indisi",
+    productivityHoursText: "h birligidagi barcha erkin kiritilgan soatlar yig‘indisi",
+    worker: "Ishchi",
+    workerMissing: "Kirish qilgan ishchi topilmadi",
+    selectPosition: "Pozitsiyani tanlang",
+    freeInput: "Erkin kiritish",
+    manualInput: "qo‘lda kiritish",
+    backPositions: "Pozitsiyalarga qaytish",
+    workName: "Ish nomi",
+    format: "Plitka formati, masalan 60x120",
+    quantity: "Miqdor",
+    add: "Qo‘shish",
+    list: "Ishlar ro‘yxati",
+    noEntries: "Hozircha yozuvlar yo‘q.",
+    employee: "Ishchi",
+    date: "Sana",
+    delete: "O‘chirish",
+    choosePosition: "Pozitsiyani tanlang.",
+    loginAgain: "Kirish qilgan ishchi topilmadi. Qayta kiring.",
+    enterQuantity: "Miqdorni kiriting.",
+    enterWorkName: "Ish nomini kiriting.",
+    deleteConfirm: "Ushbu yozuvni o‘chirmoqchimisiz?",
+    loadError: "ISH UNUMDORLIGINI YUKLASHDA XATOLIK: ",
+    loadHoursError: "SOATLARNI YUKLASHDA XATOLIK: ",
+    saveError: "ISH UNUMDORLIGINI SAQLASHDA XATOLIK: ",
+    updateError: "ISH UNUMDORLIGINI YANGILASHDA XATOLIK: ",
+    deleteError: "ISH UNUMDORLIGINI O‘CHIRISHDA XATOLIK: ",
+  },
+  en: {
+    back: "Back to room",
+    title: "Productivity",
+    workDuration: "Work duration",
+    workHours: "Work hours",
+    productivityHours: "Productivity hours",
+    difference: "Difference",
+    workHoursText: "Sum of all work hours added to this room",
+    productivityHoursText: "Sum of all free entries with unit h",
+    worker: "Worker",
+    workerMissing: "Logged-in worker was not found",
+    selectPosition: "Select position",
+    freeInput: "Free input",
+    manualInput: "manual input",
+    backPositions: "Back to positions",
+    workName: "Work name",
+    format: "Tile format, e.g. 60x120",
+    quantity: "Quantity",
+    add: "Add",
+    list: "Productivity list",
+    noEntries: "No entries yet.",
+    employee: "Worker",
+    date: "Date",
+    delete: "Delete",
+    choosePosition: "Select position.",
+    loginAgain: "Logged-in worker was not found. Please log in again.",
+    enterQuantity: "Enter quantity.",
+    enterWorkName: "Enter work name.",
+    deleteConfirm: "Do you want to delete this entry?",
+    loadError: "LOAD PRODUCTIVITY ERROR: ",
+    loadHoursError: "LOAD HOURS ERROR: ",
+    saveError: "SAVE PRODUCTIVITY ERROR: ",
+    updateError: "UPDATE PRODUCTIVITY ERROR: ",
+    deleteError: "DELETE PRODUCTIVITY ERROR: ",
+  },
+};
+
 const pozicije = [
-  { naziv: "Boden", jedinica: "m²" },
-  { naziv: "Wand", jedinica: "m²" },
-  { naziv: "Sockel", jedinica: "lfm" },
-  { naziv: "Stufensockel", jedinica: "lfm" },
-  { naziv: "Schiene", jedinica: "lfm" },
-  { naziv: "Silikon bis 5 mm", jedinica: "lfm" },
-  { naziv: "Acryl bis 5 mm", jedinica: "lfm" },
-  { naziv: "Stufen", jedinica: "lfm" },
-  { naziv: "Freie Eingabe", jedinica: "" },
+  {
+    key: "BODEN",
+    jedinica: "m²",
+    label: {
+      de: "Boden",
+      ba: "Pod",
+      uz: "Pol",
+      en: "Floor",
+    },
+  },
+  {
+    key: "WAND",
+    jedinica: "m²",
+    label: {
+      de: "Wand",
+      ba: "Zid",
+      uz: "Devor",
+      en: "Wall",
+    },
+  },
+  {
+    key: "SOCKEL",
+    jedinica: "lfm",
+    label: {
+      de: "Sockel",
+      ba: "Sockel / lajsna",
+      uz: "Plintus",
+      en: "Skirting",
+    },
+  },
+  {
+    key: "STUFENSOCKEL",
+    jedinica: "lfm",
+    label: {
+      de: "Stufensockel",
+      ba: "Sockel stepenice",
+      uz: "Zina plintusi",
+      en: "Stair skirting",
+    },
+  },
+  {
+    key: "SCHIENE",
+    jedinica: "lfm",
+    label: {
+      de: "Schiene",
+      ba: "Schiene / lajsna",
+      uz: "Profil",
+      en: "Profile",
+    },
+  },
+  {
+    key: "SILIKON",
+    jedinica: "lfm",
+    label: {
+      de: "Silikon bis 5 mm",
+      ba: "Silikon do 5 mm",
+      uz: "Silikon 5 mm gacha",
+      en: "Silicone up to 5 mm",
+    },
+  },
+  {
+    key: "ACRYL",
+    jedinica: "lfm",
+    label: {
+      de: "Acryl bis 5 mm",
+      ba: "Acryl do 5 mm",
+      uz: "Akril 5 mm gacha",
+      en: "Acrylic up to 5 mm",
+    },
+  },
+  {
+    key: "STUFEN",
+    jedinica: "lfm",
+    label: {
+      de: "Stufen",
+      ba: "Stepenice",
+      uz: "Zinalar",
+      en: "Stairs",
+    },
+  },
+  {
+    key: "FREE",
+    jedinica: "",
+    label: {
+      de: "Freie Eingabe",
+      ba: "Slobodno dodavanje",
+      uz: "Erkin kiritish",
+      en: "Free input",
+    },
+  },
 ];
 
 export default function ProduktivnostPage() {
@@ -23,6 +248,8 @@ export default function ProduktivnostPage() {
   const baustelleId = String(params.id);
   const roomId = String(params.roomId);
 
+  const [lang, setLang] = useState("ba");
+
   const [radnik, setRadnik] = useState("");
   const [aktivnaPozicija, setAktivnaPozicija] = useState<any | null>(null);
 
@@ -30,12 +257,27 @@ export default function ProduktivnostPage() {
   const [format, setFormat] = useState("");
 
   const [slobodniNaziv, setSlobodniNaziv] = useState("");
-  const [slobodnaJedinica, setSlobodnaJedinica] = useState("m²");
+  const [slobodnaJedinica, setSlobodnaJedinica] = useState("h");
 
   const [unosi, setUnosi] = useState<any[]>([]);
   const [ukupnoSati, setUkupnoSati] = useState(0);
 
+  const t = translations[lang] || translations.ba;
+
+  const ukupnoProduktivnostSati = unosi.reduce((total, row) => {
+    if (String(row.jedinica).toLowerCase() === "h") {
+      return total + Number(row.kolicina || 0);
+    }
+
+    return total;
+  }, 0);
+
+  const razlikaSati = ukupnoSati - ukupnoProduktivnostSati;
+
   useEffect(() => {
+    const savedLang = localStorage.getItem("lang") || "ba";
+    setLang(savedLang);
+
     const prijavljeniRadnik =
       localStorage.getItem("worker_name") ||
       localStorage.getItem("worker_ime") ||
@@ -54,6 +296,14 @@ export default function ProduktivnostPage() {
     loadUkupnoSati();
   }, []);
 
+  function labelPozicije(p: any) {
+    return p.label?.[lang] || p.label?.ba || p.key;
+  }
+
+  function isFreePosition(p: any) {
+    return p.key === "FREE";
+  }
+
   async function loadProduktivnost() {
     const { data, error } = await supabase
       .from("produktivnost")
@@ -63,7 +313,7 @@ export default function ProduktivnostPage() {
       .order("id", { ascending: false });
 
     if (error) {
-      alert("FEHLER BEIM LADEN DER LEISTUNG: " + error.message);
+      alert(t.loadError + error.message);
       return;
     }
 
@@ -78,7 +328,7 @@ export default function ProduktivnostPage() {
       .eq("room_id", Number(roomId));
 
     if (error) {
-      alert("FEHLER BEIM LADEN DER GESAMTSTUNDEN: " + error.message);
+      alert(t.loadHoursError + error.message);
       setUkupnoSati(0);
       return;
     }
@@ -92,27 +342,27 @@ export default function ProduktivnostPage() {
 
   async function dodajProduktivnost() {
     if (!aktivnaPozicija) {
-      alert("Position auswählen.");
+      alert(t.choosePosition);
       return;
     }
 
     if (!radnik) {
-      alert("Angemeldeter Mitarbeiter wurde nicht gefunden. Bitte erneut anmelden.");
+      alert(t.loginAgain);
       return;
     }
 
     if (!kolicina || Number(kolicina) <= 0) {
-      alert("Menge eingeben.");
+      alert(t.enterQuantity);
       return;
     }
 
-    let nazivZaSpremanje = aktivnaPozicija.naziv;
+    let nazivZaSpremanje = labelPozicije(aktivnaPozicija);
     let jedinicaZaSpremanje = aktivnaPozicija.jedinica;
     let napomena = "";
 
-    if (aktivnaPozicija.naziv === "Freie Eingabe") {
+    if (isFreePosition(aktivnaPozicija)) {
       if (!slobodniNaziv.trim()) {
-        alert("Arbeitsbezeichnung eingeben.");
+        alert(t.enterWorkName);
         return;
       }
 
@@ -121,8 +371,7 @@ export default function ProduktivnostPage() {
     }
 
     if (
-      (aktivnaPozicija.naziv === "Boden" ||
-        aktivnaPozicija.naziv === "Wand") &&
+      (aktivnaPozicija.key === "BODEN" || aktivnaPozicija.key === "WAND") &&
       format.trim()
     ) {
       napomena = `Format: ${format.trim()}`;
@@ -142,14 +391,14 @@ export default function ProduktivnostPage() {
     ]);
 
     if (error) {
-      alert("FEHLER BEIM SPEICHERN DER LEISTUNG: " + error.message);
+      alert(t.saveError + error.message);
       return;
     }
 
     setKolicina("");
     setFormat("");
     setSlobodniNaziv("");
-    setSlobodnaJedinica("m²");
+    setSlobodnaJedinica("h");
     setAktivnaPozicija(null);
 
     await loadProduktivnost();
@@ -170,7 +419,7 @@ export default function ProduktivnostPage() {
       .eq("id", id);
 
     if (error) {
-      alert("FEHLER BEIM AKTUALISIEREN DER LEISTUNG: " + error.message);
+      alert(t.updateError + error.message);
       return;
     }
 
@@ -178,7 +427,7 @@ export default function ProduktivnostPage() {
   }
 
   async function obrisiProduktivnost(id: number) {
-    const potvrda = confirm("Diesen Eintrag wirklich löschen?");
+    const potvrda = confirm(t.deleteConfirm);
     if (!potvrda) return;
 
     const { error } = await supabase
@@ -187,7 +436,7 @@ export default function ProduktivnostPage() {
       .eq("id", id);
 
     if (error) {
-      alert("FEHLER BEIM LÖSCHEN DER LEISTUNG: " + error.message);
+      alert(t.deleteError + error.message);
       return;
     }
 
@@ -200,22 +449,48 @@ export default function ProduktivnostPage() {
         href={`/baustellen/${baustelleId}/prostorije/${roomId}`}
         style={styles.backLink}
       >
-        ← Zurück zum Raum
+        ← {t.back}
       </Link>
 
-      <h1 style={styles.title}>Leistung</h1>
+      <h1 style={styles.title}>{t.title}</h1>
 
       <section style={styles.infoBox}>
-        <h2 style={styles.infoTitle}>Arbeitsdauer</h2>
-        <p style={styles.infoNumber}>{ukupnoSati.toFixed(2)} h</p>
-        <p style={styles.infoSmall}>Summe aller Stunden in diesem Raum</p>
+        <h2 style={styles.infoTitle}>{t.workDuration}</h2>
+
+        <div style={styles.hoursGrid}>
+          <div style={styles.hourCard}>
+            <div style={styles.hourLabel}>{t.workHours}</div>
+            <div style={styles.infoNumber}>{ukupnoSati.toFixed(2)} h</div>
+            <div style={styles.infoSmall}>{t.workHoursText}</div>
+          </div>
+
+          <div style={styles.hourCard}>
+            <div style={styles.hourLabel}>{t.productivityHours}</div>
+            <div style={styles.infoNumber}>
+              {ukupnoProduktivnostSati.toFixed(2)} h
+            </div>
+            <div style={styles.infoSmall}>{t.productivityHoursText}</div>
+          </div>
+
+          <div style={styles.hourCard}>
+            <div style={styles.hourLabel}>{t.difference}</div>
+            <div
+              style={{
+                ...styles.infoNumber,
+                color: razlikaSati === 0 ? "#16a34a" : "#f97316",
+              }}
+            >
+              {razlikaSati.toFixed(2)} h
+            </div>
+          </div>
+        </div>
       </section>
 
       <section style={styles.box}>
-        <h2 style={styles.subtitle}>Mitarbeiter</h2>
+        <h2 style={styles.subtitle}>{t.worker}</h2>
 
         <input
-          value={radnik || "Angemeldeter Mitarbeiter wurde nicht gefunden"}
+          value={radnik || t.workerMissing}
           readOnly
           style={styles.input}
         />
@@ -223,22 +498,20 @@ export default function ProduktivnostPage() {
 
       {!aktivnaPozicija && (
         <section style={styles.box}>
-          <h2 style={styles.subtitle}>Position auswählen</h2>
+          <h2 style={styles.subtitle}>{t.selectPosition}</h2>
 
           <div style={styles.grid}>
             {pozicije.map((p) => (
               <button
-                key={p.naziv}
+                key={p.key}
                 onClick={() => setAktivnaPozicija(p)}
                 style={
-                  p.naziv === "Freie Eingabe"
-                    ? styles.freeButton
-                    : styles.positionButton
+                  isFreePosition(p) ? styles.freeButton : styles.positionButton
                 }
               >
-                <strong>{p.naziv}</strong>
+                <strong>{labelPozicije(p)}</strong>
                 <span style={styles.unitText}>
-                  {p.jedinica || "manuelle Eingabe"}
+                  {p.jedinica || t.manualInput}
                 </span>
               </button>
             ))}
@@ -254,21 +527,21 @@ export default function ProduktivnostPage() {
               setKolicina("");
               setFormat("");
               setSlobodniNaziv("");
-              setSlobodnaJedinica("m²");
+              setSlobodnaJedinica("h");
             }}
             style={styles.backButton}
           >
-            ← Zurück zu den Positionen
+            ← {t.backPositions}
           </button>
 
-          <h2 style={styles.groupTitle}>{aktivnaPozicija.naziv}</h2>
+          <h2 style={styles.groupTitle}>{labelPozicije(aktivnaPozicija)}</h2>
 
-          {aktivnaPozicija.naziv === "Freie Eingabe" && (
+          {isFreePosition(aktivnaPozicija) && (
             <>
               <input
                 value={slobodniNaziv}
                 onChange={(e) => setSlobodniNaziv(e.target.value)}
-                placeholder="Arbeitsbezeichnung"
+                placeholder={t.workName}
                 style={styles.input}
               />
 
@@ -277,21 +550,21 @@ export default function ProduktivnostPage() {
                 onChange={(e) => setSlobodnaJedinica(e.target.value)}
                 style={styles.input}
               >
+                <option value="h">h</option>
                 <option value="m²">m²</option>
                 <option value="lfm">lfm</option>
                 <option value="Stk.">Stk.</option>
                 <option value="m">m</option>
-                <option value="h">h</option>
               </select>
             </>
           )}
 
-          {(aktivnaPozicija.naziv === "Boden" ||
-            aktivnaPozicija.naziv === "Wand") && (
+          {(aktivnaPozicija.key === "BODEN" ||
+            aktivnaPozicija.key === "WAND") && (
             <input
               value={format}
               onChange={(e) => setFormat(e.target.value)}
-              placeholder="Fliesenformat, z.B. 60x120"
+              placeholder={t.format}
               style={styles.input}
             />
           )}
@@ -299,8 +572,8 @@ export default function ProduktivnostPage() {
           <input
             value={kolicina}
             onChange={(e) => setKolicina(e.target.value)}
-            placeholder={`Menge (${
-              aktivnaPozicija.naziv === "Freie Eingabe"
+            placeholder={`${t.quantity} (${
+              isFreePosition(aktivnaPozicija)
                 ? slobodnaJedinica
                 : aktivnaPozicija.jedinica
             })`}
@@ -309,17 +582,17 @@ export default function ProduktivnostPage() {
           />
 
           <button onClick={dodajProduktivnost} style={styles.saveButton}>
-            Hinzufügen
+            {t.add}
           </button>
         </section>
       )}
 
       <section style={styles.box}>
-        <h2 style={styles.subtitle}>Leistungsliste ({unosi.length})</h2>
+        <h2 style={styles.subtitle}>
+          {t.list} ({unosi.length})
+        </h2>
 
-        {unosi.length === 0 && (
-          <p style={styles.emptyText}>Noch keine Einträge vorhanden.</p>
-        )}
+        {unosi.length === 0 && <p style={styles.emptyText}>{t.noEntries}</p>}
 
         {unosi.map((u) => (
           <div key={u.id} style={styles.savedCard}>
@@ -331,8 +604,13 @@ export default function ProduktivnostPage() {
 
             {u.napomena && <div style={styles.note}>{u.napomena}</div>}
 
-            <div style={styles.note}>Mitarbeiter: {u.radnik}</div>
-            <div style={styles.note}>Datum: {u.datum}</div>
+            <div style={styles.note}>
+              {t.employee}: {u.radnik}
+            </div>
+
+            <div style={styles.note}>
+              {t.date}: {u.datum}
+            </div>
 
             <div style={styles.buttonRow}>
               <button
@@ -353,7 +631,7 @@ export default function ProduktivnostPage() {
                 onClick={() => obrisiProduktivnost(u.id)}
                 style={styles.deleteButton}
               >
-                Löschen
+                {t.delete}
               </button>
             </div>
           </div>
@@ -390,8 +668,24 @@ const styles: any = {
   },
   infoTitle: {
     margin: 0,
-    marginBottom: "10px",
+    marginBottom: "18px",
     color: "#60a5fa",
+  },
+  hoursGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: "15px",
+  },
+  hourCard: {
+    background: "#1f1f1f",
+    padding: "18px",
+    borderRadius: "16px",
+    border: "1px solid #333",
+  },
+  hourLabel: {
+    color: "#aaa",
+    marginBottom: "8px",
+    fontWeight: "bold",
   },
   infoNumber: {
     fontSize: "34px",
