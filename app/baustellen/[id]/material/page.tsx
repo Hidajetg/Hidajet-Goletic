@@ -36,6 +36,10 @@ export default function BaustelleMaterialPage() {
   const [dodatakJedinica, setDodatakJedinica] = useState("kom");
   const [dodatakKolicina, setDodatakKolicina] = useState("");
 
+  const [slobodniNaziv, setSlobodniNaziv] = useState("");
+  const [slobodnaJedinica, setSlobodnaJedinica] = useState("kom");
+  const [slobodnaKolicina, setSlobodnaKolicina] = useState("");
+
   useEffect(() => {
     loadData();
   }, []);
@@ -184,7 +188,12 @@ export default function BaustelleMaterialPage() {
   }
 
   async function dodajDodatak() {
-    if (!dodatakNaziv || !dodatakJedinica || !dodatakKolicina || Number(dodatakKolicina) <= 0) {
+    if (
+      !dodatakNaziv ||
+      !dodatakJedinica ||
+      !dodatakKolicina ||
+      Number(dodatakKolicina) <= 0
+    ) {
       alert("Unesi naziv, jedinicu i količinu.");
       return;
     }
@@ -208,6 +217,40 @@ export default function BaustelleMaterialPage() {
     setDodatakNaziv("");
     setDodatakJedinica("kom");
     setDodatakKolicina("");
+    await loadData();
+  }
+
+  async function dodajSlobodniMaterijal() {
+    if (
+      !slobodniNaziv ||
+      !slobodnaJedinica ||
+      !slobodnaKolicina ||
+      Number(slobodnaKolicina) <= 0
+    ) {
+      alert("Unesi naziv materijala, jedinicu i količinu.");
+      return;
+    }
+
+    const { error } = await supabase.from("baustelle_material").insert([
+      {
+        baustelle_id: Number(baustelleId),
+        material_id: null,
+        materijal: slobodniNaziv.trim(),
+        kolicina: Number(slobodnaKolicina),
+        custom_naziv: slobodniNaziv.trim(),
+        custom_jedinica: slobodnaJedinica,
+      },
+    ]);
+
+    if (error) {
+      alert("INSERT SLOBODNI MATERIJAL: " + error.message);
+      return;
+    }
+
+    setSlobodniNaziv("");
+    setSlobodnaJedinica("kom");
+    setSlobodnaKolicina("");
+
     await loadData();
   }
 
@@ -271,6 +314,47 @@ export default function BaustelleMaterialPage() {
       </Link>
 
       <h1 style={styles.title}>Materijal gradilišta</h1>
+
+      <section style={styles.freeBox}>
+        <h2 style={styles.subtitle}>+ Slobodni materijal</h2>
+
+        <input
+          value={slobodniNaziv}
+          onChange={(e) => setSlobodniNaziv(e.target.value)}
+          placeholder="Naziv materijala"
+          style={styles.input}
+        />
+
+        <select
+          value={slobodnaJedinica}
+          onChange={(e) => setSlobodnaJedinica(e.target.value)}
+          style={styles.input}
+        >
+          <option value="kom">kom</option>
+          <option value="m">m</option>
+          <option value="m²">m²</option>
+          <option value="m³">m³</option>
+          <option value="kg">kg</option>
+          <option value="l">l</option>
+          <option value="vreća">vreća</option>
+          <option value="rola">rola</option>
+          <option value="paket">paket</option>
+          <option value="karton">karton</option>
+          <option value="set">set</option>
+        </select>
+
+        <input
+          value={slobodnaKolicina}
+          onChange={(e) => setSlobodnaKolicina(e.target.value)}
+          placeholder="Količina"
+          type="number"
+          style={styles.input}
+        />
+
+        <button onClick={dodajSlobodniMaterijal} style={styles.saveButton}>
+          Dodaj slobodni materijal
+        </button>
+      </section>
 
       {!aktivnaGrupa && (
         <section style={styles.box}>
@@ -351,10 +435,14 @@ export default function BaustelleMaterialPage() {
                 <option value="kom">kom</option>
                 <option value="m">m</option>
                 <option value="m²">m²</option>
+                <option value="m³">m³</option>
                 <option value="kg">kg</option>
+                <option value="l">l</option>
                 <option value="vreća">vreća</option>
                 <option value="rola">rola</option>
                 <option value="paket">paket</option>
+                <option value="karton">karton</option>
+                <option value="set">set</option>
               </select>
 
               <input
@@ -474,6 +562,13 @@ const styles: any = {
   },
   box: {
     background: "#111",
+    padding: "20px",
+    borderRadius: "20px",
+    marginBottom: "30px",
+  },
+  freeBox: {
+    background: "#111",
+    border: "1px solid #16a34a",
     padding: "20px",
     borderRadius: "20px",
     marginBottom: "30px",
