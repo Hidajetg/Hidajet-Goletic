@@ -12,7 +12,7 @@ export default function KalendarPage() {
   const [currentUser, setCurrentUser] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const [workerName, setWorkerName] = useState("");
+  const [selectedWorkers, setSelectedWorkers] = useState<string[]>([]);
   const [baustelleId, setBaustelleId] = useState("");
   const [napomena, setNapomena] = useState("");
 
@@ -28,7 +28,7 @@ export default function KalendarPage() {
     setIsAdmin(adminStatus);
 
     if (!adminStatus) {
-      setWorkerName(name);
+      setSelectedWorkers([name]);
     }
 
     loadData(name, adminStatus);
@@ -51,7 +51,29 @@ export default function KalendarPage() {
 
     setBaustellen(baustellenRes.data || []);
 
+    await cleanupOldPlans();
     await loadPlans(name, adminStatus);
+  }
+
+  async function cleanupOldPlans() {
+    const now = new Date();
+
+    const { data } = await supabase.from("work_calendar").select("*");
+
+    const oldPlans = (data || []).filter((p: any) => {
+      if (!p.datum) return false;
+
+      const expiry = new Date(`${p.datum}T15:00:00`);
+      expiry.setDate(expiry.getDate() + 1);
+
+      return expiry < now;
+    });
+
+    if (oldPlans.length === 0) return;
+
+    const oldIds = oldPlans.map((p: any) => p.id);
+
+    await supabase.from("work_calendar").delete().in("id", oldIds);
   }
 
   async function loadPlans(name = currentUser, adminStatus = isAdmin) {
@@ -82,40 +104,58 @@ export default function KalendarPage() {
     setPlanovi(data || []);
   }
 
+  function toggleWorker(name: string) {
+    if (selectedWorkers.includes(name)) {
+      setSelectedWorkers(selectedWorkers.filter((w) => w !== name));
+    } else {
+      setSelectedWorkers([...selectedWorkers, name]);
+    }
+  }
+
+  function selectAllWorkers() {
+    const allNames = workers.map((w: any) => w.name);
+    setSelectedWorkers(allNames);
+  }
+
+  function clearWorkers() {
+    setSelectedWorkers([]);
+  }
+
   async function savePlan() {
     if (!isAdmin) {
       alert("Samo admin može dodavati plan.");
       return;
     }
 
-    if (!workerName) {
-      alert("Odaberi radnika");
+    if (selectedWorkers.length === 0) {
+      alert("Odaberi najmanje jednog radnika.");
       return;
     }
 
     if (!baustelleId) {
-      alert("Odaberi Baustelle");
+      alert("Odaberi Baustelle.");
       return;
     }
 
-    const { error } = await supabase.from("work_calendar").insert([
-      {
-        datum,
-        worker_name: workerName,
-        baustelle_id: Number(baustelleId),
-        napomena: napomena.trim(),
-      },
-    ]);
+    const rows = selectedWorkers.map((worker) => ({
+      datum,
+      worker_name: worker,
+      baustelle_id: Number(baustelleId),
+      napomena: napomena.trim(),
+    }));
+
+    const { error } = await supabase.from("work_calendar").insert(rows);
 
     if (error) {
       alert(error.message);
       return;
     }
 
-    setWorkerName("");
+    setSelectedWorkers([]);
     setBaustelleId("");
     setNapomena("");
 
+    await cleanupOldPlans();
     await loadPlans(currentUser, isAdmin);
   }
 
@@ -172,19 +212,34 @@ export default function KalendarPage() {
           />
 
           <label style={labelStyle}>Mitarbeiter</label>
-          <select
-            value={workerName}
-            onChange={(e) => setWorkerName(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">Mitarbeiter wählen</option>
 
+          <div style={smallButtonRowStyle}>
+            <button onClick={selectAllWorkers} style={smallButtonStyle}>
+              Alle auswählen
+            </button>
+
+            <button onClick={clearWorkers} style={smallRedButtonStyle}>
+              Auswahl löschen
+            </button>
+          </div>
+
+          <div style={workersGridStyle}>
             {workers.map((w) => (
-              <option key={w.id} value={w.name}>
-                {w.name}
-              </option>
+              <label key={w.id} style={workerCheckStyle}>
+                <input
+                  type="checkbox"
+                  checked={selectedWorkers.includes(w.name)}
+                  onChange={() => toggleWorker(w.name)}
+                  style={{ transform: "scale(1.2)" }}
+                />
+                <span>{w.name}</span>
+              </label>
             ))}
-          </select>
+          </div>
+
+          <p style={{ color: "#aaa", marginTop: "10px" }}>
+            Ausgewählt: {selectedWorkers.length}
+          </p>
 
           <label style={labelStyle}>Baustelle</label>
           <select
@@ -344,4 +399,44 @@ const deleteButtonStyle: any = {
   borderRadius: "10px",
   cursor: "pointer",
   fontWeight: "bold",
+};
+
+const workersGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: "12px",
+  marginBottom: "10px",
+};
+
+const workerCheckStyle: any = {
+  background: "#222",
+  padding: "14px",
+  borderRadius: "12px",
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  cursor: "pointer",
+  fontWeight: "bold",
+};
+
+const smallButtonRowStyle: any = {
+  display: "flex",
+  gap: "10px",
+  flexWrap: "wrap",
+  marginBottom: "15px",
+};
+
+const smallButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  padding: "10px 14px",
+  borderRadius: "10px",
+  cursor: "pointer",
+  fontWeight: "bold",
+};
+
+const smallRedButtonStyle: any = {
+  ...smallButtonStyle,
+  background: "#dc2626",
 };
