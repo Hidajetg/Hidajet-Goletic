@@ -10,11 +10,12 @@ const ADMINI = ["Hido", "Steffi", "Admin"];
 const translations: any = {
   de: {
     welcome: "Willkommen",
-    hours: "Stundenübersicht",
+    hours: "Stunden",
     calendar: "Kalender",
-    soon: "bald",
-    info: "Info vom Admin",
-    notes: "Hinweise für Arbeiten und Material",
+    info: "Info",
+    notes: "Notizen",
+    materialOrder: "Material bestellen",
+    privateNote: "Private Notiz",
     logout: "Abmelden",
     noMessages: "Aktuell gibt es keine Info-Nachrichten.",
     message: "Nachricht",
@@ -27,11 +28,12 @@ const translations: any = {
   },
   ba: {
     welcome: "Dobrodošao",
-    hours: "Pregled sati",
+    hours: "Sati",
     calendar: "Kalendar",
-    soon: "uskoro",
-    info: "Info od Admina",
-    notes: "Napomene za radove i materijale",
+    info: "Info",
+    notes: "Bilješke",
+    materialOrder: "Naruči materijal",
+    privateNote: "Privatna bilješka",
     logout: "Odjava",
     noMessages: "Trenutno nema info poruka.",
     message: "poruka",
@@ -44,11 +46,12 @@ const translations: any = {
   },
   uz: {
     welcome: "Xush kelibsiz",
-    hours: "Ish soatlari",
+    hours: "Soatlar",
     calendar: "Kalendar",
-    soon: "tez orada",
-    info: "Admin xabari",
-    notes: "Ishlar va materiallar uchun eslatmalar",
+    info: "Info",
+    notes: "Eslatmalar",
+    materialOrder: "Material buyurtma",
+    privateNote: "Shaxsiy eslatma",
     logout: "Chiqish",
     noMessages: "Hozircha xabar yo‘q.",
     message: "xabar",
@@ -61,11 +64,12 @@ const translations: any = {
   },
   en: {
     welcome: "Welcome",
-    hours: "Hours overview",
+    hours: "Hours",
     calendar: "Calendar",
-    soon: "soon",
-    info: "Admin info",
-    notes: "Notes for work and materials",
+    info: "Info",
+    notes: "Notes",
+    materialOrder: "Order material",
+    privateNote: "Private note",
     logout: "Logout",
     noMessages: "There are currently no info messages.",
     message: "message",
@@ -85,6 +89,7 @@ export default function DashboardPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [todayPlans, setTodayPlans] = useState<any[]>([]);
+  const [materialOrders, setMaterialOrders] = useState<any[]>([]);
   const [lang, setLang] = useState("ba");
 
   const t = translations[lang] || translations.ba;
@@ -107,6 +112,7 @@ export default function DashboardPage() {
 
     loadMessages(id);
     loadTodayPlans(name, adminStatus);
+    loadMaterialOrders();
   }, [router]);
 
   async function loadMessages(currentWorkerId: string) {
@@ -153,6 +159,21 @@ export default function DashboardPage() {
     }
 
     setTodayPlans(data || []);
+  }
+
+  async function loadMaterialOrders() {
+    const { data, error } = await supabase
+      .from("material_orders")
+      .select("*")
+      .eq("status", "NEW")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setMaterialOrders([]);
+      return;
+    }
+
+    setMaterialOrders(data || []);
   }
 
   function changeLanguage(newLang: string) {
@@ -212,11 +233,17 @@ export default function DashboardPage() {
           ⏰ {t.hours}
         </Link>
 
-        <Link href="/kalendar" style={buttonStyle}>
+        <Link
+          href="/kalendar"
+          style={todayPlans.length > 0 ? alertButtonStyle : buttonStyle}
+        >
           📅 {t.calendar}
         </Link>
 
-        <Link href="/info" style={infoButtonStyle}>
+        <Link
+          href="/info"
+          style={messages.length > 0 ? alertButtonStyle : buttonStyle}
+        >
           📢 {t.info}
           <br />
           <small>
@@ -224,11 +251,18 @@ export default function DashboardPage() {
           </small>
         </Link>
 
-        <div style={disabledStyle}>
-          📋 {t.notes}
+        <Link href="/private-notes" style={buttonStyle}>
+          📝 {t.privateNote}
+        </Link>
+
+        <Link
+          href="/material-orders"
+          style={materialOrders.length > 0 ? alertButtonStyle : buttonStyle}
+        >
+          🧱 {t.materialOrder}
           <br />
-          <small>{t.soon}</small>
-        </div>
+          <small>{materialOrders.length} NEW</small>
+        </Link>
 
         <button onClick={logout} style={logoutButtonStyle}>
           🚪 {t.logout}
@@ -239,7 +273,7 @@ export default function DashboardPage() {
         <h2 style={infoTitleStyle}>📢 {t.info}</h2>
 
         {messages.length === 0 ? (
-          <p style={{ color: "#aaa", fontSize: "18px" }}>{t.noMessages}</p>
+          <p style={{ color: "#aaa", fontSize: "16px" }}>{t.noMessages}</p>
         ) : (
           messages.map((msg) => (
             <div key={msg.id} style={messageStyle}>
@@ -258,7 +292,7 @@ export default function DashboardPage() {
         <h2 style={planTitleStyle}>📅 {t.todayPlan}</h2>
 
         {todayPlans.length === 0 ? (
-          <p style={{ color: "#aaa", fontSize: "18px" }}>{t.noPlanToday}</p>
+          <p style={{ color: "#aaa", fontSize: "16px" }}>{t.noPlanToday}</p>
         ) : (
           todayPlans.map((plan) => (
             <div key={plan.id} style={planCardStyle}>
@@ -298,24 +332,24 @@ const mainStyle: any = {
   background: "#000",
   minHeight: "100vh",
   color: "white",
-  padding: "24px",
+  padding: "20px",
 };
 
 const titleStyle: any = {
-  fontSize: "42px",
-  marginBottom: "8px",
+  fontSize: "38px",
+  marginBottom: "6px",
   color: "#f97316",
 };
 
 const subtitleStyle: any = {
-  marginBottom: "16px",
+  marginBottom: "14px",
   color: "#ccc",
 };
 
 const languageBoxStyle: any = {
   display: "flex",
   gap: "8px",
-  marginBottom: "24px",
+  marginBottom: "20px",
   flexWrap: "wrap",
 };
 
@@ -323,9 +357,9 @@ const langButtonStyle: any = {
   background: "#111",
   color: "white",
   border: "1px solid #333",
-  borderRadius: "10px",
-  padding: "7px 14px",
-  fontSize: "14px",
+  borderRadius: "9px",
+  padding: "6px 12px",
+  fontSize: "13px",
   fontWeight: "bold",
   cursor: "pointer",
 };
@@ -338,26 +372,26 @@ const activeLangButtonStyle: any = {
 
 const gridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-  gap: "14px",
+  gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
+  gap: "10px",
 };
 
 const buttonStyle: any = {
   background: "#2563eb",
   color: "white",
   textDecoration: "none",
-  padding: "20px",
-  borderRadius: "16px",
+  padding: "14px",
+  borderRadius: "13px",
   textAlign: "center",
-  fontSize: "18px",
+  fontSize: "15px",
   fontWeight: "bold",
   border: "none",
   cursor: "pointer",
 };
 
-const infoButtonStyle: any = {
+const alertButtonStyle: any = {
   ...buttonStyle,
-  background: "#f97316",
+  background: "#dc2626",
 };
 
 const logoutButtonStyle: any = {
@@ -365,91 +399,80 @@ const logoutButtonStyle: any = {
   background: "#dc2626",
 };
 
-const disabledStyle: any = {
-  background: "#111",
-  color: "white",
-  padding: "20px",
-  borderRadius: "16px",
-  textAlign: "center",
-  fontSize: "18px",
-  fontWeight: "bold",
-  border: "1px solid #333",
-};
-
 const infoBoxStyle: any = {
-  marginTop: "28px",
+  marginTop: "24px",
   background: "#111",
   border: "1px solid #333",
-  borderRadius: "18px",
-  padding: "22px",
+  borderRadius: "16px",
+  padding: "18px",
 };
 
 const infoTitleStyle: any = {
   color: "#f97316",
-  fontSize: "26px",
-  marginBottom: "18px",
+  fontSize: "23px",
+  marginBottom: "14px",
 };
 
 const messageStyle: any = {
   background: "#000",
   border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "16px",
-  marginBottom: "14px",
+  borderRadius: "13px",
+  padding: "14px",
+  marginBottom: "12px",
 };
 
 const messageTopStyle: any = {
   display: "flex",
   justifyContent: "space-between",
-  gap: "15px",
+  gap: "12px",
   color: "#f97316",
-  marginBottom: "10px",
+  marginBottom: "8px",
 };
 
 const messageTextStyle: any = {
-  fontSize: "18px",
+  fontSize: "16px",
   whiteSpace: "pre-wrap",
   margin: 0,
 };
 
 const planBoxStyle: any = {
-  marginTop: "28px",
+  marginTop: "24px",
   background: "#111",
   border: "1px solid #333",
-  borderRadius: "18px",
-  padding: "22px",
+  borderRadius: "16px",
+  padding: "18px",
 };
 
 const planTitleStyle: any = {
   color: "#f97316",
-  fontSize: "26px",
-  marginBottom: "18px",
+  fontSize: "23px",
+  marginBottom: "14px",
 };
 
 const planCardStyle: any = {
   background: "#000",
   border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "16px",
-  marginBottom: "14px",
+  borderRadius: "13px",
+  padding: "14px",
+  marginBottom: "12px",
 };
 
 const planTopStyle: any = {
   display: "flex",
   justifyContent: "space-between",
-  gap: "15px",
+  gap: "12px",
   color: "#f97316",
-  marginBottom: "10px",
+  marginBottom: "8px",
 };
 
 const planTextStyle: any = {
-  fontSize: "18px",
-  margin: "6px 0",
+  fontSize: "16px",
+  margin: "5px 0",
 };
 
 const planNoteStyle: any = {
-  fontSize: "18px",
+  fontSize: "16px",
   whiteSpace: "pre-wrap",
-  marginTop: "10px",
+  marginTop: "8px",
   color: "#ddd",
 };
