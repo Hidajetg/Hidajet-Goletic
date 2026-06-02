@@ -316,7 +316,7 @@ const editButtonStyle: any = {
   height: "55px",
   borderRadius: "12px",
   cursor: "pointer",
-  fontSize: "22px",
+  fontSize: "32px",
 };
 
 const deleteButtonStyle: any = {
