@@ -266,6 +266,7 @@ export default function SatiPage() {
               onChange={(e) => setPauza(e.target.value)}
               style={styles.input}
             >
+              <option value="0">Bez pauze</option>
               <option value="0.5">Pauza: 0.5h</option>
               <option value="1">Pauza: 1h</option>
               <option value="1.5">Pauza: 1.5h</option>
@@ -307,7 +308,8 @@ export default function SatiPage() {
 
             {s.tip_unosa === "RAD" && (
               <div>
-                {s.pocetak} - {s.kraj} | Pauza: {s.pauza}h
+                {s.pocetak} - {s.kraj} |{" "}
+                {Number(s.pauza) === 0 ? "Bez pauze" : `Pauza: ${s.pauza}h`}
               </div>
             )}
 
