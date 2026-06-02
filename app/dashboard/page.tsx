@@ -114,6 +114,7 @@ export default function DashboardPage() {
   return (
     <main style={mainStyle}>
       <h1 style={titleStyle}>STONE BOUTIQUE</h1>
+
       <h2 style={subtitleStyle}>
         {t.welcome} {workerName}
       </h2>
@@ -139,11 +140,9 @@ export default function DashboardPage() {
           ⏰ {t.hours}
         </Link>
 
-        <div style={disabledStyle}>
+        <Link href="/kalendar" style={buttonStyle}>
           📅 {t.calendar}
-          <br />
-          <small>{t.soon}</small>
-        </div>
+        </Link>
 
         <Link href="/info" style={infoButtonStyle}>
           📢 {t.info}
