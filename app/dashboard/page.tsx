@@ -5,80 +5,46 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 
-const ADMINI = ["Hido", "Steffi", "Admin"];
-
 const translations: any = {
   de: {
     welcome: "Willkommen",
     hours: "Stunden",
-    calendar: "Kalender",
     info: "Info",
-    notes: "Notizen",
     materialOrder: "Material bestellen",
     privateNote: "Private Notiz",
     logout: "Abmelden",
     noMessages: "Aktuell gibt es keine Info-Nachrichten.",
     message: "Nachricht",
-    todayPlan: "Arbeitsplan für heute",
-    noPlanToday: "Für heute ist kein Arbeitsplan vorhanden.",
-    worker: "Mitarbeiter",
-    site: "Baustelle",
-    location: "Ort",
-    note: "Notiz",
   },
   ba: {
     welcome: "Dobrodošao",
     hours: "Sati",
-    calendar: "Kalendar",
     info: "Info",
-    notes: "Bilješke",
     materialOrder: "Naruči materijal",
     privateNote: "Privatna bilješka",
     logout: "Odjava",
     noMessages: "Trenutno nema info poruka.",
     message: "poruka",
-    todayPlan: "Plan rada za danas",
-    noPlanToday: "Za danas nema plana rada.",
-    worker: "Radnik",
-    site: "Baustelle",
-    location: "Lokacija",
-    note: "Napomena",
   },
   uz: {
     welcome: "Xush kelibsiz",
     hours: "Soatlar",
-    calendar: "Kalendar",
     info: "Info",
-    notes: "Eslatmalar",
     materialOrder: "Material buyurtma",
     privateNote: "Shaxsiy eslatma",
     logout: "Chiqish",
     noMessages: "Hozircha xabar yo‘q.",
     message: "xabar",
-    todayPlan: "Bugungi ish rejasi",
-    noPlanToday: "Bugun uchun ish rejasi yo‘q.",
-    worker: "Ishchi",
-    site: "Obyekt",
-    location: "Manzil",
-    note: "Izoh",
   },
   en: {
     welcome: "Welcome",
     hours: "Hours",
-    calendar: "Calendar",
     info: "Info",
-    notes: "Notes",
     materialOrder: "Order material",
     privateNote: "Private note",
     logout: "Logout",
     noMessages: "There are currently no info messages.",
     message: "message",
-    todayPlan: "Work plan for today",
-    noPlanToday: "There is no work plan for today.",
-    worker: "Worker",
-    site: "Site",
-    location: "Location",
-    note: "Note",
   },
 };
 
@@ -86,9 +52,7 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [workerName, setWorkerName] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
-  const [todayPlans, setTodayPlans] = useState<any[]>([]);
   const [materialOrders, setMaterialOrders] = useState<any[]>([]);
   const [lang, setLang] = useState("ba");
 
@@ -104,25 +68,12 @@ export default function DashboardPage() {
       return;
     }
 
-    const adminStatus = ADMINI.includes(name);
-
     setWorkerName(name);
-    setIsAdmin(adminStatus);
     setLang(savedLang);
 
     loadMessages(id);
-    loadTodayPlans(name, adminStatus);
     loadMaterialOrders();
   }, [router]);
-
-  function getTodayLocalDate() {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-  }
 
   async function loadMessages(currentWorkerId: string) {
     const { data, error } = await supabase
@@ -137,37 +88,6 @@ export default function DashboardPage() {
     }
 
     setMessages(data || []);
-  }
-
-  async function loadTodayPlans(name: string, adminStatus: boolean) {
-    const today = getTodayLocalDate();
-
-    let query = supabase
-      .from("work_calendar")
-      .select(
-        `
-        *,
-        baustellen (
-          naziv,
-          lokacija
-        )
-      `
-      )
-      .eq("datum", today)
-      .order("worker_name", { ascending: true });
-
-    if (!adminStatus) {
-      query = query.eq("worker_name", name);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      alert("Greška kod učitavanja plana rada: " + error.message);
-      return;
-    }
-
-    setTodayPlans(data || []);
   }
 
   async function loadMaterialOrders() {
@@ -205,14 +125,6 @@ export default function DashboardPage() {
     });
   }
 
-  function formatDate(value: string) {
-    return new Date(value).toLocaleDateString("de-AT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  }
-
   return (
     <main style={mainStyle}>
       <h1 style={titleStyle}>STONE BOUTIQUE</h1>
@@ -240,13 +152,6 @@ export default function DashboardPage() {
 
         <Link href="/pregled-sati" style={buttonStyle}>
           ⏰ {t.hours}
-        </Link>
-
-        <Link
-          href="/kalendar"
-          style={todayPlans.length > 0 ? alertButtonStyle : buttonStyle}
-        >
-          📅 {t.calendar}
         </Link>
 
         <Link
@@ -292,43 +197,6 @@ export default function DashboardPage() {
               </div>
 
               <p style={messageTextStyle}>{msg.message}</p>
-            </div>
-          ))
-        )}
-      </section>
-
-      <section style={planBoxStyle}>
-        <h2 style={planTitleStyle}>📅 {t.todayPlan}</h2>
-
-        {todayPlans.length === 0 ? (
-          <p style={{ color: "#aaa", fontSize: "16px" }}>{t.noPlanToday}</p>
-        ) : (
-          todayPlans.map((plan) => (
-            <div key={plan.id} style={planCardStyle}>
-              <div style={planTopStyle}>
-                <strong>{formatDate(plan.datum)}</strong>
-                {isAdmin && <span>{plan.worker_name}</span>}
-              </div>
-
-              <p style={planTextStyle}>
-                <strong>{t.worker}:</strong> {plan.worker_name}
-              </p>
-
-              <p style={planTextStyle}>
-                <strong>{t.site}:</strong> {plan.baustellen?.naziv || "-"}
-              </p>
-
-              {plan.baustellen?.lokacija && (
-                <p style={planTextStyle}>
-                  <strong>{t.location}:</strong> {plan.baustellen.lokacija}
-                </p>
-              )}
-
-              {plan.napomena && (
-                <p style={planNoteStyle}>
-                  <strong>{t.note}:</strong> {plan.napomena}
-                </p>
-              )}
             </div>
           ))
         )}
@@ -442,46 +310,4 @@ const messageTextStyle: any = {
   fontSize: "16px",
   whiteSpace: "pre-wrap",
   margin: 0,
-};
-
-const planBoxStyle: any = {
-  marginTop: "24px",
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-};
-
-const planTitleStyle: any = {
-  color: "#f97316",
-  fontSize: "23px",
-  marginBottom: "14px",
-};
-
-const planCardStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "13px",
-  padding: "14px",
-  marginBottom: "12px",
-};
-
-const planTopStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "12px",
-  color: "#f97316",
-  marginBottom: "8px",
-};
-
-const planTextStyle: any = {
-  fontSize: "16px",
-  margin: "5px 0",
-};
-
-const planNoteStyle: any = {
-  fontSize: "16px",
-  whiteSpace: "pre-wrap",
-  marginTop: "8px",
-  color: "#ddd",
 };
