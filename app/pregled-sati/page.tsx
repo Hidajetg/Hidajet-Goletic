@@ -7,6 +7,9 @@ import { supabase } from "../lib/supabase";
 const RADNICI = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
 const ADMINI = ["Hido", "Steffi", "Admin"];
 
+const GODISNJI_DANI_PO_RADNIKU = 25;
+const SATI_PO_DANU = 8.5;
+
 const translations: any = {
   de: {
     back: "Zurück zum Dashboard",
@@ -29,6 +32,20 @@ const translations: any = {
     workers: "Mitarbeiter",
     days: "Tage",
     location: "Ort",
+    addAbsence: "Urlaub / Krankenstand hinzufügen",
+    absenceType: "Art",
+    fromDate: "Von Datum",
+    toDate: "Bis Datum",
+    saveAbsence: "Speichern",
+    vacationRight: "Urlaubsanspruch",
+    vacationUsedYear: "Genutzt im Jahr",
+    vacationRestYear: "Rest im Jahr",
+    selectWorker: "Mitarbeiter auswählen",
+    selectType: "Art auswählen",
+    enterDate: "Datum auswählen",
+    dateWrong: "Bis Datum darf nicht vor Von Datum liegen.",
+    onlyAdmin: "Nur Admin kann Urlaub oder Krankenstand eintragen.",
+    absenceSaved: "Eintrag gespeichert.",
   },
   ba: {
     back: "Nazad na Dashboard",
@@ -51,6 +68,20 @@ const translations: any = {
     workers: "radnika",
     days: "dana",
     location: "Lokacija",
+    addAbsence: "Dodaj godišnji / bolovanje",
+    absenceType: "Vrsta",
+    fromDate: "Od datuma",
+    toDate: "Do datuma",
+    saveAbsence: "Sačuvaj odsustvo",
+    vacationRight: "Pravo godišnjeg",
+    vacationUsedYear: "Iskorišteno u godini",
+    vacationRestYear: "Ostatak u godini",
+    selectWorker: "Odaberi radnika",
+    selectType: "Odaberi vrstu",
+    enterDate: "Odaberi datum",
+    dateWrong: "Datum do ne može biti prije datuma od.",
+    onlyAdmin: "Samo admin može dodati godišnji ili bolovanje.",
+    absenceSaved: "Odsustvo je sačuvano.",
   },
   uz: {
     back: "Dashboardga qaytish",
@@ -73,6 +104,20 @@ const translations: any = {
     workers: "ishchi",
     days: "kun",
     location: "Manzil",
+    addAbsence: "Ta’til / kasallik qo‘shish",
+    absenceType: "Turi",
+    fromDate: "Boshlanish sanasi",
+    toDate: "Tugash sanasi",
+    saveAbsence: "Saqlash",
+    vacationRight: "Ta’til huquqi",
+    vacationUsedYear: "Yilda ishlatilgan",
+    vacationRestYear: "Yilda qolgan",
+    selectWorker: "Ishchini tanlang",
+    selectType: "Turini tanlang",
+    enterDate: "Sanani tanlang",
+    dateWrong: "Tugash sanasi boshlanish sanasidan oldin bo‘lishi mumkin emas.",
+    onlyAdmin: "Faqat admin ta’til yoki kasallik qo‘sha oladi.",
+    absenceSaved: "Yozuv saqlandi.",
   },
   en: {
     back: "Back to Dashboard",
@@ -95,6 +140,20 @@ const translations: any = {
     workers: "workers",
     days: "days",
     location: "Location",
+    addAbsence: "Add vacation / sick leave",
+    absenceType: "Type",
+    fromDate: "From date",
+    toDate: "To date",
+    saveAbsence: "Save absence",
+    vacationRight: "Vacation entitlement",
+    vacationUsedYear: "Used this year",
+    vacationRestYear: "Remaining this year",
+    selectWorker: "Select worker",
+    selectType: "Select type",
+    enterDate: "Select date",
+    dateWrong: "To date cannot be before from date.",
+    onlyAdmin: "Only admin can add vacation or sick leave.",
+    absenceSaved: "Absence saved.",
   },
 };
 
@@ -160,6 +219,7 @@ const monthNames: any = {
 export default function PregledSatiPage() {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
+  const today = new Date().toISOString().split("T")[0];
 
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState(currentMonth);
@@ -168,6 +228,12 @@ export default function PregledSatiPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [unosi, setUnosi] = useState<any[]>([]);
   const [lang, setLang] = useState("ba");
+
+  const [absenceWorker, setAbsenceWorker] = useState("");
+  const [absenceType, setAbsenceType] = useState("GODISNJI");
+  const [absenceFrom, setAbsenceFrom] = useState(today);
+  const [absenceTo, setAbsenceTo] = useState(today);
+  const [godisnjiGodinaUnosi, setGodisnjiGodinaUnosi] = useState<any[]>([]);
 
   const t = translations[lang] || translations.ba;
   const months = monthNames[lang] || monthNames.ba;
@@ -183,14 +249,17 @@ export default function PregledSatiPage() {
 
     if (adminStatus) {
       setSelectedWorker("ALL");
+      setAbsenceWorker(RADNICI[0]);
     } else {
       setSelectedWorker(name);
+      setAbsenceWorker(name);
     }
   }, []);
 
   useEffect(() => {
     if (selectedWorker) {
       loadData();
+      loadGodisnjiGodina();
     }
   }, [selectedWorker, year, month]);
 
@@ -248,6 +317,33 @@ export default function PregledSatiPage() {
     setUnosi(merged);
   }
 
+  async function loadGodisnjiGodina() {
+    const startDate = `${year}-01-01`;
+    const endDate = `${year + 1}-01-01`;
+
+    let query = supabase
+      .from("baustelle_hours")
+      .select("*")
+      .gte("datum", startDate)
+      .lt("datum", endDate)
+      .or("tip_unosa.eq.GODISNJI,tip_unosa.eq.GODIŠNJI");
+
+    if (selectedWorker !== "ALL") {
+      query = query.eq("radnik", selectedWorker);
+    } else {
+      query = query.in("radnik", RADNICI);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      setGodisnjiGodinaUnosi([]);
+      return;
+    }
+
+    setGodisnjiGodinaUnosi(data || []);
+  }
+
   function getNextMonthDate(y: number, m: number) {
     if (m === 12) return `${y + 1}-01-01`;
     return `${y}-${String(m + 1).padStart(2, "0")}-01`;
@@ -267,6 +363,94 @@ export default function PregledSatiPage() {
     }
 
     return workdays;
+  }
+
+  function getDatesBetween(from: string, to: string) {
+    const dates: string[] = [];
+
+    const start = new Date(from);
+    const end = new Date(to);
+
+    const current = new Date(start);
+
+    while (current <= end) {
+      const day = current.getDay();
+
+      if (day !== 0 && day !== 6) {
+        const y = current.getFullYear();
+        const m = String(current.getMonth() + 1).padStart(2, "0");
+        const d = String(current.getDate()).padStart(2, "0");
+
+        dates.push(`${y}-${m}-${d}`);
+      }
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    return dates;
+  }
+
+  async function saveAbsence() {
+    if (!isAdmin) {
+      alert(t.onlyAdmin);
+      return;
+    }
+
+    if (!absenceWorker) {
+      alert(t.selectWorker);
+      return;
+    }
+
+    if (!absenceType) {
+      alert(t.selectType);
+      return;
+    }
+
+    if (!absenceFrom || !absenceTo) {
+      alert(t.enterDate);
+      return;
+    }
+
+    if (new Date(absenceTo) < new Date(absenceFrom)) {
+      alert(t.dateWrong);
+      return;
+    }
+
+    const dates = getDatesBetween(absenceFrom, absenceTo);
+
+    if (dates.length === 0) {
+      alert(t.enterDate);
+      return;
+    }
+
+    const inserts = dates.map((datum) => ({
+      baustelle_id: null,
+      room_id: null,
+      radnik: absenceWorker,
+      datum,
+      tip_unosa: absenceType,
+      pocetak: null,
+      kraj: null,
+      pauza: 0,
+      ukupno_sati: SATI_PO_DANU,
+      sati: SATI_PO_DANU,
+      prekovremeni: 0,
+      opis: null,
+      opis_posla:
+        absenceType === "GODISNJI" ? t.vacation : t.sick,
+    }));
+
+    const { error } = await supabase.from("baustelle_hours").insert(inserts);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    alert(t.absenceSaved);
+
+    await loadData();
+    await loadGodisnjiGodina();
   }
 
   function downloadCSV() {
@@ -345,8 +529,16 @@ export default function PregledSatiPage() {
 
   const radniDani = getWorkdaysInMonth(year, month);
   const brojRadnikaZaNormu = selectedWorker === "ALL" ? RADNICI.length : 1;
-  const normaSati = radniDani * 8.5 * brojRadnikaZaNormu;
+  const normaSati = radniDani * SATI_PO_DANU * brojRadnikaZaNormu;
   const saldo = ukupnoSati - normaSati;
+
+  const godisnjiPravoDani =
+    selectedWorker === "ALL"
+      ? GODISNJI_DANI_PO_RADNIKU * RADNICI.length
+      : GODISNJI_DANI_PO_RADNIKU;
+
+  const godisnjiIskoristenoGodina = godisnjiGodinaUnosi.length;
+  const godisnjiOstatakGodina = godisnjiPravoDani - godisnjiIskoristenoGodina;
 
   return (
     <main style={mainStyle}>
@@ -412,6 +604,65 @@ export default function PregledSatiPage() {
         </div>
       </div>
 
+      {isAdmin && (
+        <div style={absenceBoxStyle}>
+          <h2 style={{ marginTop: 0 }}>+ {t.addAbsence}</h2>
+
+          <div style={absenceGridStyle}>
+            <div>
+              <label>{t.worker}</label>
+              <select
+                value={absenceWorker}
+                onChange={(e) => setAbsenceWorker(e.target.value)}
+                style={selectStyle}
+              >
+                {RADNICI.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label>{t.absenceType}</label>
+              <select
+                value={absenceType}
+                onChange={(e) => setAbsenceType(e.target.value)}
+                style={selectStyle}
+              >
+                <option value="GODISNJI">{t.vacation}</option>
+                <option value="BOLOVANJE">{t.sick}</option>
+              </select>
+            </div>
+
+            <div>
+              <label>{t.fromDate}</label>
+              <input
+                type="date"
+                value={absenceFrom}
+                onChange={(e) => setAbsenceFrom(e.target.value)}
+                style={selectStyle}
+              />
+            </div>
+
+            <div>
+              <label>{t.toDate}</label>
+              <input
+                type="date"
+                value={absenceTo}
+                onChange={(e) => setAbsenceTo(e.target.value)}
+                style={selectStyle}
+              />
+            </div>
+          </div>
+
+          <button onClick={saveAbsence} style={absenceButtonStyle}>
+            {t.saveAbsence}
+          </button>
+        </div>
+      )}
+
       <div style={summaryGridStyle}>
         <div style={summaryBoxStyle}>
           <p>{t.totalHours}</p>
@@ -455,6 +706,27 @@ export default function PregledSatiPage() {
           <p>{t.holiday}</p>
           <h2>
             {praznikDani} {t.days}
+          </h2>
+        </div>
+
+        <div style={summaryBoxStyle}>
+          <p>{t.vacationRight}</p>
+          <h2>
+            {godisnjiPravoDani} {t.days}
+          </h2>
+        </div>
+
+        <div style={summaryBoxStyle}>
+          <p>{t.vacationUsedYear}</p>
+          <h2>
+            {godisnjiIskoristenoGodina} {t.days}
+          </h2>
+        </div>
+
+        <div style={summaryBoxStyle}>
+          <p>{t.vacationRestYear}</p>
+          <h2 style={{ color: godisnjiOstatakGodina >= 0 ? "#22c55e" : "#ef4444" }}>
+            {godisnjiOstatakGodina} {t.days}
           </h2>
         </div>
       </div>
@@ -542,6 +814,21 @@ const filterBoxStyle: any = {
   marginBottom: "30px",
 };
 
+const absenceBoxStyle: any = {
+  background: "#111",
+  padding: "25px",
+  borderRadius: "20px",
+  marginBottom: "30px",
+  border: "1px solid #333",
+};
+
+const absenceGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "20px",
+  marginBottom: "20px",
+};
+
 const selectStyle: any = {
   width: "100%",
   padding: "15px",
@@ -551,6 +838,17 @@ const selectStyle: any = {
   background: "#222",
   color: "white",
   fontSize: "18px",
+};
+
+const absenceButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  padding: "14px 24px",
+  fontSize: "16px",
+  fontWeight: "bold",
+  cursor: "pointer",
 };
 
 const summaryGridStyle: any = {
