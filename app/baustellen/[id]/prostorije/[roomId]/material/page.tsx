@@ -21,26 +21,31 @@ export default function RoomMaterialPage() {
   const [slobodnaKolicina, setSlobodnaKolicina] = useState("");
 
   async function loadData() {
-    const { data: grupeData } = await supabase
+    const { data: grupeData, error: grupeError } = await supabase
       .from("material_groups")
       .select("*")
       .order("naziv", { ascending: true });
+
+    if (grupeError) {
+      alert("FEHLER GRUPPEN: " + grupeError.message);
+      return;
+    }
 
     const { data: materijaliData, error: materijaliError } = await supabase
       .from("materials")
       .select("*")
       .order("naziv", { ascending: true });
 
-    const { data: roomData, error: roomError } = await supabase
-      .from("room_material")
-      .select("*")
-      .eq("room_id", roomId)
-      .order("id", { ascending: false });
-
     if (materijaliError) {
       alert("FEHLER MATERIALIEN: " + materijaliError.message);
       return;
     }
+
+    const { data: roomData, error: roomError } = await supabase
+      .from("room_material")
+      .select("*")
+      .eq("room_id", Number(roomId))
+      .order("id", { ascending: false });
 
     if (roomError) {
       alert("FEHLER RAUM-MATERIAL: " + roomError.message);
@@ -74,12 +79,17 @@ export default function RoomMaterialPage() {
     }
 
     for (const [materialId, value] of unosi) {
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from("room_material")
         .select("*")
-        .eq("room_id", roomId)
+        .eq("room_id", Number(roomId))
         .eq("material_id", Number(materialId))
         .maybeSingle();
+
+      if (existingError) {
+        alert("PRÜFEN: " + existingError.message);
+        return;
+      }
 
       if (existing) {
         const { error } = await supabase
@@ -124,18 +134,44 @@ export default function RoomMaterialPage() {
       return;
     }
 
-    const { error } = await supabase.from("room_material").insert([
-      {
-        room_id: Number(roomId),
-        material_id: null,
-        kolicina: Number(slobodnaKolicina),
-        custom_naziv: slobodniNaziv.trim(),
-        custom_jedinica: slobodnaJedinica,
-      },
-    ]);
+    const dodaciGrupa = grupe.find(
+      (g) => String(g.naziv).toLowerCase() === "dodaci"
+    );
 
-    if (error) {
-      alert("FREIES MATERIAL EINFÜGEN: " + error.message);
+    const { data: noviMaterijal, error: materialError } = await supabase
+      .from("materials")
+      .insert([
+        {
+          naziv: slobodniNaziv.trim(),
+          jedinica: slobodnaJedinica,
+          group_id: dodaciGrupa ? Number(dodaciGrupa.id) : null,
+        },
+      ])
+      .select()
+      .single();
+
+    if (materialError) {
+      alert("MATERIAL ERSTELLEN: " + materialError.message);
+      return;
+    }
+
+    if (!noviMaterijal?.id) {
+      alert("Material wurde nicht erstellt.");
+      return;
+    }
+
+    const { error: roomMaterialError } = await supabase
+      .from("room_material")
+      .insert([
+        {
+          room_id: Number(roomId),
+          material_id: Number(noviMaterijal.id),
+          kolicina: Number(slobodnaKolicina),
+        },
+      ]);
+
+    if (roomMaterialError) {
+      alert("FREIES MATERIAL EINFÜGEN: " + roomMaterialError.message);
       return;
     }
 
@@ -185,15 +221,11 @@ export default function RoomMaterialPage() {
   }
 
   function nazivUnosa(unos: any) {
-    if (unos.custom_naziv) return unos.custom_naziv;
-
     const material = getMaterial(unos.material_id);
     return material?.naziv || "Unbekanntes Material";
   }
 
   function jedinicaUnosa(unos: any) {
-    if (unos.custom_jedinica) return unos.custom_jedinica;
-
     const material = getMaterial(unos.material_id);
     return material?.jedinica || "";
   }
@@ -255,57 +287,34 @@ export default function RoomMaterialPage() {
       </section>
 
       <section style={styles.box}>
-        {grupe.length > 0 ? (
-          grupe.map((g) => {
-            const materijaliGrupe = materijali.filter(
-              (m) => String(m.group_id) === String(g.id)
-            );
+        {grupe.map((g) => {
+          const materijaliGrupe = materijali.filter(
+            (m) => String(m.group_id) === String(g.id)
+          );
 
-            return (
-              <div key={g.id} style={styles.groupBox}>
-                <h2 style={styles.groupTitle}>{g.naziv}</h2>
+          return (
+            <div key={g.id} style={styles.groupBox}>
+              <h2 style={styles.groupTitle}>{g.naziv}</h2>
 
-                {materijaliGrupe.map((m) => (
-                  <div key={m.id} style={styles.materialRow}>
-                    <div>
-                      <strong>{m.naziv}</strong>
-                      <div style={styles.smallText}>{m.jedinica}</div>
-                    </div>
-
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={kolicine[m.id] || ""}
-                      onChange={(e) => setKolicina(m.id, e.target.value)}
-                      style={styles.quantityInput}
-                    />
+              {materijaliGrupe.map((m) => (
+                <div key={m.id} style={styles.materialRow}>
+                  <div>
+                    <strong>{m.naziv}</strong>
+                    <div style={styles.smallText}>{m.jedinica}</div>
                   </div>
-                ))}
-              </div>
-            );
-          })
-        ) : (
-          <div style={styles.groupBox}>
-            <h2 style={styles.groupTitle}>Alle Materialien</h2>
 
-            {materijali.map((m) => (
-              <div key={m.id} style={styles.materialRow}>
-                <div>
-                  <strong>{m.naziv}</strong>
-                  <div style={styles.smallText}>{m.jedinica}</div>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={kolicine[m.id] || ""}
+                    onChange={(e) => setKolicina(m.id, e.target.value)}
+                    style={styles.quantityInput}
+                  />
                 </div>
-
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={kolicine[m.id] || ""}
-                  onChange={(e) => setKolicina(m.id, e.target.value)}
-                  style={styles.quantityInput}
-                />
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          );
+        })}
 
         <button onClick={sacuvajSveKolicine} style={styles.saveButton}>
           Alle eingegebenen Mengen speichern
