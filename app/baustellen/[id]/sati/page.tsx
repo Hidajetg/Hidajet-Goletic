@@ -112,7 +112,7 @@ export default function SatiPage() {
     const { data, error } = await query;
 
     if (error) {
-      alert("LOAD SATI: " + error.message);
+      alert("FEHLER BEIM LADEN DER STUNDEN: " + error.message);
       return;
     }
 
@@ -121,7 +121,7 @@ export default function SatiPage() {
 
   async function saveHours() {
     if (!radnik) {
-      alert("Odaberi radnika");
+      alert("Mitarbeiter auswählen");
       return;
     }
 
@@ -144,7 +144,7 @@ export default function SatiPage() {
     ]);
 
     if (error) {
-      alert("INSERT SATI: " + error.message);
+      alert("FEHLER BEIM SPEICHERN DER STUNDEN: " + error.message);
       return;
     }
 
@@ -153,7 +153,7 @@ export default function SatiPage() {
   }
 
   async function deleteHours(id: number) {
-    const potvrda = confirm("Da li želiš obrisati ovaj unos?");
+    const potvrda = confirm("Diesen Eintrag wirklich löschen?");
     if (!potvrda) return;
 
     const { error } = await supabase
@@ -162,7 +162,7 @@ export default function SatiPage() {
       .eq("id", id);
 
     if (error) {
-      alert("DELETE SATI: " + error.message);
+      alert("FEHLER BEIM LÖSCHEN DER STUNDEN: " + error.message);
       return;
     }
 
@@ -177,26 +177,26 @@ export default function SatiPage() {
   return (
     <main style={styles.page}>
       <button onClick={() => router.back()} style={styles.backButton}>
-        ← Nazad
+        ← Zurück
       </button>
 
-      <h1 style={styles.title}>Radni sati</h1>
+      <h1 style={styles.title}>Arbeitsstunden</h1>
 
       <section style={styles.summaryBox}>
         <h2 style={styles.summaryTitle}>
-          {roomId ? "Ukupno sati u ovoj prostoriji" : "Ukupno sati na Baustelle"}
+          {roomId ? "Gesamtstunden in diesem Raum" : "Gesamtstunden auf der Baustelle"}
         </h2>
 
         <div style={styles.summaryGrid}>
           <div>
-            <div style={styles.summaryLabel}>Ukupno sati</div>
+            <div style={styles.summaryLabel}>Gesamtstunden</div>
             <div style={styles.summaryNumber}>
               {ukupnoSatiProstorije.toFixed(2)} h
             </div>
           </div>
 
           <div>
-            <div style={styles.summaryLabel}>Broj unosa</div>
+            <div style={styles.summaryLabel}>Anzahl der Einträge</div>
             <div style={styles.summaryNumber}>{sati.length}</div>
           </div>
         </div>
@@ -208,7 +208,7 @@ export default function SatiPage() {
           onChange={(e) => setRadnik(e.target.value)}
           style={styles.input}
         >
-          {workers.length === 0 && <option value="">Nema radnika</option>}
+          {workers.length === 0 && <option value="">Keine Mitarbeiter</option>}
 
           {workers.map((w) => (
             <option key={w.id} value={w.name}>
@@ -229,10 +229,10 @@ export default function SatiPage() {
           onChange={(e) => setTipUnosa(e.target.value)}
           style={styles.input}
         >
-          <option value="RAD">Radni dan</option>
-          <option value="GODISNJI">Godišnji odmor</option>
-          <option value="BOLOVANJE">Bolovanje</option>
-          <option value="PRAZNIK">Praznik</option>
+          <option value="RAD">Arbeitstag</option>
+          <option value="GODISNJI">Urlaub</option>
+          <option value="BOLOVANJE">Krankenstand</option>
+          <option value="PRAZNIK">Feiertag</option>
         </select>
 
         {tipUnosa === "RAD" && (
@@ -244,7 +244,7 @@ export default function SatiPage() {
             >
               {vremenaPocetak.map((v) => (
                 <option key={v} value={v}>
-                  Početak: {v}
+                  Beginn: {v}
                 </option>
               ))}
             </select>
@@ -256,7 +256,7 @@ export default function SatiPage() {
             >
               {vremenaKraj.map((v) => (
                 <option key={v} value={v}>
-                  Kraj: {v}
+                  Ende: {v}
                 </option>
               ))}
             </select>
@@ -266,12 +266,12 @@ export default function SatiPage() {
               onChange={(e) => setPauza(e.target.value)}
               style={styles.input}
             >
-              <option value="0">Bez pauze</option>
-              <option value="0.5">Pauza: 0.5h</option>
-              <option value="1">Pauza: 1h</option>
-              <option value="1.5">Pauza: 1.5h</option>
-              <option value="2">Pauza: 2h</option>
-              <option value="2.5">Pauza: 2.5h</option>
+              <option value="0">Keine Pause</option>
+              <option value="0.5">Pause: 0.5h</option>
+              <option value="1">Pause: 1h</option>
+              <option value="1.5">Pause: 1.5h</option>
+              <option value="2">Pause: 2h</option>
+              <option value="2.5">Pause: 2.5h</option>
             </select>
           </>
         )}
@@ -279,24 +279,24 @@ export default function SatiPage() {
         <textarea
           value={opisPosla}
           onChange={(e) => setOpisPosla(e.target.value)}
-          placeholder="Opis posla, npr. keramika WC, priprema podloge, silikoniranje..."
+          placeholder="Arbeitsbeschreibung, z.B. WC-Fliesen, Untergrundvorbereitung, Silikonarbeiten..."
           style={styles.textarea}
         />
 
         <div style={styles.totalBox}>
-          <div>Trenutni unos: {calcHours()}h</div>
+          <div>Aktueller Eintrag: {calcHours()}h</div>
         </div>
 
         <button onClick={saveHours} style={styles.saveButton}>
-          Sačuvaj
+          Speichern
         </button>
       </section>
 
       <section style={styles.box}>
-        <h2>Uneseni sati</h2>
+        <h2>Erfasste Stunden</h2>
 
         {sati.length === 0 && (
-          <p style={styles.emptyText}>Još nema unesenih sati.</p>
+          <p style={styles.emptyText}>Noch keine Stunden erfasst.</p>
         )}
 
         {sati.map((s) => (
@@ -304,21 +304,23 @@ export default function SatiPage() {
             <strong>{s.radnik}</strong>
 
             <div>Datum: {s.datum}</div>
-            <div>Tip: {s.tip_unosa}</div>
+            <div>Typ: {s.tip_unosa}</div>
 
             {s.tip_unosa === "RAD" && (
               <div>
                 {s.pocetak} - {s.kraj} |{" "}
-                {Number(s.pauza) === 0 ? "Bez pauze" : `Pauza: ${s.pauza}h`}
+                {Number(s.pauza) === 0 ? "Keine Pause" : `Pause: ${s.pauza}h`}
               </div>
             )}
 
-            {s.opis_posla && <div>Opis posla: {s.opis_posla}</div>}
+            {s.opis_posla && (
+              <div>Arbeitsbeschreibung: {s.opis_posla}</div>
+            )}
 
-            <div>Ukupno: {s.ukupno_sati ?? s.sati}h</div>
+            <div>Gesamt: {s.ukupno_sati ?? s.sati}h</div>
 
             <button onClick={() => deleteHours(s.id)} style={styles.deleteButton}>
-              Obriši
+              Löschen
             </button>
           </div>
         ))}
