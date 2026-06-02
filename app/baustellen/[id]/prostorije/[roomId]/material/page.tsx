@@ -17,7 +17,7 @@ export default function RoomMaterialPage() {
   const [kolicine, setKolicine] = useState<{ [key: number]: string }>({});
 
   const [slobodniNaziv, setSlobodniNaziv] = useState("");
-  const [slobodnaJedinica, setSlobodnaJedinica] = useState("kom");
+  const [slobodnaJedinica, setSlobodnaJedinica] = useState("Stk.");
   const [slobodnaKolicina, setSlobodnaKolicina] = useState("");
 
   async function loadData() {
@@ -38,12 +38,12 @@ export default function RoomMaterialPage() {
       .order("id", { ascending: false });
 
     if (materijaliError) {
-      alert("MATERIALS ERROR: " + materijaliError.message);
+      alert("FEHLER MATERIALIEN: " + materijaliError.message);
       return;
     }
 
     if (roomError) {
-      alert("ROOM MATERIAL ERROR: " + roomError.message);
+      alert("FEHLER RAUM-MATERIAL: " + roomError.message);
       return;
     }
 
@@ -69,7 +69,7 @@ export default function RoomMaterialPage() {
     );
 
     if (unosi.length === 0) {
-      alert("Unesi barem jednu količinu");
+      alert("Bitte mindestens eine Menge eingeben.");
       return;
     }
 
@@ -90,7 +90,7 @@ export default function RoomMaterialPage() {
           .eq("id", existing.id);
 
         if (error) {
-          alert("UPDATE: " + error.message);
+          alert("AKTUALISIEREN: " + error.message);
           return;
         }
       } else {
@@ -103,7 +103,7 @@ export default function RoomMaterialPage() {
         ]);
 
         if (error) {
-          alert("INSERT: " + error.message);
+          alert("EINFÜGEN: " + error.message);
           return;
         }
       }
@@ -120,7 +120,7 @@ export default function RoomMaterialPage() {
       !slobodnaKolicina ||
       Number(slobodnaKolicina) <= 0
     ) {
-      alert("Unesi naziv materijala, jedinicu i količinu.");
+      alert("Bitte Materialname, Einheit und Menge eingeben.");
       return;
     }
 
@@ -135,12 +135,12 @@ export default function RoomMaterialPage() {
     ]);
 
     if (error) {
-      alert("INSERT SLOBODNI MATERIJAL: " + error.message);
+      alert("FREIES MATERIAL EINFÜGEN: " + error.message);
       return;
     }
 
     setSlobodniNaziv("");
-    setSlobodnaJedinica("kom");
+    setSlobodnaJedinica("Stk.");
     setSlobodnaKolicina("");
 
     await loadData();
@@ -160,7 +160,7 @@ export default function RoomMaterialPage() {
       .eq("id", id);
 
     if (error) {
-      alert("UPDATE: " + error.message);
+      alert("AKTUALISIEREN: " + error.message);
       return;
     }
 
@@ -168,7 +168,7 @@ export default function RoomMaterialPage() {
   }
 
   async function obrisiMaterijal(id: number) {
-    const potvrda = confirm("Da li želiš obrisati ovaj materijal?");
+    const potvrda = confirm("Dieses Material wirklich löschen?");
     if (!potvrda) return;
 
     const { error } = await supabase
@@ -177,7 +177,7 @@ export default function RoomMaterialPage() {
       .eq("id", id);
 
     if (error) {
-      alert("DELETE: " + error.message);
+      alert("LÖSCHEN: " + error.message);
       return;
     }
 
@@ -188,7 +188,7 @@ export default function RoomMaterialPage() {
     if (unos.custom_naziv) return unos.custom_naziv;
 
     const material = getMaterial(unos.material_id);
-    return material?.naziv || "Nepoznat materijal";
+    return material?.naziv || "Unbekanntes Material";
   }
 
   function jedinicaUnosa(unos: any) {
@@ -208,18 +208,18 @@ export default function RoomMaterialPage() {
         href={`/baustellen/${baustelleId}/prostorije/${roomId}`}
         style={styles.backLink}
       >
-        ← Nazad na prostoriju
+        ← Zurück zum Raum
       </Link>
 
-      <h1 style={styles.title}>Materijal prostorije</h1>
+      <h1 style={styles.title}>Material im Raum</h1>
 
       <section style={styles.freeBox}>
-        <h2 style={styles.groupTitle}>+ Slobodni materijal</h2>
+        <h2 style={styles.groupTitle}>+ Freies Material</h2>
 
         <input
           value={slobodniNaziv}
           onChange={(e) => setSlobodniNaziv(e.target.value)}
-          placeholder="Naziv materijala"
+          placeholder="Materialname"
           style={styles.input}
         />
 
@@ -228,29 +228,29 @@ export default function RoomMaterialPage() {
           onChange={(e) => setSlobodnaJedinica(e.target.value)}
           style={styles.input}
         >
-          <option value="kom">kom</option>
+          <option value="Stk.">Stk.</option>
           <option value="m">m</option>
           <option value="m²">m²</option>
           <option value="m³">m³</option>
           <option value="kg">kg</option>
           <option value="l">l</option>
-          <option value="vreća">vreća</option>
-          <option value="rola">rola</option>
-          <option value="paket">paket</option>
-          <option value="karton">karton</option>
-          <option value="set">set</option>
+          <option value="Sack">Sack</option>
+          <option value="Rolle">Rolle</option>
+          <option value="Paket">Paket</option>
+          <option value="Karton">Karton</option>
+          <option value="Set">Set</option>
         </select>
 
         <input
           type="number"
           value={slobodnaKolicina}
           onChange={(e) => setSlobodnaKolicina(e.target.value)}
-          placeholder="Količina"
+          placeholder="Menge"
           style={styles.input}
         />
 
         <button onClick={dodajSlobodniMaterijal} style={styles.saveButton}>
-          Dodaj slobodni materijal
+          Freies Material hinzufügen
         </button>
       </section>
 
@@ -286,7 +286,7 @@ export default function RoomMaterialPage() {
           })
         ) : (
           <div style={styles.groupBox}>
-            <h2 style={styles.groupTitle}>Svi materijali</h2>
+            <h2 style={styles.groupTitle}>Alle Materialien</h2>
 
             {materijali.map((m) => (
               <div key={m.id} style={styles.materialRow}>
@@ -308,15 +308,15 @@ export default function RoomMaterialPage() {
         )}
 
         <button onClick={sacuvajSveKolicine} style={styles.saveButton}>
-          Sačuvaj sve unesene količine
+          Alle eingegebenen Mengen speichern
         </button>
       </section>
 
       <section style={styles.box}>
-        <h2>Materijal u prostoriji ({roomMaterial.length})</h2>
+        <h2>Material im Raum ({roomMaterial.length})</h2>
 
         {roomMaterial.length === 0 && (
-          <p style={styles.emptyText}>Još nema unesenog materijala.</p>
+          <p style={styles.emptyText}>Noch kein Material eingetragen.</p>
         )}
 
         {roomMaterial.map((m) => (
@@ -346,7 +346,7 @@ export default function RoomMaterialPage() {
                 onClick={() => obrisiMaterijal(m.id)}
                 style={styles.deleteButton}
               >
-                Obriši
+                Löschen
               </button>
             </div>
           </div>
