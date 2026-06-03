@@ -10,6 +10,11 @@ const ADMINI = ["Hido", "Steffi", "Admin"];
 const GODISNJI_DANI_PO_RADNIKU = 25;
 const SATI_PO_DANU = 8.5;
 
+const PDF_BUCKET = "pdf-assets";
+const PDF_LOGO_TOP = "Gore.heic";
+const PDF_SIDE_IMAGE = "Strana.heic";
+const PDF_MOUNTAIN_BG = "pozadina.png";
+
 const translations: any = {
   ba: {
     back: "Nazad na Dashboard",
@@ -31,7 +36,6 @@ const translations: any = {
     workdays: "radnih dana",
     workers: "radnika",
     days: "dana",
-    location: "Lokacija",
     addAbsence: "Dodaj godišnji / bolovanje / praznik",
     absenceType: "Vrsta",
     fromDate: "Od datuma",
@@ -351,11 +355,31 @@ export default function PregledSatiPage() {
       .replace(/"/g, "&quot;");
   }
 
+  function getBaustelleText(u: any) {
+    if (u.baustelle_naziv && u.baustelle_naziv !== "-") {
+      return u.baustelle_naziv;
+    }
+
+    if (u.baustelle_lokacija && u.baustelle_lokacija !== "-") {
+      return u.baustelle_lokacija;
+    }
+
+    return "-";
+  }
+
+  function getStoragePublicUrl(fileName: string) {
+    return supabase.storage.from(PDF_BUCKET).getPublicUrl(fileName).data.publicUrl;
+  }
+
   function downloadPDF() {
     if (!isAdmin) {
       alert(t.onlyAdminDownload);
       return;
     }
+
+    const logoTopUrl = getStoragePublicUrl(PDF_LOGO_TOP);
+    const sideImageUrl = getStoragePublicUrl(PDF_SIDE_IMAGE);
+    const mountainBgUrl = getStoragePublicUrl(PDF_MOUNTAIN_BG);
 
     const workerLabel =
       selectedWorker === "ALL" ? "Alle Mitarbeiter" : selectedWorker || workerName;
@@ -365,10 +389,7 @@ export default function PregledSatiPage() {
     const rowsHtml = unosi
       .map((u) => {
         const sati = Number(u.ukupno_sati || u.sati || 0).toFixed(1);
-        const baustelleText =
-          u.baustelle_naziv && u.baustelle_naziv !== "-"
-            ? u.baustelle_naziv
-            : u.baustelle_lokacija || "-";
+        const baustelleText = getBaustelleText(u);
 
         return `
           <tr>
@@ -397,7 +418,7 @@ export default function PregledSatiPage() {
           <style>
             @page {
               size: A4 portrait;
-              margin: 9mm;
+              margin: 8mm;
             }
 
             * {
@@ -418,177 +439,184 @@ export default function PregledSatiPage() {
               min-height: 100vh;
               position: relative;
               overflow: hidden;
+              background: #ffffff;
             }
 
-            .mountain-band {
-              height: 72px;
-              position: relative;
-              margin-bottom: 8px;
-              background:
-                linear-gradient(180deg, rgba(248,248,248,1) 0%, rgba(255,255,255,1) 100%);
-              border-bottom: 3px solid #f47b20;
+            .side-strip {
+              position: absolute;
+              left: 0;
+              top: 0;
+              bottom: 0;
+              width: 44px;
               overflow: hidden;
+              background: #111;
             }
 
-            .mountain-svg {
-              position: absolute;
-              left: 0;
-              right: 0;
-              bottom: -2px;
-              width: 100%;
-              height: 82px;
-              opacity: 0.34;
+            .side-strip img {
+              width: 44px;
+              height: 100%;
+              object-fit: cover;
+              object-position: center;
+              display: block;
             }
 
-            .mountain-svg-dark {
-              position: absolute;
-              left: 0;
-              right: 0;
-              bottom: -3px;
-              width: 100%;
-              height: 70px;
-              opacity: 0.16;
+            .content {
+              margin-left: 52px;
+              position: relative;
+              z-index: 2;
             }
 
             .header {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 16px;
-              align-items: end;
-              margin-bottom: 10px;
+              height: 128px;
+              position: relative;
+              overflow: hidden;
+              border-bottom: 2px solid #f47b20;
+              margin-bottom: 8px;
+              background: #fff;
             }
 
-            .brand {
-              display: flex;
-              align-items: center;
-              gap: 12px;
+            .mountain-bg {
+              position: absolute;
+              left: 210px;
+              right: 0;
+              top: 0;
+              height: 128px;
+              opacity: 0.95;
+              z-index: 1;
             }
 
-            .brand-mark {
-              width: 42px;
-              height: 42px;
-              border-radius: 8px;
-              background: #f47b20;
-              color: white;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 30px;
-              line-height: 1;
-              font-weight: 900;
-              font-family: Georgia, "Times New Roman", serif;
-              transform: skew(-6deg);
+            .mountain-bg img {
+              width: 100%;
+              height: 128px;
+              object-fit: cover;
+              object-position: center top;
+              display: block;
             }
 
-            .company-name {
-              margin: 0;
-              color: #f47b20;
-              font-size: 19px;
-              line-height: 1.1;
-              font-weight: 900;
-              letter-spacing: 0.3px;
-              text-transform: uppercase;
+            .mountain-bg::after {
+              content: "";
+              position: absolute;
+              left: 0;
+              right: 0;
+              top: 0;
+              bottom: 0;
+              background: linear-gradient(90deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.72) 34%, rgba(255,255,255,0.32) 100%);
             }
 
-            .company-subtitle {
-              margin: 3px 0 0 0;
-              color: #111;
-              font-size: 9.8px;
-              letter-spacing: 1.35px;
-              font-weight: 800;
-              text-transform: uppercase;
+            .logo-box {
+              position: absolute;
+              left: 0;
+              top: 18px;
+              width: 285px;
+              height: 62px;
+              z-index: 3;
             }
 
-            .document-title {
+            .logo-box img {
+              width: 100%;
+              height: 62px;
+              object-fit: contain;
+              object-position: left center;
+              display: block;
+            }
+
+            .title-box {
+              position: absolute;
+              right: 0;
+              top: 22px;
               text-align: right;
+              z-index: 3;
             }
 
-            .document-title h1 {
+            .title-box h1 {
               margin: 0;
-              font-size: 23px;
+              color: #111111;
+              font-size: 25px;
               line-height: 1;
-              color: #111;
-              letter-spacing: 0.6px;
               font-weight: 900;
+              letter-spacing: 0.5px;
               text-transform: uppercase;
             }
 
-            .document-title p {
-              margin: 4px 0 0 0;
-              color: #f47b20;
-              font-size: 11px;
+            .title-box p {
+              margin: 8px 0 0 0;
+              color: #111111;
+              font-size: 10px;
               font-weight: 800;
               text-transform: uppercase;
-              letter-spacing: 0.8px;
+              letter-spacing: 0.5px;
+              border-bottom: 2px solid #f47b20;
+              padding-bottom: 6px;
+              display: inline-block;
             }
 
             .summary-grid {
               display: grid;
               grid-template-columns: repeat(5, 1fr);
               gap: 6px;
-              margin-bottom: 9px;
+              margin-bottom: 8px;
             }
 
             .summary-box {
-              border: 1px solid #d7d7d7;
-              border-top: 4px solid #f47b20;
-              border-radius: 7px;
+              border: 1px solid #d8d8d8;
+              border-radius: 5px;
+              background: rgba(255,255,255,0.97);
               padding: 5px 6px 6px 6px;
-              min-height: 44px;
-              background: #ffffff;
+              min-height: 42px;
+              border-bottom: 2px solid #f47b20;
             }
 
             .summary-label {
+              color: #333333;
               font-size: 7.4px;
-              color: #666;
+              line-height: 1;
               text-transform: uppercase;
-              letter-spacing: 0.45px;
-              font-weight: 800;
-              margin-bottom: 3px;
+              font-weight: 900;
+              letter-spacing: 0.35px;
+              margin-bottom: 4px;
             }
 
             .summary-value {
-              font-size: 12.4px;
+              color: #111111;
+              font-size: 12.6px;
+              line-height: 1;
               font-weight: 900;
-              color: #111;
-              line-height: 1.1;
             }
 
             .summary-small {
-              font-size: 7.5px;
-              color: #777;
-              margin-top: 2px;
+              color: #666666;
+              font-size: 7px;
+              line-height: 1.15;
+              margin-top: 4px;
+            }
+
+            .negative {
+              color: #e95b16;
             }
 
             .positive {
               color: #047857;
             }
 
-            .negative {
-              color: #b91c1c;
-            }
-
-            .table-title-row {
+            .table-header {
               display: flex;
               justify-content: space-between;
-              align-items: end;
-              margin: 4px 0 5px 0;
-              padding-bottom: 4px;
-              border-bottom: 1px solid #e6e6e6;
+              align-items: flex-end;
+              margin: 5px 0 5px 0;
             }
 
-            .table-title {
+            .table-header h2 {
               margin: 0;
-              font-size: 12px;
-              color: #111;
+              color: #111111;
+              font-size: 11px;
               font-weight: 900;
               text-transform: uppercase;
-              letter-spacing: 0.5px;
+              letter-spacing: 0.4px;
             }
 
-            .table-period {
-              font-size: 9px;
-              color: #555;
+            .period {
+              color: #555555;
+              font-size: 8px;
               font-weight: 700;
             }
 
@@ -601,25 +629,26 @@ export default function PregledSatiPage() {
 
             th {
               background: #111111;
-              color: white;
-              padding: 7px 5px;
-              font-size: 8.6px;
+              color: #ffffff;
+              padding: 6px 4px;
+              font-size: 8px;
+              line-height: 1.1;
               text-align: left;
-              border-right: 1px solid #333;
+              border-right: 1px solid #333333;
               border-bottom: 3px solid #f47b20;
               text-transform: uppercase;
-              letter-spacing: 0.25px;
-              line-height: 1.1;
+              letter-spacing: 0.2px;
+              font-weight: 900;
             }
 
             td {
-              padding: 6px 5px;
-              border-right: 1px solid #e0e0e0;
+              padding: 5px 4px;
+              font-size: 8.8px;
+              line-height: 1.2;
+              border-right: 1px solid #e2e2e2;
               border-bottom: 1px solid #e4e4e4;
-              font-size: 9.3px;
               vertical-align: middle;
               word-wrap: break-word;
-              line-height: 1.25;
             }
 
             tbody tr:nth-child(even) td {
@@ -630,28 +659,24 @@ export default function PregledSatiPage() {
               background: #ffffff;
             }
 
-            tbody tr:hover td {
-              background: #fff3e9;
-            }
-
             .hours-cell {
               font-weight: 900;
-              color: #111;
+              color: #111111;
             }
 
             .footer {
               margin-top: 8px;
-              padding-top: 6px;
-              border-top: 2px solid #111;
+              border-top: 2px solid #111111;
+              padding-top: 5px;
               display: flex;
               justify-content: space-between;
-              align-items: flex-start;
-              color: #111;
-              font-size: 8.8px;
+              color: #111111;
+              font-size: 8px;
+              line-height: 1.3;
               font-weight: 700;
             }
 
-            .footer span {
+            .footer strong {
               color: #f47b20;
               font-weight: 900;
             }
@@ -667,95 +692,102 @@ export default function PregledSatiPage() {
 
         <body>
           <div class="page">
-            <div class="mountain-band">
-              <svg class="mountain-svg" viewBox="0 0 1200 160" preserveAspectRatio="none">
-                <path d="M0,122 L80,94 L150,112 L250,54 L330,98 L420,32 L520,102 L620,44 L720,96 L830,28 L940,104 L1045,62 L1130,116 L1200,90 L1200,160 L0,160 Z" fill="#f47b20"></path>
-              </svg>
-
-              <svg class="mountain-svg-dark" viewBox="0 0 1200 160" preserveAspectRatio="none">
-                <path d="M0,140 L95,110 L180,128 L285,74 L365,116 L455,58 L560,126 L655,80 L760,118 L865,64 L980,122 L1080,86 L1200,118 L1200,160 L0,160 Z" fill="#111111"></path>
-              </svg>
+            <div class="side-strip">
+              <img src="${safeText(sideImageUrl)}" />
             </div>
 
-            <div class="header">
-              <div class="brand">
-                <div class="brand-mark">b</div>
-                <div>
-                  <p class="company-name">NOCKER & BERNARDI GmbH</p>
-                  <p class="company-subtitle">Fliesen & Naturstein Verkauf</p>
+            <div class="content">
+              <div class="header">
+                <div class="mountain-bg">
+                  <img src="${safeText(mountainBgUrl)}" />
+                </div>
+
+                <div class="logo-box">
+                  <img src="${safeText(logoTopUrl)}" />
+                </div>
+
+                <div class="title-box">
+                  <h1>Arbeitszeitübersicht</h1>
+                  <p>Monatlicher Auszug der Arbeitszeiten</p>
                 </div>
               </div>
 
-              <div class="document-title">
-                <h1>Arbeitszeitübersicht</h1>
-                <p>Monatlicher Arbeitszeitnachweis</p>
-              </div>
-            </div>
+              <div class="summary-grid">
+                <div class="summary-box">
+                  <div class="summary-label">Mitarbeiter</div>
+                  <div class="summary-value">${safeText(workerLabel)}</div>
+                  <div class="summary-small">Gesamtübersicht</div>
+                </div>
 
-            <div class="summary-grid">
-              <div class="summary-box">
-                <div class="summary-label">Mitarbeiter</div>
-                <div class="summary-value">${safeText(workerLabel)}</div>
-              </div>
+                <div class="summary-box">
+                  <div class="summary-label">Monat / Jahr</div>
+                  <div class="summary-value">${safeText(monthLabel)} ${year}</div>
+                  <div class="summary-small">Ausgewählter Zeitraum</div>
+                </div>
 
-              <div class="summary-box">
-                <div class="summary-label">Monat / Jahr</div>
-                <div class="summary-value">${safeText(monthLabel)} ${year}</div>
-              </div>
-
-              <div class="summary-box">
-                <div class="summary-label">Soll-Arbeitszeit</div>
-                <div class="summary-value">${normaSati.toFixed(1)} h</div>
-                <div class="summary-small">${radniDani} Arbeitstage × 8.5 h${
+                <div class="summary-box">
+                  <div class="summary-label">Fond Arbeitszeiten</div>
+                  <div class="summary-value">${normaSati.toFixed(1)} h</div>
+                  <div class="summary-small">${radniDani} Arbeitstage × 8.5 h${
       selectedWorker === "ALL" ? ` × ${RADNICI.length}` : ""
     }</div>
+                </div>
+
+                <div class="summary-box">
+                  <div class="summary-label">Geleistete Stunden</div>
+                  <div class="summary-value">${ukupnoSati.toFixed(1)} h</div>
+                  <div class="summary-small">Summe im Monat</div>
+                </div>
+
+                <div class="summary-box">
+                  <div class="summary-label">Differenz</div>
+                  <div class="summary-value ${
+                    saldo >= 0 ? "positive" : "negative"
+                  }">${saldo >= 0 ? "+" : ""}${saldo.toFixed(1)} h</div>
+                  <div class="summary-small">Soll / Ist</div>
+                </div>
               </div>
 
-              <div class="summary-box">
-                <div class="summary-label">Geleistete Stunden</div>
-                <div class="summary-value">${ukupnoSati.toFixed(1)} h</div>
-              </div>
-
-              <div class="summary-box">
-                <div class="summary-label">Differenz</div>
-                <div class="summary-value ${
-                  saldo >= 0 ? "positive" : "negative"
-                }">${saldo >= 0 ? "+" : ""}${saldo.toFixed(1)} h</div>
-              </div>
-            </div>
-
-            <div class="table-title-row">
-              <h2 class="table-title">Detailübersicht Arbeitszeiten</h2>
-              <div class="table-period">${safeText(workerLabel)} · ${safeText(
+              <div class="table-header">
+                <h2>Detailübersicht Arbeitszeiten</h2>
+                <div class="period">${safeText(workerLabel)} · ${safeText(
       monthLabel
     )} ${year}</div>
-            </div>
+              </div>
 
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 12%;">Datum</th>
-                  <th style="width: 13%;">Wochentag</th>
-                  <th style="width: 15%;">Mitarbeiter</th>
-                  <th style="width: 12%;">Arbeitsbeginn</th>
-                  <th style="width: 11%;">Pausenzeit</th>
-                  <th style="width: 12%;">Arbeitsende</th>
-                  <th style="width: 12%;">Arbeitsdauer</th>
-                  <th style="width: 13%;">Baustelle</th>
-                </tr>
-              </thead>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 12%;">Datum</th>
+                    <th style="width: 13%;">Wochentag</th>
+                    <th style="width: 14%;">Mitarbeiter</th>
+                    <th style="width: 12%;">Arbeitsbeginn</th>
+                    <th style="width: 10%;">Pausenzeit</th>
+                    <th style="width: 12%;">Arbeitsende</th>
+                    <th style="width: 12%;">Arbeitsdauer</th>
+                    <th style="width: 15%;">Baustelle</th>
+                  </tr>
+                </thead>
 
-              <tbody>
-                ${
-                  rowsHtml ||
-                  `<tr><td colspan="8" style="text-align:center; padding:20px;">Für diesen Monat sind keine Arbeitszeiten eingetragen.</td></tr>`
-                }
-              </tbody>
-            </table>
+                <tbody>
+                  ${
+                    rowsHtml ||
+                    `<tr><td colspan="8" style="text-align:center; padding:20px;">Für diesen Monat sind keine Arbeitszeiten eingetragen.</td></tr>`
+                  }
+                </tbody>
+              </table>
 
-            <div class="footer">
-              <div><span>NOCKER & BERNARDI GmbH</span><br />Fliesen & Naturstein Verkauf</div>
-              <div style="text-align:right;">Inweg 3<br />A-6170 Zirl</div>
+              <div class="footer">
+                <div>
+                  <strong>NOCKER & BERNARDI GmbH</strong><br />
+                  Fliesen & Naturstein Verkauf
+                </div>
+
+                <div style="text-align:right;">
+                  Inweg 3<br />
+                  A-6170 Zirl
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1048,11 +1080,7 @@ export default function PregledSatiPage() {
                     <td style={tdStrongStyle}>
                       {Number(u.ukupno_sati || u.sati || 0).toFixed(1)} h
                     </td>
-                    <td style={tdStyle}>
-                      {u.baustelle_naziv && u.baustelle_naziv !== "-"
-                        ? u.baustelle_naziv
-                        : u.baustelle_lokacija || "-"}
-                    </td>
+                    <td style={tdStyle}>{getBaustelleText(u)}</td>
                     <td style={tdStyle}>{u.tip_unosa || "RAD"}</td>
                   </tr>
                 ))}
