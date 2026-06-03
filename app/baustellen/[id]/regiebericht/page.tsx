@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
 const FIRMA = "Nocker & Bernardi GmbH / Stone Boutique";
+const FIRMA_ADRESA = "Inweg 3, A-6170 Zirl";
 const POTPIS = "Hidajet Goletić";
 
 export default function RegieberichtPage() {
@@ -96,6 +97,20 @@ export default function RegieberichtPage() {
     return Number(total.toFixed(2));
   }
 
+  const gesamtStunden = workerRows.reduce(
+    (sum, row) => sum + Number(row.stunden || 0),
+    0
+  );
+
+  function formatDatum(value: string) {
+    if (!value) return "";
+    return new Date(value).toLocaleDateString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  }
+
   function addRoom() {
     if (!selectedRoom) return;
 
@@ -123,7 +138,7 @@ export default function RegieberichtPage() {
 
   function addWorker() {
     if (!workerName) {
-      alert("Odaberi radnika.");
+      alert("Mitarbeiter auswählen.");
       return;
     }
 
@@ -169,12 +184,12 @@ export default function RegieberichtPage() {
 
   function addMaterial() {
     if (!materialName.trim()) {
-      alert("Unesi ili odaberi materijal.");
+      alert("Material auswählen oder Bezeichnung eingeben.");
       return;
     }
 
     if (!menge || Number(menge) <= 0) {
-      alert("Unesi količinu.");
+      alert("Menge eingeben.");
       return;
     }
 
@@ -201,7 +216,13 @@ export default function RegieberichtPage() {
   function addPhotos(files: FileList | null) {
     if (!files || files.length === 0) return;
 
-    const newPhotos = Array.from(files).map((file) => ({
+    const allowed = Array.from(files).slice(0, 2 - photos.length);
+
+    if (photos.length + files.length > 2) {
+      alert("Für den A4-Export sind maximal 2 Fotos vorgesehen.");
+    }
+
+    const newPhotos = allowed.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
       note: photoNote,
@@ -240,22 +261,22 @@ export default function RegieberichtPage() {
 
   async function saveBericht() {
     if (!baustelle) {
-      alert("Baustelle nije učitana.");
+      alert("Baustelle wurde nicht geladen.");
       return;
     }
 
     if (!auftraggeber.trim()) {
-      alert("Unesi Auftraggeber.");
+      alert("Auftraggeber eingeben.");
       return;
     }
 
     if (!bauleiter.trim()) {
-      alert("Unesi Bauleiter.");
+      alert("Bauleiter eingeben.");
       return;
     }
 
     if (!arbeiten.trim()) {
-      alert("Unesi izvedene radove.");
+      alert("Ausgeführte Arbeiten eingeben.");
       return;
     }
 
@@ -355,16 +376,16 @@ export default function RegieberichtPage() {
           }
         } catch (err: any) {
           alert(
-            "UPLOAD FOTO GREŠKA: " +
+            "UPLOAD FOTO FEHLER: " +
               err.message +
-              "\n\nAko bucket ne postoji, napravi u Supabase Storage bucket: regiebericht-photos"
+              "\n\nFalls der Bucket fehlt, in Supabase Storage erstellen: regiebericht-photos"
           );
           return;
         }
       }
     }
 
-    alert("Regiebericht je sačuvan.");
+    alert("Regiebericht wurde gespeichert.");
   }
 
   function exportPrint() {
@@ -373,38 +394,23 @@ export default function RegieberichtPage() {
 
   return (
     <main style={styles.page}>
-      <div className="no-print">
+      <div className="no-print" style={styles.topBar}>
         <Link href={`/baustellen/${baustelleId}`} style={styles.backLink}>
-          ← Nazad na Baustelle
+          ← Zurück zur Baustelle
         </Link>
       </div>
 
-      <h1 style={styles.title}>Regietagesbericht</h1>
+      <section className="no-print" style={styles.inputPanel}>
+        <h1 style={styles.inputTitle}>Regiebericht erfassen</h1>
 
-      <section style={styles.box}>
-        <div style={styles.headerGrid}>
+        <div style={styles.formGrid}>
           <div>
-            <label style={styles.label}>Auftragnehmer</label>
-            <div style={styles.readonlyBox}>{FIRMA}</div>
-          </div>
-
-          <div>
-            <label style={styles.label}>Auftraggeber</label>
-            <input
-              value={auftraggeber}
-              onChange={(e) => setAuftraggeber(e.target.value)}
-              style={styles.input}
-              placeholder="Auftraggeber"
-            />
-          </div>
-
-          <div>
-            <label style={styles.label}>Nr.</label>
+            <label style={styles.label}>Bericht Nr.</label>
             <input
               value={berichtNr}
               onChange={(e) => setBerichtNr(e.target.value)}
               style={styles.input}
-              placeholder="Nr."
+              placeholder="z.B. 1"
             />
           </div>
 
@@ -419,17 +425,12 @@ export default function RegieberichtPage() {
           </div>
 
           <div>
-            <label style={styles.label}>Baustelle / Bauvorhaben</label>
-            <div style={styles.readonlyBox}>{baustelle?.naziv || "-"}</div>
-          </div>
-
-          <div>
-            <label style={styles.label}>Ort</label>
+            <label style={styles.label}>Auftraggeber</label>
             <input
-              value={ort}
-              onChange={(e) => setOrt(e.target.value)}
+              value={auftraggeber}
+              onChange={(e) => setAuftraggeber(e.target.value)}
               style={styles.input}
-              placeholder="Ort"
+              placeholder="Auftraggeber"
             />
           </div>
 
@@ -442,19 +443,34 @@ export default function RegieberichtPage() {
               placeholder="Name Bauleiter"
             />
           </div>
+
+          <div>
+            <label style={styles.label}>Baustelle</label>
+            <div style={styles.readonlyBox}>{baustelle?.naziv || "-"}</div>
+          </div>
+
+          <div>
+            <label style={styles.label}>Ort</label>
+            <input
+              value={ort}
+              onChange={(e) => setOrt(e.target.value)}
+              style={styles.input}
+              placeholder="Ort"
+            />
+          </div>
         </div>
       </section>
 
-      <section style={styles.box}>
-        <h2 style={styles.subtitle}>Prostorije / Bauteile</h2>
+      <section className="no-print" style={styles.inputPanel}>
+        <h2 style={styles.panelTitle}>Bauteile / Räume</h2>
 
-        <div className="no-print" style={styles.inlineGrid}>
+        <div style={styles.inlineGrid}>
           <select
             value={selectedRoom}
             onChange={(e) => setSelectedRoom(e.target.value)}
             style={styles.input}
           >
-            <option value="">Odaberi prostoriju</option>
+            <option value="">Raum auswählen</option>
             {rooms.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.naziv}
@@ -463,7 +479,7 @@ export default function RegieberichtPage() {
           </select>
 
           <button onClick={addRoom} style={styles.blueButton}>
-            Dodaj prostoriju
+            Raum hinzufügen
           </button>
         </div>
 
@@ -471,11 +487,7 @@ export default function RegieberichtPage() {
           {selectedRooms.map((r, index) => (
             <div key={index} style={styles.chip}>
               {r.room_name}
-              <button
-                className="no-print"
-                onClick={() => removeRoom(index)}
-                style={styles.smallDelete}
-              >
+              <button onClick={() => removeRoom(index)} style={styles.smallDelete}>
                 ×
               </button>
             </div>
@@ -483,27 +495,27 @@ export default function RegieberichtPage() {
         </div>
       </section>
 
-      <section style={styles.box}>
-        <h2 style={styles.subtitle}>Ausgeführte Arbeiten</h2>
+      <section className="no-print" style={styles.inputPanel}>
+        <h2 style={styles.panelTitle}>Ausgeführte Arbeiten</h2>
 
         <textarea
           value={arbeiten}
           onChange={(e) => setArbeiten(e.target.value)}
           style={styles.textarea}
-          placeholder="Opis izvedenih radova..."
+          placeholder="Beschreibung der ausgeführten Arbeiten..."
         />
       </section>
 
-      <section style={styles.box}>
-        <h2 style={styles.subtitle}>Eingesetzte Arbeitskräfte</h2>
+      <section className="no-print" style={styles.inputPanel}>
+        <h2 style={styles.panelTitle}>Arbeitskräfte</h2>
 
-        <div className="no-print" style={styles.workerGrid}>
+        <div style={styles.workerGrid}>
           <select
             value={workerName}
             onChange={(e) => setWorkerName(e.target.value)}
             style={styles.input}
           >
-            <option value="">Odaberi radnika</option>
+            <option value="">Mitarbeiter auswählen</option>
             {workers.map((w) => (
               <option key={w.id} value={w.name}>
                 {w.name}
@@ -533,54 +545,21 @@ export default function RegieberichtPage() {
           />
 
           <button onClick={addWorker} style={styles.blueButton}>
-            Dodaj radnika
+            Hinzufügen
           </button>
         </div>
-
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Name</th>
-              <th style={styles.th}>von</th>
-              <th style={styles.th}>bis</th>
-              <th style={styles.th}>Stunden</th>
-              <th style={styles.th}>Bemerkungen</th>
-              <th className="no-print" style={styles.th}></th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {workerRows.map((w, index) => (
-              <tr key={index}>
-                <td style={styles.td}>{w.worker_name}</td>
-                <td style={styles.td}>{w.von}</td>
-                <td style={styles.td}>{w.bis}</td>
-                <td style={styles.td}>{w.stunden}</td>
-                <td style={styles.td}>{w.bemerkung}</td>
-                <td className="no-print" style={styles.td}>
-                  <button
-                    onClick={() => removeWorker(index)}
-                    style={styles.deleteButton}
-                  >
-                    🗑️
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </section>
 
-      <section style={styles.box}>
-        <h2 style={styles.subtitle}>Material / Geräte / Sonstiges</h2>
+      <section className="no-print" style={styles.inputPanel}>
+        <h2 style={styles.panelTitle}>Material / Sonstiges</h2>
 
-        <div className="no-print" style={styles.materialGrid}>
+        <div style={styles.materialGrid}>
           <select
             value={materialId}
             onChange={(e) => onMaterialSelect(e.target.value)}
             style={styles.input}
           >
-            <option value="">Materijal iz kataloga</option>
+            <option value="">Material aus Katalog</option>
             {materials.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.naziv} {m.jedinica ? `(${m.jedinica})` : ""}
@@ -592,7 +571,7 @@ export default function RegieberichtPage() {
             value={materialName}
             onChange={(e) => setMaterialName(e.target.value)}
             style={styles.input}
-            placeholder="Slobodni materijal / naziv"
+            placeholder="Freie Bezeichnung"
           />
 
           <input
@@ -611,88 +590,245 @@ export default function RegieberichtPage() {
           />
 
           <button onClick={addMaterial} style={styles.blueButton}>
-            Dodaj materijal
+            Hinzufügen
           </button>
         </div>
-
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Menge</th>
-              <th style={styles.th}>EH</th>
-              <th style={styles.th}>Bezeichnung</th>
-              <th className="no-print" style={styles.th}></th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {materialRows.map((m, index) => (
-              <tr key={index}>
-                <td style={styles.td}>{m.menge}</td>
-                <td style={styles.td}>{m.einheit}</td>
-                <td style={styles.td}>{m.bezeichnung}</td>
-                <td className="no-print" style={styles.td}>
-                  <button
-                    onClick={() => removeMaterial(index)}
-                    style={styles.deleteButton}
-                  >
-                    🗑️
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </section>
 
-      <section style={styles.box}>
-        <h2 style={styles.subtitle}>Bilder / Fotos</h2>
+      <section className="no-print" style={styles.inputPanel}>
+        <h2 style={styles.panelTitle}>Fotos</h2>
 
-        <div className="no-print">
-          <input
-            value={photoNote}
-            onChange={(e) => setPhotoNote(e.target.value)}
-            style={styles.input}
-            placeholder="Napomena za slike"
-          />
+        <input
+          value={photoNote}
+          onChange={(e) => setPhotoNote(e.target.value)}
+          style={styles.input}
+          placeholder="Fotobemerkung"
+        />
 
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={(e) => addPhotos(e.target.files)}
-            style={styles.fileInput}
-          />
-        </div>
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={(e) => addPhotos(e.target.files)}
+          style={styles.fileInput}
+        />
 
-        <div style={styles.photoGrid}>
-          {photos.map((p, index) => (
-            <div key={index} style={styles.photoCard}>
-              <img src={p.preview} style={styles.photo} alt="Regiebericht" />
+        <p style={styles.hint}>Maximal 2 Fotos für den A4-Export.</p>
+      </section>
 
-              {p.note && <p>{p.note}</p>}
+      <section className="print-sheet" style={styles.printSheet}>
+        <div style={styles.printHeader}>
+          <div>
+            <div style={styles.documentTitle}>REGIEBERICHT</div>
+            <div style={styles.documentSub}>Tagesbericht / Regiearbeit</div>
+          </div>
 
-              <button
-                className="no-print"
-                onClick={() => removePhoto(index)}
-                style={styles.deleteButton}
-              >
-                Obriši
-              </button>
+          <div style={styles.headerRight}>
+            <div>
+              <strong>Nr.:</strong> {berichtNr || "-"}
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section style={styles.signatureBox}>
-        <div>
-          <strong>Unterschrift Auftragnehmer</strong>
-          <div style={styles.signatureLine}>{POTPIS}</div>
+            <div>
+              <strong>Datum:</strong> {formatDatum(datum)}
+            </div>
+          </div>
         </div>
 
-        <div>
-          <strong>Unterschrift Auftraggeber / Bauleiter</strong>
-          <div style={styles.signatureLine}>{bauleiter || "________________"}</div>
+        <div style={styles.metaGrid}>
+          <div style={styles.metaBox}>
+            <div style={styles.metaLabel}>Baustelle</div>
+            <div style={styles.metaValue}>{baustelle?.naziv || "-"}</div>
+          </div>
+
+          <div style={styles.metaBox}>
+            <div style={styles.metaLabel}>Ort</div>
+            <div style={styles.metaValue}>{ort || "-"}</div>
+          </div>
+
+          <div style={styles.metaBox}>
+            <div style={styles.metaLabel}>Auftraggeber</div>
+            <div style={styles.metaValue}>{auftraggeber || "-"}</div>
+          </div>
+
+          <div style={styles.metaBox}>
+            <div style={styles.metaLabel}>Auftragnehmer</div>
+            <div style={styles.metaValue}>
+              {FIRMA}
+              <br />
+              {FIRMA_ADRESA}
+            </div>
+          </div>
+
+          <div style={styles.metaBox}>
+            <div style={styles.metaLabel}>Bauleiter / Vertreter</div>
+            <div style={styles.metaValue}>{bauleiter || "-"}</div>
+          </div>
+
+          <div style={styles.metaBox}>
+            <div style={styles.metaLabel}>Bauteile / Räume</div>
+            <div style={styles.metaValue}>
+              {selectedRooms.length > 0
+                ? selectedRooms.map((r) => r.room_name).join(", ")
+                : "-"}
+            </div>
+          </div>
+        </div>
+
+        <div style={styles.printMainGrid}>
+          <div style={styles.leftColumn}>
+            <section style={styles.printBlock}>
+              <h2 style={styles.printBlockTitle}>Ausgeführte Arbeiten</h2>
+              <div style={styles.workText}>
+                {arbeiten || "Keine Beschreibung eingetragen."}
+              </div>
+            </section>
+
+            <section style={styles.printBlock}>
+              <div style={styles.blockHeaderRow}>
+                <h2 style={styles.printBlockTitle}>Arbeitskräfte</h2>
+                <strong>Gesamt: {gesamtStunden.toFixed(2)} h</strong>
+              </div>
+
+              <table style={styles.cleanTable}>
+                <thead>
+                  <tr>
+                    <th style={styles.cleanTh}>Mitarbeiter</th>
+                    <th style={styles.cleanTh}>von</th>
+                    <th style={styles.cleanTh}>bis</th>
+                    <th style={styles.cleanTh}>Std.</th>
+                    <th style={styles.cleanTh}>Bemerkung</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {workerRows.length === 0 ? (
+                    <tr>
+                      <td style={styles.cleanTd} colSpan={5}>
+                        Keine Arbeitskräfte eingetragen.
+                      </td>
+                    </tr>
+                  ) : (
+                    workerRows.map((w, index) => (
+                      <tr key={index}>
+                        <td style={styles.cleanTd}>{w.worker_name}</td>
+                        <td style={styles.cleanTd}>{w.von}</td>
+                        <td style={styles.cleanTd}>{w.bis}</td>
+                        <td style={styles.cleanTd}>{w.stunden}</td>
+                        <td style={styles.cleanTd}>{w.bemerkung || "-"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+
+              {workerRows.length > 0 && (
+                <div className="no-print" style={styles.editList}>
+                  {workerRows.map((w, index) => (
+                    <button
+                      key={index}
+                      onClick={() => removeWorker(index)}
+                      style={styles.deleteButton}
+                    >
+                      {w.worker_name} entfernen
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section style={styles.printBlock}>
+              <h2 style={styles.printBlockTitle}>Material / Geräte / Sonstiges</h2>
+
+              <table style={styles.cleanTable}>
+                <thead>
+                  <tr>
+                    <th style={styles.cleanTh}>Bezeichnung</th>
+                    <th style={styles.cleanTh}>Menge</th>
+                    <th style={styles.cleanTh}>EH</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {materialRows.length === 0 ? (
+                    <tr>
+                      <td style={styles.cleanTd} colSpan={3}>
+                        Kein Material eingetragen.
+                      </td>
+                    </tr>
+                  ) : (
+                    materialRows.map((m, index) => (
+                      <tr key={index}>
+                        <td style={styles.cleanTd}>{m.bezeichnung}</td>
+                        <td style={styles.cleanTd}>{m.menge}</td>
+                        <td style={styles.cleanTd}>{m.einheit}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+
+              {materialRows.length > 0 && (
+                <div className="no-print" style={styles.editList}>
+                  {materialRows.map((m, index) => (
+                    <button
+                      key={index}
+                      onClick={() => removeMaterial(index)}
+                      style={styles.deleteButton}
+                    >
+                      {m.bezeichnung} entfernen
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <div style={styles.rightColumn}>
+            <section style={styles.photoPrintBlock}>
+              <h2 style={styles.printBlockTitle}>Fotodokumentation</h2>
+
+              <div style={styles.printPhotoGrid}>
+                {photos.length === 0 ? (
+                  <>
+                    <div style={styles.emptyPhoto}>Foto 1</div>
+                    <div style={styles.emptyPhoto}>Foto 2</div>
+                  </>
+                ) : (
+                  photos.slice(0, 2).map((p, index) => (
+                    <div key={index} style={styles.printPhotoCard}>
+                      <img
+                        src={p.preview}
+                        alt={`Foto ${index + 1}`}
+                        style={styles.printPhoto}
+                      />
+                      {p.note && <div style={styles.photoCaption}>{p.note}</div>}
+
+                      <button
+                        className="no-print"
+                        onClick={() => removePhoto(index)}
+                        style={styles.photoRemoveButton}
+                      >
+                        Foto entfernen
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section style={styles.signatureBlock}>
+              <div style={styles.signatureItem}>
+                <div style={styles.signatureLine}></div>
+                <strong>{POTPIS}</strong>
+                <span>Auftragnehmer</span>
+              </div>
+
+              <div style={styles.signatureItem}>
+                <div style={styles.signatureLine}></div>
+                <strong>{bauleiter || "Auftraggeber / Bauleiter"}</strong>
+                <span>Auftraggeber / Vertreter</span>
+              </div>
+            </section>
+          </div>
         </div>
       </section>
 
@@ -706,31 +842,38 @@ export default function RegieberichtPage() {
         </button>
       </div>
 
-<style>{`
-  @media print {
-    .no-print {
-      display: none !important;
-    }
+      <style>{`
+        @page {
+          size: A4 landscape;
+          margin: 8mm;
+        }
 
-    body {
-      background: white !important;
-    }
+        @media print {
+          .no-print {
+            display: none !important;
+          }
 
-    main {
-      background: white !important;
-      color: black !important;
-      padding: 10px !important;
-    }
+          body {
+            background: white !important;
+          }
 
-    input,
-    textarea,
-    select {
-      border: none !important;
-      background: white !important;
-      color: black !important;
-    }
-  }
-`}</style>
+          main {
+            background: white !important;
+            color: black !important;
+            padding: 0 !important;
+          }
+
+          .print-sheet {
+            width: 100% !important;
+            min-height: auto !important;
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            page-break-inside: avoid !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }
@@ -740,32 +883,37 @@ const styles: any = {
     background: "#000",
     minHeight: "100vh",
     color: "white",
-    padding: "30px",
+    padding: "28px",
+  },
+  topBar: {
+    marginBottom: "20px",
   },
   backLink: {
     color: "#3b82f6",
     textDecoration: "none",
     fontWeight: "bold",
   },
-  title: {
-    fontSize: "56px",
-    marginTop: "25px",
-    marginBottom: "30px",
-  },
-  box: {
+  inputPanel: {
     background: "#111",
-    padding: "20px",
-    borderRadius: "18px",
-    marginBottom: "22px",
     border: "1px solid #333",
+    borderRadius: "18px",
+    padding: "20px",
+    marginBottom: "20px",
   },
-  subtitle: {
+  inputTitle: {
+    color: "#f97316",
+    fontSize: "42px",
+    marginTop: 0,
+    marginBottom: "20px",
+  },
+  panelTitle: {
     color: "#60a5fa",
-    marginBottom: "16px",
+    marginTop: 0,
+    marginBottom: "15px",
   },
-  headerGrid: {
+  formGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
     gap: "16px",
   },
   inlineGrid: {
@@ -777,25 +925,17 @@ const styles: any = {
     display: "grid",
     gridTemplateColumns: "1.5fr 1fr 1fr 1.5fr 180px",
     gap: "12px",
-    marginBottom: "18px",
   },
   materialGrid: {
     display: "grid",
     gridTemplateColumns: "1.5fr 1.5fr 1fr 1fr 180px",
     gap: "12px",
-    marginBottom: "18px",
   },
   label: {
     display: "block",
     color: "#aaa",
     marginBottom: "6px",
     fontWeight: "bold",
-  },
-  readonlyBox: {
-    background: "#222",
-    padding: "14px",
-    borderRadius: "10px",
-    minHeight: "48px",
   },
   input: {
     width: "100%",
@@ -806,9 +946,17 @@ const styles: any = {
     borderRadius: "10px",
     fontSize: "16px",
   },
+  readonlyBox: {
+    background: "#222",
+    color: "white",
+    border: "1px solid #333",
+    padding: "14px",
+    borderRadius: "10px",
+    minHeight: "48px",
+  },
   textarea: {
     width: "100%",
-    minHeight: "180px",
+    minHeight: "140px",
     background: "#222",
     color: "white",
     border: "1px solid #333",
@@ -855,14 +1003,6 @@ const styles: any = {
     cursor: "pointer",
     fontWeight: "bold",
   },
-  smallDelete: {
-    marginLeft: "10px",
-    background: "#dc2626",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
   chipBox: {
     display: "flex",
     gap: "10px",
@@ -875,62 +1015,215 @@ const styles: any = {
     borderRadius: "999px",
     fontWeight: "bold",
   },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    marginTop: "10px",
-  },
-  th: {
-    border: "1px solid #444",
-    padding: "10px",
-    textAlign: "left",
-    background: "#1f1f1f",
-  },
-  td: {
-    border: "1px solid #444",
-    padding: "10px",
+  smallDelete: {
+    marginLeft: "10px",
+    background: "#dc2626",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
   },
   fileInput: {
     marginTop: "12px",
-    marginBottom: "15px",
+    marginBottom: "8px",
     color: "white",
   },
-  photoGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: "14px",
-  },
-  photoCard: {
-    background: "#222",
-    padding: "12px",
-    borderRadius: "14px",
-  },
-  photo: {
-    width: "100%",
-    borderRadius: "10px",
-    maxHeight: "260px",
-    objectFit: "cover",
-  },
-  signatureBox: {
-    background: "#111",
-    border: "1px solid #333",
-    borderRadius: "18px",
-    padding: "25px",
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "30px",
-    marginBottom: "25px",
-  },
-  signatureLine: {
-    marginTop: "40px",
-    borderTop: "1px solid #777",
-    paddingTop: "10px",
-    minHeight: "40px",
+  hint: {
+    color: "#aaa",
+    marginBottom: 0,
   },
   actionRow: {
     display: "flex",
     gap: "15px",
     flexWrap: "wrap",
+    marginTop: "25px",
     marginBottom: "40px",
+  },
+
+  printSheet: {
+    background: "#fff",
+    color: "#111",
+    maxWidth: "1120px",
+    margin: "30px auto",
+    padding: "22px",
+    borderRadius: "8px",
+    boxShadow: "0 10px 35px rgba(0,0,0,0.35)",
+    fontFamily: "Arial, sans-serif",
+  },
+  printHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    borderBottom: "2px solid #1e3a8a",
+    paddingBottom: "8px",
+    marginBottom: "10px",
+  },
+  documentTitle: {
+    color: "#1e3a8a",
+    fontSize: "28px",
+    fontWeight: "bold",
+    letterSpacing: "1px",
+  },
+  documentSub: {
+    color: "#555",
+    fontSize: "12px",
+    marginTop: "2px",
+  },
+  headerRight: {
+    textAlign: "right",
+    fontSize: "13px",
+    lineHeight: "1.6",
+  },
+  metaGrid: {
+    display: "grid",
+    gridTemplateColumns: "1.2fr 0.7fr 1fr 1.2fr 1fr 1.2fr",
+    gap: "6px",
+    marginBottom: "10px",
+  },
+  metaBox: {
+    background: "#f8fafc",
+    border: "1px solid #d8dee9",
+    borderRadius: "6px",
+    padding: "7px",
+    minHeight: "48px",
+  },
+  metaLabel: {
+    color: "#1e3a8a",
+    fontSize: "10px",
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    marginBottom: "3px",
+  },
+  metaValue: {
+    fontSize: "12px",
+    lineHeight: "1.35",
+    whiteSpace: "pre-wrap",
+  },
+  printMainGrid: {
+    display: "grid",
+    gridTemplateColumns: "1.45fr 0.9fr",
+    gap: "10px",
+  },
+  leftColumn: {
+    display: "grid",
+    gap: "8px",
+  },
+  rightColumn: {
+    display: "grid",
+    gap: "8px",
+  },
+  printBlock: {
+    border: "1px solid #d8dee9",
+    borderRadius: "7px",
+    padding: "8px",
+    background: "#fff",
+  },
+  printBlockTitle: {
+    fontSize: "13px",
+    color: "#1e3a8a",
+    margin: "0 0 6px 0",
+    textTransform: "uppercase",
+    letterSpacing: "0.4px",
+  },
+  blockHeaderRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "10px",
+  },
+  workText: {
+    minHeight: "115px",
+    whiteSpace: "pre-wrap",
+    fontSize: "12px",
+    lineHeight: "1.45",
+  },
+  cleanTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "11px",
+  },
+  cleanTh: {
+    textAlign: "left",
+    padding: "5px",
+    background: "#eff6ff",
+    color: "#1e3a8a",
+    borderBottom: "1px solid #cbd5e1",
+  },
+  cleanTd: {
+    padding: "5px",
+    borderBottom: "1px solid #e5e7eb",
+    verticalAlign: "top",
+  },
+  editList: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+    marginTop: "10px",
+  },
+  photoPrintBlock: {
+    border: "1px solid #d8dee9",
+    borderRadius: "7px",
+    padding: "8px",
+    background: "#fff",
+  },
+  printPhotoGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: "8px",
+  },
+  printPhotoCard: {
+    border: "1px solid #e5e7eb",
+    borderRadius: "7px",
+    padding: "5px",
+    background: "#f8fafc",
+  },
+  printPhoto: {
+    width: "100%",
+    height: "175px",
+    objectFit: "cover",
+    borderRadius: "5px",
+    display: "block",
+  },
+  photoCaption: {
+    fontSize: "10px",
+    color: "#555",
+    marginTop: "4px",
+  },
+  emptyPhoto: {
+    height: "175px",
+    border: "1px dashed #cbd5e1",
+    borderRadius: "7px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#94a3b8",
+    background: "#f8fafc",
+    fontSize: "13px",
+  },
+  photoRemoveButton: {
+    marginTop: "5px",
+    background: "#dc2626",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    padding: "6px 8px",
+    cursor: "pointer",
+  },
+  signatureBlock: {
+    border: "1px solid #d8dee9",
+    borderRadius: "7px",
+    padding: "12px",
+    background: "#fff",
+    display: "grid",
+    gap: "25px",
+    alignContent: "end",
+  },
+  signatureItem: {
+    fontSize: "11px",
+  },
+  signatureLine: {
+    borderTop: "1px solid #111",
+    marginBottom: "6px",
+    paddingTop: "6px",
   },
 };
