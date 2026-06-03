@@ -11,6 +11,8 @@ const GODISNJI_DANI_PO_RADNIKU = 25;
 const SATI_PO_DANU = 8.5;
 
 const PDF_BUCKET = "pdf-assets";
+const PDF_LOGO_TOP = "gore.png";
+const PDF_SIDE_IMAGE = "strana.png";
 const PDF_MOUNTAIN_BG = "pozadina.png";
 
 const translations: any = {
@@ -366,7 +368,10 @@ export default function PregledSatiPage() {
   }
 
   function getStoragePublicUrl(fileName: string) {
-    return supabase.storage.from(PDF_BUCKET).getPublicUrl(fileName).data.publicUrl;
+    const url = supabase.storage.from(PDF_BUCKET).getPublicUrl(fileName).data
+      .publicUrl;
+
+    return `${url}?v=${Date.now()}`;
   }
 
   function parseTimeToMinutes(value: any) {
@@ -424,7 +429,8 @@ export default function PregledSatiPage() {
 
         if (
           endMinutes !== null &&
-          (grouped[key].endMinutes === null || endMinutes > grouped[key].endMinutes)
+          (grouped[key].endMinutes === null ||
+            endMinutes > grouped[key].endMinutes)
         ) {
           grouped[key].endMinutes = endMinutes;
         }
@@ -457,6 +463,8 @@ export default function PregledSatiPage() {
       return;
     }
 
+    const logoTopUrl = getStoragePublicUrl(PDF_LOGO_TOP);
+    const sideImageUrl = getStoragePublicUrl(PDF_SIDE_IMAGE);
     const mountainBgUrl = getStoragePublicUrl(PDF_MOUNTAIN_BG);
 
     const workerLabel =
@@ -526,12 +534,21 @@ export default function PregledSatiPage() {
               left: 0;
               top: 0;
               bottom: 0;
-              width: 35px;
-              background: linear-gradient(180deg, #111111 0%, #26211e 54%, #111111 100%);
+              width: 38px;
               overflow: hidden;
+              background: #111111;
             }
 
-            .side-text {
+            .side-strip img {
+              width: 38px;
+              height: 100%;
+              object-fit: cover;
+              object-position: center;
+              display: block;
+            }
+
+            .side-fallback {
+              display: none;
               position: absolute;
               left: 50%;
               top: 50%;
@@ -544,41 +561,40 @@ export default function PregledSatiPage() {
               letter-spacing: 1px;
             }
 
-            .side-text .b {
+            .side-fallback .b {
               color: #e95b16;
               font-weight: bold;
               font-size: 29px;
-              margin: 0 2px;
             }
 
             .content {
-              margin-left: 43px;
+              margin-left: 46px;
               position: relative;
               z-index: 2;
             }
 
             .header {
-              height: 106px;
+              height: 108px;
               position: relative;
               overflow: hidden;
               border-bottom: 2px solid #e95b16;
               margin-bottom: 7px;
-              background: #fff;
+              background: #ffffff;
             }
 
             .mountain-bg {
               position: absolute;
-              left: 150px;
+              left: 185px;
               right: 0;
               top: 0;
-              height: 106px;
+              height: 108px;
               z-index: 1;
               opacity: 1;
             }
 
             .mountain-bg img {
               width: 100%;
-              height: 106px;
+              height: 108px;
               object-fit: cover;
               object-position: center top;
               display: block;
@@ -591,24 +607,38 @@ export default function PregledSatiPage() {
               right: 0;
               top: 0;
               bottom: 0;
-              background: linear-gradient(90deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.58) 35%, rgba(255,255,255,0.20) 100%);
+              background: linear-gradient(90deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.55) 40%, rgba(255,255,255,0.18) 100%);
             }
 
-            .brand-banner {
+            .logo-box {
               position: absolute;
               left: 0;
-              top: 16px;
+              top: 15px;
               width: 285px;
-              height: 54px;
+              height: 58px;
               z-index: 3;
+            }
+
+            .logo-box img {
+              width: 100%;
+              height: 58px;
+              object-fit: contain;
+              object-position: left center;
+              display: block;
+            }
+
+            .logo-fallback {
+              display: none;
+              width: 285px;
+              height: 58px;
               box-shadow: 0 2px 8px rgba(0,0,0,0.12);
             }
 
             .brand-top {
-              height: 31px;
+              height: 33px;
               background: #e95b16;
               color: #ffffff;
-              padding: 6px 10px 0 10px;
+              padding: 7px 10px 0 10px;
               font-size: 17px;
               line-height: 1;
               font-weight: 900;
@@ -626,10 +656,10 @@ export default function PregledSatiPage() {
             }
 
             .brand-bottom {
-              height: 23px;
+              height: 25px;
               background: #111111;
               color: #ffffff;
-              padding: 5px 10px 0 10px;
+              padding: 6px 10px 0 10px;
               font-size: 10px;
               line-height: 1;
               font-weight: 900;
@@ -640,7 +670,7 @@ export default function PregledSatiPage() {
             .title-box {
               position: absolute;
               right: 0;
-              top: 22px;
+              top: 23px;
               text-align: right;
               z-index: 3;
             }
@@ -678,7 +708,7 @@ export default function PregledSatiPage() {
               border: 1px solid #d8d8d8;
               border-radius: 4px;
               background: rgba(255,255,255,0.98);
-              padding: 5px 6px 5px 6px;
+              padding: 5px 6px;
               min-height: 39px;
               border-bottom: 2px solid #e95b16;
             }
@@ -810,7 +840,11 @@ export default function PregledSatiPage() {
         <body>
           <div class="page">
             <div class="side-strip">
-              <div class="side-text">Stone<span class="b">B</span>outique</div>
+              <img
+                src="${safeText(sideImageUrl)}"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+              />
+              <div class="side-fallback">Stone<span class="b">B</span>outique</div>
             </div>
 
             <div class="content">
@@ -819,12 +853,18 @@ export default function PregledSatiPage() {
                   <img src="${safeText(mountainBgUrl)}" />
                 </div>
 
-                <div class="brand-banner">
-                  <div class="brand-top">
-                    NOCKER & BERNARDI
-                    <small>GmbH</small>
+                <div class="logo-box">
+                  <img
+                    src="${safeText(logoTopUrl)}"
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                  />
+                  <div class="logo-fallback">
+                    <div class="brand-top">
+                      NOCKER & BERNARDI
+                      <small>GmbH</small>
+                    </div>
+                    <div class="brand-bottom">FLIESEN & NATURSTEIN VERKAUF</div>
                   </div>
-                  <div class="brand-bottom">FLIESEN & NATURSTEIN VERKAUF</div>
                 </div>
 
                 <div class="title-box">
@@ -913,9 +953,38 @@ export default function PregledSatiPage() {
           </div>
 
           <script>
-            window.onload = function() {
-              window.print();
-            };
+            function printWhenReady() {
+              const images = Array.from(document.images);
+              if (images.length === 0) {
+                window.print();
+                return;
+              }
+
+              let done = 0;
+              const finish = function() {
+                done++;
+                if (done >= images.length) {
+                  setTimeout(function() {
+                    window.print();
+                  }, 300);
+                }
+              };
+
+              images.forEach(function(img) {
+                if (img.complete) {
+                  finish();
+                } else {
+                  img.onload = finish;
+                  img.onerror = finish;
+                }
+              });
+
+              setTimeout(function() {
+                window.print();
+              }, 2500);
+            }
+
+            window.onload = printWhenReady;
           </script>
         </body>
       </html>
