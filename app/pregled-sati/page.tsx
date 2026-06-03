@@ -709,7 +709,7 @@ export default function PregledSatiPage() {
               border-radius: 4px;
               background: rgba(255,255,255,0.98);
               padding: 5px 6px;
-              min-height: 39px;
+              min-height: 34px;
               border-bottom: 2px solid #e95b16;
             }
 
@@ -720,21 +720,14 @@ export default function PregledSatiPage() {
               text-transform: uppercase;
               font-weight: 900;
               letter-spacing: 0.3px;
-              margin-bottom: 4px;
+              margin-bottom: 5px;
             }
 
             .summary-value {
               color: #111111;
-              font-size: 12px;
+              font-size: 12.5px;
               line-height: 1;
               font-weight: 900;
-            }
-
-            .summary-small {
-              color: #666666;
-              font-size: 6.7px;
-              line-height: 1.1;
-              margin-top: 4px;
             }
 
             .negative {
@@ -877,27 +870,21 @@ export default function PregledSatiPage() {
                 <div class="summary-box">
                   <div class="summary-label">Mitarbeiter</div>
                   <div class="summary-value">${safeText(workerLabel)}</div>
-                  <div class="summary-small">Gesamtübersicht</div>
                 </div>
 
                 <div class="summary-box">
                   <div class="summary-label">Monat / Jahr</div>
                   <div class="summary-value">${safeText(monthLabel)} ${year}</div>
-                  <div class="summary-small">Ausgewählter Zeitraum</div>
                 </div>
 
                 <div class="summary-box">
                   <div class="summary-label">Fond Arbeitszeiten</div>
                   <div class="summary-value">${normaSati.toFixed(1)} h</div>
-                  <div class="summary-small">${radniDani} Arbeitstage × 8.5 h${
-      selectedWorker === "ALL" ? ` × ${RADNICI.length}` : ""
-    }</div>
                 </div>
 
                 <div class="summary-box">
                   <div class="summary-label">Geleistete Stunden</div>
                   <div class="summary-value">${ukupnoSati.toFixed(1)} h</div>
-                  <div class="summary-small">Summe im Monat</div>
                 </div>
 
                 <div class="summary-box">
@@ -905,7 +892,6 @@ export default function PregledSatiPage() {
                   <div class="summary-value ${
                     saldo >= 0 ? "positive" : "negative"
                   }">${saldo >= 0 ? "+" : ""}${saldo.toFixed(1)} h</div>
-                  <div class="summary-small">Soll / Ist</div>
                 </div>
               </div>
 
