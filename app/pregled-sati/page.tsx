@@ -67,6 +67,31 @@ const monthNames: any = {
   ],
 };
 
+const germanMonthNames = [
+  "Januar",
+  "Februar",
+  "März",
+  "April",
+  "Mai",
+  "Juni",
+  "Juli",
+  "August",
+  "September",
+  "Oktober",
+  "November",
+  "Dezember",
+];
+
+const germanWeekdays = [
+  "Sonntag",
+  "Montag",
+  "Dienstag",
+  "Mittwoch",
+  "Donnerstag",
+  "Freitag",
+  "Samstag",
+];
+
 export default function PregledSatiPage() {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
@@ -313,6 +338,11 @@ export default function PregledSatiPage() {
     });
   }
 
+  function getGermanWeekday(dateString: string) {
+    const date = new Date(dateString);
+    return germanWeekdays[date.getDay()] || "-";
+  }
+
   function safeText(value: any) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -328,26 +358,28 @@ export default function PregledSatiPage() {
     }
 
     const workerLabel =
-      selectedWorker === "ALL" ? "Svi radnici" : selectedWorker || workerName;
+      selectedWorker === "ALL" ? "Alle Mitarbeiter" : selectedWorker || workerName;
 
-    const monthLabel = months[month - 1];
+    const monthLabel = germanMonthNames[month - 1];
 
     const rowsHtml = unosi
-      .map((u, index) => {
+      .map((u) => {
         const sati = Number(u.ukupno_sati || u.sati || 0).toFixed(1);
-        const tip = u.tip_unosa || "RAD";
+        const baustelleText =
+          u.baustelle_naziv && u.baustelle_naziv !== "-"
+            ? u.baustelle_naziv
+            : u.baustelle_lokacija || "-";
 
         return `
           <tr>
-            <td>${index + 1}</td>
             <td>${safeText(formatDate(u.datum))}</td>
+            <td>${safeText(getGermanWeekday(u.datum))}</td>
             <td>${safeText(u.radnik || "")}</td>
             <td>${safeText(u.pocetak || "-")}</td>
             <td>${safeText(String(u.pauza ?? "0"))}</td>
             <td>${safeText(u.kraj || "-")}</td>
-            <td><strong>${safeText(sati)} h</strong></td>
-            <td>${safeText(u.baustelle_lokacija || "-")}</td>
-            <td>${safeText(tip)}</td>
+            <td class="hours-cell">${safeText(sati)} h</td>
+            <td>${safeText(baustelleText)}</td>
           </tr>
         `;
       })
@@ -358,13 +390,14 @@ export default function PregledSatiPage() {
       <html>
         <head>
           <meta charset="UTF-8" />
-          <title>Pregled sati - ${safeText(workerLabel)} - ${safeText(
+          <title>Arbeitszeitübersicht - ${safeText(workerLabel)} - ${safeText(
       monthLabel
     )} ${year}</title>
+
           <style>
             @page {
               size: A4 portrait;
-              margin: 10mm;
+              margin: 9mm;
             }
 
             * {
@@ -372,79 +405,159 @@ export default function PregledSatiPage() {
             }
 
             body {
-              font-family: Arial, Helvetica, sans-serif;
-              color: #111;
               margin: 0;
-              background: white;
-              font-size: 10px;
+              background: #ffffff;
+              color: #111111;
+              font-family: Arial, Helvetica, sans-serif;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
 
             .page {
               width: 100%;
+              min-height: 100vh;
+              position: relative;
+              overflow: hidden;
+            }
+
+            .mountain-band {
+              height: 72px;
+              position: relative;
+              margin-bottom: 8px;
+              background:
+                linear-gradient(180deg, rgba(248,248,248,1) 0%, rgba(255,255,255,1) 100%);
+              border-bottom: 3px solid #f47b20;
+              overflow: hidden;
+            }
+
+            .mountain-svg {
+              position: absolute;
+              left: 0;
+              right: 0;
+              bottom: -2px;
+              width: 100%;
+              height: 82px;
+              opacity: 0.34;
+            }
+
+            .mountain-svg-dark {
+              position: absolute;
+              left: 0;
+              right: 0;
+              bottom: -3px;
+              width: 100%;
+              height: 70px;
+              opacity: 0.16;
             }
 
             .header {
-              border-bottom: 2px solid #111;
-              padding-bottom: 8px;
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 16px;
+              align-items: end;
               margin-bottom: 10px;
+            }
+
+            .brand {
               display: flex;
-              justify-content: space-between;
-              gap: 20px;
-              align-items: flex-start;
+              align-items: center;
+              gap: 12px;
             }
 
-            .company {
-              font-size: 18px;
-              font-weight: 800;
-              margin: 0 0 4px 0;
+            .brand-mark {
+              width: 42px;
+              height: 42px;
+              border-radius: 8px;
+              background: #f47b20;
+              color: white;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 30px;
+              line-height: 1;
+              font-weight: 900;
+              font-family: Georgia, "Times New Roman", serif;
+              transform: skew(-6deg);
             }
 
-            .subtitle {
-              font-size: 10px;
-              color: #555;
+            .company-name {
               margin: 0;
+              color: #f47b20;
+              font-size: 19px;
+              line-height: 1.1;
+              font-weight: 900;
+              letter-spacing: 0.3px;
+              text-transform: uppercase;
             }
 
-            .doc-title {
+            .company-subtitle {
+              margin: 3px 0 0 0;
+              color: #111;
+              font-size: 9.8px;
+              letter-spacing: 1.35px;
+              font-weight: 800;
+              text-transform: uppercase;
+            }
+
+            .document-title {
               text-align: right;
             }
 
-            .doc-title h1 {
-              font-size: 20px;
-              margin: 0 0 4px 0;
-              letter-spacing: 0.5px;
-            }
-
-            .doc-title p {
+            .document-title h1 {
               margin: 0;
-              color: #555;
-              font-size: 10px;
+              font-size: 23px;
+              line-height: 1;
+              color: #111;
+              letter-spacing: 0.6px;
+              font-weight: 900;
+              text-transform: uppercase;
             }
 
-            .info-grid {
+            .document-title p {
+              margin: 4px 0 0 0;
+              color: #f47b20;
+              font-size: 11px;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 0.8px;
+            }
+
+            .summary-grid {
               display: grid;
               grid-template-columns: repeat(5, 1fr);
               gap: 6px;
-              margin-bottom: 10px;
+              margin-bottom: 9px;
             }
 
-            .info-box {
-              border: 1px solid #ddd;
-              border-radius: 6px;
-              padding: 6px;
-              min-height: 42px;
+            .summary-box {
+              border: 1px solid #d7d7d7;
+              border-top: 4px solid #f47b20;
+              border-radius: 7px;
+              padding: 5px 6px 6px 6px;
+              min-height: 44px;
+              background: #ffffff;
             }
 
-            .info-label {
-              font-size: 8px;
+            .summary-label {
+              font-size: 7.4px;
               color: #666;
               text-transform: uppercase;
+              letter-spacing: 0.45px;
+              font-weight: 800;
               margin-bottom: 3px;
             }
 
-            .info-value {
-              font-size: 13px;
-              font-weight: 800;
+            .summary-value {
+              font-size: 12.4px;
+              font-weight: 900;
+              color: #111;
+              line-height: 1.1;
+            }
+
+            .summary-small {
+              font-size: 7.5px;
+              color: #777;
+              margin-top: 2px;
             }
 
             .positive {
@@ -455,52 +568,95 @@ export default function PregledSatiPage() {
               color: #b91c1c;
             }
 
+            .table-title-row {
+              display: flex;
+              justify-content: space-between;
+              align-items: end;
+              margin: 4px 0 5px 0;
+              padding-bottom: 4px;
+              border-bottom: 1px solid #e6e6e6;
+            }
+
+            .table-title {
+              margin: 0;
+              font-size: 12px;
+              color: #111;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+
+            .table-period {
+              font-size: 9px;
+              color: #555;
+              font-weight: 700;
+            }
+
             table {
               width: 100%;
               border-collapse: collapse;
               table-layout: fixed;
+              border: 1px solid #d9d9d9;
             }
 
             th {
-              background: #111;
+              background: #111111;
               color: white;
-              padding: 5px 4px;
-              font-size: 8.5px;
+              padding: 7px 5px;
+              font-size: 8.6px;
               text-align: left;
-              border: 1px solid #111;
+              border-right: 1px solid #333;
+              border-bottom: 3px solid #f47b20;
+              text-transform: uppercase;
+              letter-spacing: 0.25px;
+              line-height: 1.1;
             }
 
             td {
-              padding: 4px;
-              border: 1px solid #ddd;
-              font-size: 8.5px;
+              padding: 6px 5px;
+              border-right: 1px solid #e0e0e0;
+              border-bottom: 1px solid #e4e4e4;
+              font-size: 9.3px;
               vertical-align: middle;
               word-wrap: break-word;
+              line-height: 1.25;
             }
 
-            tr:nth-child(even) td {
+            tbody tr:nth-child(even) td {
               background: #f7f7f7;
+            }
+
+            tbody tr:nth-child(odd) td {
+              background: #ffffff;
+            }
+
+            tbody tr:hover td {
+              background: #fff3e9;
+            }
+
+            .hours-cell {
+              font-weight: 900;
+              color: #111;
             }
 
             .footer {
               margin-top: 8px;
+              padding-top: 6px;
+              border-top: 2px solid #111;
               display: flex;
               justify-content: space-between;
-              color: #666;
-              font-size: 8px;
-              border-top: 1px solid #ddd;
-              padding-top: 5px;
+              align-items: flex-start;
+              color: #111;
+              font-size: 8.8px;
+              font-weight: 700;
             }
 
-            .no-print {
-              margin: 20px;
+            .footer span {
+              color: #f47b20;
+              font-weight: 900;
             }
 
             @media print {
-              .no-print {
-                display: none;
-              }
-
               body {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
@@ -511,73 +667,95 @@ export default function PregledSatiPage() {
 
         <body>
           <div class="page">
+            <div class="mountain-band">
+              <svg class="mountain-svg" viewBox="0 0 1200 160" preserveAspectRatio="none">
+                <path d="M0,122 L80,94 L150,112 L250,54 L330,98 L420,32 L520,102 L620,44 L720,96 L830,28 L940,104 L1045,62 L1130,116 L1200,90 L1200,160 L0,160 Z" fill="#f47b20"></path>
+              </svg>
+
+              <svg class="mountain-svg-dark" viewBox="0 0 1200 160" preserveAspectRatio="none">
+                <path d="M0,140 L95,110 L180,128 L285,74 L365,116 L455,58 L560,126 L655,80 L760,118 L865,64 L980,122 L1080,86 L1200,118 L1200,160 L0,160 Z" fill="#111111"></path>
+              </svg>
+            </div>
+
             <div class="header">
-              <div>
-                <p class="company">Baustelle App</p>
-                <p class="subtitle">Profesionalni mjesečni izvod radnih sati</p>
+              <div class="brand">
+                <div class="brand-mark">b</div>
+                <div>
+                  <p class="company-name">NOCKER & BERNARDI GmbH</p>
+                  <p class="company-subtitle">Fliesen & Naturstein Verkauf</p>
+                </div>
               </div>
 
-              <div class="doc-title">
-                <h1>PREGLED SATI</h1>
-                <p>${safeText(monthLabel)} ${year}</p>
+              <div class="document-title">
+                <h1>Arbeitszeitübersicht</h1>
+                <p>Monatlicher Arbeitszeitnachweis</p>
               </div>
             </div>
 
-            <div class="info-grid">
-              <div class="info-box">
-                <div class="info-label">Radnik</div>
-                <div class="info-value">${safeText(workerLabel)}</div>
+            <div class="summary-grid">
+              <div class="summary-box">
+                <div class="summary-label">Mitarbeiter</div>
+                <div class="summary-value">${safeText(workerLabel)}</div>
               </div>
 
-              <div class="info-box">
-                <div class="info-label">Mjesec / godina</div>
-                <div class="info-value">${safeText(monthLabel)} ${year}</div>
+              <div class="summary-box">
+                <div class="summary-label">Monat / Jahr</div>
+                <div class="summary-value">${safeText(monthLabel)} ${year}</div>
               </div>
 
-              <div class="info-box">
-                <div class="info-label">Fond radnih sati</div>
-                <div class="info-value">${normaSati.toFixed(1)} h</div>
+              <div class="summary-box">
+                <div class="summary-label">Soll-Arbeitszeit</div>
+                <div class="summary-value">${normaSati.toFixed(1)} h</div>
+                <div class="summary-small">${radniDani} Arbeitstage × 8.5 h${
+      selectedWorker === "ALL" ? ` × ${RADNICI.length}` : ""
+    }</div>
               </div>
 
-              <div class="info-box">
-                <div class="info-label">Odrađeno sati</div>
-                <div class="info-value">${ukupnoSati.toFixed(1)} h</div>
+              <div class="summary-box">
+                <div class="summary-label">Geleistete Stunden</div>
+                <div class="summary-value">${ukupnoSati.toFixed(1)} h</div>
               </div>
 
-              <div class="info-box">
-                <div class="info-label">Razlika</div>
-                <div class="info-value ${
+              <div class="summary-box">
+                <div class="summary-label">Differenz</div>
+                <div class="summary-value ${
                   saldo >= 0 ? "positive" : "negative"
                 }">${saldo >= 0 ? "+" : ""}${saldo.toFixed(1)} h</div>
               </div>
             </div>
 
+            <div class="table-title-row">
+              <h2 class="table-title">Detailübersicht Arbeitszeiten</h2>
+              <div class="table-period">${safeText(workerLabel)} · ${safeText(
+      monthLabel
+    )} ${year}</div>
+            </div>
+
             <table>
               <thead>
                 <tr>
-                  <th style="width: 4%;">#</th>
                   <th style="width: 12%;">Datum</th>
-                  <th style="width: 13%;">Ime</th>
-                  <th style="width: 10%;">Početak</th>
-                  <th style="width: 8%;">Pauza</th>
-                  <th style="width: 10%;">Kraj</th>
-                  <th style="width: 10%;">Ukupno</th>
-                  <th style="width: 23%;">Lokacija</th>
-                  <th style="width: 10%;">Tip</th>
+                  <th style="width: 13%;">Wochentag</th>
+                  <th style="width: 15%;">Mitarbeiter</th>
+                  <th style="width: 12%;">Arbeitsbeginn</th>
+                  <th style="width: 11%;">Pausenzeit</th>
+                  <th style="width: 12%;">Arbeitsende</th>
+                  <th style="width: 12%;">Arbeitsdauer</th>
+                  <th style="width: 13%;">Baustelle</th>
                 </tr>
               </thead>
 
               <tbody>
                 ${
                   rowsHtml ||
-                  `<tr><td colspan="9" style="text-align:center; padding:20px;">Nema unesenih sati za ovaj mjesec.</td></tr>`
+                  `<tr><td colspan="8" style="text-align:center; padding:20px;">Für diesen Monat sind keine Arbeitszeiten eingetragen.</td></tr>`
                 }
               </tbody>
             </table>
 
             <div class="footer">
-              <div>Izvoz napravio: ${safeText(workerName)}</div>
-              <div>Datum izvoda: ${safeText(formatDate(today))}</div>
+              <div><span>NOCKER & BERNARDI GmbH</span><br />Fliesen & Naturstein Verkauf</div>
+              <div style="text-align:right;">Inweg 3<br />A-6170 Zirl</div>
             </div>
           </div>
 
@@ -852,7 +1030,7 @@ export default function PregledSatiPage() {
                   <th style={thStyle}>Pauza</th>
                   <th style={thStyle}>Kraj</th>
                   <th style={thStyle}>Ukupno</th>
-                  <th style={thStyle}>Lokacija</th>
+                  <th style={thStyle}>Baustelle</th>
                   <th style={thStyle}>Tip</th>
                 </tr>
               </thead>
@@ -870,7 +1048,11 @@ export default function PregledSatiPage() {
                     <td style={tdStrongStyle}>
                       {Number(u.ukupno_sati || u.sati || 0).toFixed(1)} h
                     </td>
-                    <td style={tdStyle}>{u.baustelle_lokacija || "-"}</td>
+                    <td style={tdStyle}>
+                      {u.baustelle_naziv && u.baustelle_naziv !== "-"
+                        ? u.baustelle_naziv
+                        : u.baustelle_lokacija || "-"}
+                    </td>
                     <td style={tdStyle}>{u.tip_unosa || "RAD"}</td>
                   </tr>
                 ))}
