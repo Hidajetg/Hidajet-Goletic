@@ -32,7 +32,7 @@ const translations: any = {
     workers: "Mitarbeiter",
     days: "Tage",
     location: "Ort",
-    addAbsence: "Urlaub / Krankenstand hinzufügen",
+    addAbsence: "Urlaub / Krankenstand / Feiertag hinzufügen",
     absenceType: "Art",
     fromDate: "Von Datum",
     toDate: "Bis Datum",
@@ -44,7 +44,7 @@ const translations: any = {
     selectType: "Art auswählen",
     enterDate: "Datum auswählen",
     dateWrong: "Bis Datum darf nicht vor Von Datum liegen.",
-    onlyAdmin: "Nur Admin kann Urlaub oder Krankenstand eintragen.",
+    onlyAdmin: "Nur Admin kann Urlaub, Krankenstand oder Feiertag eintragen.",
     absenceSaved: "Eintrag gespeichert.",
   },
   ba: {
@@ -68,7 +68,7 @@ const translations: any = {
     workers: "radnika",
     days: "dana",
     location: "Lokacija",
-    addAbsence: "Dodaj godišnji / bolovanje",
+    addAbsence: "Dodaj godišnji / bolovanje / praznik",
     absenceType: "Vrsta",
     fromDate: "Od datuma",
     toDate: "Do datuma",
@@ -80,7 +80,7 @@ const translations: any = {
     selectType: "Odaberi vrstu",
     enterDate: "Odaberi datum",
     dateWrong: "Datum do ne može biti prije datuma od.",
-    onlyAdmin: "Samo admin može dodati godišnji ili bolovanje.",
+    onlyAdmin: "Samo admin može dodati godišnji, bolovanje ili praznik.",
     absenceSaved: "Odsustvo je sačuvano.",
   },
   uz: {
@@ -104,7 +104,7 @@ const translations: any = {
     workers: "ishchi",
     days: "kun",
     location: "Manzil",
-    addAbsence: "Ta’til / kasallik qo‘shish",
+    addAbsence: "Ta’til / kasallik / bayram qo‘shish",
     absenceType: "Turi",
     fromDate: "Boshlanish sanasi",
     toDate: "Tugash sanasi",
@@ -116,7 +116,7 @@ const translations: any = {
     selectType: "Turini tanlang",
     enterDate: "Sanani tanlang",
     dateWrong: "Tugash sanasi boshlanish sanasidan oldin bo‘lishi mumkin emas.",
-    onlyAdmin: "Faqat admin ta’til yoki kasallik qo‘sha oladi.",
+    onlyAdmin: "Faqat admin ta’til, kasallik yoki bayram qo‘sha oladi.",
     absenceSaved: "Yozuv saqlandi.",
   },
   en: {
@@ -140,7 +140,7 @@ const translations: any = {
     workers: "workers",
     days: "days",
     location: "Location",
-    addAbsence: "Add vacation / sick leave",
+    addAbsence: "Add vacation / sick leave / holiday",
     absenceType: "Type",
     fromDate: "From date",
     toDate: "To date",
@@ -152,7 +152,7 @@ const translations: any = {
     selectType: "Select type",
     enterDate: "Select date",
     dateWrong: "To date cannot be before from date.",
-    onlyAdmin: "Only admin can add vacation or sick leave.",
+    onlyAdmin: "Only admin can add vacation, sick leave or holiday.",
     absenceSaved: "Absence saved.",
   },
 };
@@ -390,6 +390,14 @@ export default function PregledSatiPage() {
     return dates;
   }
 
+  function nazivTipa(tip: string) {
+    if (tip === "GODISNJI" || tip === "GODIŠNJI") return t.vacation;
+    if (tip === "BOLOVANJE") return t.sick;
+    if (tip === "PRAZNIK") return t.holiday;
+
+    return "RAD";
+  }
+
   async function saveAbsence() {
     if (!isAdmin) {
       alert(t.onlyAdmin);
@@ -435,9 +443,7 @@ export default function PregledSatiPage() {
       ukupno_sati: SATI_PO_DANU,
       sati: SATI_PO_DANU,
       prekovremeni: 0,
-      opis: null,
-      opis_posla:
-        absenceType === "GODISNJI" ? t.vacation : t.sick,
+      opis_posla: nazivTipa(absenceType),
     }));
 
     const { error } = await supabase.from("baustelle_hours").insert(inserts);
@@ -525,7 +531,9 @@ export default function PregledSatiPage() {
     (item) => item.tip_unosa === "GODISNJI" || item.tip_unosa === "GODIŠNJI"
   ).length;
 
-  const praznikDani = unosi.filter((item) => item.tip_unosa === "PRAZNIK").length;
+  const praznikDani = unosi.filter(
+    (item) => item.tip_unosa === "PRAZNIK"
+  ).length;
 
   const radniDani = getWorkdaysInMonth(year, month);
   const brojRadnikaZaNormu = selectedWorker === "ALL" ? RADNICI.length : 1;
@@ -633,6 +641,7 @@ export default function PregledSatiPage() {
               >
                 <option value="GODISNJI">{t.vacation}</option>
                 <option value="BOLOVANJE">{t.sick}</option>
+                <option value="PRAZNIK">{t.holiday}</option>
               </select>
             </div>
 
@@ -725,7 +734,11 @@ export default function PregledSatiPage() {
 
         <div style={summaryBoxStyle}>
           <p>{t.vacationRestYear}</p>
-          <h2 style={{ color: godisnjiOstatakGodina >= 0 ? "#22c55e" : "#ef4444" }}>
+          <h2
+            style={{
+              color: godisnjiOstatakGodina >= 0 ? "#22c55e" : "#ef4444",
+            }}
+          >
             {godisnjiOstatakGodina} {t.days}
           </h2>
         </div>
@@ -740,9 +753,7 @@ export default function PregledSatiPage() {
           </button>
         </div>
 
-        {unosi.length === 0 && (
-          <p style={{ color: "#999" }}>{t.noEntries}</p>
-        )}
+        {unosi.length === 0 && <p style={{ color: "#999" }}>{t.noEntries}</p>}
 
         {unosi.map((u) => (
           <div key={u.id} style={rowStyle}>
