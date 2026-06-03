@@ -26,6 +26,7 @@ const translations: any = {
     active: "Aktiv",
     rooms: "Räume",
     overview: "Übersicht",
+    regiebericht: "Regietagesbericht",
     close: "Baustelle abschließen",
     delete: "Baustelle löschen",
   },
@@ -48,6 +49,7 @@ const translations: any = {
     active: "Aktiv",
     rooms: "Prostorije",
     overview: "Pregled",
+    regiebericht: "Regietagesbericht",
     close: "Zatvori Baustelle",
     delete: "Obriši Baustelle",
   },
@@ -70,6 +72,7 @@ const translations: any = {
     active: "Faol",
     rooms: "Xonalar",
     overview: "Ko‘rinish",
+    regiebericht: "Regie hisoboti",
     close: "Obyektni yopish",
     delete: "Obyektni o‘chirish",
   },
@@ -92,6 +95,7 @@ const translations: any = {
     active: "Active",
     rooms: "Rooms",
     overview: "Overview",
+    regiebericht: "Regie daily report",
     close: "Close Site",
     delete: "Delete Site",
   },
@@ -249,6 +253,13 @@ export default function BaustelleDetailPage() {
         <Link href={`/baustellen/${baustelleId}/pregled`} style={buttonStyle}>
           {t.overview}
         </Link>
+
+        <Link
+          href={`/baustellen/${baustelleId}/regiebericht`}
+          style={buttonStyle}
+        >
+          {t.regiebericht}
+        </Link>
       </div>
 
       <div style={actionBoxStyle}>
@@ -295,7 +306,7 @@ const infoBoxStyle: any = {
 
 const gridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
   gap: "20px",
   marginBottom: "35px",
 };
