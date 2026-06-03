@@ -11,42 +11,6 @@ const GODISNJI_DANI_PO_RADNIKU = 25;
 const SATI_PO_DANU = 8.5;
 
 const translations: any = {
-  de: {
-    back: "Zurück zum Dashboard",
-    title: "Stundenübersicht",
-    loggedIn: "Angemeldet",
-    worker: "Mitarbeiter",
-    allWorkers: "Alle Mitarbeiter",
-    year: "Jahr",
-    month: "Monat",
-    totalHours: "Gesamtstunden",
-    targetHours: "Sollstunden",
-    balance: "Saldo",
-    sick: "Krankenstand",
-    vacation: "Urlaub",
-    holiday: "Feiertag",
-    entries: "Einträge im Monat",
-    download: "CSV herunterladen",
-    noEntries: "Keine Stundeneinträge für diesen Monat.",
-    workdays: "Arbeitstage",
-    workers: "Mitarbeiter",
-    days: "Tage",
-    location: "Ort",
-    addAbsence: "Urlaub / Krankenstand / Feiertag hinzufügen",
-    absenceType: "Art",
-    fromDate: "Von Datum",
-    toDate: "Bis Datum",
-    saveAbsence: "Speichern",
-    vacationRight: "Urlaubsanspruch",
-    vacationUsedYear: "Genutzt im Jahr",
-    vacationRestYear: "Rest im Jahr",
-    selectWorker: "Mitarbeiter auswählen",
-    selectType: "Art auswählen",
-    enterDate: "Datum auswählen",
-    dateWrong: "Bis Datum darf nicht vor Von Datum liegen.",
-    onlyAdmin: "Nur Admin kann Urlaub, Krankenstand oder Feiertag eintragen.",
-    absenceSaved: "Eintrag gespeichert.",
-  },
   ba: {
     back: "Nazad na Dashboard",
     title: "Pregled sati",
@@ -57,12 +21,12 @@ const translations: any = {
     month: "Mjesec",
     totalHours: "Ukupno sati",
     targetHours: "Norma sati",
-    balance: "Saldo",
+    balance: "Razlika",
     sick: "Bolovanje",
     vacation: "Godišnji odmor",
     holiday: "Praznik",
     entries: "Unosi u mjesecu",
-    download: "Preuzmi CSV",
+    download: "Preuzmi PDF",
     noEntries: "Nema unesenih sati za ovaj mjesec.",
     workdays: "radnih dana",
     workers: "radnika",
@@ -81,97 +45,12 @@ const translations: any = {
     enterDate: "Odaberi datum",
     dateWrong: "Datum do ne može biti prije datuma od.",
     onlyAdmin: "Samo admin može dodati godišnji, bolovanje ili praznik.",
+    onlyAdminDownload: "Samo admin može izvesti PDF.",
     absenceSaved: "Odsustvo je sačuvano.",
-  },
-  uz: {
-    back: "Dashboardga qaytish",
-    title: "Ish soatlari",
-    loggedIn: "Kirish",
-    worker: "Ishchi",
-    allWorkers: "Barcha ishchilar",
-    year: "Yil",
-    month: "Oy",
-    totalHours: "Jami soatlar",
-    targetHours: "Norma soatlar",
-    balance: "Balans",
-    sick: "Kasallik",
-    vacation: "Ta’til",
-    holiday: "Bayram",
-    entries: "Oy yozuvlari",
-    download: "CSV yuklab olish",
-    noEntries: "Bu oy uchun yozuvlar yo‘q.",
-    workdays: "ish kuni",
-    workers: "ishchi",
-    days: "kun",
-    location: "Manzil",
-    addAbsence: "Ta’til / kasallik / bayram qo‘shish",
-    absenceType: "Turi",
-    fromDate: "Boshlanish sanasi",
-    toDate: "Tugash sanasi",
-    saveAbsence: "Saqlash",
-    vacationRight: "Ta’til huquqi",
-    vacationUsedYear: "Yilda ishlatilgan",
-    vacationRestYear: "Yilda qolgan",
-    selectWorker: "Ishchini tanlang",
-    selectType: "Turini tanlang",
-    enterDate: "Sanani tanlang",
-    dateWrong: "Tugash sanasi boshlanish sanasidan oldin bo‘lishi mumkin emas.",
-    onlyAdmin: "Faqat admin ta’til, kasallik yoki bayram qo‘sha oladi.",
-    absenceSaved: "Yozuv saqlandi.",
-  },
-  en: {
-    back: "Back to Dashboard",
-    title: "Hours Overview",
-    loggedIn: "Logged in",
-    worker: "Worker",
-    allWorkers: "All Workers",
-    year: "Year",
-    month: "Month",
-    totalHours: "Total Hours",
-    targetHours: "Target Hours",
-    balance: "Balance",
-    sick: "Sick Leave",
-    vacation: "Vacation",
-    holiday: "Holiday",
-    entries: "Monthly Entries",
-    download: "Download CSV",
-    noEntries: "No hour entries for this month.",
-    workdays: "workdays",
-    workers: "workers",
-    days: "days",
-    location: "Location",
-    addAbsence: "Add vacation / sick leave / holiday",
-    absenceType: "Type",
-    fromDate: "From date",
-    toDate: "To date",
-    saveAbsence: "Save absence",
-    vacationRight: "Vacation entitlement",
-    vacationUsedYear: "Used this year",
-    vacationRestYear: "Remaining this year",
-    selectWorker: "Select worker",
-    selectType: "Select type",
-    enterDate: "Select date",
-    dateWrong: "To date cannot be before from date.",
-    onlyAdmin: "Only admin can add vacation, sick leave or holiday.",
-    absenceSaved: "Absence saved.",
   },
 };
 
 const monthNames: any = {
-  de: [
-    "Januar",
-    "Februar",
-    "März",
-    "April",
-    "Mai",
-    "Juni",
-    "Juli",
-    "August",
-    "September",
-    "Oktober",
-    "November",
-    "Dezember",
-  ],
   ba: [
     "Januar",
     "Februar",
@@ -185,34 +64,6 @@ const monthNames: any = {
     "Oktobar",
     "Novembar",
     "Decembar",
-  ],
-  uz: [
-    "Yanvar",
-    "Fevral",
-    "Mart",
-    "Aprel",
-    "May",
-    "Iyun",
-    "Iyul",
-    "Avgust",
-    "Sentabr",
-    "Oktabr",
-    "Noyabr",
-    "Dekabr",
-  ],
-  en: [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
   ],
 };
 
@@ -367,10 +218,8 @@ export default function PregledSatiPage() {
 
   function getDatesBetween(from: string, to: string) {
     const dates: string[] = [];
-
     const start = new Date(from);
     const end = new Date(to);
-
     const current = new Date(start);
 
     while (current <= end) {
@@ -380,7 +229,6 @@ export default function PregledSatiPage() {
         const y = current.getFullYear();
         const m = String(current.getMonth() + 1).padStart(2, "0");
         const d = String(current.getDate()).padStart(2, "0");
-
         dates.push(`${y}-${m}-${d}`);
       }
 
@@ -394,7 +242,6 @@ export default function PregledSatiPage() {
     if (tip === "GODISNJI" || tip === "GODIŠNJI") return t.vacation;
     if (tip === "BOLOVANJE") return t.sick;
     if (tip === "PRAZNIK") return t.holiday;
-
     return "RAD";
   }
 
@@ -454,60 +301,8 @@ export default function PregledSatiPage() {
     }
 
     alert(t.absenceSaved);
-
     await loadData();
     await loadGodisnjiGodina();
-  }
-
-  function downloadCSV() {
-    const rows = [
-      [
-        "Datum",
-        t.worker,
-        "Tip",
-        "Baustelle",
-        t.location,
-        "Pocetak",
-        "Kraj",
-        "Pauza",
-        "Sati",
-      ],
-      ...unosi.map((u) => [
-        u.datum,
-        u.radnik || "",
-        u.tip_unosa || "RAD",
-        u.baustelle_naziv,
-        u.baustelle_lokacija,
-        u.pocetak || "",
-        u.kraj || "",
-        u.pauza || "",
-        Number(u.ukupno_sati || u.sati || 0).toFixed(1),
-      ]),
-    ];
-
-    const csvContent = rows
-      .map((row) =>
-        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(";")
-      )
-      .join("\n");
-
-    const blob = new Blob([csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-
-    a.href = url;
-    a.download = `pregled-sati-${selectedWorker}-${year}-${String(
-      month
-    ).padStart(2, "0")}.csv`;
-
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    URL.revokeObjectURL(url);
   }
 
   function formatDate(dateString: string) {
@@ -516,6 +311,295 @@ export default function PregledSatiPage() {
       month: "2-digit",
       year: "numeric",
     });
+  }
+
+  function safeText(value: any) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function downloadPDF() {
+    if (!isAdmin) {
+      alert(t.onlyAdminDownload);
+      return;
+    }
+
+    const workerLabel =
+      selectedWorker === "ALL" ? "Svi radnici" : selectedWorker || workerName;
+
+    const monthLabel = months[month - 1];
+
+    const rowsHtml = unosi
+      .map((u, index) => {
+        const sati = Number(u.ukupno_sati || u.sati || 0).toFixed(1);
+        const tip = u.tip_unosa || "RAD";
+
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${safeText(formatDate(u.datum))}</td>
+            <td>${safeText(u.radnik || "")}</td>
+            <td>${safeText(u.pocetak || "-")}</td>
+            <td>${safeText(String(u.pauza ?? "0"))}</td>
+            <td>${safeText(u.kraj || "-")}</td>
+            <td><strong>${safeText(sati)} h</strong></td>
+            <td>${safeText(u.baustelle_lokacija || "-")}</td>
+            <td>${safeText(tip)}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <title>Pregled sati - ${safeText(workerLabel)} - ${safeText(
+      monthLabel
+    )} ${year}</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 10mm;
+            }
+
+            * {
+              box-sizing: border-box;
+            }
+
+            body {
+              font-family: Arial, Helvetica, sans-serif;
+              color: #111;
+              margin: 0;
+              background: white;
+              font-size: 10px;
+            }
+
+            .page {
+              width: 100%;
+            }
+
+            .header {
+              border-bottom: 2px solid #111;
+              padding-bottom: 8px;
+              margin-bottom: 10px;
+              display: flex;
+              justify-content: space-between;
+              gap: 20px;
+              align-items: flex-start;
+            }
+
+            .company {
+              font-size: 18px;
+              font-weight: 800;
+              margin: 0 0 4px 0;
+            }
+
+            .subtitle {
+              font-size: 10px;
+              color: #555;
+              margin: 0;
+            }
+
+            .doc-title {
+              text-align: right;
+            }
+
+            .doc-title h1 {
+              font-size: 20px;
+              margin: 0 0 4px 0;
+              letter-spacing: 0.5px;
+            }
+
+            .doc-title p {
+              margin: 0;
+              color: #555;
+              font-size: 10px;
+            }
+
+            .info-grid {
+              display: grid;
+              grid-template-columns: repeat(5, 1fr);
+              gap: 6px;
+              margin-bottom: 10px;
+            }
+
+            .info-box {
+              border: 1px solid #ddd;
+              border-radius: 6px;
+              padding: 6px;
+              min-height: 42px;
+            }
+
+            .info-label {
+              font-size: 8px;
+              color: #666;
+              text-transform: uppercase;
+              margin-bottom: 3px;
+            }
+
+            .info-value {
+              font-size: 13px;
+              font-weight: 800;
+            }
+
+            .positive {
+              color: #047857;
+            }
+
+            .negative {
+              color: #b91c1c;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              table-layout: fixed;
+            }
+
+            th {
+              background: #111;
+              color: white;
+              padding: 5px 4px;
+              font-size: 8.5px;
+              text-align: left;
+              border: 1px solid #111;
+            }
+
+            td {
+              padding: 4px;
+              border: 1px solid #ddd;
+              font-size: 8.5px;
+              vertical-align: middle;
+              word-wrap: break-word;
+            }
+
+            tr:nth-child(even) td {
+              background: #f7f7f7;
+            }
+
+            .footer {
+              margin-top: 8px;
+              display: flex;
+              justify-content: space-between;
+              color: #666;
+              font-size: 8px;
+              border-top: 1px solid #ddd;
+              padding-top: 5px;
+            }
+
+            .no-print {
+              margin: 20px;
+            }
+
+            @media print {
+              .no-print {
+                display: none;
+              }
+
+              body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+          </style>
+        </head>
+
+        <body>
+          <div class="page">
+            <div class="header">
+              <div>
+                <p class="company">Baustelle App</p>
+                <p class="subtitle">Profesionalni mjesečni izvod radnih sati</p>
+              </div>
+
+              <div class="doc-title">
+                <h1>PREGLED SATI</h1>
+                <p>${safeText(monthLabel)} ${year}</p>
+              </div>
+            </div>
+
+            <div class="info-grid">
+              <div class="info-box">
+                <div class="info-label">Radnik</div>
+                <div class="info-value">${safeText(workerLabel)}</div>
+              </div>
+
+              <div class="info-box">
+                <div class="info-label">Mjesec / godina</div>
+                <div class="info-value">${safeText(monthLabel)} ${year}</div>
+              </div>
+
+              <div class="info-box">
+                <div class="info-label">Fond radnih sati</div>
+                <div class="info-value">${normaSati.toFixed(1)} h</div>
+              </div>
+
+              <div class="info-box">
+                <div class="info-label">Odrađeno sati</div>
+                <div class="info-value">${ukupnoSati.toFixed(1)} h</div>
+              </div>
+
+              <div class="info-box">
+                <div class="info-label">Razlika</div>
+                <div class="info-value ${
+                  saldo >= 0 ? "positive" : "negative"
+                }">${saldo >= 0 ? "+" : ""}${saldo.toFixed(1)} h</div>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 4%;">#</th>
+                  <th style="width: 12%;">Datum</th>
+                  <th style="width: 13%;">Ime</th>
+                  <th style="width: 10%;">Početak</th>
+                  <th style="width: 8%;">Pauza</th>
+                  <th style="width: 10%;">Kraj</th>
+                  <th style="width: 10%;">Ukupno</th>
+                  <th style="width: 23%;">Lokacija</th>
+                  <th style="width: 10%;">Tip</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${
+                  rowsHtml ||
+                  `<tr><td colspan="9" style="text-align:center; padding:20px;">Nema unesenih sati za ovaj mjesec.</td></tr>`
+                }
+              </tbody>
+            </table>
+
+            <div class="footer">
+              <div>Izvoz napravio: ${safeText(workerName)}</div>
+              <div>Datum izvoda: ${safeText(formatDate(today))}</div>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+
+    if (!printWindow) {
+      alert("Browser je blokirao otvaranje PDF prozora.");
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
   }
 
   const ukupnoSati = unosi.reduce(
@@ -748,48 +832,52 @@ export default function PregledSatiPage() {
         <div style={listHeaderStyle}>
           <h2>{t.entries}</h2>
 
-          <button onClick={downloadCSV} style={downloadButtonStyle}>
-            {t.download}
-          </button>
+          {isAdmin && (
+            <button onClick={downloadPDF} style={downloadButtonStyle}>
+              {t.download}
+            </button>
+          )}
         </div>
 
         {unosi.length === 0 && <p style={{ color: "#999" }}>{t.noEntries}</p>}
 
-        {unosi.map((u) => (
-          <div key={u.id} style={rowStyle}>
-            <div>
-              <strong>{formatDate(u.datum)}</strong>
+        {unosi.length > 0 && (
+          <div style={tableWrapperStyle}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Datum</th>
+                  <th style={thStyle}>Ime</th>
+                  <th style={thStyle}>Početak</th>
+                  <th style={thStyle}>Pauza</th>
+                  <th style={thStyle}>Kraj</th>
+                  <th style={thStyle}>Ukupno</th>
+                  <th style={thStyle}>Lokacija</th>
+                  <th style={thStyle}>Tip</th>
+                </tr>
+              </thead>
 
-              <p style={{ margin: "6px 0 0 0", color: "#f97316" }}>
-                {t.worker}: <strong>{u.radnik}</strong>
-              </p>
-
-              <p style={{ margin: "6px 0 0 0", color: "#aaa" }}>
-                {u.tip_unosa || "RAD"}
-              </p>
-
-              <p style={{ margin: "6px 0 0 0" }}>
-                Baustelle: <strong>{u.baustelle_naziv}</strong>
-              </p>
-
-              <p style={{ margin: "6px 0 0 0", color: "#aaa" }}>
-                {t.location}: {u.baustelle_lokacija}
-              </p>
-            </div>
-
-            <div style={{ textAlign: "right" }}>
-              <strong>
-                {Number(u.ukupno_sati || u.sati || 0).toFixed(1)} h
-              </strong>
-
-              {u.pocetak && u.kraj && (
-                <p style={{ margin: "6px 0 0 0", color: "#aaa" }}>
-                  {u.pocetak} - {u.kraj}
-                </p>
-              )}
-            </div>
+              <tbody>
+                {unosi.map((u) => (
+                  <tr key={u.id} style={trStyle}>
+                    <td style={tdStyle}>{formatDate(u.datum)}</td>
+                    <td style={tdStyle}>
+                      <strong>{u.radnik}</strong>
+                    </td>
+                    <td style={tdStyle}>{u.pocetak || "-"}</td>
+                    <td style={tdStyle}>{u.pauza ?? "0"}</td>
+                    <td style={tdStyle}>{u.kraj || "-"}</td>
+                    <td style={tdStrongStyle}>
+                      {Number(u.ukupno_sati || u.sati || 0).toFixed(1)} h
+                    </td>
+                    <td style={tdStyle}>{u.baustelle_lokacija || "-"}</td>
+                    <td style={tdStyle}>{u.tip_unosa || "RAD"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
+        )}
       </div>
     </main>
   );
@@ -889,17 +977,6 @@ const listHeaderStyle: any = {
   marginBottom: "20px",
 };
 
-const rowStyle: any = {
-  background: "#222",
-  padding: "18px",
-  borderRadius: "14px",
-  marginTop: "12px",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "20px",
-};
-
 const downloadButtonStyle: any = {
   background: "#16a34a",
   color: "white",
@@ -909,4 +986,41 @@ const downloadButtonStyle: any = {
   fontSize: "16px",
   fontWeight: "bold",
   cursor: "pointer",
+};
+
+const tableWrapperStyle: any = {
+  width: "100%",
+  overflowX: "auto",
+};
+
+const tableStyle: any = {
+  width: "100%",
+  borderCollapse: "collapse",
+  minWidth: "900px",
+};
+
+const thStyle: any = {
+  background: "#000",
+  color: "#fff",
+  padding: "14px",
+  textAlign: "left",
+  borderBottom: "1px solid #333",
+  fontSize: "15px",
+};
+
+const trStyle: any = {
+  borderBottom: "1px solid #333",
+};
+
+const tdStyle: any = {
+  padding: "14px",
+  color: "#ddd",
+  fontSize: "15px",
+};
+
+const tdStrongStyle: any = {
+  padding: "14px",
+  color: "#fff",
+  fontSize: "15px",
+  fontWeight: "bold",
 };
