@@ -1,3 +1,6 @@
+Zamijeni cijeli fajl ovim kodom:
+
+```tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -17,6 +20,10 @@ export default function RegieberichtPage() {
   const [rooms, setRooms] = useState<any[]>([]);
   const [workers, setWorkers] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
+  const [berichte, setBerichte] = useState<any[]>([]);
+
+  const [activeBerichtId, setActiveBerichtId] = useState<number | null>(null);
+  const [showList, setShowList] = useState(false);
 
   const [berichtNr, setBerichtNr] = useState("");
   const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
@@ -45,6 +52,7 @@ export default function RegieberichtPage() {
 
   useEffect(() => {
     loadData();
+    loadBerichte();
   }, []);
 
   async function loadData() {
@@ -86,6 +94,22 @@ export default function RegieberichtPage() {
     setMaterials(materialsRes.data || []);
   }
 
+  async function loadBerichte() {
+    const { data, error } = await supabase
+      .from("regieberichte")
+      .select("*")
+      .eq("baustelle_id", Number(baustelleId))
+      .order("datum", { ascending: false })
+      .order("id", { ascending: false });
+
+    if (error) {
+      alert("LOAD REGIEBERICHTE: " + error.message);
+      return;
+    }
+
+    setBerichte(data || []);
+  }
+
   function timeToNumber(time: string) {
     const [h, m] = time.split(":").map(Number);
     return h + m / 60;
@@ -109,6 +133,172 @@ export default function RegieberichtPage() {
       month: "2-digit",
       year: "numeric",
     });
+  }
+
+  function resetForm() {
+    setActiveBerichtId(null);
+    setBerichtNr("");
+    setDatum(new Date().toISOString().split("T")[0]);
+    setAuftraggeber(baustelle?.auftraggeber || "");
+    setBauleiter("");
+    setOrt(baustelle?.lokacija || "");
+    setArbeiten("");
+    setSelectedRoom("");
+    setSelectedRooms([]);
+    setWorkerName("");
+    setVon("08:00");
+    setBis("17:00");
+    setBemerkung("");
+    setWorkerRows([]);
+    setMaterialId("");
+    setMaterialName("");
+    setMenge("");
+    setEinheit("");
+    setMaterialRows([]);
+    setPhotos([]);
+    setPhotoNote("");
+    setShowList(false);
+  }
+
+  async function openBericht(berichtId: number) {
+    const { data: bericht, error: berichtError } = await supabase
+      .from("regieberichte")
+      .select("*")
+      .eq("id", berichtId)
+      .single();
+
+    if (berichtError) {
+      alert("OPEN REGIEBERICHT: " + berichtError.message);
+      return;
+    }
+
+    const roomsRes = await supabase
+      .from("regiebericht_rooms")
+      .select("*")
+      .eq("regiebericht_id", berichtId);
+
+    const workersRes = await supabase
+      .from("regiebericht_workers")
+      .select("*")
+      .eq("regiebericht_id", berichtId);
+
+    const materialsRes = await supabase
+      .from("regiebericht_materials")
+      .select("*")
+      .eq("regiebericht_id", berichtId);
+
+    const photosRes = await supabase
+      .from("regiebericht_photos")
+      .select("*")
+      .eq("regiebericht_id", berichtId);
+
+    if (roomsRes.error) {
+      alert("LOAD ROOMS: " + roomsRes.error.message);
+      return;
+    }
+
+    if (workersRes.error) {
+      alert("LOAD WORKERS: " + workersRes.error.message);
+      return;
+    }
+
+    if (materialsRes.error) {
+      alert("LOAD MATERIALS: " + materialsRes.error.message);
+      return;
+    }
+
+    if (photosRes.error) {
+      alert("LOAD PHOTOS: " + photosRes.error.message);
+      return;
+    }
+
+    setActiveBerichtId(bericht.id);
+    setBerichtNr(bericht.bericht_nr || "");
+    setDatum(bericht.datum || new Date().toISOString().split("T")[0]);
+    setAuftraggeber(bericht.auftraggeber || "");
+    setBauleiter(bericht.bauleiter || "");
+    setOrt(bericht.ort || "");
+    setArbeiten(bericht.ausgefuehrte_arbeiten || "");
+
+    setSelectedRooms(
+      (roomsRes.data || []).map((r: any) => ({
+        room_id: r.room_id,
+        room_name: r.room_name,
+      }))
+    );
+
+    setWorkerRows(
+      (workersRes.data || []).map((w: any) => ({
+        worker_name: w.worker_name,
+        von: w.von,
+        bis: w.bis,
+        stunden: w.stunden,
+        bemerkung: w.bemerkung,
+      }))
+    );
+
+    setMaterialRows(
+      (materialsRes.data || []).map((m: any) => ({
+        material_id: m.material_id,
+        bezeichnung: m.bezeichnung,
+        menge: m.menge,
+        einheit: m.einheit,
+      }))
+    );
+
+    setPhotos(
+      (photosRes.data || []).map((p: any) => ({
+        file: null,
+        preview: p.photo_url,
+        photo_url: p.photo_url,
+        note: p.note || "",
+      }))
+    );
+
+    setShowList(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function deleteBericht(berichtId: number) {
+    const ok = confirm("Regiebericht wirklich löschen?");
+    if (!ok) return;
+
+    await supabase
+      .from("regiebericht_rooms")
+      .delete()
+      .eq("regiebericht_id", berichtId);
+
+    await supabase
+      .from("regiebericht_workers")
+      .delete()
+      .eq("regiebericht_id", berichtId);
+
+    await supabase
+      .from("regiebericht_materials")
+      .delete()
+      .eq("regiebericht_id", berichtId);
+
+    await supabase
+      .from("regiebericht_photos")
+      .delete()
+      .eq("regiebericht_id", berichtId);
+
+    const { error } = await supabase
+      .from("regieberichte")
+      .delete()
+      .eq("id", berichtId);
+
+    if (error) {
+      alert("DELETE REGIEBERICHT: " + error.message);
+      return;
+    }
+
+    if (activeBerichtId === berichtId) {
+      resetForm();
+    }
+
+    await loadBerichte();
+    alert("Regiebericht wurde gelöscht.");
   }
 
   function addRoom() {
@@ -225,6 +415,7 @@ export default function RegieberichtPage() {
     const newPhotos = allowed.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
+      photo_url: null,
       note: photoNote,
     }));
 
@@ -259,6 +450,108 @@ export default function RegieberichtPage() {
     return data.publicUrl;
   }
 
+  async function saveChildren(berichtId: number) {
+    await supabase
+      .from("regiebericht_rooms")
+      .delete()
+      .eq("regiebericht_id", berichtId);
+
+    await supabase
+      .from("regiebericht_workers")
+      .delete()
+      .eq("regiebericht_id", berichtId);
+
+    await supabase
+      .from("regiebericht_materials")
+      .delete()
+      .eq("regiebericht_id", berichtId);
+
+    await supabase
+      .from("regiebericht_photos")
+      .delete()
+      .eq("regiebericht_id", berichtId);
+
+    if (selectedRooms.length > 0) {
+      const { error } = await supabase.from("regiebericht_rooms").insert(
+        selectedRooms.map((r) => ({
+          regiebericht_id: berichtId,
+          room_id: r.room_id,
+          room_name: r.room_name,
+        }))
+      );
+
+      if (error) {
+        alert("SAVE ROOMS: " + error.message);
+        return false;
+      }
+    }
+
+    if (workerRows.length > 0) {
+      const { error } = await supabase.from("regiebericht_workers").insert(
+        workerRows.map((w) => ({
+          regiebericht_id: berichtId,
+          worker_name: w.worker_name,
+          von: w.von,
+          bis: w.bis,
+          stunden: w.stunden,
+          bemerkung: w.bemerkung,
+        }))
+      );
+
+      if (error) {
+        alert("SAVE WORKERS: " + error.message);
+        return false;
+      }
+    }
+
+    if (materialRows.length > 0) {
+      const { error } = await supabase.from("regiebericht_materials").insert(
+        materialRows.map((m) => ({
+          regiebericht_id: berichtId,
+          material_id: m.material_id,
+          bezeichnung: m.bezeichnung,
+          menge: m.menge,
+          einheit: m.einheit,
+        }))
+      );
+
+      if (error) {
+        alert("SAVE MATERIALS: " + error.message);
+        return false;
+      }
+    }
+
+    if (photos.length > 0) {
+      for (const p of photos) {
+        try {
+          const url = p.photo_url ? p.photo_url : await uploadPhoto(p.file, berichtId);
+
+          const { error } = await supabase.from("regiebericht_photos").insert([
+            {
+              regiebericht_id: berichtId,
+              photo_url: url,
+              note: p.note || "",
+            },
+          ]);
+
+          if (error) {
+            alert("SAVE PHOTO: " + error.message);
+            return false;
+          }
+        } catch (err: any) {
+          alert(
+            "UPLOAD FOTO FEHLER: " +
+              err.message +
+              "\n\nFalls der Bucket fehlt, in Supabase Storage erstellen: regiebericht-photos"
+          );
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
   async function saveBericht() {
     if (!baustelle) {
       alert("Baustelle wurde nicht geladen.");
@@ -280,112 +573,60 @@ export default function RegieberichtPage() {
       return;
     }
 
-    const { data: bericht, error: berichtError } = await supabase
-      .from("regieberichte")
-      .insert([
-        {
-          baustelle_id: Number(baustelleId),
-          bericht_nr: berichtNr.trim(),
-          datum,
-          auftragnehmer: FIRMA,
-          auftraggeber: auftraggeber.trim(),
-          bauleiter: bauleiter.trim(),
-          bauvorhaben: baustelle.naziv || "",
-          ort: ort.trim(),
-          ausgefuehrte_arbeiten: arbeiten.trim(),
-          unterschrift_auftragnehmer: POTPIS,
-          status: "ENTWURF",
-        },
-      ])
-      .select()
-      .single();
+    const payload = {
+      baustelle_id: Number(baustelleId),
+      bericht_nr: berichtNr.trim(),
+      datum,
+      auftragnehmer: FIRMA,
+      auftraggeber: auftraggeber.trim(),
+      bauleiter: bauleiter.trim(),
+      bauvorhaben: baustelle.naziv || "",
+      ort: ort.trim(),
+      ausgefuehrte_arbeiten: arbeiten.trim(),
+      unterschrift_auftragnehmer: POTPIS,
+      status: "ENTWURF",
+    };
 
-    if (berichtError) {
-      alert("INSERT REGIEBERICHT: " + berichtError.message);
-      return;
-    }
+    let berichtId = activeBerichtId;
 
-    const berichtId = bericht.id;
-
-    if (selectedRooms.length > 0) {
-      const { error } = await supabase.from("regiebericht_rooms").insert(
-        selectedRooms.map((r) => ({
-          regiebericht_id: berichtId,
-          room_id: r.room_id,
-          room_name: r.room_name,
-        }))
-      );
+    if (activeBerichtId) {
+      const { error } = await supabase
+        .from("regieberichte")
+        .update(payload)
+        .eq("id", activeBerichtId);
 
       if (error) {
-        alert("INSERT ROOMS: " + error.message);
+        alert("UPDATE REGIEBERICHT: " + error.message);
         return;
       }
-    }
-
-    if (workerRows.length > 0) {
-      const { error } = await supabase.from("regiebericht_workers").insert(
-        workerRows.map((w) => ({
-          regiebericht_id: berichtId,
-          worker_name: w.worker_name,
-          von: w.von,
-          bis: w.bis,
-          stunden: w.stunden,
-          bemerkung: w.bemerkung,
-        }))
-      );
+    } else {
+      const { data: bericht, error } = await supabase
+        .from("regieberichte")
+        .insert([payload])
+        .select()
+        .single();
 
       if (error) {
-        alert("INSERT WORKERS: " + error.message);
+        alert("INSERT REGIEBERICHT: " + error.message);
         return;
       }
+
+      berichtId = bericht.id;
+      setActiveBerichtId(bericht.id);
     }
 
-    if (materialRows.length > 0) {
-      const { error } = await supabase.from("regiebericht_materials").insert(
-        materialRows.map((m) => ({
-          regiebericht_id: berichtId,
-          material_id: m.material_id,
-          bezeichnung: m.bezeichnung,
-          menge: m.menge,
-          einheit: m.einheit,
-        }))
-      );
+    if (!berichtId) return;
 
-      if (error) {
-        alert("INSERT MATERIALS: " + error.message);
-        return;
-      }
-    }
+    const childrenOk = await saveChildren(berichtId);
+    if (!childrenOk) return;
 
-    if (photos.length > 0) {
-      for (const p of photos) {
-        try {
-          const url = await uploadPhoto(p.file, berichtId);
+    await loadBerichte();
 
-          const { error } = await supabase.from("regiebericht_photos").insert([
-            {
-              regiebericht_id: berichtId,
-              photo_url: url,
-              note: p.note || "",
-            },
-          ]);
-
-          if (error) {
-            alert("INSERT PHOTO: " + error.message);
-            return;
-          }
-        } catch (err: any) {
-          alert(
-            "UPLOAD FOTO FEHLER: " +
-              err.message +
-              "\n\nFalls der Bucket fehlt, in Supabase Storage erstellen: regiebericht-photos"
-          );
-          return;
-        }
-      }
-    }
-
-    alert("Regiebericht wurde gespeichert.");
+    alert(
+      activeBerichtId
+        ? "Regiebericht wurde aktualisiert."
+        : "Regiebericht wurde gespeichert."
+    );
   }
 
   function exportPrint() {
@@ -398,223 +639,299 @@ export default function RegieberichtPage() {
         <Link href={`/baustellen/${baustelleId}`} style={styles.backLink}>
           ← Zurück zur Baustelle
         </Link>
+
+        <div style={styles.topButtons}>
+          <button onClick={() => setShowList(!showList)} style={styles.listButton}>
+            {showList ? "Formular anzeigen" : "Liste Regieberichte"}
+          </button>
+
+          <button onClick={resetForm} style={styles.newButton}>
+            Neuer Regiebericht
+          </button>
+
+          <button onClick={exportPrint} style={styles.printButtonSmall}>
+            Vorschau / Drucken
+          </button>
+        </div>
       </div>
 
-      <section className="no-print" style={styles.inputPanel}>
-        <h1 style={styles.inputTitle}>Regiebericht erfassen</h1>
+      {showList && (
+        <section className="no-print" style={styles.inputPanel}>
+          <h1 style={styles.inputTitle}>Liste Regieberichte</h1>
 
-        <div style={styles.formGrid}>
-          <div>
-            <label style={styles.label}>Bericht Nr.</label>
-            <input
-              value={berichtNr}
-              onChange={(e) => setBerichtNr(e.target.value)}
-              style={styles.input}
-              placeholder="z.B. 1"
-            />
-          </div>
+          {berichte.length === 0 ? (
+            <div style={styles.emptyListBox}>Noch keine Regieberichte gespeichert.</div>
+          ) : (
+            <div style={styles.listBox}>
+              {berichte.map((b) => (
+                <div key={b.id} style={styles.berichtCard}>
+                  <div>
+                    <div style={styles.berichtTitle}>
+                      Regiebericht Nr. {b.bericht_nr || "-"}
+                    </div>
+                    <div style={styles.berichtInfo}>
+                      Datum: {formatDatum(b.datum)} | Ort: {b.ort || "-"}
+                    </div>
+                    <div style={styles.berichtInfo}>
+                      Auftraggeber: {b.auftraggeber || "-"} | Bauleiter:{" "}
+                      {b.bauleiter || "-"}
+                    </div>
+                  </div>
 
-          <div>
-            <label style={styles.label}>Datum</label>
-            <input
-              type="date"
-              value={datum}
-              onChange={(e) => setDatum(e.target.value)}
-              style={styles.input}
-            />
-          </div>
+                  <div style={styles.berichtActions}>
+                    <button
+                      onClick={() => openBericht(b.id)}
+                      style={styles.blueButton}
+                    >
+                      Öffnen / Bearbeiten
+                    </button>
 
-          <div>
-            <label style={styles.label}>Auftraggeber</label>
-            <input
-              value={auftraggeber}
-              onChange={(e) => setAuftraggeber(e.target.value)}
-              style={styles.input}
-              placeholder="Auftraggeber"
-            />
-          </div>
+                    <button
+                      onClick={() => deleteBericht(b.id)}
+                      style={styles.deleteButton}
+                    >
+                      Löschen
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
-          <div>
-            <label style={styles.label}>Bauleiter</label>
-            <input
-              value={bauleiter}
-              onChange={(e) => setBauleiter(e.target.value)}
-              style={styles.input}
-              placeholder="Name Bauleiter"
-            />
-          </div>
+      {!showList && (
+        <>
+          <section className="no-print" style={styles.inputPanel}>
+            <h1 style={styles.inputTitle}>
+              {activeBerichtId
+                ? "Regiebericht bearbeiten"
+                : "Regiebericht erfassen"}
+            </h1>
 
-          <div>
-            <label style={styles.label}>Baustelle</label>
-            <div style={styles.readonlyBox}>{baustelle?.naziv || "-"}</div>
-          </div>
+            {activeBerichtId && (
+              <div style={styles.editNotice}>
+                Du bearbeitest gespeicherten Regiebericht ID: {activeBerichtId}
+              </div>
+            )}
 
-          <div>
-            <label style={styles.label}>Ort</label>
-            <input
-              value={ort}
-              onChange={(e) => setOrt(e.target.value)}
-              style={styles.input}
-              placeholder="Ort"
-            />
-          </div>
-        </div>
-      </section>
+            <div style={styles.formGrid}>
+              <div>
+                <label style={styles.label}>Bericht Nr.</label>
+                <input
+                  value={berichtNr}
+                  onChange={(e) => setBerichtNr(e.target.value)}
+                  style={styles.input}
+                  placeholder="z.B. 1"
+                />
+              </div>
 
-      <section className="no-print" style={styles.inputPanel}>
-        <h2 style={styles.panelTitle}>Bauteile / Räume</h2>
+              <div>
+                <label style={styles.label}>Datum</label>
+                <input
+                  type="date"
+                  value={datum}
+                  onChange={(e) => setDatum(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
 
-        <div style={styles.inlineGrid}>
-          <select
-            value={selectedRoom}
-            onChange={(e) => setSelectedRoom(e.target.value)}
-            style={styles.input}
-          >
-            <option value="">Raum auswählen</option>
-            {rooms.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.naziv}
-              </option>
-            ))}
-          </select>
+              <div>
+                <label style={styles.label}>Auftraggeber</label>
+                <input
+                  value={auftraggeber}
+                  onChange={(e) => setAuftraggeber(e.target.value)}
+                  style={styles.input}
+                  placeholder="Auftraggeber"
+                />
+              </div>
 
-          <button onClick={addRoom} style={styles.blueButton}>
-            Raum hinzufügen
-          </button>
-        </div>
+              <div>
+                <label style={styles.label}>Bauleiter</label>
+                <input
+                  value={bauleiter}
+                  onChange={(e) => setBauleiter(e.target.value)}
+                  style={styles.input}
+                  placeholder="Name Bauleiter"
+                />
+              </div>
 
-        <div style={styles.chipBox}>
-          {selectedRooms.map((r, index) => (
-            <div key={index} style={styles.chip}>
-              {r.room_name}
-              <button onClick={() => removeRoom(index)} style={styles.smallDelete}>
-                ×
+              <div>
+                <label style={styles.label}>Baustelle</label>
+                <div style={styles.readonlyBox}>{baustelle?.naziv || "-"}</div>
+              </div>
+
+              <div>
+                <label style={styles.label}>Ort</label>
+                <input
+                  value={ort}
+                  onChange={(e) => setOrt(e.target.value)}
+                  style={styles.input}
+                  placeholder="Ort"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="no-print" style={styles.inputPanel}>
+            <h2 style={styles.panelTitle}>Bauteile / Räume</h2>
+
+            <div style={styles.inlineGrid}>
+              <select
+                value={selectedRoom}
+                onChange={(e) => setSelectedRoom(e.target.value)}
+                style={styles.input}
+              >
+                <option value="">Raum auswählen</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.naziv}
+                  </option>
+                ))}
+              </select>
+
+              <button onClick={addRoom} style={styles.blueButton}>
+                Raum hinzufügen
               </button>
             </div>
-          ))}
-        </div>
-      </section>
 
-      <section className="no-print" style={styles.inputPanel}>
-        <h2 style={styles.panelTitle}>Ausgeführte Arbeiten</h2>
+            <div style={styles.chipBox}>
+              {selectedRooms.map((r, index) => (
+                <div key={index} style={styles.chip}>
+                  {r.room_name}
+                  <button
+                    onClick={() => removeRoom(index)}
+                    style={styles.smallDelete}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
 
-        <textarea
-          value={arbeiten}
-          onChange={(e) => setArbeiten(e.target.value)}
-          style={styles.textarea}
-          placeholder="Beschreibung der ausgeführten Arbeiten..."
-        />
-      </section>
+          <section className="no-print" style={styles.inputPanel}>
+            <h2 style={styles.panelTitle}>Ausgeführte Arbeiten</h2>
 
-      <section className="no-print" style={styles.inputPanel}>
-        <h2 style={styles.panelTitle}>Arbeitskräfte</h2>
+            <textarea
+              value={arbeiten}
+              onChange={(e) => setArbeiten(e.target.value)}
+              style={styles.textarea}
+              placeholder="Beschreibung der ausgeführten Arbeiten..."
+            />
+          </section>
 
-        <div style={styles.workerGrid}>
-          <select
-            value={workerName}
-            onChange={(e) => setWorkerName(e.target.value)}
-            style={styles.input}
-          >
-            <option value="">Mitarbeiter auswählen</option>
-            {workers.map((w) => (
-              <option key={w.id} value={w.name}>
-                {w.name}
-              </option>
-            ))}
-          </select>
+          <section className="no-print" style={styles.inputPanel}>
+            <h2 style={styles.panelTitle}>Arbeitskräfte</h2>
 
-          <input
-            type="time"
-            value={von}
-            onChange={(e) => setVon(e.target.value)}
-            style={styles.input}
-          />
+            <div style={styles.workerGrid}>
+              <select
+                value={workerName}
+                onChange={(e) => setWorkerName(e.target.value)}
+                style={styles.input}
+              >
+                <option value="">Mitarbeiter auswählen</option>
+                {workers.map((w) => (
+                  <option key={w.id} value={w.name}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
 
-          <input
-            type="time"
-            value={bis}
-            onChange={(e) => setBis(e.target.value)}
-            style={styles.input}
-          />
+              <input
+                type="time"
+                value={von}
+                onChange={(e) => setVon(e.target.value)}
+                style={styles.input}
+              />
 
-          <input
-            value={bemerkung}
-            onChange={(e) => setBemerkung(e.target.value)}
-            style={styles.input}
-            placeholder="Bemerkung"
-          />
+              <input
+                type="time"
+                value={bis}
+                onChange={(e) => setBis(e.target.value)}
+                style={styles.input}
+              />
 
-          <button onClick={addWorker} style={styles.blueButton}>
-            Hinzufügen
-          </button>
-        </div>
-      </section>
+              <input
+                value={bemerkung}
+                onChange={(e) => setBemerkung(e.target.value)}
+                style={styles.input}
+                placeholder="Bemerkung"
+              />
 
-      <section className="no-print" style={styles.inputPanel}>
-        <h2 style={styles.panelTitle}>Material / Sonstiges</h2>
+              <button onClick={addWorker} style={styles.blueButton}>
+                Hinzufügen
+              </button>
+            </div>
+          </section>
 
-        <div style={styles.materialGrid}>
-          <select
-            value={materialId}
-            onChange={(e) => onMaterialSelect(e.target.value)}
-            style={styles.input}
-          >
-            <option value="">Material aus Katalog</option>
-            {materials.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.naziv} {m.jedinica ? `(${m.jedinica})` : ""}
-              </option>
-            ))}
-          </select>
+          <section className="no-print" style={styles.inputPanel}>
+            <h2 style={styles.panelTitle}>Material / Sonstiges</h2>
 
-          <input
-            value={materialName}
-            onChange={(e) => setMaterialName(e.target.value)}
-            style={styles.input}
-            placeholder="Freie Bezeichnung"
-          />
+            <div style={styles.materialGrid}>
+              <select
+                value={materialId}
+                onChange={(e) => onMaterialSelect(e.target.value)}
+                style={styles.input}
+              >
+                <option value="">Material aus Katalog</option>
+                {materials.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.naziv} {m.jedinica ? `(${m.jedinica})` : ""}
+                  </option>
+                ))}
+              </select>
 
-          <input
-            type="number"
-            value={menge}
-            onChange={(e) => setMenge(e.target.value)}
-            style={styles.input}
-            placeholder="Menge"
-          />
+              <input
+                value={materialName}
+                onChange={(e) => setMaterialName(e.target.value)}
+                style={styles.input}
+                placeholder="Freie Bezeichnung"
+              />
 
-          <input
-            value={einheit}
-            onChange={(e) => setEinheit(e.target.value)}
-            style={styles.input}
-            placeholder="EH"
-          />
+              <input
+                type="number"
+                value={menge}
+                onChange={(e) => setMenge(e.target.value)}
+                style={styles.input}
+                placeholder="Menge"
+              />
 
-          <button onClick={addMaterial} style={styles.blueButton}>
-            Hinzufügen
-          </button>
-        </div>
-      </section>
+              <input
+                value={einheit}
+                onChange={(e) => setEinheit(e.target.value)}
+                style={styles.input}
+                placeholder="EH"
+              />
 
-      <section className="no-print" style={styles.inputPanel}>
-        <h2 style={styles.panelTitle}>Fotos</h2>
+              <button onClick={addMaterial} style={styles.blueButton}>
+                Hinzufügen
+              </button>
+            </div>
+          </section>
 
-        <input
-          value={photoNote}
-          onChange={(e) => setPhotoNote(e.target.value)}
-          style={styles.input}
-          placeholder="Fotobemerkung"
-        />
+          <section className="no-print" style={styles.inputPanel}>
+            <h2 style={styles.panelTitle}>Fotos</h2>
 
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={(e) => addPhotos(e.target.files)}
-          style={styles.fileInput}
-        />
+            <input
+              value={photoNote}
+              onChange={(e) => setPhotoNote(e.target.value)}
+              style={styles.input}
+              placeholder="Fotobemerkung"
+            />
 
-        <p style={styles.hint}>Maximal 2 Fotos für den A4-Export.</p>
-      </section>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={(e) => addPhotos(e.target.files)}
+              style={styles.fileInput}
+            />
+
+            <p style={styles.hint}>Maximal 2 Fotos für den A4-Export.</p>
+          </section>
+        </>
+      )}
 
       <section className="print-sheet" style={styles.printSheet}>
         <div style={styles.printHeader}>
@@ -834,7 +1151,11 @@ export default function RegieberichtPage() {
 
       <div className="no-print" style={styles.actionRow}>
         <button onClick={saveBericht} style={styles.saveButton}>
-          Regiebericht speichern
+          {activeBerichtId ? "Änderungen speichern" : "Regiebericht speichern"}
+        </button>
+
+        <button onClick={() => setShowList(true)} style={styles.listButton}>
+          Liste Regieberichte
         </button>
 
         <button onClick={exportPrint} style={styles.printButton}>
@@ -887,6 +1208,16 @@ const styles: any = {
   },
   topBar: {
     marginBottom: "20px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    flexWrap: "wrap",
+  },
+  topButtons: {
+    display: "flex",
+    gap: "12px",
+    flexWrap: "wrap",
   },
   backLink: {
     color: "#3b82f6",
@@ -910,6 +1241,14 @@ const styles: any = {
     color: "#60a5fa",
     marginTop: 0,
     marginBottom: "15px",
+  },
+  editNotice: {
+    background: "#1e3a8a",
+    color: "white",
+    padding: "12px",
+    borderRadius: "10px",
+    marginBottom: "18px",
+    fontWeight: "bold",
   },
   formGrid: {
     display: "grid",
@@ -967,6 +1306,33 @@ const styles: any = {
   },
   blueButton: {
     background: "#2563eb",
+    color: "white",
+    border: "none",
+    borderRadius: "10px",
+    padding: "14px 20px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  },
+  newButton: {
+    background: "#7c3aed",
+    color: "white",
+    border: "none",
+    borderRadius: "10px",
+    padding: "14px 20px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  },
+  listButton: {
+    background: "#0ea5e9",
+    color: "white",
+    border: "none",
+    borderRadius: "10px",
+    padding: "14px 20px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  },
+  printButtonSmall: {
+    background: "#f97316",
     color: "white",
     border: "none",
     borderRadius: "10px",
@@ -1039,7 +1405,44 @@ const styles: any = {
     marginTop: "25px",
     marginBottom: "40px",
   },
-
+  emptyListBox: {
+    background: "#222",
+    border: "1px solid #333",
+    borderRadius: "12px",
+    padding: "18px",
+    color: "#aaa",
+    fontWeight: "bold",
+  },
+  listBox: {
+    display: "grid",
+    gap: "14px",
+  },
+  berichtCard: {
+    background: "#1a1a1a",
+    border: "1px solid #333",
+    borderRadius: "14px",
+    padding: "16px",
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "15px",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  berichtTitle: {
+    color: "#f97316",
+    fontSize: "22px",
+    fontWeight: "bold",
+    marginBottom: "6px",
+  },
+  berichtInfo: {
+    color: "#ddd",
+    marginTop: "3px",
+  },
+  berichtActions: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
   printSheet: {
     background: "#fff",
     color: "#111",
@@ -1227,3 +1630,4 @@ const styles: any = {
     paddingTop: "6px",
   },
 };
+```
