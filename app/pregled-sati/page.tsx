@@ -11,8 +11,6 @@ const GODISNJI_DANI_PO_RADNIKU = 25;
 const SATI_PO_DANU = 8.5;
 
 const PDF_BUCKET = "pdf-assets";
-const PDF_LOGO_TOP = "Gore.heic";
-const PDF_SIDE_IMAGE = "Strana.heic";
 const PDF_MOUNTAIN_BG = "pozadina.png";
 
 const translations: any = {
@@ -355,13 +353,13 @@ export default function PregledSatiPage() {
       .replace(/"/g, "&quot;");
   }
 
-  function getBaustelleText(u: any) {
-    if (u.baustelle_naziv && u.baustelle_naziv !== "-") {
-      return u.baustelle_naziv;
-    }
-
+  function getLocationText(u: any) {
     if (u.baustelle_lokacija && u.baustelle_lokacija !== "-") {
       return u.baustelle_lokacija;
+    }
+
+    if (u.baustelle_naziv && u.baustelle_naziv !== "-") {
+      return u.baustelle_naziv;
     }
 
     return "-";
@@ -371,36 +369,117 @@ export default function PregledSatiPage() {
     return supabase.storage.from(PDF_BUCKET).getPublicUrl(fileName).data.publicUrl;
   }
 
+  function parseTimeToMinutes(value: any) {
+    if (!value || value === "-") return null;
+
+    const parts = String(value).split(":");
+    if (parts.length < 2) return null;
+
+    const hours = Number(parts[0]);
+    const minutes = Number(parts[1]);
+
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+
+    return hours * 60 + minutes;
+  }
+
+  function minutesToTime(minutes: number | null) {
+    if (minutes === null) return "-";
+
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  function buildPdfRows() {
+    const grouped: { [key: string]: any } = {};
+
+    for (const u of unosi) {
+      const key = `${u.datum}__${u.radnik || ""}`;
+      const startMinutes = parseTimeToMinutes(u.pocetak);
+      const endMinutes = parseTimeToMinutes(u.kraj);
+      const pause = Number(u.pauza || 0);
+      const hours = Number(u.ukupno_sati || u.sati || 0);
+      const location = getLocationText(u);
+
+      if (!grouped[key]) {
+        grouped[key] = {
+          datum: u.datum,
+          radnik: u.radnik || "",
+          startMinutes,
+          endMinutes,
+          pause,
+          hours,
+          locations: location && location !== "-" ? [location] : [],
+        };
+      } else {
+        if (
+          startMinutes !== null &&
+          (grouped[key].startMinutes === null ||
+            startMinutes < grouped[key].startMinutes)
+        ) {
+          grouped[key].startMinutes = startMinutes;
+        }
+
+        if (
+          endMinutes !== null &&
+          (grouped[key].endMinutes === null || endMinutes > grouped[key].endMinutes)
+        ) {
+          grouped[key].endMinutes = endMinutes;
+        }
+
+        grouped[key].pause = Math.max(Number(grouped[key].pause || 0), pause);
+        grouped[key].hours += hours;
+
+        if (
+          location &&
+          location !== "-" &&
+          !grouped[key].locations.includes(location)
+        ) {
+          grouped[key].locations.push(location);
+        }
+      }
+    }
+
+    return Object.values(grouped).sort((a: any, b: any) => {
+      if (a.datum !== b.datum) {
+        return String(a.datum).localeCompare(String(b.datum));
+      }
+
+      return String(a.radnik).localeCompare(String(b.radnik));
+    });
+  }
+
   function downloadPDF() {
     if (!isAdmin) {
       alert(t.onlyAdminDownload);
       return;
     }
 
-    const logoTopUrl = getStoragePublicUrl(PDF_LOGO_TOP);
-    const sideImageUrl = getStoragePublicUrl(PDF_SIDE_IMAGE);
     const mountainBgUrl = getStoragePublicUrl(PDF_MOUNTAIN_BG);
 
     const workerLabel =
       selectedWorker === "ALL" ? "Alle Mitarbeiter" : selectedWorker || workerName;
 
     const monthLabel = germanMonthNames[month - 1];
+    const pdfRows = buildPdfRows();
 
-    const rowsHtml = unosi
-      .map((u) => {
-        const sati = Number(u.ukupno_sati || u.sati || 0).toFixed(1);
-        const baustelleText = getBaustelleText(u);
+    const rowsHtml = pdfRows
+      .map((u: any) => {
+        const locationText =
+          u.locations && u.locations.length > 0 ? u.locations.join(" / ") : "-";
 
         return `
           <tr>
             <td>${safeText(formatDate(u.datum))}</td>
             <td>${safeText(getGermanWeekday(u.datum))}</td>
             <td>${safeText(u.radnik || "")}</td>
-            <td>${safeText(u.pocetak || "-")}</td>
-            <td>${safeText(String(u.pauza ?? "0"))}</td>
-            <td>${safeText(u.kraj || "-")}</td>
-            <td class="hours-cell">${safeText(sati)} h</td>
-            <td>${safeText(baustelleText)}</td>
+            <td>${safeText(minutesToTime(u.startMinutes))}</td>
+            <td>${safeText(String(u.pause ?? "0"))}</td>
+            <td>${safeText(minutesToTime(u.endMinutes))}</td>
+            <td class="hours-cell">${Number(u.hours || 0).toFixed(1)} h</td>
+            <td>${safeText(locationText)}</td>
           </tr>
         `;
       })
@@ -447,47 +526,59 @@ export default function PregledSatiPage() {
               left: 0;
               top: 0;
               bottom: 0;
-              width: 44px;
+              width: 35px;
+              background: linear-gradient(180deg, #111111 0%, #26211e 54%, #111111 100%);
               overflow: hidden;
-              background: #111;
             }
 
-            .side-strip img {
-              width: 44px;
-              height: 100%;
-              object-fit: cover;
-              object-position: center;
-              display: block;
+            .side-text {
+              position: absolute;
+              left: 50%;
+              top: 50%;
+              transform: translate(-50%, -50%) rotate(-90deg);
+              transform-origin: center;
+              white-space: nowrap;
+              color: #ffffff;
+              font-family: Georgia, "Times New Roman", serif;
+              font-size: 20px;
+              letter-spacing: 1px;
+            }
+
+            .side-text .b {
+              color: #e95b16;
+              font-weight: bold;
+              font-size: 29px;
+              margin: 0 2px;
             }
 
             .content {
-              margin-left: 52px;
+              margin-left: 43px;
               position: relative;
               z-index: 2;
             }
 
             .header {
-              height: 128px;
+              height: 106px;
               position: relative;
               overflow: hidden;
-              border-bottom: 2px solid #f47b20;
-              margin-bottom: 8px;
+              border-bottom: 2px solid #e95b16;
+              margin-bottom: 7px;
               background: #fff;
             }
 
             .mountain-bg {
               position: absolute;
-              left: 210px;
+              left: 150px;
               right: 0;
               top: 0;
-              height: 128px;
-              opacity: 0.95;
+              height: 106px;
               z-index: 1;
+              opacity: 1;
             }
 
             .mountain-bg img {
               width: 100%;
-              height: 128px;
+              height: 106px;
               object-fit: cover;
               object-position: center top;
               display: block;
@@ -500,24 +591,50 @@ export default function PregledSatiPage() {
               right: 0;
               top: 0;
               bottom: 0;
-              background: linear-gradient(90deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.72) 34%, rgba(255,255,255,0.32) 100%);
+              background: linear-gradient(90deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.58) 35%, rgba(255,255,255,0.20) 100%);
             }
 
-            .logo-box {
+            .brand-banner {
               position: absolute;
               left: 0;
-              top: 18px;
+              top: 16px;
               width: 285px;
-              height: 62px;
+              height: 54px;
               z-index: 3;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.12);
             }
 
-            .logo-box img {
-              width: 100%;
-              height: 62px;
-              object-fit: contain;
-              object-position: left center;
-              display: block;
+            .brand-top {
+              height: 31px;
+              background: #e95b16;
+              color: #ffffff;
+              padding: 6px 10px 0 10px;
+              font-size: 17px;
+              line-height: 1;
+              font-weight: 900;
+              letter-spacing: 0.3px;
+              text-transform: uppercase;
+              position: relative;
+            }
+
+            .brand-top small {
+              position: absolute;
+              right: 10px;
+              bottom: 5px;
+              font-size: 7px;
+              font-weight: 900;
+            }
+
+            .brand-bottom {
+              height: 23px;
+              background: #111111;
+              color: #ffffff;
+              padding: 5px 10px 0 10px;
+              font-size: 10px;
+              line-height: 1;
+              font-weight: 900;
+              letter-spacing: 0.35px;
+              text-transform: uppercase;
             }
 
             .title-box {
@@ -531,62 +648,62 @@ export default function PregledSatiPage() {
             .title-box h1 {
               margin: 0;
               color: #111111;
-              font-size: 25px;
+              font-size: 22px;
               line-height: 1;
               font-weight: 900;
-              letter-spacing: 0.5px;
+              letter-spacing: 0.45px;
               text-transform: uppercase;
             }
 
             .title-box p {
               margin: 8px 0 0 0;
               color: #111111;
-              font-size: 10px;
+              font-size: 9px;
               font-weight: 800;
               text-transform: uppercase;
-              letter-spacing: 0.5px;
-              border-bottom: 2px solid #f47b20;
-              padding-bottom: 6px;
+              letter-spacing: 0.45px;
+              border-bottom: 2px solid #e95b16;
+              padding-bottom: 5px;
               display: inline-block;
             }
 
             .summary-grid {
               display: grid;
               grid-template-columns: repeat(5, 1fr);
-              gap: 6px;
-              margin-bottom: 8px;
+              gap: 5px;
+              margin-bottom: 7px;
             }
 
             .summary-box {
               border: 1px solid #d8d8d8;
-              border-radius: 5px;
-              background: rgba(255,255,255,0.97);
-              padding: 5px 6px 6px 6px;
-              min-height: 42px;
-              border-bottom: 2px solid #f47b20;
+              border-radius: 4px;
+              background: rgba(255,255,255,0.98);
+              padding: 5px 6px 5px 6px;
+              min-height: 39px;
+              border-bottom: 2px solid #e95b16;
             }
 
             .summary-label {
               color: #333333;
-              font-size: 7.4px;
+              font-size: 7px;
               line-height: 1;
               text-transform: uppercase;
               font-weight: 900;
-              letter-spacing: 0.35px;
+              letter-spacing: 0.3px;
               margin-bottom: 4px;
             }
 
             .summary-value {
               color: #111111;
-              font-size: 12.6px;
+              font-size: 12px;
               line-height: 1;
               font-weight: 900;
             }
 
             .summary-small {
               color: #666666;
-              font-size: 7px;
-              line-height: 1.15;
+              font-size: 6.7px;
+              line-height: 1.1;
               margin-top: 4px;
             }
 
@@ -602,21 +719,21 @@ export default function PregledSatiPage() {
               display: flex;
               justify-content: space-between;
               align-items: flex-end;
-              margin: 5px 0 5px 0;
+              margin: 5px 0 4px 0;
             }
 
             .table-header h2 {
               margin: 0;
               color: #111111;
-              font-size: 11px;
+              font-size: 10.5px;
               font-weight: 900;
               text-transform: uppercase;
-              letter-spacing: 0.4px;
+              letter-spacing: 0.35px;
             }
 
             .period {
               color: #555555;
-              font-size: 8px;
+              font-size: 7.8px;
               font-weight: 700;
             }
 
@@ -630,21 +747,21 @@ export default function PregledSatiPage() {
             th {
               background: #111111;
               color: #ffffff;
-              padding: 6px 4px;
-              font-size: 8px;
+              padding: 5px 4px;
+              font-size: 7.8px;
               line-height: 1.1;
               text-align: left;
               border-right: 1px solid #333333;
-              border-bottom: 3px solid #f47b20;
+              border-bottom: 3px solid #e95b16;
               text-transform: uppercase;
-              letter-spacing: 0.2px;
+              letter-spacing: 0.15px;
               font-weight: 900;
             }
 
             td {
-              padding: 5px 4px;
-              font-size: 8.8px;
-              line-height: 1.2;
+              padding: 4.5px 4px;
+              font-size: 8.5px;
+              line-height: 1.18;
               border-right: 1px solid #e2e2e2;
               border-bottom: 1px solid #e4e4e4;
               vertical-align: middle;
@@ -671,13 +788,13 @@ export default function PregledSatiPage() {
               display: flex;
               justify-content: space-between;
               color: #111111;
-              font-size: 8px;
+              font-size: 7.8px;
               line-height: 1.3;
               font-weight: 700;
             }
 
             .footer strong {
-              color: #f47b20;
+              color: #e95b16;
               font-weight: 900;
             }
 
@@ -693,7 +810,7 @@ export default function PregledSatiPage() {
         <body>
           <div class="page">
             <div class="side-strip">
-              <img src="${safeText(sideImageUrl)}" />
+              <div class="side-text">Stone<span class="b">B</span>outique</div>
             </div>
 
             <div class="content">
@@ -702,8 +819,12 @@ export default function PregledSatiPage() {
                   <img src="${safeText(mountainBgUrl)}" />
                 </div>
 
-                <div class="logo-box">
-                  <img src="${safeText(logoTopUrl)}" />
+                <div class="brand-banner">
+                  <div class="brand-top">
+                    NOCKER & BERNARDI
+                    <small>GmbH</small>
+                  </div>
+                  <div class="brand-bottom">FLIESEN & NATURSTEIN VERKAUF</div>
                 </div>
 
                 <div class="title-box">
@@ -765,7 +886,7 @@ export default function PregledSatiPage() {
                     <th style="width: 10%;">Pausenzeit</th>
                     <th style="width: 12%;">Arbeitsende</th>
                     <th style="width: 12%;">Arbeitsdauer</th>
-                    <th style="width: 15%;">Baustelle</th>
+                    <th style="width: 15%;">Lokacija</th>
                   </tr>
                 </thead>
 
@@ -1062,7 +1183,7 @@ export default function PregledSatiPage() {
                   <th style={thStyle}>Pauza</th>
                   <th style={thStyle}>Kraj</th>
                   <th style={thStyle}>Ukupno</th>
-                  <th style={thStyle}>Baustelle</th>
+                  <th style={thStyle}>Lokacija</th>
                   <th style={thStyle}>Tip</th>
                 </tr>
               </thead>
@@ -1080,7 +1201,7 @@ export default function PregledSatiPage() {
                     <td style={tdStrongStyle}>
                       {Number(u.ukupno_sati || u.sati || 0).toFixed(1)} h
                     </td>
-                    <td style={tdStyle}>{getBaustelleText(u)}</td>
+                    <td style={tdStyle}>{getLocationText(u)}</td>
                     <td style={tdStyle}>{u.tip_unosa || "RAD"}</td>
                   </tr>
                 ))}
