@@ -296,6 +296,12 @@ export default function ProduktivnostPage() {
     loadUkupnoSati();
   }, []);
 
+  function playNotificationSound() {
+    const audio = new Audio("/sounds/notification.mp3");
+    audio.volume = 1;
+    audio.play().catch(() => {});
+  }
+
   function labelPozicije(p: any) {
     return p.label?.[lang] || p.label?.ba || p.key;
   }
@@ -394,6 +400,8 @@ export default function ProduktivnostPage() {
       alert(t.saveError + error.message);
       return;
     }
+
+    playNotificationSound();
 
     setKolicina("");
     setFormat("");

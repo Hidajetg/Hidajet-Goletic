@@ -38,6 +38,12 @@ export default function SatiPage() {
     vremenaKraj.push(`${String(h).padStart(2, "0")}:30`);
   }
 
+  function playNotificationSound() {
+    const audio = new Audio("/sounds/notification.mp3");
+    audio.volume = 1;
+    audio.play().catch(() => {});
+  }
+
   function timeToNumber(time: string) {
     const [h, m] = time.split(":").map(Number);
     return h + m / 60;
@@ -147,6 +153,8 @@ export default function SatiPage() {
       alert("FEHLER BEIM SPEICHERN DER STUNDEN: " + error.message);
       return;
     }
+
+    playNotificationSound();
 
     setOpisPosla("");
     await loadHours();

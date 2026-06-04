@@ -34,6 +34,12 @@ export default function KalendarPage() {
     loadData(name, adminStatus);
   }, []);
 
+  function playNotificationSound() {
+    const audio = new Audio("/sounds/notification.mp3");
+    audio.volume = 1;
+    audio.play().catch(() => {});
+  }
+
   async function loadData(name: string, adminStatus: boolean) {
     const workersRes = await supabase.from("workers").select("*").order("name");
 
@@ -150,6 +156,8 @@ export default function KalendarPage() {
       alert(error.message);
       return;
     }
+
+    playNotificationSound();
 
     setSelectedWorkers([]);
     setBaustelleId("");

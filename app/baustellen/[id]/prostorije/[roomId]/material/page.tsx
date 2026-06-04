@@ -20,6 +20,12 @@ export default function RoomMaterialPage() {
   const [slobodnaJedinica, setSlobodnaJedinica] = useState("Stk.");
   const [slobodnaKolicina, setSlobodnaKolicina] = useState("");
 
+  function playNotificationSound() {
+    const audio = new Audio("/sounds/notification.mp3");
+    audio.volume = 1;
+    audio.play().catch(() => {});
+  }
+
   async function loadData() {
     const { data: grupeData, error: grupeError } = await supabase
       .from("material_groups")
@@ -119,6 +125,8 @@ export default function RoomMaterialPage() {
       }
     }
 
+    playNotificationSound();
+
     setKolicine({});
     await loadData();
   }
@@ -174,6 +182,8 @@ export default function RoomMaterialPage() {
       alert("FREIES MATERIAL EINFÜGEN: " + roomMaterialError.message);
       return;
     }
+
+    playNotificationSound();
 
     setSlobodniNaziv("");
     setSlobodnaJedinica("Stk.");

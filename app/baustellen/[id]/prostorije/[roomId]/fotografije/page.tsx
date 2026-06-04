@@ -21,6 +21,12 @@ export default function RoomPhotosPage() {
     loadPhotos();
   }, []);
 
+  function playNotificationSound() {
+    const audio = new Audio("/sounds/notification.mp3");
+    audio.volume = 1;
+    audio.play().catch(() => {});
+  }
+
   async function loadRoom() {
     const { data } = await supabase
       .from("prostorije")
@@ -86,6 +92,8 @@ export default function RoomPhotosPage() {
       alert("Greška kod spremanja slike: " + insertError.message);
       return;
     }
+
+    playNotificationSound();
 
     event.target.value = "";
     setUploading(false);

@@ -37,6 +37,12 @@ export default function InfoPage() {
     loadMessages(id);
   }, [router]);
 
+  function playNotificationSound() {
+    const audio = new Audio("/sounds/notification.mp3");
+    audio.volume = 1;
+    audio.play().catch(() => {});
+  }
+
   async function loadWorkers() {
     const { data, error } = await supabase
       .from("workers")
@@ -89,6 +95,8 @@ export default function InfoPage() {
       alert("Greška kod dodavanja poruke: " + error.message);
       return;
     }
+
+    playNotificationSound();
 
     setMessage("");
     setVisibleToAll(true);
