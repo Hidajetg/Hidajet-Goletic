@@ -1655,7 +1655,7 @@ const styles: any = {
     height: "100%",
     objectFit: "cover",
     objectPosition: "center center",
-    opacity: 0.46,
+    opacity: 0.51,
     zIndex: 0,
     pointerEvents: "none",
   },
