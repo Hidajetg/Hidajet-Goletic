@@ -1655,8 +1655,8 @@ const styles: any = {
     height: "100%",
     objectFit: "cover",
     objectPosition: "center center",
-    opacity: 0.51,
-    zIndex: 0,
+    opacity: 0.65,
+    zIndex: 1,
     pointerEvents: "none",
   },
   sidePaperImage: {
@@ -1818,7 +1818,7 @@ const styles: any = {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
     padding: "8px",
-    background: "rgba(255, 255, 255, 0.58)",
+    background: "rgba(255, 255, 255, 0.20)",
   },
   printPhotoGrid: {
     display: "grid",
@@ -1867,7 +1867,7 @@ const styles: any = {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
     padding: "12px",
-    background: "rgba(255, 255, 255, 0.58)",
+    background: "rgba(255, 255, 255, 0.20)",
     display: "grid",
     gap: "25px",
     alignContent: "end",
