@@ -9,6 +9,11 @@ const FIRMA = "Nocker & Bernardi GmbH / Stone Boutique";
 const FIRMA_ADRESA = "Innweg 3, A-6170 Zirl";
 const POTPIS = "Hidajet Goletić";
 
+const PDF_BUCKET = "pdf-assets";
+const PDF_LOGO_TOP = "gore.png";
+const PDF_SIDE_IMAGE = "strana.png";
+const PDF_MOUNTAIN_BG = "pozadina.png";
+
 export default function RegieberichtPage() {
   const params = useParams();
   const baustelleId = String(params.id);
@@ -48,7 +53,23 @@ export default function RegieberichtPage() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [photoNote, setPhotoNote] = useState("");
 
+  const [logoTopUrl, setLogoTopUrl] = useState("");
+  const [sideImageUrl, setSideImageUrl] = useState("");
+  const [mountainBgUrl, setMountainBgUrl] = useState("");
+
+  function getStoragePublicUrl(fileName: string) {
+    const url = supabase.storage.from(PDF_BUCKET).getPublicUrl(fileName).data.publicUrl;
+    return `${url}?v=${Date.now()}`;
+  }
+
+  function loadPdfImages() {
+    setLogoTopUrl(getStoragePublicUrl(PDF_LOGO_TOP));
+    setSideImageUrl(getStoragePublicUrl(PDF_SIDE_IMAGE));
+    setMountainBgUrl(getStoragePublicUrl(PDF_MOUNTAIN_BG));
+  }
+
   useEffect(() => {
+    loadPdfImages();
     loadData();
     loadBerichte();
     generateNextBerichtNr().then((nr) => setBerichtNr(nr));
@@ -987,6 +1008,21 @@ export default function RegieberichtPage() {
       )}
 
       <section className="print-sheet" style={styles.printSheet}>
+        {mountainBgUrl && (
+          <img src={mountainBgUrl} alt="" style={styles.mountainBackground} />
+        )}
+
+        {sideImageUrl && (
+          <img src={sideImageUrl} alt="" style={styles.sidePaperImage} />
+        )}
+
+        <div style={styles.printContent}>
+          {logoTopUrl && (
+            <div style={styles.logoTopBox}>
+              <img src={logoTopUrl} alt="Stone Boutique" style={styles.logoTopImage} />
+            </div>
+          )}
+
         <div style={styles.printHeader}>
           <div>
             <div style={styles.documentTitle}>REGIEBERICHT</div>
@@ -1201,6 +1237,7 @@ export default function RegieberichtPage() {
             </section>
           </div>
         </div>
+        </div>
       </section>
 
       <div className="no-print" style={styles.actionRow}>
@@ -1244,7 +1281,7 @@ export default function RegieberichtPage() {
             box-shadow: none !important;
             border: none !important;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: 0 0 0 58px !important;
             page-break-inside: avoid !important;
           }
         }
@@ -1502,10 +1539,55 @@ const styles: any = {
     color: "#111",
     maxWidth: "1120px",
     margin: "30px auto",
-    padding: "22px",
+    padding: "22px 22px 22px 80px",
     borderRadius: "8px",
     boxShadow: "0 10px 35px rgba(0,0,0,0.35)",
     fontFamily: "Arial, sans-serif",
+    position: "relative",
+    overflow: "hidden",
+  },
+  printContent: {
+    position: "relative",
+    zIndex: 2,
+  },
+  logoTopBox: {
+    height: "70px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: "4px",
+  },
+  logoTopImage: {
+    maxWidth: "360px",
+    width: "45%",
+    maxHeight: "68px",
+    objectFit: "contain",
+    display: "block",
+  },
+  mountainBackground: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "center top",
+    opacity: 0.07,
+    zIndex: 0,
+    pointerEvents: "none",
+  },
+  sidePaperImage: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: "64px",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "center",
+    opacity: 0.18,
+    zIndex: 1,
+    pointerEvents: "none",
+    borderRight: "2px solid rgba(249, 115, 22, 0.45)",
   },
   printHeader: {
     display: "flex",
@@ -1538,7 +1620,7 @@ const styles: any = {
     marginBottom: "10px",
   },
   metaBox: {
-    background: "#f8fafc",
+    background: "rgba(248, 250, 252, 0.92)",
     border: "1px solid #d8dee9",
     borderRadius: "6px",
     padding: "7px",
@@ -1573,7 +1655,7 @@ const styles: any = {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
     padding: "8px",
-    background: "#fff",
+    background: "rgba(255, 255, 255, 0.94)",
   },
   printBlockTitle: {
     fontSize: "13px",
@@ -1621,7 +1703,7 @@ const styles: any = {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
     padding: "8px",
-    background: "#fff",
+    background: "rgba(255, 255, 255, 0.94)",
   },
   printPhotoGrid: {
     display: "grid",
@@ -1670,7 +1752,7 @@ const styles: any = {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
     padding: "12px",
-    background: "#fff",
+    background: "rgba(255, 255, 255, 0.94)",
     display: "grid",
     gap: "25px",
     alignContent: "end",
