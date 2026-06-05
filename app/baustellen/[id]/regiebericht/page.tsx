@@ -1350,12 +1350,16 @@ export default function RegieberichtPage() {
 
           body {
             background: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           main {
             background: white !important;
             color: black !important;
             padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           .print-sheet {
@@ -1366,6 +1370,8 @@ export default function RegieberichtPage() {
             margin: 0 !important;
             padding: 0 !important;
             page-break-inside: avoid !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
       `}</style>
@@ -1620,6 +1626,8 @@ const styles: any = {
   printSheet: {
     background: "#fff",
     color: "#111",
+    WebkitPrintColorAdjust: "exact",
+    printColorAdjust: "exact",
     maxWidth: "1120px",
     margin: "30px auto",
     padding: "22px",
@@ -1632,6 +1640,8 @@ const styles: any = {
   printContent: {
     position: "relative",
     zIndex: 3,
+    WebkitPrintColorAdjust: "exact",
+    printColorAdjust: "exact",
   },
   logoTopBox: {
     height: "70px",
@@ -1655,7 +1665,7 @@ const styles: any = {
     height: "100%",
     objectFit: "cover",
     objectPosition: "center center",
-    opacity: 0.65,
+    opacity: 0.90,
     zIndex: 1,
     pointerEvents: "none",
   },
@@ -1735,7 +1745,7 @@ const styles: any = {
     marginBottom: "10px",
   },
   metaBox: {
-    background: "rgba(255, 255, 255, 0.58)",
+    background: "rgba(255, 255, 255, 0.30)",
     border: "1px solid #d8dee9",
     borderRadius: "6px",
     padding: "7px",
@@ -1770,7 +1780,7 @@ const styles: any = {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
     padding: "8px",
-    background: "rgba(255, 255, 255, 0.58)",
+    background: "rgba(255, 255, 255, 0.30)",
   },
   printBlockTitle: {
     fontSize: "13px",
@@ -1799,7 +1809,7 @@ const styles: any = {
   cleanTh: {
     textAlign: "left",
     padding: "5px",
-    background: "rgba(239, 246, 255, 0.62)",
+    background: "rgba(239, 246, 255, 0.38)",
     color: "#1e3a8a",
     borderBottom: "1px solid #cbd5e1",
   },
@@ -1818,7 +1828,7 @@ const styles: any = {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
     padding: "8px",
-    background: "rgba(255, 255, 255, 0.20)",
+    background: "rgba(255, 255, 255, 0.18)",
   },
   printPhotoGrid: {
     display: "grid",
@@ -1829,7 +1839,7 @@ const styles: any = {
     border: "1px solid #e5e7eb",
     borderRadius: "7px",
     padding: "5px",
-    background: "rgba(248, 250, 252, 0.50)",
+    background: "rgba(248, 250, 252, 0.18)",
   },
   printPhoto: {
     width: "100%",
@@ -1851,7 +1861,7 @@ const styles: any = {
     alignItems: "center",
     justifyContent: "center",
     color: "#94a3b8",
-    background: "rgba(248, 250, 252, 0.50)",
+    background: "rgba(248, 250, 252, 0.12)",
     fontSize: "13px",
   },
   photoRemoveButton: {
@@ -1867,7 +1877,7 @@ const styles: any = {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
     padding: "12px",
-    background: "rgba(255, 255, 255, 0.20)",
+    background: "rgba(255, 255, 255, 0.18)",
     display: "grid",
     gap: "25px",
     alignContent: "end",
