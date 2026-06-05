@@ -1364,7 +1364,7 @@ export default function RegieberichtPage() {
             box-shadow: none !important;
             border: none !important;
             margin: 0 !important;
-            padding: 0 0 0 58px !important;
+            padding: 0 0 0 72px !important;
             page-break-inside: avoid !important;
           }
         }
@@ -1622,7 +1622,7 @@ const styles: any = {
     color: "#111",
     maxWidth: "1120px",
     margin: "30px auto",
-    padding: "22px 22px 22px 80px",
+    padding: "22px 22px 22px 96px",
     borderRadius: "8px",
     boxShadow: "0 10px 35px rgba(0,0,0,0.35)",
     fontFamily: "Arial, sans-serif",
@@ -1655,7 +1655,7 @@ const styles: any = {
     height: "100%",
     objectFit: "cover",
     objectPosition: "center top",
-    opacity: 0.16,
+    opacity: 0.26,
     zIndex: 0,
     pointerEvents: "none",
   },
@@ -1663,11 +1663,11 @@ const styles: any = {
     position: "absolute",
     left: 0,
     top: 0,
-    width: "74px",
+    width: "86px",
     height: "100%",
     objectFit: "cover",
     objectPosition: "center",
-    opacity: 0.30,
+    opacity: 0.46,
     zIndex: 1,
     pointerEvents: "none",
     borderRight: "2px solid rgba(249, 115, 22, 0.45)",
