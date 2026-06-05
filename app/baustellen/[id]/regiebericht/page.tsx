@@ -10,8 +10,8 @@ const FIRMA_ADRESA = "Innweg 3, A-6170 Zirl";
 const POTPIS = "Hidajet Goletić";
 
 const PDF_BUCKET = "pdf-assets";
-const PDF_LOGO_TOP = "gore.png";
-const PDF_SIDE_IMAGE = "strana.png";
+const PDF_LOGO_TOP = "Gore.heic";
+const PDF_SIDE_IMAGE = "Strana.heic";
 const PDF_MOUNTAIN_BG = "pozadina.png";
 
 export default function RegieberichtPage() {
@@ -1017,17 +1017,28 @@ export default function RegieberichtPage() {
         )}
 
         <div style={styles.printContent}>
-          {logoTopUrl && (
-            <div style={styles.logoTopBox}>
-              <img src={logoTopUrl} alt="Stone Boutique" style={styles.logoTopImage} />
-            </div>
-          )}
 
         <div style={styles.printHeader}>
-          <div>
-            <div style={styles.documentTitle}>REGIEBERICHT</div>
-            <div style={styles.documentSub}>Tagesbericht / Regiearbeit</div>
-          </div>
+ <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+  {logoTopUrl && (
+    <img
+      src={logoTopUrl}
+      alt="Stone Boutique"
+      style={{
+        width: "140px",
+        height: "auto",
+        objectFit: "contain",
+      }}
+    />
+  )}
+
+  <div>
+    <div style={styles.documentTitle}>REGIEBERICHT</div>
+    <div style={styles.documentSub}>
+      Tagesbericht / Regiearbeit
+    </div>
+  </div>
+</div>
 
           <div style={styles.headerRight}>
             <div>
