@@ -52,6 +52,12 @@ export default function RegieberichtPage() {
     loadBerichte();
   }, []);
 
+  function playNotificationSound() {
+    const audio = new Audio("/sounds/notification.mp3");
+    audio.volume = 1;
+    audio.play().catch(() => {});
+  }
+
   async function loadData() {
     const baustelleRes = await supabase
       .from("baustellen")
@@ -521,7 +527,9 @@ export default function RegieberichtPage() {
     if (photos.length > 0) {
       for (const p of photos) {
         try {
-          const url = p.photo_url ? p.photo_url : await uploadPhoto(p.file, berichtId);
+          const url = p.photo_url
+            ? p.photo_url
+            : await uploadPhoto(p.file, berichtId);
 
           const { error } = await supabase.from("regiebericht_photos").insert([
             {
@@ -570,6 +578,8 @@ export default function RegieberichtPage() {
       return;
     }
 
+    const wasExisting = Boolean(activeBerichtId);
+
     const payload = {
       baustelle_id: Number(baustelleId),
       bericht_nr: berichtNr.trim(),
@@ -617,10 +627,12 @@ export default function RegieberichtPage() {
     const childrenOk = await saveChildren(berichtId);
     if (!childrenOk) return;
 
+    playNotificationSound();
+
     await loadBerichte();
 
     alert(
-      activeBerichtId
+      wasExisting
         ? "Regiebericht wurde aktualisiert."
         : "Regiebericht wurde gespeichert."
     );
@@ -657,7 +669,9 @@ export default function RegieberichtPage() {
           <h1 style={styles.inputTitle}>Liste Regieberichte</h1>
 
           {berichte.length === 0 ? (
-            <div style={styles.emptyListBox}>Noch keine Regieberichte gespeichert.</div>
+            <div style={styles.emptyListBox}>
+              Noch keine Regieberichte gespeichert.
+            </div>
           ) : (
             <div style={styles.listBox}>
               {berichte.map((b) => (
