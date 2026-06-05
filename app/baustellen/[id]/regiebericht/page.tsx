@@ -11,7 +11,7 @@ const POTPIS = "Hidajet Goletić";
 
 const PDF_BUCKET = "pdf-assets";
 const PDF_LOGO_TOP = "gore.png";
-const PDF_SIDE_IMAGE = "Strana.png";
+const PDF_SIDE_IMAGE = "strana.png";
 const PDF_MOUNTAIN_BG = "pozadina.png";
 
 export default function RegieberichtPage() {
@@ -1009,46 +1009,118 @@ export default function RegieberichtPage() {
 
       <section className="print-sheet" style={styles.printSheet}>
         {mountainBgUrl && (
-          <img src={mountainBgUrl} alt="" style={styles.mountainBackground} />
+          <img
+            src={mountainBgUrl}
+            alt=""
+            style={styles.mountainBackground}
+            onError={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              img.style.display = "none";
+            }}
+          />
         )}
 
         {sideImageUrl && (
-          <img src={sideImageUrl} alt="" style={styles.sidePaperImage} />
+          <img
+            src={sideImageUrl}
+            alt=""
+            style={styles.sidePaperImage}
+            onError={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              const step = img.dataset.step || "0";
+
+              if (step === "0") {
+                img.dataset.step = "1";
+                img.src = getStoragePublicUrl("Strana.png");
+                return;
+              }
+
+              if (step === "1") {
+                img.dataset.step = "2";
+                img.src = getStoragePublicUrl("strana.heic");
+                return;
+              }
+
+              if (step === "2") {
+                img.dataset.step = "3";
+                img.src = getStoragePublicUrl("Strana.heic");
+                return;
+              }
+
+              if (step === "3") {
+                img.dataset.step = "4";
+                img.src = getStoragePublicUrl("srtana.heic");
+                return;
+              }
+
+              img.style.display = "none";
+            }}
+          />
         )}
 
         <div style={styles.printContent}>
+          <div style={styles.printHeader}>
+            <div style={styles.titleWithLogo}>
+              {logoTopUrl && (
+                <>
+                  <img
+                    src={logoTopUrl}
+                    alt="Stone Boutique"
+                    style={styles.headerLogo}
+                    onError={(e) => {
+                      const img = e.currentTarget as HTMLImageElement;
+                      const step = img.dataset.step || "0";
 
-        <div style={styles.printHeader}>
- <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-  {logoTopUrl && (
-    <img
-      src={logoTopUrl}
-      alt="Stone Boutique"
-      style={{
-        width: "140px",
-        height: "auto",
-        objectFit: "contain",
-      }}
-    />
-  )}
+                      if (step === "0") {
+                        img.dataset.step = "1";
+                        img.src = getStoragePublicUrl("Gore.png");
+                        return;
+                      }
 
-  <div>
-    <div style={styles.documentTitle}>REGIEBERICHT</div>
-    <div style={styles.documentSub}>
-      Tagesbericht / Regiearbeit
-    </div>
-  </div>
-</div>
+                      if (step === "1") {
+                        img.dataset.step = "2";
+                        img.src = getStoragePublicUrl("gore.heic");
+                        return;
+                      }
 
-          <div style={styles.headerRight}>
-            <div>
-              <strong>Nr.:</strong> {berichtNr || "-"}
+                      if (step === "2") {
+                        img.dataset.step = "3";
+                        img.src = getStoragePublicUrl("Gore.heic");
+                        return;
+                      }
+
+                      img.style.display = "none";
+                      const next = img.nextElementSibling as HTMLElement | null;
+                      if (next) next.style.display = "block";
+                    }}
+                  />
+
+                  <div style={styles.logoFallback}>
+                    <div style={styles.logoFallbackOrange}>STONE BOUTIQUE</div>
+                    <div style={styles.logoFallbackSmall}>
+                      Nocker & Bernardi GmbH
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div>
+                <div style={styles.documentTitle}>REGIEBERICHT</div>
+                <div style={styles.documentSub}>
+                  Tagesbericht / Regiearbeit
+                </div>
+              </div>
             </div>
-            <div>
-              <strong>Datum:</strong> {formatDatum(datum)}
+
+            <div style={styles.headerRight}>
+              <div>
+                <strong>Nr.:</strong> {berichtNr || "-"}
+              </div>
+              <div>
+                <strong>Datum:</strong> {formatDatum(datum)}
+              </div>
             </div>
           </div>
-        </div>
 
         <div style={styles.metaGrid}>
           <div style={styles.metaBox}>
@@ -1583,7 +1655,7 @@ const styles: any = {
     height: "100%",
     objectFit: "cover",
     objectPosition: "center top",
-    opacity: 0.07,
+    opacity: 0.16,
     zIndex: 0,
     pointerEvents: "none",
   },
@@ -1591,14 +1663,46 @@ const styles: any = {
     position: "absolute",
     left: 0,
     top: 0,
-    width: "64px",
+    width: "74px",
     height: "100%",
     objectFit: "cover",
     objectPosition: "center",
-    opacity: 0.18,
+    opacity: 0.30,
     zIndex: 1,
     pointerEvents: "none",
     borderRight: "2px solid rgba(249, 115, 22, 0.45)",
+  },
+  titleWithLogo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "20px",
+  },
+  headerLogo: {
+    width: "145px",
+    height: "52px",
+    objectFit: "contain",
+    objectPosition: "left center",
+    display: "block",
+  },
+  logoFallback: {
+    display: "none",
+    width: "145px",
+    minWidth: "145px",
+    borderLeft: "4px solid #f97316",
+    paddingLeft: "10px",
+    lineHeight: "1.1",
+  },
+  logoFallbackOrange: {
+    color: "#f97316",
+    fontWeight: "900",
+    fontSize: "15px",
+    letterSpacing: "1px",
+  },
+  logoFallbackSmall: {
+    color: "#111",
+    fontWeight: "700",
+    fontSize: "9px",
+    marginTop: "4px",
   },
   printHeader: {
     display: "flex",
