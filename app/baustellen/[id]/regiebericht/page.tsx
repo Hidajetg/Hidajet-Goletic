@@ -1364,7 +1364,7 @@ export default function RegieberichtPage() {
             box-shadow: none !important;
             border: none !important;
             margin: 0 !important;
-            padding: 0 0 0 72px !important;
+            padding: 0 !important;
             page-break-inside: avoid !important;
           }
         }
@@ -1622,7 +1622,7 @@ const styles: any = {
     color: "#111",
     maxWidth: "1120px",
     margin: "30px auto",
-    padding: "22px 22px 22px 96px",
+    padding: "22px",
     borderRadius: "8px",
     boxShadow: "0 10px 35px rgba(0,0,0,0.35)",
     fontFamily: "Arial, sans-serif",
@@ -1631,7 +1631,7 @@ const styles: any = {
   },
   printContent: {
     position: "relative",
-    zIndex: 2,
+    zIndex: 3,
   },
   logoTopBox: {
     height: "70px",
@@ -1670,7 +1670,7 @@ const styles: any = {
     opacity: 0.38,
     zIndex: 1,
     pointerEvents: "none",
-    borderRight: "2px solid rgba(249, 115, 22, 0.45)",
+    borderRight: "2px solid rgba(249, 115, 22, 0.35)",
   },
   titleWithLogo: {
     display: "flex",
@@ -1755,7 +1755,7 @@ const styles: any = {
   },
   printMainGrid: {
     display: "grid",
-    gridTemplateColumns: "1.45fr 0.9fr",
+    gridTemplateColumns: "1.32fr 0.98fr",
     gap: "10px",
   },
   leftColumn: {
@@ -1833,7 +1833,7 @@ const styles: any = {
   },
   printPhoto: {
     width: "100%",
-    height: "175px",
+    height: "188px",
     objectFit: "cover",
     borderRadius: "5px",
     display: "block",
@@ -1844,7 +1844,7 @@ const styles: any = {
     marginTop: "4px",
   },
   emptyPhoto: {
-    height: "175px",
+    height: "188px",
     border: "1px dashed #cbd5e1",
     borderRadius: "7px",
     display: "flex",
