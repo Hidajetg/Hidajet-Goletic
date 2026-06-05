@@ -10,8 +10,8 @@ const FIRMA_ADRESA = "Innweg 3, A-6170 Zirl";
 const POTPIS = "Hidajet Goletić";
 
 const PDF_BUCKET = "pdf-assets";
-const PDF_LOGO_TOP = "Gore.heic";
-const PDF_SIDE_IMAGE = "Strana.heic";
+const PDF_LOGO_TOP = "gore.png";
+const PDF_SIDE_IMAGE = "Strana.png";
 const PDF_MOUNTAIN_BG = "pozadina.png";
 
 export default function RegieberichtPage() {
