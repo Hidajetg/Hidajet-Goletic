@@ -1340,7 +1340,7 @@ export default function RegieberichtPage() {
       <style>{`
         @page {
           size: A4 landscape;
-          margin: 8mm;
+          margin: 5mm;
         }
 
         @media print {
@@ -1370,6 +1370,7 @@ export default function RegieberichtPage() {
             margin: 0 !important;
             padding: 0 !important;
             page-break-inside: avoid !important;
+            page-break-after: avoid !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -1471,7 +1472,7 @@ const styles: any = {
     border: "1px solid #333",
     padding: "14px",
     borderRadius: "10px",
-    minHeight: "48px",
+    minHeight: "42px",
   },
   textarea: {
     width: "100%",
@@ -1551,7 +1552,7 @@ const styles: any = {
   },
   chipBox: {
     display: "flex",
-    gap: "10px",
+    gap: "7px",
     flexWrap: "wrap",
     marginTop: "15px",
   },
@@ -1620,7 +1621,7 @@ const styles: any = {
   },
   berichtActions: {
     display: "flex",
-    gap: "10px",
+    gap: "7px",
     flexWrap: "wrap",
   },
   printSheet: {
@@ -1628,9 +1629,9 @@ const styles: any = {
     color: "#111",
     WebkitPrintColorAdjust: "exact",
     printColorAdjust: "exact",
-    maxWidth: "1120px",
+    maxWidth: "1100px",
     margin: "30px auto",
-    padding: "22px",
+    padding: "14px",
     borderRadius: "8px",
     boxShadow: "0 10px 35px rgba(0,0,0,0.35)",
     fontFamily: "Arial, sans-serif",
@@ -1665,7 +1666,7 @@ const styles: any = {
     height: "100%",
     objectFit: "cover",
     objectPosition: "center center",
-    opacity: 0.90,
+    opacity: 0.48,
     zIndex: 1,
     pointerEvents: "none",
   },
@@ -1677,7 +1678,7 @@ const styles: any = {
     height: "100%",
     objectFit: "cover",
     objectPosition: "center",
-    opacity: 0.38,
+    opacity: 0.30,
     zIndex: 1,
     pointerEvents: "none",
     borderRight: "2px solid rgba(249, 115, 22, 0.35)",
@@ -1688,15 +1689,15 @@ const styles: any = {
     gap: "20px",
   },
   headerLogo: {
-    width: "145px",
-    height: "52px",
+    width: "140px",
+    height: "48px",
     objectFit: "contain",
     objectPosition: "left center",
     display: "block",
   },
   logoFallback: {
     display: "none",
-    width: "145px",
+    width: "140px",
     minWidth: "145px",
     borderLeft: "4px solid #f97316",
     paddingLeft: "10px",
@@ -1719,12 +1720,12 @@ const styles: any = {
     justifyContent: "space-between",
     alignItems: "flex-start",
     borderBottom: "2px solid #1e3a8a",
-    paddingBottom: "8px",
-    marginBottom: "10px",
+    paddingBottom: "6px",
+    marginBottom: "7px",
   },
   documentTitle: {
     color: "#1e3a8a",
-    fontSize: "28px",
+    fontSize: "26px",
     fontWeight: "bold",
     letterSpacing: "1px",
   },
@@ -1742,14 +1743,14 @@ const styles: any = {
     display: "grid",
     gridTemplateColumns: "1.2fr 0.7fr 1fr 1.2fr 1fr 1.2fr",
     gap: "6px",
-    marginBottom: "10px",
+    marginBottom: "7px",
   },
   metaBox: {
-    background: "rgba(255, 255, 255, 0.30)",
+    background: "rgba(255, 255, 255, 0.44)",
     border: "1px solid #d8dee9",
     borderRadius: "6px",
-    padding: "7px",
-    minHeight: "48px",
+    padding: "6px",
+    minHeight: "42px",
   },
   metaLabel: {
     color: "#1e3a8a",
@@ -1760,27 +1761,27 @@ const styles: any = {
   },
   metaValue: {
     fontSize: "12px",
-    lineHeight: "1.35",
+    lineHeight: "1.25",
     whiteSpace: "pre-wrap",
   },
   printMainGrid: {
     display: "grid",
     gridTemplateColumns: "1.32fr 0.98fr",
-    gap: "10px",
+    gap: "7px",
   },
   leftColumn: {
     display: "grid",
-    gap: "8px",
+    gap: "6px",
   },
   rightColumn: {
     display: "grid",
-    gap: "8px",
+    gap: "6px",
   },
   printBlock: {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
-    padding: "8px",
-    background: "rgba(255, 255, 255, 0.30)",
+    padding: "6px",
+    background: "rgba(255, 255, 255, 0.44)",
   },
   printBlockTitle: {
     fontSize: "13px",
@@ -1793,10 +1794,10 @@ const styles: any = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: "10px",
+    gap: "7px",
   },
   workText: {
-    minHeight: "115px",
+    minHeight: "80px",
     whiteSpace: "pre-wrap",
     fontSize: "12px",
     lineHeight: "1.45",
@@ -1809,7 +1810,7 @@ const styles: any = {
   cleanTh: {
     textAlign: "left",
     padding: "5px",
-    background: "rgba(239, 246, 255, 0.38)",
+    background: "rgba(239, 246, 255, 0.48)",
     color: "#1e3a8a",
     borderBottom: "1px solid #cbd5e1",
   },
@@ -1820,30 +1821,30 @@ const styles: any = {
   },
   editList: {
     display: "flex",
-    gap: "8px",
+    gap: "6px",
     flexWrap: "wrap",
     marginTop: "10px",
   },
   photoPrintBlock: {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
-    padding: "8px",
-    background: "rgba(255, 255, 255, 0.18)",
+    padding: "6px",
+    background: "rgba(255, 255, 255, 0.38)",
   },
   printPhotoGrid: {
     display: "grid",
     gridTemplateColumns: "1fr",
-    gap: "8px",
+    gap: "6px",
   },
   printPhotoCard: {
     border: "1px solid #e5e7eb",
     borderRadius: "7px",
     padding: "5px",
-    background: "rgba(248, 250, 252, 0.18)",
+    background: "rgba(248, 250, 252, 0.34)",
   },
   printPhoto: {
     width: "100%",
-    height: "188px",
+    height: "138px",
     objectFit: "cover",
     borderRadius: "5px",
     display: "block",
@@ -1854,14 +1855,14 @@ const styles: any = {
     marginTop: "4px",
   },
   emptyPhoto: {
-    height: "188px",
+    height: "138px",
     border: "1px dashed #cbd5e1",
     borderRadius: "7px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     color: "#94a3b8",
-    background: "rgba(248, 250, 252, 0.12)",
+    background: "rgba(248, 250, 252, 0.30)",
     fontSize: "13px",
   },
   photoRemoveButton: {
@@ -1877,7 +1878,7 @@ const styles: any = {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
     padding: "12px",
-    background: "rgba(255, 255, 255, 0.18)",
+    background: "rgba(255, 255, 255, 0.38)",
     display: "grid",
     gap: "25px",
     alignContent: "end",
