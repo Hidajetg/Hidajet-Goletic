@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
 const FIRMA = "Nocker & Bernardi GmbH / Stone Boutique";
-const FIRMA_ADRESA = "Inweg 3, A-6170 Zirl";
+const FIRMA_ADRESA = "Innweg 3, A-6170 Zirl";
 const POTPIS = "Hidajet Goletić";
 
 export default function RegieberichtPage() {
@@ -35,6 +35,7 @@ export default function RegieberichtPage() {
   const [workerName, setWorkerName] = useState("");
   const [von, setVon] = useState("08:00");
   const [bis, setBis] = useState("17:00");
+  const [pause, setPause] = useState("0.5");
   const [bemerkung, setBemerkung] = useState("");
   const [workerRows, setWorkerRows] = useState<any[]>([]);
 
@@ -50,6 +51,7 @@ export default function RegieberichtPage() {
   useEffect(() => {
     loadData();
     loadBerichte();
+    generateNextBerichtNr().then((nr) => setBerichtNr(nr));
   }, []);
 
   function playNotificationSound() {
@@ -113,13 +115,32 @@ export default function RegieberichtPage() {
     setBerichte(data || []);
   }
 
+  async function generateNextBerichtNr() {
+    const { data, error } = await supabase
+      .from("regieberichte")
+      .select("bericht_nr")
+      .eq("baustelle_id", Number(baustelleId));
+
+    if (error) {
+      alert("AUTO NR FEHLER: " + error.message);
+      return "001";
+    }
+
+    const numbers = (data || [])
+      .map((x: any) => Number(String(x.bericht_nr || "0").replace(/\D/g, "")))
+      .filter((n: number) => !Number.isNaN(n));
+
+    const maxNr = numbers.length > 0 ? Math.max(...numbers) : 0;
+    return String(maxNr + 1).padStart(3, "0");
+  }
+
   function timeToNumber(time: string) {
     const [h, m] = time.split(":").map(Number);
     return h + m / 60;
   }
 
-  function calcHours(start: string, end: string) {
-    const total = timeToNumber(end) - timeToNumber(start);
+  function calcHours(start: string, end: string, pauseValue: string | number) {
+    const total = timeToNumber(end) - timeToNumber(start) - Number(pauseValue || 0);
     if (total < 0) return 0;
     return Number(total.toFixed(2));
   }
@@ -138,9 +159,10 @@ export default function RegieberichtPage() {
     });
   }
 
-  function resetForm() {
+  async function resetForm() {
+    const nextNr = await generateNextBerichtNr();
     setActiveBerichtId(null);
-    setBerichtNr("");
+    setBerichtNr(nextNr);
     setDatum(new Date().toISOString().split("T")[0]);
     setAuftraggeber(baustelle?.auftraggeber || "");
     setBauleiter("");
@@ -151,6 +173,7 @@ export default function RegieberichtPage() {
     setWorkerName("");
     setVon("08:00");
     setBis("17:00");
+    setPause("0.5");
     setBemerkung("");
     setWorkerRows([]);
     setMaterialId("");
@@ -235,6 +258,7 @@ export default function RegieberichtPage() {
         worker_name: w.worker_name,
         von: w.von,
         bis: w.bis,
+        pause: w.pause ?? 0,
         stunden: w.stunden,
         bemerkung: w.bemerkung,
       }))
@@ -335,7 +359,7 @@ export default function RegieberichtPage() {
       return;
     }
 
-    const stunden = calcHours(von, bis);
+    const stunden = calcHours(von, bis, pause);
 
     setWorkerRows((prev) => [
       ...prev,
@@ -343,6 +367,7 @@ export default function RegieberichtPage() {
         worker_name: workerName,
         von,
         bis,
+        pause: Number(pause),
         stunden,
         bemerkung,
       },
@@ -351,6 +376,7 @@ export default function RegieberichtPage() {
     setWorkerName("");
     setVon("08:00");
     setBis("17:00");
+    setPause("0.5");
     setBemerkung("");
   }
 
@@ -496,6 +522,7 @@ export default function RegieberichtPage() {
           worker_name: w.worker_name,
           von: w.von,
           bis: w.bis,
+          pause: w.pause ?? 0,
           stunden: w.stunden,
           bemerkung: w.bemerkung,
         }))
@@ -579,10 +606,11 @@ export default function RegieberichtPage() {
     }
 
     const wasExisting = Boolean(activeBerichtId);
+    const finalBerichtNr = berichtNr.trim() || (await generateNextBerichtNr());
 
     const payload = {
       baustelle_id: Number(baustelleId),
-      bericht_nr: berichtNr.trim(),
+      bericht_nr: finalBerichtNr,
       datum,
       auftragnehmer: FIRMA,
       auftraggeber: auftraggeber.trim(),
@@ -619,6 +647,7 @@ export default function RegieberichtPage() {
       }
 
       berichtId = bericht.id;
+      setBerichtNr(finalBerichtNr);
       setActiveBerichtId(bericht.id);
     }
 
@@ -863,6 +892,19 @@ export default function RegieberichtPage() {
                 style={styles.input}
               />
 
+              <select
+                value={pause}
+                onChange={(e) => setPause(e.target.value)}
+                style={styles.input}
+              >
+                <option value="0">Pause 0 h</option>
+                <option value="0.5">Pause 0.5 h</option>
+                <option value="1">Pause 1 h</option>
+                <option value="1.5">Pause 1.5 h</option>
+                <option value="2">Pause 2 h</option>
+                <option value="2.5">Pause 2.5 h</option>
+              </select>
+
               <input
                 value={bemerkung}
                 onChange={(e) => setBemerkung(e.target.value)}
@@ -1022,6 +1064,7 @@ export default function RegieberichtPage() {
                     <th style={styles.cleanTh}>Mitarbeiter</th>
                     <th style={styles.cleanTh}>von</th>
                     <th style={styles.cleanTh}>bis</th>
+                    <th style={styles.cleanTh}>Pause</th>
                     <th style={styles.cleanTh}>Std.</th>
                     <th style={styles.cleanTh}>Bemerkung</th>
                   </tr>
@@ -1030,7 +1073,7 @@ export default function RegieberichtPage() {
                 <tbody>
                   {workerRows.length === 0 ? (
                     <tr>
-                      <td style={styles.cleanTd} colSpan={5}>
+                      <td style={styles.cleanTd} colSpan={6}>
                         Keine Arbeitskräfte eingetragen.
                       </td>
                     </tr>
@@ -1040,6 +1083,7 @@ export default function RegieberichtPage() {
                         <td style={styles.cleanTd}>{w.worker_name}</td>
                         <td style={styles.cleanTd}>{w.von}</td>
                         <td style={styles.cleanTd}>{w.bis}</td>
+                        <td style={styles.cleanTd}>{w.pause ?? 0} h</td>
                         <td style={styles.cleanTd}>{w.stunden}</td>
                         <td style={styles.cleanTd}>{w.bemerkung || "-"}</td>
                       </tr>
@@ -1147,14 +1191,12 @@ export default function RegieberichtPage() {
             <section style={styles.signatureBlock}>
               <div style={styles.signatureItem}>
                 <div style={styles.signatureLine}></div>
-                <strong>{POTPIS}</strong>
-                <span>Auftragnehmer</span>
+                <strong>Auftragnehmer: {POTPIS}</strong>
               </div>
 
               <div style={styles.signatureItem}>
                 <div style={styles.signatureLine}></div>
-                <strong>{bauleiter || "Auftraggeber / Bauleiter"}</strong>
-                <span>Auftraggeber / Vertreter</span>
+                <strong>Auftraggeber / Vertreter: {bauleiter || "-"}</strong>
               </div>
             </section>
           </div>
@@ -1274,7 +1316,7 @@ const styles: any = {
   },
   workerGrid: {
     display: "grid",
-    gridTemplateColumns: "1.5fr 1fr 1fr 1.5fr 180px",
+    gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1.5fr 180px",
     gap: "12px",
   },
   materialGrid: {
