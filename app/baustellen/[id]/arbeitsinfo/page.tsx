@@ -14,11 +14,24 @@ const translations: any = {
     tool: "Werkzeug",
     tiles: "Fliesen",
     notes: "Zusätzliche Hinweise",
+
     noTasks: "Keine Arbeitsaufträge vorhanden.",
     noMaterial: "Kein Material vorhanden.",
     noTools: "Kein Werkzeug vorhanden.",
     noTiles: "Keine Fliesen vorhanden.",
     noNotes: "Keine Hinweise vorhanden.",
+
+    addTask: "Arbeitsauftrag hinzufügen",
+    saveTask: "Arbeitsauftrag speichern",
+    taskDescription: "Arbeitsauftrag / Beschreibung",
+    chooseRoom: "Raum auswählen",
+    allRooms: "Allgemein / keine Raumzuordnung",
+    enterTaskDescription: "Bitte Arbeitsauftrag eingeben.",
+    deleteTaskConfirm: "Möchten Sie diesen Arbeitsauftrag wirklich löschen?",
+    loadTasksError: "Fehler beim Laden der Arbeitsaufträge: ",
+    addTaskError: "Fehler beim Hinzufügen des Arbeitsauftrags: ",
+    deleteTaskError: "Fehler beim Löschen des Arbeitsauftrags: ",
+
     addTiles: "Fliesen hinzufügen",
     close: "Schließen",
     tileName: "Fliesenname",
@@ -37,8 +50,7 @@ const translations: any = {
     loadTilesError: "Fehler beim Laden der Fliesen: ",
     loadTileRoomsError: "Fehler beim Laden der Fliesen-Räume: ",
     addTilesError: "Fehler beim Hinzufügen der Fliesen: ",
-    relationError:
-      "Fliesen wurden gespeichert, aber Fehler bei den Räumen: ",
+    relationError: "Fliesen wurden gespeichert, aber Fehler bei den Räumen: ",
     deleteTilesError: "Fehler beim Löschen der Fliesen: ",
   },
   ba: {
@@ -49,11 +61,24 @@ const translations: any = {
     tool: "Alat",
     tiles: "Keramika",
     notes: "Dodatne napomene",
+
     noTasks: "Još nema radnih zadataka.",
     noMaterial: "Još nema materijala.",
     noTools: "Još nema alata.",
     noTiles: "Još nema keramike.",
     noNotes: "Još nema napomena.",
+
+    addTask: "Dodaj radni nalog",
+    saveTask: "Sačuvaj radni nalog",
+    taskDescription: "Radni nalog / opis",
+    chooseRoom: "Izaberi prostoriju",
+    allRooms: "Općenito / bez prostorije",
+    enterTaskDescription: "Unesi radni nalog.",
+    deleteTaskConfirm: "Da li želiš obrisati ovaj radni nalog?",
+    loadTasksError: "Greška kod učitavanja radnih naloga: ",
+    addTaskError: "Greška kod dodavanja radnog naloga: ",
+    deleteTaskError: "Greška kod brisanja radnog naloga: ",
+
     addTiles: "Dodaj keramiku",
     close: "Zatvori",
     tileName: "Naziv keramike",
@@ -83,11 +108,24 @@ const translations: any = {
     tool: "Tools",
     tiles: "Tiles",
     notes: "Additional notes",
+
     noTasks: "No work orders yet.",
     noMaterial: "No material yet.",
     noTools: "No tools yet.",
     noTiles: "No tiles yet.",
     noNotes: "No notes yet.",
+
+    addTask: "Add work order",
+    saveTask: "Save work order",
+    taskDescription: "Work order / description",
+    chooseRoom: "Choose room",
+    allRooms: "General / no room",
+    enterTaskDescription: "Enter work order.",
+    deleteTaskConfirm: "Do you want to delete this work order?",
+    loadTasksError: "Error loading work orders: ",
+    addTaskError: "Error adding work order: ",
+    deleteTaskError: "Error deleting work order: ",
+
     addTiles: "Add tiles",
     close: "Close",
     tileName: "Tile name",
@@ -117,11 +155,24 @@ const translations: any = {
     tool: "Asboblar",
     tiles: "Plitka",
     notes: "Qo‘shimcha eslatmalar",
+
     noTasks: "Hali ish topshirig‘i yo‘q.",
     noMaterial: "Hali material yo‘q.",
     noTools: "Hali asboblar yo‘q.",
     noTiles: "Hali plitka yo‘q.",
     noNotes: "Hali eslatma yo‘q.",
+
+    addTask: "Ish topshirig‘i qo‘shish",
+    saveTask: "Ish topshirig‘ini saqlash",
+    taskDescription: "Ish topshirig‘i / tavsif",
+    chooseRoom: "Xonani tanlash",
+    allRooms: "Umumiy / xona yo‘q",
+    enterTaskDescription: "Ish topshirig‘ini kiriting.",
+    deleteTaskConfirm: "Bu ish topshirig‘ini o‘chirmoqchimisiz?",
+    loadTasksError: "Ish topshiriqlarini yuklashda xatolik: ",
+    addTaskError: "Ish topshirig‘ini qo‘shishda xatolik: ",
+    deleteTaskError: "Ish topshirig‘ini o‘chirishda xatolik: ",
+
     addTiles: "Plitka qo‘shish",
     close: "Yopish",
     tileName: "Plitka nomi",
@@ -153,8 +204,13 @@ export default function ArbeitsinfoPage() {
   const [lang, setLang] = useState("de");
 
   const [rooms, setRooms] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
   const [tiles, setTiles] = useState<any[]>([]);
   const [tileRooms, setTileRooms] = useState<any[]>([]);
+
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [taskRoomId, setTaskRoomId] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
 
   const [showTilesForm, setShowTilesForm] = useState(false);
   const [tileName, setTileName] = useState("");
@@ -174,6 +230,7 @@ export default function ArbeitsinfoPage() {
     setLang(savedLang);
 
     loadRooms();
+    loadTasks();
     loadTiles();
   }, []);
 
@@ -190,6 +247,69 @@ export default function ArbeitsinfoPage() {
     }
 
     setRooms(data || []);
+  }
+
+  async function loadTasks() {
+    const { data, error } = await supabase
+      .from("arbeitsinfo_tasks")
+      .select("*")
+      .eq("baustelle_id", baustelleId)
+      .order("id", { ascending: true });
+
+    if (error) {
+      alert(t.loadTasksError + error.message);
+      return;
+    }
+
+    setTasks(data || []);
+  }
+
+  async function addTask() {
+    if (!taskDescription.trim()) {
+      alert(t.enterTaskDescription);
+      return;
+    }
+
+    const { error } = await supabase.from("arbeitsinfo_tasks").insert({
+      baustelle_id: Number(baustelleId),
+      room_id: taskRoomId ? Number(taskRoomId) : null,
+      opis: taskDescription,
+    });
+
+    if (error) {
+      alert(t.addTaskError + error.message);
+      return;
+    }
+
+    setTaskRoomId("");
+    setTaskDescription("");
+    setShowTaskForm(false);
+    loadTasks();
+  }
+
+  async function deleteTask(taskId: number) {
+    const confirmDelete = confirm(t.deleteTaskConfirm);
+    if (!confirmDelete) return;
+
+    const { error } = await supabase
+      .from("arbeitsinfo_tasks")
+      .delete()
+      .eq("id", taskId);
+
+    if (error) {
+      alert(t.deleteTaskError + error.message);
+      return;
+    }
+
+    loadTasks();
+  }
+
+  function getRoomName(roomId: any) {
+    if (!roomId) return t.allRooms;
+
+    const room = rooms.find((item) => Number(item.id) === Number(roomId));
+
+    return room?.naziv || room?.name || "Raum";
   }
 
   async function loadTiles() {
@@ -312,8 +432,70 @@ export default function ArbeitsinfoPage() {
       <h1 style={titleStyle}>{t.title}</h1>
 
       <div style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>📋 {t.task}</h2>
-        <p style={emptyStyle}>{t.noTasks}</p>
+        <div style={sectionHeaderStyle}>
+          <h2 style={sectionTitleStyle}>📋 {t.task}</h2>
+
+          {isAdmin && (
+            <button
+              onClick={() => setShowTaskForm(!showTaskForm)}
+              style={buttonStyle}
+            >
+              {showTaskForm ? t.close : t.addTask}
+            </button>
+          )}
+        </div>
+
+        {showTaskForm && isAdmin && (
+          <div style={formStyle}>
+            <select
+              value={taskRoomId}
+              onChange={(e) => setTaskRoomId(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">{t.allRooms}</option>
+
+              {rooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.naziv || room.name || "Raum"}
+                </option>
+              ))}
+            </select>
+
+            <textarea
+              value={taskDescription}
+              onChange={(e) => setTaskDescription(e.target.value)}
+              placeholder={t.taskDescription}
+              style={textareaStyle}
+            />
+
+            <button onClick={addTask} style={saveButtonStyle}>
+              {t.saveTask}
+            </button>
+          </div>
+        )}
+
+        {tasks.length === 0 ? (
+          <p style={emptyStyle}>{t.noTasks}</p>
+        ) : (
+          <div style={listStyle}>
+            {tasks.map((taskItem) => (
+              <div key={taskItem.id} style={cardStyle}>
+                <h3 style={cardTitleStyle}>{getRoomName(taskItem.room_id)}</h3>
+
+                <p style={textBlockStyle}>{taskItem.opis}</p>
+
+                {isAdmin && (
+                  <button
+                    onClick={() => deleteTask(taskItem.id)}
+                    style={deleteButtonStyle}
+                  >
+                    {t.delete}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={sectionStyle}>
@@ -566,6 +748,19 @@ const inputStyle: any = {
   marginBottom: "14px",
 };
 
+const textareaStyle: any = {
+  width: "100%",
+  minHeight: "130px",
+  padding: "14px",
+  borderRadius: "12px",
+  border: "1px solid #333",
+  background: "#1f2937",
+  color: "white",
+  fontSize: "16px",
+  marginBottom: "14px",
+  resize: "vertical",
+};
+
 const rowStyle: any = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
@@ -611,6 +806,12 @@ const cardTitleStyle: any = {
   fontSize: "24px",
   fontWeight: "bold",
   marginBottom: "12px",
+};
+
+const textBlockStyle: any = {
+  whiteSpace: "pre-wrap",
+  lineHeight: "1.6",
+  color: "#e5e7eb",
 };
 
 const roomListStyle: any = {
