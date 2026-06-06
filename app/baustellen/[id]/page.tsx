@@ -257,33 +257,30 @@ export default function BaustelleDetailPage() {
     const { data, error } = await supabase
       .from("baustelle_info")
       .select("*")
-      .eq("baustelle_id", baustelleId)
-      .maybeSingle();
+      .eq("baustelle_id", Number(baustelleId));
 
     if (error) {
       alert("Fehler beim Laden der Baustelle-Info: " + error.message);
       return;
     }
 
-    if (!data) {
-      setInfo(emptyInfoData);
-      return;
-    }
+    const nextInfo = { ...emptyInfoData };
 
-    setInfo({
-      google_maps: data.google_maps || "",
-      ansprechpartner: data.ansprechpartner || "",
-      zugang: data.zugang || "",
-      parking: data.parking || "",
-      schluessel: data.schluessel || "",
-      wc: data.wc || "",
-      strom: data.strom || "",
-      wasser: data.wasser || "",
-      lift: data.lift || "",
-      arbeitszeit: data.arbeitszeit || "",
-      telefone: data.telefone || "",
-      notizen: data.notizen || "",
+    (data || []).forEach((row: any) => {
+      if (row.type === "google_maps") {
+        nextInfo.google_maps = row.google_maps_url || row.note_bs || row.note_de || "";
+      } else if (row.type) {
+        nextInfo[row.type] =
+          row.note_bs ||
+          row.note_de ||
+          row.note_en ||
+          row.note_uz ||
+          row.google_maps_url ||
+          "";
+      }
     });
+
+    setInfo(nextInfo);
   }
 
   function startAddInfo() {
@@ -300,21 +297,53 @@ export default function BaustelleDetailPage() {
     setShowInfoForm(true);
   }
 
+  function getInfoLabel(field: string) {
+    if (field === "google_maps") return t.googleLocation;
+    return t[field] || field;
+  }
+
+  function buildInfoPayload(field: string, value: string) {
+    const labelDe =
+      field === "google_maps" ? translations.de.googleLocation : translations.de[field] || field;
+    const labelBs =
+      field === "google_maps" ? translations.ba.googleLocation : translations.ba[field] || field;
+    const labelUz =
+      field === "google_maps" ? translations.uz.googleLocation : translations.uz[field] || field;
+    const labelEn =
+      field === "google_maps" ? translations.en.googleLocation : translations.en[field] || field;
+
+    return {
+      baustelle_id: Number(baustelleId),
+      room_id: null,
+      type: field,
+      title_de: labelDe,
+      title_bs: labelBs,
+      title_uz: labelUz,
+      title_en: labelEn,
+      note_de: field === "google_maps" ? "" : value,
+      note_bs: field === "google_maps" ? "" : value,
+      note_uz: field === "google_maps" ? "" : value,
+      note_en: field === "google_maps" ? "" : value,
+      google_maps_url: field === "google_maps" ? value : "",
+      visualization_url: "",
+    };
+  }
+
   async function saveInfoField() {
     if (!infoValue.trim()) {
       alert(t.value);
       return;
     }
 
-    const payload: any = {
-      baustelle_id: Number(baustelleId),
-    };
-
-    payload[infoField] = infoValue.trim();
-
-    const { error } = await supabase
+    await supabase
       .from("baustelle_info")
-      .upsert(payload, { onConflict: "baustelle_id" });
+      .delete()
+      .eq("baustelle_id", Number(baustelleId))
+      .eq("type", infoField);
+
+    const payload = buildInfoPayload(infoField, infoValue.trim());
+
+    const { error } = await supabase.from("baustelle_info").insert([payload]);
 
     if (error) {
       alert("Fehler beim Speichern: " + error.message);
@@ -333,15 +362,11 @@ export default function BaustelleDetailPage() {
     const ok = confirm("Information wirklich löschen?");
     if (!ok) return;
 
-    const payload: any = {
-      baustelle_id: Number(baustelleId),
-    };
-
-    payload[field] = "";
-
     const { error } = await supabase
       .from("baustelle_info")
-      .upsert(payload, { onConflict: "baustelle_id" });
+      .delete()
+      .eq("baustelle_id", Number(baustelleId))
+      .eq("type", field);
 
     if (error) {
       alert("Fehler beim Löschen: " + error.message);
@@ -428,11 +453,6 @@ export default function BaustelleDetailPage() {
     }
 
     router.push("/baustellen");
-  }
-
-  function getInfoLabel(field: string) {
-    if (field === "google_maps") return t.googleLocation;
-    return t[field] || field;
   }
 
   const visibleInfoFields = infoFields.filter((field) => info[field.key]);
