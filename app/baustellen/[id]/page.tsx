@@ -3,115 +3,168 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 
 const translations: any = {
   de: {
     back: "Zurück zu Baustellen",
     loading: "Wird geladen...",
-    loadError: "Fehler beim Laden der Baustelle: ",
-    archiveError: "Fehler beim Archivieren: ",
-    deleteError: "Fehler beim Löschen: ",
-    archiveConfirm:
-      "Möchten Sie diese Baustelle wirklich abschließen und ins Archiv verschieben?",
-    deleteNotAllowed:
-      "Diese Baustelle hat Einträge. Nur Admin kann eine Baustelle mit bestehenden Einträgen löschen.",
-    deleteConfirmWithEntries:
-      "Diese Baustelle hat Einträge. Möchte der Admin diese Baustelle wirklich dauerhaft löschen?",
-    deleteConfirmEmpty:
-      "Möchten Sie diese leere Baustelle wirklich löschen?",
     location: "Ort",
-    description: "Beschreibung",
     status: "Status",
     active: "Aktiv",
-    addRooms: "Räume hinzufügen",
     addedRooms: "Hinzugefügte Räume",
-    noRooms: "Noch keine Räume hinzugefügt",
+    addRooms: "Räume hinzufügen",
     overview: "Übersicht",
     arbeitsinfo: "Arbeitsinfo",
     regiebericht: "Regietagesbericht",
-    close: "Baustelle abschließen",
-    delete: "Baustelle löschen",
+    closeSite: "Baustelle abschließen",
+    deleteSite: "Baustelle löschen",
+    googleLocation: "Google Standort",
+    openGoogle: "Auf Google Maps öffnen",
+    siteInfo: "Informationen zur Baustelle",
+    addInfo: "Information hinzufügen",
+    close: "Schließen",
+    save: "Speichern",
+    edit: "Bearbeiten",
+    delete: "Löschen",
+    chooseInfo: "Information auswählen",
+    value: "Information / Text",
+    emptyInfo: "Noch keine Informationen eingetragen.",
+    ansprechpartner: "Bauleiter / Ansprechpartner",
+    zugang: "Zugang / Türnummer",
+    parking: "Parking",
+    schluessel: "Schlüssel",
+    wc: "WC",
+    strom: "Strom",
+    wasser: "Wasser",
+    lift: "Lift",
+    arbeitszeit: "Arbeitszeit",
+    telefone: "Wichtige Telefonnummern",
+    notizen: "Zusätzliche Hinweise",
   },
   ba: {
     back: "Nazad na Baustelle",
     loading: "Učitavanje...",
-    loadError: "Greška kod učitavanja Baustelle: ",
-    archiveError: "Greška kod arhiviranja: ",
-    deleteError: "Greška kod brisanja: ",
-    archiveConfirm:
-      "Da li zaista želiš zatvoriti ovu Baustelle i prebaciti je u arhivu?",
-    deleteNotAllowed:
-      "Ova Baustelle ima unose. Samo admin može obrisati Baustelle sa postojećim unosima.",
-    deleteConfirmWithEntries:
-      "Ova Baustelle ima unose. Da li admin zaista želi trajno obrisati ovu Baustelle?",
-    deleteConfirmEmpty: "Da li zaista želiš obrisati ovu praznu Baustelle?",
     location: "Lokacija",
-    description: "Opis",
     status: "Status",
     active: "Aktiv",
-    addRooms: "Dodaj prostorije",
     addedRooms: "Dodane prostorije",
-    noRooms: "Još nema dodanih prostorija",
+    addRooms: "Dodaj prostorije",
     overview: "Pregled",
     arbeitsinfo: "Arbeitsinfo",
     regiebericht: "Regietagesbericht",
-    close: "Zatvori Baustelle",
-    delete: "Obriši Baustelle",
-  },
-  uz: {
-    back: "Obyektlarga qaytish",
-    loading: "Yuklanmoqda...",
-    loadError: "Obyektni yuklashda xatolik: ",
-    archiveError: "Arxivlashda xatolik: ",
-    deleteError: "O‘chirishda xatolik: ",
-    archiveConfirm:
-      "Ushbu obyektni yopib, arxivga ko‘chirishni xohlaysizmi?",
-    deleteNotAllowed:
-      "Bu obyekt ichida yozuvlar bor. Yozuvlari bor obyektni faqat admin o‘chirishi mumkin.",
-    deleteConfirmWithEntries:
-      "Bu obyekt ichida yozuvlar bor. Admin ushbu obyektni butunlay o‘chirmoqchimi?",
-    deleteConfirmEmpty: "Ushbu bo‘sh obyektni o‘chirishni xohlaysizmi?",
-    location: "Manzil",
-    description: "Tavsif",
-    status: "Holat",
-    active: "Faol",
-    addRooms: "Xona qo‘shish",
-    addedRooms: "Qo‘shilgan xonalar",
-    noRooms: "Hali xona qo‘shilmagan",
-    overview: "Ko‘rinish",
-    arbeitsinfo: "Ish ma’lumoti",
-    regiebericht: "Regie hisoboti",
-    close: "Obyektni yopish",
-    delete: "Obyektni o‘chirish",
+    closeSite: "Zatvori Baustelle",
+    deleteSite: "Obriši Baustelle",
+    googleLocation: "Google lokacija",
+    openGoogle: "Otvori na Google Maps",
+    siteInfo: "Informacije o Baustelle",
+    addInfo: "Dodaj informaciju",
+    close: "Zatvori",
+    save: "Sačuvaj",
+    edit: "Uredi",
+    delete: "Obriši",
+    chooseInfo: "Izaberi informaciju",
+    value: "Informacija / tekst",
+    emptyInfo: "Još nema dodanih informacija.",
+    ansprechpartner: "Bauleiter / Ansprechpartner",
+    zugang: "Zugang / broj vrata",
+    parking: "Parking",
+    schluessel: "Ključevi",
+    wc: "WC",
+    strom: "Struja",
+    wasser: "Voda",
+    lift: "Lift",
+    arbeitszeit: "Radno vrijeme objekta",
+    telefone: "Važni telefoni",
+    notizen: "Dodatne napomene",
   },
   en: {
     back: "Back to Sites",
     loading: "Loading...",
-    loadError: "Error loading site: ",
-    archiveError: "Error archiving: ",
-    deleteError: "Error deleting: ",
-    archiveConfirm:
-      "Do you really want to close this site and move it to the archive?",
-    deleteNotAllowed:
-      "This site has entries. Only admin can delete a site with existing entries.",
-    deleteConfirmWithEntries:
-      "This site has entries. Does the admin really want to permanently delete this site?",
-    deleteConfirmEmpty: "Do you really want to delete this empty site?",
     location: "Location",
-    description: "Description",
     status: "Status",
     active: "Active",
-    addRooms: "Add Rooms",
-    addedRooms: "Added Rooms",
-    noRooms: "No rooms added yet",
+    addedRooms: "Added rooms",
+    addRooms: "Add rooms",
     overview: "Overview",
-    arbeitsinfo: "Work Info",
+    arbeitsinfo: "Work info",
     regiebericht: "Regie daily report",
-    close: "Close Site",
-    delete: "Delete Site",
+    closeSite: "Close Site",
+    deleteSite: "Delete Site",
+    googleLocation: "Google location",
+    openGoogle: "Open in Google Maps",
+    siteInfo: "Site information",
+    addInfo: "Add information",
+    close: "Close",
+    save: "Save",
+    edit: "Edit",
+    delete: "Delete",
+    chooseInfo: "Choose information",
+    value: "Information / text",
+    emptyInfo: "No information added yet.",
+    ansprechpartner: "Site manager / contact person",
+    zugang: "Access / door number",
+    parking: "Parking",
+    schluessel: "Keys",
+    wc: "WC",
+    strom: "Electricity",
+    wasser: "Water",
+    lift: "Lift",
+    arbeitszeit: "Working hours",
+    telefone: "Important phone numbers",
+    notizen: "Additional notes",
+  },
+  uz: {
+    back: "Obyektlarga qaytish",
+    loading: "Yuklanmoqda...",
+    location: "Manzil",
+    status: "Holat",
+    active: "Faol",
+    addedRooms: "Qo‘shilgan xonalar",
+    addRooms: "Xona qo‘shish",
+    overview: "Ko‘rinish",
+    arbeitsinfo: "Ish ma’lumoti",
+    regiebericht: "Regie hisoboti",
+    closeSite: "Obyektni yopish",
+    deleteSite: "Obyektni o‘chirish",
+    googleLocation: "Google manzil",
+    openGoogle: "Google Maps’da ochish",
+    siteInfo: "Obyekt ma’lumoti",
+    addInfo: "Ma’lumot qo‘shish",
+    close: "Yopish",
+    save: "Saqlash",
+    edit: "Tahrirlash",
+    delete: "O‘chirish",
+    chooseInfo: "Ma’lumot tanlash",
+    value: "Ma’lumot / matn",
+    emptyInfo: "Hali ma’lumot qo‘shilmagan.",
+    ansprechpartner: "Bauleiter / mas’ul shaxs",
+    zugang: "Kirish / eshik raqami",
+    parking: "Parking",
+    schluessel: "Kalitlar",
+    wc: "WC",
+    strom: "Elektr",
+    wasser: "Suv",
+    lift: "Lift",
+    arbeitszeit: "Ish vaqti",
+    telefone: "Muhim telefonlar",
+    notizen: "Qo‘shimcha eslatmalar",
   },
 };
+
+const infoFields = [
+  { key: "ansprechpartner", icon: "👷" },
+  { key: "zugang", icon: "🚪" },
+  { key: "parking", icon: "🚗" },
+  { key: "schluessel", icon: "🔑" },
+  { key: "wc", icon: "🚾" },
+  { key: "strom", icon: "⚡" },
+  { key: "wasser", icon: "💧" },
+  { key: "lift", icon: "🛗" },
+  { key: "arbeitszeit", icon: "⏰" },
+  { key: "telefone", icon: "📞" },
+  { key: "notizen", icon: "📝" },
+];
 
 export default function BaustelleDetailPage() {
   const params = useParams();
@@ -121,21 +174,50 @@ export default function BaustelleDetailPage() {
 
   const [baustelle, setBaustelle] = useState<any>(null);
   const [rooms, setRooms] = useState<any[]>([]);
-  const [workerRole, setWorkerRole] = useState("");
-  const [lang, setLang] = useState("ba");
+  const [info, setInfo] = useState<any>({
+    google_maps: "",
+    ansprechpartner: "",
+    zugang: "",
+    parking: "",
+    schluessel: "",
+    wc: "",
+    strom: "",
+    wasser: "",
+    lift: "",
+    arbeitszeit: "",
+    telefone: "",
+    notizen: "",
+  });
 
-  const t = translations[lang] || translations.ba;
+  const [workerRole, setWorkerRole] = useState("");
+  const [lang, setLang] = useState("de");
+  const [loading, setLoading] = useState(true);
+
+  const [showInfoForm, setShowInfoForm] = useState(false);
+  const [infoField, setInfoField] = useState("google_maps");
+  const [infoValue, setInfoValue] = useState("");
+  const [editingField, setEditingField] = useState("");
+
+  const t = translations[lang] || translations.de;
+  const isAdmin = workerRole === "admin";
 
   useEffect(() => {
     const role = localStorage.getItem("worker_role") || "worker";
-    const savedLang = localStorage.getItem("lang") || "ba";
+    const savedLang = localStorage.getItem("lang") || "de";
 
     setWorkerRole(role);
     setLang(savedLang);
 
-    loadBaustelle();
-    loadRooms();
+    loadAll();
   }, []);
+
+  async function loadAll() {
+    setLoading(true);
+    await loadBaustelle();
+    await loadRooms();
+    await loadInfo();
+    setLoading(false);
+  }
 
   async function loadBaustelle() {
     const { data, error } = await supabase
@@ -145,7 +227,7 @@ export default function BaustelleDetailPage() {
       .single();
 
     if (error) {
-      alert("Greška kod učitavanja Baustelle: " + error.message);
+      alert("Fehler beim Laden der Baustelle: " + error.message);
       return;
     }
 
@@ -160,12 +242,128 @@ export default function BaustelleDetailPage() {
       .order("id", { ascending: true });
 
     if (error) {
-      console.log("Greška kod učitavanja prostorija:", error.message);
-      setRooms([]);
+      alert("Fehler beim Laden der Räume: " + error.message);
       return;
     }
 
     setRooms(data || []);
+  }
+
+  async function loadInfo() {
+    const { data, error } = await supabase
+      .from("baustelle_info")
+      .select("*")
+      .eq("baustelle_id", baustelleId)
+      .maybeSingle();
+
+    if (error) {
+      alert("Fehler beim Laden der Baustelle-Info: " + error.message);
+      return;
+    }
+
+    if (data) {
+      setInfo({
+        google_maps: data.google_maps || "",
+        ansprechpartner: data.ansprechpartner || "",
+        zugang: data.zugang || "",
+        parking: data.parking || "",
+        schluessel: data.schluessel || "",
+        wc: data.wc || "",
+        strom: data.strom || "",
+        wasser: data.wasser || "",
+        lift: data.lift || "",
+        arbeitszeit: data.arbeitszeit || "",
+        telefone: data.telefone || "",
+        notizen: data.notizen || "",
+      });
+    }
+  }
+
+  function startAddInfo() {
+    setEditingField("");
+    setInfoField("google_maps");
+    setInfoValue("");
+    setShowInfoForm(true);
+  }
+
+  function startEditInfo(field: string) {
+    setEditingField(field);
+    setInfoField(field);
+    setInfoValue(info[field] || "");
+    setShowInfoForm(true);
+  }
+
+  async function saveInfoField() {
+    if (!infoValue.trim()) {
+      alert(t.value);
+      return;
+    }
+
+    const payload: any = {
+      baustelle_id: Number(baustelleId),
+      google_maps: info.google_maps || "",
+      ansprechpartner: info.ansprechpartner || "",
+      zugang: info.zugang || "",
+      parking: info.parking || "",
+      schluessel: info.schluessel || "",
+      wc: info.wc || "",
+      strom: info.strom || "",
+      wasser: info.wasser || "",
+      lift: info.lift || "",
+      arbeitszeit: info.arbeitszeit || "",
+      telefone: info.telefone || "",
+      notizen: info.notizen || "",
+    };
+
+    payload[infoField] = infoValue.trim();
+
+    const { error } = await supabase
+      .from("baustelle_info")
+      .upsert(payload, { onConflict: "baustelle_id" });
+
+    if (error) {
+      alert("Fehler beim Speichern: " + error.message);
+      return;
+    }
+
+    setShowInfoForm(false);
+    setEditingField("");
+    setInfoValue("");
+    loadInfo();
+  }
+
+  async function deleteInfoField(field: string) {
+    const ok = confirm("Information wirklich löschen?");
+    if (!ok) return;
+
+    const payload: any = {
+      baustelle_id: Number(baustelleId),
+      google_maps: info.google_maps || "",
+      ansprechpartner: info.ansprechpartner || "",
+      zugang: info.zugang || "",
+      parking: info.parking || "",
+      schluessel: info.schluessel || "",
+      wc: info.wc || "",
+      strom: info.strom || "",
+      wasser: info.wasser || "",
+      lift: info.lift || "",
+      arbeitszeit: info.arbeitszeit || "",
+      telefone: info.telefone || "",
+      notizen: info.notizen || "",
+    };
+
+    payload[field] = "";
+
+    const { error } = await supabase
+      .from("baustelle_info")
+      .upsert(payload, { onConflict: "baustelle_id" });
+
+    if (error) {
+      alert("Fehler beim Löschen: " + error.message);
+      return;
+    }
+
+    loadInfo();
   }
 
   async function countRows(tableName: string) {
@@ -197,9 +395,11 @@ export default function BaustelleDetailPage() {
   }
 
   async function archiveBaustelle() {
-    const confirmArchive = confirm(t.archiveConfirm);
+    const ok = confirm(
+      "Möchten Sie diese Baustelle wirklich abschließen und ins Archiv verschieben?"
+    );
 
-    if (!confirmArchive) return;
+    if (!ok) return;
 
     const { error } = await supabase
       .from("baustellen")
@@ -207,7 +407,7 @@ export default function BaustelleDetailPage() {
       .eq("id", baustelleId);
 
     if (error) {
-      alert(t.archiveError + error.message);
+      alert("Fehler beim Archivieren: " + error.message);
       return;
     }
 
@@ -218,15 +418,19 @@ export default function BaustelleDetailPage() {
     const hasEntries = await checkIfBaustelleHasEntries();
 
     if (hasEntries && workerRole !== "admin") {
-      alert(t.deleteNotAllowed);
+      alert(
+        "Diese Baustelle hat Einträge. Nur Admin kann eine Baustelle mit bestehenden Einträgen löschen."
+      );
       return;
     }
 
-    const confirmDelete = confirm(
-      hasEntries ? t.deleteConfirmWithEntries : t.deleteConfirmEmpty
+    const ok = confirm(
+      hasEntries
+        ? "Diese Baustelle hat Einträge. Möchte der Admin diese Baustelle wirklich dauerhaft löschen?"
+        : "Möchten Sie diese leere Baustelle wirklich löschen?"
     );
 
-    if (!confirmDelete) return;
+    if (!ok) return;
 
     const { error } = await supabase
       .from("baustellen")
@@ -234,14 +438,21 @@ export default function BaustelleDetailPage() {
       .eq("id", baustelleId);
 
     if (error) {
-      alert(t.deleteError + error.message);
+      alert("Fehler beim Löschen: " + error.message);
       return;
     }
 
     router.push("/baustellen");
   }
 
-  if (!baustelle) {
+  function getInfoLabel(field: string) {
+    if (field === "google_maps") return t.googleLocation;
+    return t[field] || field;
+  }
+
+  const visibleInfoFields = infoFields.filter((field) => info[field.key]);
+
+  if (loading || !baustelle) {
     return (
       <main style={mainStyle}>
         <p>{t.loading}</p>
@@ -257,37 +468,143 @@ export default function BaustelleDetailPage() {
 
       <h1 style={titleStyle}>{baustelle.naziv || "Baustelle"}</h1>
 
-      <div style={infoBoxStyle}>
-        {baustelle.lokacija && (
+      <div style={topInfoBoxStyle}>
+        <a
+          href={info.google_maps || "#"}
+          target={info.google_maps ? "_blank" : "_self"}
+          onClick={(e) => {
+            if (!info.google_maps) {
+              e.preventDefault();
+              alert("Keine Google Maps Adresse eingetragen.");
+            }
+          }}
+          style={googleButtonStyle}
+        >
+          <div style={googleIconStyle}>📍</div>
+          <div style={googleTitleStyle}>{t.googleLocation}</div>
+          <div style={googleSmallTextStyle}>{t.openGoogle}</div>
+        </a>
+
+        <div style={topDividerStyle} />
+
+        <div style={basicInfoStyle}>
+          {baustelle.lokacija && (
+            <p>
+              <strong>{t.location}:</strong> {baustelle.lokacija}
+            </p>
+          )}
+
           <p>
-            <strong>{t.location}:</strong> {baustelle.lokacija}
+            <strong>{t.status}:</strong>{" "}
+            {baustelle.status === "Aktiv" ? t.active : baustelle.status}
           </p>
+        </div>
+      </div>
+
+      <div style={infoSectionStyle}>
+        <div style={infoHeaderStyle}>
+          <h2 style={sectionTitleStyle}>ℹ️ {t.siteInfo}</h2>
+
+          {isAdmin && (
+            <button onClick={startAddInfo} style={buttonStyle}>
+              + {t.addInfo}
+            </button>
+          )}
+        </div>
+
+        {showInfoForm && isAdmin && (
+          <div style={infoFormStyle}>
+            <select
+              value={infoField}
+              onChange={(e) => {
+                setInfoField(e.target.value);
+                setInfoValue(info[e.target.value] || "");
+              }}
+              disabled={!!editingField}
+              style={inputStyle}
+            >
+              <option value="google_maps">{t.googleLocation}</option>
+              {infoFields.map((field) => (
+                <option key={field.key} value={field.key}>
+                  {field.icon} {getInfoLabel(field.key)}
+                </option>
+              ))}
+            </select>
+
+            <textarea
+              value={infoValue}
+              onChange={(e) => setInfoValue(e.target.value)}
+              placeholder={t.value}
+              style={textareaStyle}
+            />
+
+            <div style={formButtonsStyle}>
+              <button onClick={saveInfoField} style={saveButtonStyle}>
+                {t.save}
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowInfoForm(false);
+                  setEditingField("");
+                  setInfoValue("");
+                }}
+                style={smallDarkButtonStyle}
+              >
+                {t.close}
+              </button>
+            </div>
+          </div>
         )}
 
-        {baustelle.opis && (
-          <p>
-            <strong>{t.description}:</strong> {baustelle.opis}
-          </p>
-        )}
+        {visibleInfoFields.length === 0 ? (
+          <p style={emptyInfoStyle}>{t.emptyInfo}</p>
+        ) : (
+          <div style={infoGridStyle}>
+            {visibleInfoFields.map((field) => (
+              <div key={field.key} style={infoItemStyle}>
+                <div style={infoIconStyle}>{field.icon}</div>
 
-        <p>
-          <strong>{t.status}:</strong>{" "}
-          {baustelle.status === "Aktiv" ? t.active : baustelle.status}
-        </p>
+                <div style={infoTextWrapStyle}>
+                  <strong>{getInfoLabel(field.key)}</strong>
+                  <p style={infoTextStyle}>{info[field.key]}</p>
+
+                  {isAdmin && (
+                    <div style={smallActionRowStyle}>
+                      <button
+                        onClick={() => startEditInfo(field.key)}
+                        style={smallEditButtonStyle}
+                      >
+                        {t.edit}
+                      </button>
+
+                      <button
+                        onClick={() => deleteInfoField(field.key)}
+                        style={smallDeleteButtonStyle}
+                      >
+                        {t.delete}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={roomsBoxStyle}>
         <h2 style={sectionTitleStyle}>{t.addedRooms}</h2>
 
         {rooms.length === 0 ? (
-          <p style={emptyTextStyle}>{t.noRooms}</p>
+          <p style={emptyInfoStyle}>Keine Räume vorhanden.</p>
         ) : (
-          <div style={roomChipsStyle}>
+          <div style={roomListStyle}>
             {rooms.map((room) => (
               <Link
                 key={room.id}
                 href={`/baustellen/${baustelleId}/prostorije/${room.id}`}
-                style={roomChipStyle}
+                style={roomBadgeStyle}
               >
                 {room.naziv || room.name || "Raum"}
               </Link>
@@ -322,11 +639,11 @@ export default function BaustelleDetailPage() {
 
       <div style={actionBoxStyle}>
         <button onClick={archiveBaustelle} style={archiveButtonStyle}>
-          {t.close}
+          {t.closeSite}
         </button>
 
         <button onClick={deleteBaustelle} style={deleteButtonStyle}>
-          {t.delete}
+          {t.deleteSite}
         </button>
       </div>
     </main>
@@ -354,54 +671,199 @@ const titleStyle: any = {
   marginBottom: "30px",
 };
 
-const infoBoxStyle: any = {
+const topInfoBoxStyle: any = {
   background: "#111",
   padding: "25px",
   borderRadius: "20px",
   marginBottom: "25px",
-  lineHeight: "1.6",
+  display: "flex",
+  alignItems: "center",
+  gap: "30px",
+  flexWrap: "wrap",
+};
+
+const googleButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  borderRadius: "16px",
+  padding: "25px 35px",
+  minWidth: "260px",
+  textDecoration: "none",
+  textAlign: "center",
+  fontWeight: "bold",
+  display: "block",
+};
+
+const googleIconStyle: any = {
+  fontSize: "40px",
+  marginBottom: "10px",
+};
+
+const googleTitleStyle: any = {
+  fontSize: "22px",
+  marginBottom: "8px",
+};
+
+const googleSmallTextStyle: any = {
+  fontSize: "15px",
+  opacity: 0.9,
+};
+
+const topDividerStyle: any = {
+  width: "1px",
+  minHeight: "120px",
+  background: "#333",
+};
+
+const basicInfoStyle: any = {
+  lineHeight: "1.7",
+  fontSize: "17px",
+};
+
+const infoSectionStyle: any = {
+  background: "#111",
+  padding: "25px",
+  borderRadius: "20px",
+  marginBottom: "25px",
+};
+
+const infoHeaderStyle: any = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "15px",
+  flexWrap: "wrap",
+  marginBottom: "20px",
+};
+
+const sectionTitleStyle: any = {
+  fontSize: "26px",
+  fontWeight: "bold",
+  marginBottom: "15px",
+};
+
+const infoFormStyle: any = {
+  background: "#000",
+  border: "1px solid #333",
+  borderRadius: "16px",
+  padding: "20px",
+  marginBottom: "20px",
+};
+
+const inputStyle: any = {
+  width: "100%",
+  padding: "14px",
+  borderRadius: "12px",
+  border: "1px solid #333",
+  background: "#1f2937",
+  color: "white",
+  fontSize: "16px",
+  marginBottom: "14px",
+};
+
+const textareaStyle: any = {
+  width: "100%",
+  minHeight: "120px",
+  padding: "14px",
+  borderRadius: "12px",
+  border: "1px solid #333",
+  background: "#1f2937",
+  color: "white",
+  fontSize: "16px",
+  marginBottom: "14px",
+  resize: "vertical",
+};
+
+const formButtonsStyle: any = {
+  display: "flex",
+  gap: "12px",
+  flexWrap: "wrap",
+};
+
+const infoGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: "18px",
+};
+
+const infoItemStyle: any = {
+  display: "flex",
+  gap: "14px",
+  borderBottom: "1px solid #2a2a2a",
+  paddingBottom: "14px",
+};
+
+const infoIconStyle: any = {
+  fontSize: "28px",
+};
+
+const infoTextWrapStyle: any = {
+  flex: 1,
+};
+
+const infoTextStyle: any = {
+  whiteSpace: "pre-wrap",
+  lineHeight: "1.5",
+  marginTop: "6px",
+};
+
+const smallActionRowStyle: any = {
+  display: "flex",
+  gap: "8px",
+  marginTop: "10px",
+};
+
+const smallEditButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  padding: "7px 10px",
+  cursor: "pointer",
+  fontWeight: "bold",
+};
+
+const smallDeleteButtonStyle: any = {
+  background: "#dc2626",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  padding: "7px 10px",
+  cursor: "pointer",
+  fontWeight: "bold",
+};
+
+const emptyInfoStyle: any = {
+  color: "#9ca3af",
 };
 
 const roomsBoxStyle: any = {
   background: "#111",
   padding: "25px",
   borderRadius: "20px",
-  marginBottom: "30px",
+  marginBottom: "25px",
 };
 
-const sectionTitleStyle: any = {
-  fontSize: "22px",
-  fontWeight: "bold",
-  marginBottom: "18px",
-};
-
-const emptyTextStyle: any = {
-  color: "#aaa",
-  fontSize: "16px",
-};
-
-const roomChipsStyle: any = {
+const roomListStyle: any = {
   display: "flex",
   flexWrap: "wrap",
   gap: "12px",
 };
 
-const roomChipStyle: any = {
+const roomBadgeStyle: any = {
   background: "#1f2937",
   color: "white",
-  padding: "14px 20px",
-  borderRadius: "14px",
+  padding: "14px 18px",
+  borderRadius: "12px",
   textDecoration: "none",
-  fontSize: "17px",
   fontWeight: "bold",
-  border: "1px solid #374151",
 };
 
 const gridStyle: any = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
   gap: "20px",
-  marginBottom: "35px",
+  marginBottom: "25px",
 };
 
 const buttonStyle: any = {
@@ -446,6 +908,28 @@ const deleteButtonStyle: any = {
   border: "none",
   borderRadius: "12px",
   fontSize: "18px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const saveButtonStyle: any = {
+  background: "#16a34a",
+  color: "white",
+  padding: "14px 20px",
+  border: "none",
+  borderRadius: "12px",
+  fontSize: "16px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const smallDarkButtonStyle: any = {
+  background: "#374151",
+  color: "white",
+  padding: "14px 20px",
+  border: "none",
+  borderRadius: "12px",
+  fontSize: "16px",
   fontWeight: "bold",
   cursor: "pointer",
 };
