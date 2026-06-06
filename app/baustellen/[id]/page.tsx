@@ -21,6 +21,8 @@ const translations: any = {
     deleteSite: "Baustelle löschen",
     googleLocation: "Google Standort",
     openGoogle: "Auf Google Maps öffnen",
+    visualization3d: "3D Visualisierung",
+    openVisualization3d: "3D Ansicht öffnen",
     siteInfo: "Informationen zur Baustelle",
     addInfo: "Information hinzufügen",
     close: "Schließen",
@@ -56,6 +58,8 @@ const translations: any = {
     deleteSite: "Obriši Baustelle",
     googleLocation: "Google lokacija",
     openGoogle: "Otvori na Google Maps",
+    visualization3d: "3D Vizualizacija",
+    openVisualization3d: "Otvori 3D prikaz",
     siteInfo: "Informacije o Baustelle",
     addInfo: "Dodaj informaciju",
     close: "Zatvori",
@@ -91,6 +95,8 @@ const translations: any = {
     deleteSite: "Delete Site",
     googleLocation: "Google location",
     openGoogle: "Open in Google Maps",
+    visualization3d: "3D Visualization",
+    openVisualization3d: "Open 3D view",
     siteInfo: "Site information",
     addInfo: "Add information",
     close: "Close",
@@ -126,6 +132,8 @@ const translations: any = {
     deleteSite: "Obyektni o‘chirish",
     googleLocation: "Google manzil",
     openGoogle: "Google Maps’da ochish",
+    visualization3d: "3D vizualizatsiya",
+    openVisualization3d: "3D ko‘rinishni ochish",
     siteInfo: "Obyekt ma’lumoti",
     addInfo: "Ma’lumot qo‘shish",
     close: "Yopish",
@@ -164,6 +172,7 @@ const infoFields = [
 
 const emptyInfoData: any = {
   google_maps: "",
+  visualization_3d: "",
   ansprechpartner: "",
   zugang: "",
   parking: "",
@@ -268,7 +277,11 @@ export default function BaustelleDetailPage() {
 
     (data || []).forEach((row: any) => {
       if (row.type === "google_maps") {
-        nextInfo.google_maps = row.google_maps_url || row.note_bs || row.note_de || "";
+        nextInfo.google_maps =
+          row.google_maps_url || row.note_bs || row.note_de || "";
+      } else if (row.type === "visualization_3d") {
+        nextInfo.visualization_3d =
+          row.visualization_url || row.google_maps_url || row.note_bs || "";
       } else if (row.type) {
         nextInfo[row.type] =
           row.note_bs ||
@@ -299,18 +312,38 @@ export default function BaustelleDetailPage() {
 
   function getInfoLabel(field: string) {
     if (field === "google_maps") return t.googleLocation;
+    if (field === "visualization_3d") return t.visualization3d;
     return t[field] || field;
   }
 
   function buildInfoPayload(field: string, value: string) {
     const labelDe =
-      field === "google_maps" ? translations.de.googleLocation : translations.de[field] || field;
+      field === "google_maps"
+        ? translations.de.googleLocation
+        : field === "visualization_3d"
+        ? translations.de.visualization3d
+        : translations.de[field] || field;
+
     const labelBs =
-      field === "google_maps" ? translations.ba.googleLocation : translations.ba[field] || field;
+      field === "google_maps"
+        ? translations.ba.googleLocation
+        : field === "visualization_3d"
+        ? translations.ba.visualization3d
+        : translations.ba[field] || field;
+
     const labelUz =
-      field === "google_maps" ? translations.uz.googleLocation : translations.uz[field] || field;
+      field === "google_maps"
+        ? translations.uz.googleLocation
+        : field === "visualization_3d"
+        ? translations.uz.visualization3d
+        : translations.uz[field] || field;
+
     const labelEn =
-      field === "google_maps" ? translations.en.googleLocation : translations.en[field] || field;
+      field === "google_maps"
+        ? translations.en.googleLocation
+        : field === "visualization_3d"
+        ? translations.en.visualization3d
+        : translations.en[field] || field;
 
     return {
       baustelle_id: Number(baustelleId),
@@ -320,12 +353,16 @@ export default function BaustelleDetailPage() {
       title_bs: labelBs,
       title_uz: labelUz,
       title_en: labelEn,
-      note_de: field === "google_maps" ? "" : value,
-      note_bs: field === "google_maps" ? "" : value,
-      note_uz: field === "google_maps" ? "" : value,
-      note_en: field === "google_maps" ? "" : value,
+      note_de:
+        field === "google_maps" || field === "visualization_3d" ? "" : value,
+      note_bs:
+        field === "google_maps" || field === "visualization_3d" ? "" : value,
+      note_uz:
+        field === "google_maps" || field === "visualization_3d" ? "" : value,
+      note_en:
+        field === "google_maps" || field === "visualization_3d" ? "" : value,
       google_maps_url: field === "google_maps" ? value : "",
-      visualization_url: "",
+      visualization_url: field === "visualization_3d" ? value : "",
     };
   }
 
@@ -490,6 +527,22 @@ export default function BaustelleDetailPage() {
           <div style={googleSmallTextStyle}>{t.openGoogle}</div>
         </a>
 
+        <a
+          href={info.visualization_3d || "#"}
+          target={info.visualization_3d ? "_blank" : "_self"}
+          onClick={(e) => {
+            if (!info.visualization_3d) {
+              e.preventDefault();
+              alert("Keine 3D Visualisierung eingetragen.");
+            }
+          }}
+          style={visualizationButtonStyle}
+        >
+          <div style={googleIconStyle}>🏗️</div>
+          <div style={googleTitleStyle}>{t.visualization3d}</div>
+          <div style={googleSmallTextStyle}>{t.openVisualization3d}</div>
+        </a>
+
         <div style={topDividerStyle} />
 
         <div style={basicInfoStyle}>
@@ -528,7 +581,9 @@ export default function BaustelleDetailPage() {
               disabled={!!editingField}
               style={inputStyle}
             >
-              <option value="google_maps">{t.googleLocation}</option>
+              <option value="google_maps">📍 {t.googleLocation}</option>
+              <option value="visualization_3d">🏗️ {t.visualization3d}</option>
+
               {infoFields.map((field) => (
                 <option key={field.key} value={field.key}>
                   {field.icon} {getInfoLabel(field.key)}
@@ -689,6 +744,18 @@ const topInfoBoxStyle: any = {
 
 const googleButtonStyle: any = {
   background: "#2563eb",
+  color: "white",
+  borderRadius: "16px",
+  padding: "25px 35px",
+  minWidth: "260px",
+  textDecoration: "none",
+  textAlign: "center",
+  fontWeight: "bold",
+  display: "block",
+};
+
+const visualizationButtonStyle: any = {
+  background: "#7c3aed",
   color: "white",
   borderRadius: "16px",
   padding: "25px 35px",
