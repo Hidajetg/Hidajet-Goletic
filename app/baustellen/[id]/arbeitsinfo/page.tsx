@@ -98,7 +98,6 @@ const taskTranslations: any = {
     Estrich: "Estrih",
     "Estrich nur Dusche": "Estrih samo tuš",
     "Schleifen Boden": "Brušenje poda",
-
     "Trockenbau Decke abhängen": "Spušteni knauf plafon",
     "Trockenbau Wand": "Pregradni knauf zid",
     Vorwandinstallation: "Predzid instalacije",
@@ -106,13 +105,11 @@ const taskTranslations: any = {
     "Badewanne einmauern": "Zidanje kade",
     "Träger montieren": "Montaža nosača",
     Vorbereitungsbeton: "Pripremni beton",
-
     "Abdichtung Boden": "Hidroizolacija poda",
     "Abdichtung Wand": "Hidroizolacija zida",
     "Abdichtung Dusche": "Hidroizolacija tuša",
     Dichtband: "Diht traka",
     Manschetten: "Manžetne",
-
     "Wandfliesen verlegen": "Postavljanje zidne keramike",
     "Bodenfliesen verlegen": "Postavljanje podne keramike",
     Sockelleisten: "Sokl",
@@ -120,138 +117,22 @@ const taskTranslations: any = {
     "Schienen montieren": "Montaža lajsni",
     "Stufen verlegen": "Postavljanje stepenica",
     "Treppen sanieren": "Popravka stepenica",
-
     "Terrasse verlegen": "Postavljanje terase",
     "Stelzlager Terrasse": "Stelzlager terasa",
     "Kies Terrasse": "Kies terasa",
     Drainagematte: "Drenažna membrana",
-
     Verfugen: "Fugiranje",
     Silikon: "Silikon",
     "Fuge reparieren": "Popravka fuga",
     "Silikon reparieren": "Popravka silikona",
-
     Edelputz: "Edelputz",
     Verputzen: "Malterisanje",
     Glätten: "Gletovanje",
     Malerarbeiten: "Moleraj",
     "Ausbesserung Maler": "Popravka moleraja",
-
     Feinreinigung: "Finalno čišćenje",
     "Mängel beseitigen": "Otklanjanje nedostataka",
     "Übergabe vorbereiten": "Priprema za primopredaju",
-  },
-
-  en: {
-    Abdecken: "Covering / protection",
-    Reinigung: "Cleaning",
-    "Vorbereitung Beton": "Concrete preparation",
-    "Untergrund vorbereiten": "Prepare substrate",
-    Grundierung: "Primer",
-    Spachteln: "Skimming / filling",
-    "Netz + Kleber": "Mesh and adhesive",
-    Ausgleichsmasse: "Self-leveling compound",
-    Estrich: "Screed",
-    "Estrich nur Dusche": "Screed only shower",
-    "Schleifen Boden": "Floor sanding",
-
-    "Trockenbau Decke abhängen": "Suspended drywall ceiling",
-    "Trockenbau Wand": "Drywall partition wall",
-    Vorwandinstallation: "Pre-wall installation",
-    Revisionsklappe: "Inspection hatch",
-    "Badewanne einmauern": "Build in bathtub",
-    "Träger montieren": "Install carrier",
-    Vorbereitungsbeton: "Preparation concrete",
-
-    "Abdichtung Boden": "Floor waterproofing",
-    "Abdichtung Wand": "Wall waterproofing",
-    "Abdichtung Dusche": "Shower waterproofing",
-    Dichtband: "Sealing tape",
-    Manschetten: "Sealing collars",
-
-    "Wandfliesen verlegen": "Install wall tiles",
-    "Bodenfliesen verlegen": "Install floor tiles",
-    Sockelleisten: "Skirting tiles",
-    "Gehrung schneiden": "Miter cutting",
-    "Schienen montieren": "Install profiles",
-    "Stufen verlegen": "Install steps",
-    "Treppen sanieren": "Repair stairs",
-
-    "Terrasse verlegen": "Install terrace tiles",
-    "Stelzlager Terrasse": "Pedestal terrace",
-    "Kies Terrasse": "Gravel terrace",
-    Drainagematte: "Drainage mat",
-
-    Verfugen: "Grouting",
-    Silikon: "Silicone",
-    "Fuge reparieren": "Repair grout",
-    "Silikon reparieren": "Repair silicone",
-
-    Edelputz: "Decorative plaster",
-    Verputzen: "Plastering",
-    Glätten: "Smoothing",
-    Malerarbeiten: "Painting work",
-    "Ausbesserung Maler": "Painting touch-up",
-
-    Feinreinigung: "Final cleaning",
-    "Mängel beseitigen": "Fix defects",
-    "Übergabe vorbereiten": "Prepare handover",
-  },
-
-  uz: {
-    Abdecken: "Yopish / himoya qilish",
-    Reinigung: "Tozalash",
-    "Vorbereitung Beton": "Betonni tayyorlash",
-    "Untergrund vorbereiten": "Asosni tayyorlash",
-    Grundierung: "Gruntovka",
-    Spachteln: "Shpaklyovka",
-    "Netz + Kleber": "Setka va kley",
-    Ausgleichsmasse: "Tekislovchi massa",
-    Estrich: "Estrix",
-    "Estrich nur Dusche": "Faqat dush uchun estrix",
-    "Schleifen Boden": "Polni silliqlash",
-
-    "Trockenbau Decke abhängen": "Gipsokarton osma shift",
-    "Trockenbau Wand": "Gipsokarton devor",
-    Vorwandinstallation: "Old devor installatsiyasi",
-    Revisionsklappe: "Revizion qopqoq",
-    "Badewanne einmauern": "Vannani devor bilan yopish",
-    "Träger montieren": "Tayanchni montaj qilish",
-    Vorbereitungsbeton: "Tayyorlov betoni",
-
-    "Abdichtung Boden": "Pol gidroizolyatsiyasi",
-    "Abdichtung Wand": "Devor gidroizolyatsiyasi",
-    "Abdichtung Dusche": "Dush gidroizolyatsiyasi",
-    Dichtband: "Gidro lenta",
-    Manschetten: "Manshetlar",
-
-    "Wandfliesen verlegen": "Devor plitkasini qo‘yish",
-    "Bodenfliesen verlegen": "Pol plitkasini qo‘yish",
-    Sockelleisten: "Plintus plitka",
-    "Gehrung schneiden": "Burchak kesish",
-    "Schienen montieren": "Profil montaj qilish",
-    "Stufen verlegen": "Zinalarni qo‘yish",
-    "Treppen sanieren": "Zinani ta’mirlash",
-
-    "Terrasse verlegen": "Terassa plitkasini qo‘yish",
-    "Stelzlager Terrasse": "Stelzlager terassa",
-    "Kies Terrasse": "Shag‘al terassa",
-    Drainagematte: "Drenaj mat",
-
-    Verfugen: "Fuga qilish",
-    Silikon: "Silikon",
-    "Fuge reparieren": "Fugani ta’mirlash",
-    "Silikon reparieren": "Silikonni ta’mirlash",
-
-    Edelputz: "Dekorativ suvoq",
-    Verputzen: "Suvoq qilish",
-    Glätten: "Tekislash",
-    Malerarbeiten: "Bo‘yash ishlari",
-    "Ausbesserung Maler": "Bo‘yashni tuzatish",
-
-    Feinreinigung: "Yakuniy tozalash",
-    "Mängel beseitigen": "Kamchiliklarni tuzatish",
-    "Übergabe vorbereiten": "Topshirishga tayyorlash",
   },
 };
 
@@ -261,188 +142,148 @@ const translations: any = {
     title: "Arbeitsinfo",
     task: "Arbeitsauftrag",
     material: "Material",
+    glue: "Fliesenkleber",
+    rails: "Schienen",
     tool: "Werkzeug",
     tiles: "Fliesen",
     notes: "Zusätzliche Hinweise",
-
     noTasks: "Keine Arbeitsaufträge vorhanden.",
     noMaterial: "Kein Material vorhanden.",
     noTools: "Kein Werkzeug vorhanden.",
     noTiles: "Keine Fliesen vorhanden.",
     noNotes: "Keine Hinweise vorhanden.",
-
     quickSelection: "Schnellauswahl Arbeiten",
     addTask: "Arbeitsauftrag hinzufügen",
     saveTask: "Arbeitsauftrag speichern",
     taskDescription: "Arbeitsauftrag / Beschreibung",
     allRooms: "Allgemein / keine Raumzuordnung",
     enterTaskDescription: "Bitte Arbeitsauftrag eingeben.",
-    deleteTaskConfirm: "Möchten Sie diesen Arbeitsauftrag wirklich löschen?",
-    loadTasksError: "Fehler beim Laden der Arbeitsaufträge: ",
-    addTaskError: "Fehler beim Hinzufügen des Arbeitsauftrags: ",
-    deleteTaskError: "Fehler beim Löschen des Arbeitsauftrags: ",
-
-    addTiles: "Fliesen hinzufügen",
+    addMaterial: "Material hinzufügen",
+    saveMaterial: "Material speichern",
+    chooseMaterial: "Material auswählen",
+    quantity: "Menge",
+    delete: "Löschen",
     close: "Schließen",
+    addTiles: "Fliesen hinzufügen",
     tileName: "Fliesenname",
     tileStorage: "Lager / Lagerplatz",
-    quantity: "Menge",
     roomsForTile: "Räume für diese Fliesen",
     noRooms: "Keine Räume vorhanden.",
     saveTiles: "Fliesen speichern",
     storage: "Lager",
     rooms: "Räume",
     notConnected: "Mit keinem Raum verbunden.",
-    delete: "Löschen",
-    enterTileName: "Bitte Fliesenname eingeben.",
-    deleteConfirm: "Möchten Sie diese Fliesen wirklich löschen?",
-    loadRoomsError: "Fehler beim Laden der Räume: ",
-    loadTilesError: "Fehler beim Laden der Fliesen: ",
-    loadTileRoomsError: "Fehler beim Laden der Fliesen-Räume: ",
-    addTilesError: "Fehler beim Hinzufügen der Fliesen: ",
-    relationError: "Fliesen wurden gespeichert, aber Fehler bei den Räumen: ",
-    deleteTilesError: "Fehler beim Löschen der Fliesen: ",
   },
   ba: {
     back: "Nazad na Baustelle",
     title: "Radne informacije",
     task: "Radni nalog",
     material: "Materijal",
+    glue: "Ljepilo za keramiku",
+    rails: "Lajsne / Schienen",
     tool: "Alat",
     tiles: "Keramika",
     notes: "Dodatne napomene",
-
     noTasks: "Još nema radnih zadataka.",
     noMaterial: "Još nema materijala.",
     noTools: "Još nema alata.",
     noTiles: "Još nema keramike.",
     noNotes: "Još nema napomena.",
-
     quickSelection: "Brzi izbor poslova",
     addTask: "Dodaj radni nalog",
     saveTask: "Sačuvaj radni nalog",
     taskDescription: "Radni nalog / opis",
     allRooms: "Općenito / bez prostorije",
     enterTaskDescription: "Unesi radni nalog.",
-    deleteTaskConfirm: "Da li želiš obrisati ovaj radni nalog?",
-    loadTasksError: "Greška kod učitavanja radnih naloga: ",
-    addTaskError: "Greška kod dodavanja radnog naloga: ",
-    deleteTaskError: "Greška kod brisanja radnog naloga: ",
-
-    addTiles: "Dodaj keramiku",
+    addMaterial: "Dodaj materijal",
+    saveMaterial: "Sačuvaj materijal",
+    chooseMaterial: "Izaberi materijal",
+    quantity: "Količina",
+    delete: "Obriši",
     close: "Zatvori",
+    addTiles: "Dodaj keramiku",
     tileName: "Naziv keramike",
     tileStorage: "Lager / mjesto u lageru",
-    quantity: "Količina",
     roomsForTile: "Prostorije za ovu keramiku",
     noRooms: "Nema prostorija.",
     saveTiles: "Sačuvaj keramiku",
     storage: "Lager",
     rooms: "Prostorije",
     notConnected: "Nije povezana sa prostorijom.",
-    delete: "Obriši",
-    enterTileName: "Unesi naziv keramike.",
-    deleteConfirm: "Da li želiš obrisati ovu keramiku?",
-    loadRoomsError: "Greška kod učitavanja prostorija: ",
-    loadTilesError: "Greška kod učitavanja keramike: ",
-    loadTileRoomsError: "Greška kod učitavanja prostorija za keramiku: ",
-    addTilesError: "Greška kod dodavanja keramike: ",
-    relationError: "Keramika je dodana, ali greška kod prostorija: ",
-    deleteTilesError: "Greška kod brisanja keramike: ",
   },
   en: {
     back: "Back to site",
     title: "Work Info",
     task: "Work order",
     material: "Material",
+    glue: "Tile adhesive",
+    rails: "Profiles / rails",
     tool: "Tools",
     tiles: "Tiles",
     notes: "Additional notes",
-
     noTasks: "No work orders yet.",
     noMaterial: "No material yet.",
     noTools: "No tools yet.",
     noTiles: "No tiles yet.",
     noNotes: "No notes yet.",
-
     quickSelection: "Quick work selection",
     addTask: "Add work order",
     saveTask: "Save work order",
     taskDescription: "Work order / description",
     allRooms: "General / no room",
     enterTaskDescription: "Enter work order.",
-    deleteTaskConfirm: "Do you want to delete this work order?",
-    loadTasksError: "Error loading work orders: ",
-    addTaskError: "Error adding work order: ",
-    deleteTaskError: "Error deleting work order: ",
-
-    addTiles: "Add tiles",
+    addMaterial: "Add material",
+    saveMaterial: "Save material",
+    chooseMaterial: "Choose material",
+    quantity: "Quantity",
+    delete: "Delete",
     close: "Close",
+    addTiles: "Add tiles",
     tileName: "Tile name",
     tileStorage: "Storage / warehouse place",
-    quantity: "Quantity",
     roomsForTile: "Rooms for these tiles",
     noRooms: "No rooms available.",
     saveTiles: "Save tiles",
     storage: "Storage",
     rooms: "Rooms",
     notConnected: "Not connected to any room.",
-    delete: "Delete",
-    enterTileName: "Enter tile name.",
-    deleteConfirm: "Do you want to delete these tiles?",
-    loadRoomsError: "Error loading rooms: ",
-    loadTilesError: "Error loading tiles: ",
-    loadTileRoomsError: "Error loading tile rooms: ",
-    addTilesError: "Error adding tiles: ",
-    relationError: "Tiles were saved, but room connection failed: ",
-    deleteTilesError: "Error deleting tiles: ",
   },
   uz: {
     back: "Obyektga qaytish",
     title: "Ish ma’lumoti",
     task: "Ish topshirig‘i",
     material: "Material",
+    glue: "Plitka yelimi",
+    rails: "Profil / shina",
     tool: "Asboblar",
     tiles: "Plitka",
     notes: "Qo‘shimcha eslatmalar",
-
     noTasks: "Hali ish topshirig‘i yo‘q.",
     noMaterial: "Hali material yo‘q.",
     noTools: "Hali asboblar yo‘q.",
     noTiles: "Hali plitka yo‘q.",
     noNotes: "Hali eslatma yo‘q.",
-
     quickSelection: "Tez ish tanlash",
     addTask: "Ish topshirig‘i qo‘shish",
     saveTask: "Ish topshirig‘ini saqlash",
     taskDescription: "Ish topshirig‘i / tavsif",
     allRooms: "Umumiy / xona yo‘q",
     enterTaskDescription: "Ish topshirig‘ini kiriting.",
-    deleteTaskConfirm: "Bu ish topshirig‘ini o‘chirmoqchimisiz?",
-    loadTasksError: "Ish topshiriqlarini yuklashda xatolik: ",
-    addTaskError: "Ish topshirig‘ini qo‘shishda xatolik: ",
-    deleteTaskError: "Ish topshirig‘ini o‘chirishda xatolik: ",
-
-    addTiles: "Plitka qo‘shish",
+    addMaterial: "Material qo‘shish",
+    saveMaterial: "Materialni saqlash",
+    chooseMaterial: "Material tanlash",
+    quantity: "Miqdor",
+    delete: "O‘chirish",
     close: "Yopish",
+    addTiles: "Plitka qo‘shish",
     tileName: "Plitka nomi",
     tileStorage: "Ombor / joylashuv",
-    quantity: "Miqdor",
     roomsForTile: "Bu plitka uchun xonalar",
     noRooms: "Xonalar yo‘q.",
     saveTiles: "Plitkani saqlash",
     storage: "Ombor",
     rooms: "Xonalar",
     notConnected: "Hech qaysi xonaga bog‘lanmagan.",
-    delete: "O‘chirish",
-    enterTileName: "Plitka nomini kiriting.",
-    deleteConfirm: "Bu plitkani o‘chirmoqchimisiz?",
-    loadRoomsError: "Xonalarni yuklashda xatolik: ",
-    loadTilesError: "Plitkani yuklashda xatolik: ",
-    loadTileRoomsError: "Plitka xonalarini yuklashda xatolik: ",
-    addTilesError: "Plitka qo‘shishda xatolik: ",
-    relationError: "Plitka saqlandi, lekin xonalarda xatolik: ",
-    deleteTilesError: "Plitkani o‘chirishda xatolik: ",
   },
 };
 
@@ -455,12 +296,23 @@ export default function ArbeitsinfoPage() {
 
   const [rooms, setRooms] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [catalogMaterials, setCatalogMaterials] = useState<any[]>([]);
+  const [arbeitsMaterials, setArbeitsMaterials] = useState<any[]>([]);
   const [tiles, setTiles] = useState<any[]>([]);
   const [tileRooms, setTileRooms] = useState<any[]>([]);
 
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskRoomId, setTaskRoomId] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
+
+  const [showGlueForm, setShowGlueForm] = useState(false);
+  const [glueMaterialId, setGlueMaterialId] = useState("");
+  const [glueQuantity, setGlueQuantity] = useState("");
+
+  const [showRailsForm, setShowRailsForm] = useState(false);
+  const [railMaterialId, setRailMaterialId] = useState("");
+  const [railQuantity, setRailQuantity] = useState("");
 
   const [showTilesForm, setShowTilesForm] = useState(false);
   const [tileName, setTileName] = useState("");
@@ -481,25 +333,35 @@ export default function ArbeitsinfoPage() {
 
     loadRooms();
     loadTasks();
+    loadCatalog();
+    loadArbeitsMaterials();
     loadTiles();
   }, []);
+
+  function getMaterialName(material: any) {
+    if (!material) return "";
+
+    if (lang === "de") return material.naziv_de || material.naziv;
+    if (lang === "ba") return material.naziv_ba || material.naziv_de || material.naziv;
+    if (lang === "en") return material.naziv_en || material.naziv_de || material.naziv;
+    if (lang === "uz") return material.naziv_uz || material.naziv_de || material.naziv;
+
+    return material.naziv;
+  }
 
   function translateTaskText(text: string) {
     if (lang === "de") return text;
 
     const dict = taskTranslations[lang];
-
     if (!dict) return text;
 
     let result = text;
 
-    const sortedEntries = Object.entries(dict).sort(
-      ([a], [b]) => b.length - a.length
-    );
-
-    sortedEntries.forEach(([deText, translatedText]) => {
-      result = result.replaceAll(deText, String(translatedText));
-    });
+    Object.entries(dict)
+      .sort(([a], [b]) => b.length - a.length)
+      .forEach(([deText, translatedText]) => {
+        result = result.replaceAll(deText, String(translatedText));
+      });
 
     return result;
   }
@@ -512,7 +374,7 @@ export default function ArbeitsinfoPage() {
       .order("id", { ascending: true });
 
     if (error) {
-      alert(t.loadRoomsError + error.message);
+      alert("Fehler beim Laden der Räume: " + error.message);
       return;
     }
 
@@ -527,11 +389,79 @@ export default function ArbeitsinfoPage() {
       .order("id", { ascending: true });
 
     if (error) {
-      alert(t.loadTasksError + error.message);
+      alert("Fehler beim Laden der Arbeitsaufträge: " + error.message);
       return;
     }
 
     setTasks(data || []);
+  }
+
+  async function loadCatalog() {
+    const { data: groupsData, error: groupsError } = await supabase
+      .from("material_groups")
+      .select("*")
+      .order("id", { ascending: true });
+
+    if (groupsError) {
+      alert("Fehler beim Laden der Materialgruppen: " + groupsError.message);
+      return;
+    }
+
+    const { data: materialsData, error: materialsError } = await supabase
+      .from("materials")
+      .select("*")
+      .order("id", { ascending: true });
+
+    if (materialsError) {
+      alert("Fehler beim Laden der Materialien: " + materialsError.message);
+      return;
+    }
+
+    setGroups(groupsData || []);
+    setCatalogMaterials(materialsData || []);
+  }
+
+  async function loadArbeitsMaterials() {
+    const { data, error } = await supabase
+      .from("arbeitsinfo_materials")
+      .select("*")
+      .eq("baustelle_id", baustelleId)
+      .order("id", { ascending: true });
+
+    if (error) {
+      alert("Fehler beim Laden der Arbeitsinfo Materialien: " + error.message);
+      return;
+    }
+
+    setArbeitsMaterials(data || []);
+  }
+
+  function getGroupByName(groupName: string) {
+    return groups.find((group) => group.naziv === groupName);
+  }
+
+  function getCatalogMaterialsForGroup(groupName: string) {
+    const group = getGroupByName(groupName);
+    if (!group) return [];
+
+    return catalogMaterials.filter(
+      (material) => Number(material.group_id) === Number(group.id)
+    );
+  }
+
+  function getArbeitsMaterialsForGroup(groupName: string) {
+    const group = getGroupByName(groupName);
+    if (!group) return [];
+
+    return arbeitsMaterials.filter(
+      (item) => Number(item.group_id) === Number(group.id)
+    );
+  }
+
+  function getCatalogMaterialById(materialId: any) {
+    return catalogMaterials.find(
+      (material) => Number(material.id) === Number(materialId)
+    );
   }
 
   function addQuickWork(workName: string) {
@@ -540,11 +470,7 @@ export default function ArbeitsinfoPage() {
 
     if (currentText.includes(line)) return;
 
-    if (!currentText) {
-      setTaskDescription(line);
-    } else {
-      setTaskDescription(`${currentText}\n${line}`);
-    }
+    setTaskDescription(currentText ? `${currentText}\n${line}` : line);
   }
 
   async function addTask() {
@@ -560,7 +486,7 @@ export default function ArbeitsinfoPage() {
     });
 
     if (error) {
-      alert(t.addTaskError + error.message);
+      alert("Fehler beim Speichern: " + error.message);
       return;
     }
 
@@ -571,8 +497,8 @@ export default function ArbeitsinfoPage() {
   }
 
   async function deleteTask(taskId: number) {
-    const confirmDelete = confirm(t.deleteTaskConfirm);
-    if (!confirmDelete) return;
+    const ok = confirm("Möchten Sie diesen Arbeitsauftrag wirklich löschen?");
+    if (!ok) return;
 
     const { error } = await supabase
       .from("arbeitsinfo_tasks")
@@ -580,18 +506,67 @@ export default function ArbeitsinfoPage() {
       .eq("id", taskId);
 
     if (error) {
-      alert(t.deleteTaskError + error.message);
+      alert("Fehler beim Löschen: " + error.message);
       return;
     }
 
     loadTasks();
   }
 
+  async function addArbeitsMaterial(
+    groupName: string,
+    materialId: string,
+    quantity: string,
+    reset: () => void
+  ) {
+    if (!materialId) {
+      alert(t.chooseMaterial);
+      return;
+    }
+
+    const material = getCatalogMaterialById(materialId);
+    if (!material) {
+      alert("Material nicht gefunden.");
+      return;
+    }
+
+    const { error } = await supabase.from("arbeitsinfo_materials").insert({
+      baustelle_id: Number(baustelleId),
+      material_id: Number(materialId),
+      group_id: Number(material.group_id),
+      quantity,
+    });
+
+    if (error) {
+      alert("Fehler beim Speichern des Materials: " + error.message);
+      return;
+    }
+
+    reset();
+    loadArbeitsMaterials();
+  }
+
+  async function deleteArbeitsMaterial(id: number) {
+    const ok = confirm("Möchten Sie dieses Material wirklich löschen?");
+    if (!ok) return;
+
+    const { error } = await supabase
+      .from("arbeitsinfo_materials")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      alert("Fehler beim Löschen: " + error.message);
+      return;
+    }
+
+    loadArbeitsMaterials();
+  }
+
   function getRoomName(roomId: any) {
     if (!roomId) return t.allRooms;
 
     const room = rooms.find((item) => Number(item.id) === Number(roomId));
-
     return room?.naziv || room?.name || "Raum";
   }
 
@@ -603,7 +578,7 @@ export default function ArbeitsinfoPage() {
       .order("id", { ascending: true });
 
     if (tilesError) {
-      alert(t.loadTilesError + tilesError.message);
+      alert("Fehler beim Laden der Fliesen: " + tilesError.message);
       return;
     }
 
@@ -614,7 +589,7 @@ export default function ArbeitsinfoPage() {
       .select("*");
 
     if (roomsError) {
-      alert(t.loadTileRoomsError + roomsError.message);
+      alert("Fehler beim Laden der Fliesen-Räume: " + roomsError.message);
       return;
     }
 
@@ -631,7 +606,7 @@ export default function ArbeitsinfoPage() {
 
   async function addTiles() {
     if (!tileName.trim()) {
-      alert(t.enterTileName);
+      alert("Bitte Fliesenname eingeben.");
       return;
     }
 
@@ -648,7 +623,7 @@ export default function ArbeitsinfoPage() {
       .single();
 
     if (tileError) {
-      alert(t.addTilesError + tileError.message);
+      alert("Fehler beim Speichern der Fliesen: " + tileError.message);
       return;
     }
 
@@ -658,12 +633,12 @@ export default function ArbeitsinfoPage() {
         room_id: Number(roomId),
       }));
 
-      const { error: relationError } = await supabase
+      const { error } = await supabase
         .from("arbeitsinfo_tile_rooms")
         .insert(rows);
 
-      if (relationError) {
-        alert(t.relationError + relationError.message);
+      if (error) {
+        alert("Fliesen gespeichert, aber Räume nicht: " + error.message);
       }
     }
 
@@ -673,18 +648,14 @@ export default function ArbeitsinfoPage() {
     setTileUnit("m²");
     setSelectedRooms([]);
     setShowTilesForm(false);
-
     loadTiles();
   }
 
   async function deleteTiles(tileId: number) {
-    const confirmDelete = confirm(t.deleteConfirm);
-    if (!confirmDelete) return;
+    const ok = confirm("Möchten Sie diese Fliesen wirklich löschen?");
+    if (!ok) return;
 
-    await supabase
-      .from("arbeitsinfo_tile_rooms")
-      .delete()
-      .eq("tile_id", tileId);
+    await supabase.from("arbeitsinfo_tile_rooms").delete().eq("tile_id", tileId);
 
     const { error } = await supabase
       .from("arbeitsinfo_tiles")
@@ -692,7 +663,7 @@ export default function ArbeitsinfoPage() {
       .eq("id", tileId);
 
     if (error) {
-      alert(t.deleteTilesError + error.message);
+      alert("Fehler beim Löschen: " + error.message);
       return;
     }
 
@@ -704,6 +675,105 @@ export default function ArbeitsinfoPage() {
     const roomIds = relationRows.map((item) => Number(item.room_id));
 
     return rooms.filter((room) => roomIds.includes(Number(room.id)));
+  }
+
+  function renderMaterialModule(
+    title: string,
+    groupName: string,
+    showForm: boolean,
+    setShowForm: any,
+    selectedId: string,
+    setSelectedId: any,
+    quantity: string,
+    setQuantity: any
+  ) {
+    const catalog = getCatalogMaterialsForGroup(groupName);
+    const selectedMaterials = getArbeitsMaterialsForGroup(groupName);
+
+    return (
+      <div style={sectionStyle}>
+        <div style={sectionHeaderStyle}>
+          <h2 style={sectionTitleStyle}>📦 {title}</h2>
+
+          {isAdmin && (
+            <button
+              onClick={() => setShowForm(!showForm)}
+              style={buttonStyle}
+            >
+              {showForm ? t.close : t.addMaterial}
+            </button>
+          )}
+        </div>
+
+        {showForm && isAdmin && (
+          <div style={formStyle}>
+            <select
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">{t.chooseMaterial}</option>
+
+              {catalog.map((material) => (
+                <option key={material.id} value={material.id}>
+                  {getMaterialName(material)} ({material.jedinica})
+                </option>
+              ))}
+            </select>
+
+            <input
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder={t.quantity}
+              style={inputStyle}
+            />
+
+            <button
+              onClick={() =>
+                addArbeitsMaterial(groupName, selectedId, quantity, () => {
+                  setSelectedId("");
+                  setQuantity("");
+                  setShowForm(false);
+                })
+              }
+              style={saveButtonStyle}
+            >
+              {t.saveMaterial}
+            </button>
+          </div>
+        )}
+
+        {selectedMaterials.length === 0 ? (
+          <p style={emptyStyle}>{t.noMaterial}</p>
+        ) : (
+          <div style={listStyle}>
+            {selectedMaterials.map((item) => {
+              const material = getCatalogMaterialById(item.material_id);
+
+              return (
+                <div key={item.id} style={cardStyle}>
+                  <h3 style={cardTitleStyle}>{getMaterialName(material)}</h3>
+
+                  <p>
+                    <strong>{t.quantity}:</strong> {item.quantity}{" "}
+                    {material?.jedinica || ""}
+                  </p>
+
+                  {isAdmin && (
+                    <button
+                      onClick={() => deleteArbeitsMaterial(item.id)}
+                      style={deleteButtonStyle}
+                    >
+                      {t.delete}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -806,10 +876,27 @@ export default function ArbeitsinfoPage() {
         )}
       </div>
 
-      <div style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>📦 {t.material}</h2>
-        <p style={emptyStyle}>{t.noMaterial}</p>
-      </div>
+      {renderMaterialModule(
+        t.glue,
+        "Ljepilo",
+        showGlueForm,
+        setShowGlueForm,
+        glueMaterialId,
+        setGlueMaterialId,
+        glueQuantity,
+        setGlueQuantity
+      )}
+
+      {renderMaterialModule(
+        t.rails,
+        "Schienen",
+        showRailsForm,
+        setShowRailsForm,
+        railMaterialId,
+        setRailMaterialId,
+        railQuantity,
+        setRailQuantity
+      )}
 
       <div style={sectionStyle}>
         <h2 style={sectionTitleStyle}>🛠 {t.tool}</h2>
