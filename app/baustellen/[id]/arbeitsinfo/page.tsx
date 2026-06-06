@@ -85,6 +85,70 @@ const workCategories = [
   },
 ];
 
+const toolList = [
+  "Fliesenschneider",
+  "Nassschneider",
+  "Laser",
+  "Rührwerk",
+  "Bohrmaschine",
+  "Akkuschrauber",
+  "Flex",
+  "Staubsauger",
+  "Wasserwaage",
+  "Zahnspachtel",
+  "Gummihammer",
+  "Fugbrett",
+  "Silikonpistole",
+  "Schwammbrett",
+  "Eimer",
+  "Knieschoner",
+];
+
+const materialModules = [
+  {
+    key: "untergrund",
+    titleKey: "undergrund",
+    groupName: "Priprema podloge",
+    icon: "📦",
+  },
+  {
+    key: "estrich",
+    titleKey: "estrich",
+    groupName: "Estrich",
+    icon: "📦",
+  },
+  {
+    key: "abdichtung",
+    titleKey: "abdichtung",
+    groupName: "Hidroizolacija",
+    icon: "📦",
+  },
+  {
+    key: "kleber",
+    titleKey: "glue",
+    groupName: "Ljepilo",
+    icon: "📦",
+  },
+  {
+    key: "schienen",
+    titleKey: "rails",
+    groupName: "Schienen",
+    icon: "📦",
+  },
+  {
+    key: "fugen",
+    titleKey: "fugen",
+    groupName: "Fuge",
+    icon: "📦",
+  },
+  {
+    key: "silikon",
+    titleKey: "silikon",
+    groupName: "Silikoni",
+    icon: "📦",
+  },
+];
+
 const taskTranslations: any = {
   ba: {
     Abdecken: "Zakrivanje / zaštita",
@@ -134,6 +198,8 @@ const taskTranslations: any = {
     "Mängel beseitigen": "Otklanjanje nedostataka",
     "Übergabe vorbereiten": "Priprema za primopredaju",
   },
+  en: {},
+  uz: {},
 };
 
 const translations: any = {
@@ -141,149 +207,229 @@ const translations: any = {
     back: "Zurück zur Baustelle",
     title: "Arbeitsinfo",
     task: "Arbeitsauftrag",
-    material: "Material",
+    undergrund: "Untergrundvorbereitung",
+    estrich: "Estrich",
+    abdichtung: "Abdichtung",
     glue: "Fliesenkleber",
     rails: "Schienen",
-    tool: "Werkzeug",
+    fugen: "Fugen",
+    silikon: "Silikon / Acryl",
     tiles: "Fliesen",
+    tool: "Werkzeug",
+    files: "Bilder & Dokumente",
     notes: "Zusätzliche Hinweise",
-    noTasks: "Keine Arbeitsaufträge vorhanden.",
-    noMaterial: "Kein Material vorhanden.",
-    noTools: "Kein Werkzeug vorhanden.",
-    noTiles: "Keine Fliesen vorhanden.",
-    noNotes: "Keine Hinweise vorhanden.",
-    quickSelection: "Schnellauswahl Arbeiten",
+
     addTask: "Arbeitsauftrag hinzufügen",
     saveTask: "Arbeitsauftrag speichern",
     taskDescription: "Arbeitsauftrag / Beschreibung",
+    quickSelection: "Schnellauswahl Arbeiten",
     allRooms: "Allgemein / keine Raumzuordnung",
-    enterTaskDescription: "Bitte Arbeitsauftrag eingeben.",
+    noTasks: "Keine Arbeitsaufträge vorhanden.",
+
     addMaterial: "Material hinzufügen",
-    saveMaterial: "Material speichern",
-    chooseMaterial: "Material auswählen",
+    saveSelected: "Ausgewählte speichern",
+    noMaterial: "Kein Material vorhanden.",
     quantity: "Menge",
-    delete: "Löschen",
-    close: "Schließen",
+
     addTiles: "Fliesen hinzufügen",
+    saveTiles: "Fliesen speichern",
     tileName: "Fliesenname",
     tileStorage: "Lager / Lagerplatz",
     roomsForTile: "Räume für diese Fliesen",
+    noTiles: "Keine Fliesen vorhanden.",
     noRooms: "Keine Räume vorhanden.",
-    saveTiles: "Fliesen speichern",
     storage: "Lager",
     rooms: "Räume",
     notConnected: "Mit keinem Raum verbunden.",
+
+    addTools: "Werkzeug hinzufügen",
+    saveTools: "Werkzeug speichern",
+    noTools: "Kein Werkzeug vorhanden.",
+
+    addFile: "Bild / Dokument hinzufügen",
+    saveFile: "Datei speichern",
+    fileTitle: "Titel / Beschreibung",
+    chooseFile: "Datei auswählen",
+    noFiles: "Keine Bilder oder Dokumente vorhanden.",
+
+    addNote: "Hinweis hinzufügen",
+    saveNote: "Hinweis speichern",
+    noteText: "Hinweis / Beschreibung",
+    noNotes: "Keine Hinweise vorhanden.",
+
+    close: "Schließen",
+    delete: "Löschen",
   },
   ba: {
     back: "Nazad na Baustelle",
     title: "Radne informacije",
     task: "Radni nalog",
-    material: "Materijal",
+    undergrund: "Priprema podloge",
+    estrich: "Estrich",
+    abdichtung: "Hidroizolacija",
     glue: "Ljepilo za keramiku",
     rails: "Lajsne / Schienen",
-    tool: "Alat",
+    fugen: "Fuge",
+    silikon: "Silikon / Akril",
     tiles: "Keramika",
+    tool: "Alat",
+    files: "Slike i dokumenti",
     notes: "Dodatne napomene",
-    noTasks: "Još nema radnih zadataka.",
-    noMaterial: "Još nema materijala.",
-    noTools: "Još nema alata.",
-    noTiles: "Još nema keramike.",
-    noNotes: "Još nema napomena.",
-    quickSelection: "Brzi izbor poslova",
+
     addTask: "Dodaj radni nalog",
     saveTask: "Sačuvaj radni nalog",
     taskDescription: "Radni nalog / opis",
+    quickSelection: "Brzi izbor poslova",
     allRooms: "Općenito / bez prostorije",
-    enterTaskDescription: "Unesi radni nalog.",
+    noTasks: "Još nema radnih zadataka.",
+
     addMaterial: "Dodaj materijal",
-    saveMaterial: "Sačuvaj materijal",
-    chooseMaterial: "Izaberi materijal",
+    saveSelected: "Sačuvaj odabrano",
+    noMaterial: "Još nema materijala.",
     quantity: "Količina",
-    delete: "Obriši",
-    close: "Zatvori",
+
     addTiles: "Dodaj keramiku",
+    saveTiles: "Sačuvaj keramiku",
     tileName: "Naziv keramike",
     tileStorage: "Lager / mjesto u lageru",
     roomsForTile: "Prostorije za ovu keramiku",
+    noTiles: "Još nema keramike.",
     noRooms: "Nema prostorija.",
-    saveTiles: "Sačuvaj keramiku",
     storage: "Lager",
     rooms: "Prostorije",
     notConnected: "Nije povezana sa prostorijom.",
+
+    addTools: "Dodaj alat",
+    saveTools: "Sačuvaj alat",
+    noTools: "Još nema alata.",
+
+    addFile: "Dodaj sliku / dokument",
+    saveFile: "Sačuvaj fajl",
+    fileTitle: "Naziv / opis",
+    chooseFile: "Izaberi fajl",
+    noFiles: "Još nema slika ili dokumenata.",
+
+    addNote: "Dodaj napomenu",
+    saveNote: "Sačuvaj napomenu",
+    noteText: "Napomena / opis",
+    noNotes: "Još nema napomena.",
+
+    close: "Zatvori",
+    delete: "Obriši",
   },
   en: {
     back: "Back to site",
     title: "Work Info",
     task: "Work order",
-    material: "Material",
+    undergrund: "Substrate preparation",
+    estrich: "Screed",
+    abdichtung: "Waterproofing",
     glue: "Tile adhesive",
     rails: "Profiles / rails",
-    tool: "Tools",
+    fugen: "Grout",
+    silikon: "Silicone / acrylic",
     tiles: "Tiles",
+    tool: "Tools",
+    files: "Images & documents",
     notes: "Additional notes",
-    noTasks: "No work orders yet.",
-    noMaterial: "No material yet.",
-    noTools: "No tools yet.",
-    noTiles: "No tiles yet.",
-    noNotes: "No notes yet.",
-    quickSelection: "Quick work selection",
+
     addTask: "Add work order",
     saveTask: "Save work order",
     taskDescription: "Work order / description",
+    quickSelection: "Quick work selection",
     allRooms: "General / no room",
-    enterTaskDescription: "Enter work order.",
+    noTasks: "No work orders yet.",
+
     addMaterial: "Add material",
-    saveMaterial: "Save material",
-    chooseMaterial: "Choose material",
+    saveSelected: "Save selected",
+    noMaterial: "No material yet.",
     quantity: "Quantity",
-    delete: "Delete",
-    close: "Close",
+
     addTiles: "Add tiles",
+    saveTiles: "Save tiles",
     tileName: "Tile name",
     tileStorage: "Storage / warehouse place",
     roomsForTile: "Rooms for these tiles",
+    noTiles: "No tiles yet.",
     noRooms: "No rooms available.",
-    saveTiles: "Save tiles",
     storage: "Storage",
     rooms: "Rooms",
     notConnected: "Not connected to any room.",
+
+    addTools: "Add tools",
+    saveTools: "Save tools",
+    noTools: "No tools yet.",
+
+    addFile: "Add image / document",
+    saveFile: "Save file",
+    fileTitle: "Title / description",
+    chooseFile: "Choose file",
+    noFiles: "No images or documents yet.",
+
+    addNote: "Add note",
+    saveNote: "Save note",
+    noteText: "Note / description",
+    noNotes: "No notes yet.",
+
+    close: "Close",
+    delete: "Delete",
   },
   uz: {
     back: "Obyektga qaytish",
     title: "Ish ma’lumoti",
     task: "Ish topshirig‘i",
-    material: "Material",
+    undergrund: "Asosni tayyorlash",
+    estrich: "Estrix",
+    abdichtung: "Gidroizolyatsiya",
     glue: "Plitka yelimi",
     rails: "Profil / shina",
-    tool: "Asboblar",
+    fugen: "Fuga",
+    silikon: "Silikon / akril",
     tiles: "Plitka",
+    tool: "Asboblar",
+    files: "Rasmlar va hujjatlar",
     notes: "Qo‘shimcha eslatmalar",
-    noTasks: "Hali ish topshirig‘i yo‘q.",
-    noMaterial: "Hali material yo‘q.",
-    noTools: "Hali asboblar yo‘q.",
-    noTiles: "Hali plitka yo‘q.",
-    noNotes: "Hali eslatma yo‘q.",
-    quickSelection: "Tez ish tanlash",
+
     addTask: "Ish topshirig‘i qo‘shish",
     saveTask: "Ish topshirig‘ini saqlash",
     taskDescription: "Ish topshirig‘i / tavsif",
+    quickSelection: "Tez ish tanlash",
     allRooms: "Umumiy / xona yo‘q",
-    enterTaskDescription: "Ish topshirig‘ini kiriting.",
+    noTasks: "Hali ish topshirig‘i yo‘q.",
+
     addMaterial: "Material qo‘shish",
-    saveMaterial: "Materialni saqlash",
-    chooseMaterial: "Material tanlash",
+    saveSelected: "Tanlanganlarni saqlash",
+    noMaterial: "Hali material yo‘q.",
     quantity: "Miqdor",
-    delete: "O‘chirish",
-    close: "Yopish",
+
     addTiles: "Plitka qo‘shish",
+    saveTiles: "Plitkani saqlash",
     tileName: "Plitka nomi",
     tileStorage: "Ombor / joylashuv",
     roomsForTile: "Bu plitka uchun xonalar",
+    noTiles: "Hali plitka yo‘q.",
     noRooms: "Xonalar yo‘q.",
-    saveTiles: "Plitkani saqlash",
     storage: "Ombor",
     rooms: "Xonalar",
     notConnected: "Hech qaysi xonaga bog‘lanmagan.",
+
+    addTools: "Asbob qo‘shish",
+    saveTools: "Asboblarni saqlash",
+    noTools: "Hali asbob yo‘q.",
+
+    addFile: "Rasm / hujjat qo‘shish",
+    saveFile: "Faylni saqlash",
+    fileTitle: "Nomi / tavsif",
+    chooseFile: "Fayl tanlash",
+    noFiles: "Hali rasm yoki hujjat yo‘q.",
+
+    addNote: "Eslatma qo‘shish",
+    saveNote: "Eslatmani saqlash",
+    noteText: "Eslatma / tavsif",
+    noNotes: "Hali eslatma yo‘q.",
+
+    close: "Yopish",
+    delete: "O‘chirish",
   },
 };
 
@@ -299,20 +445,20 @@ export default function ArbeitsinfoPage() {
   const [groups, setGroups] = useState<any[]>([]);
   const [catalogMaterials, setCatalogMaterials] = useState<any[]>([]);
   const [arbeitsMaterials, setArbeitsMaterials] = useState<any[]>([]);
+
   const [tiles, setTiles] = useState<any[]>([]);
   const [tileRooms, setTileRooms] = useState<any[]>([]);
+  const [tools, setTools] = useState<any[]>([]);
+  const [files, setFiles] = useState<any[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
 
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskRoomId, setTaskRoomId] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
 
-  const [showGlueForm, setShowGlueForm] = useState(false);
-  const [glueMaterialId, setGlueMaterialId] = useState("");
-  const [glueQuantity, setGlueQuantity] = useState("");
-
-  const [showRailsForm, setShowRailsForm] = useState(false);
-  const [railMaterialId, setRailMaterialId] = useState("");
-  const [railQuantity, setRailQuantity] = useState("");
+  const [openMaterialForms, setOpenMaterialForms] = useState<any>({});
+  const [selectedMaterials, setSelectedMaterials] = useState<any>({});
+  const [materialQuantities, setMaterialQuantities] = useState<any>({});
 
   const [showTilesForm, setShowTilesForm] = useState(false);
   const [tileName, setTileName] = useState("");
@@ -321,22 +467,39 @@ export default function ArbeitsinfoPage() {
   const [tileUnit, setTileUnit] = useState("m²");
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
 
+  const [showToolsForm, setShowToolsForm] = useState(false);
+  const [selectedTools, setSelectedTools] = useState<string[]>([]);
+  const [toolQuantities, setToolQuantities] = useState<any>({});
+
+  const [showFileForm, setShowFileForm] = useState(false);
+  const [fileTitle, setFileTitle] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const [showNoteForm, setShowNoteForm] = useState(false);
+  const [noteText, setNoteText] = useState("");
+
   const t = translations[lang] || translations.de;
   const isAdmin = workerRole === "admin";
-
-  useEffect(() => {
+    useEffect(() => {
     const role = localStorage.getItem("worker_role") || "worker";
     const savedLang = localStorage.getItem("lang") || "de";
 
     setWorkerRole(role);
     setLang(savedLang);
 
-    loadRooms();
-    loadTasks();
-    loadCatalog();
-    loadArbeitsMaterials();
-    loadTiles();
+    loadAll();
   }, []);
+
+  async function loadAll() {
+    await loadRooms();
+    await loadTasks();
+    await loadCatalog();
+    await loadArbeitsMaterials();
+    await loadTiles();
+    await loadTools();
+    await loadFiles();
+    await loadNotes();
+  }
 
   function getMaterialName(material: any) {
     if (!material) return "";
@@ -346,7 +509,7 @@ export default function ArbeitsinfoPage() {
     if (lang === "en") return material.naziv_en || material.naziv_de || material.naziv;
     if (lang === "uz") return material.naziv_uz || material.naziv_de || material.naziv;
 
-    return material.naziv;
+    return material.naziv_de || material.naziv;
   }
 
   function translateTaskText(text: string) {
@@ -436,6 +599,77 @@ export default function ArbeitsinfoPage() {
     setArbeitsMaterials(data || []);
   }
 
+  async function loadTiles() {
+    const { data: tilesData, error: tilesError } = await supabase
+      .from("arbeitsinfo_tiles")
+      .select("*")
+      .eq("baustelle_id", baustelleId)
+      .order("id", { ascending: true });
+
+    if (tilesError) {
+      alert("Fehler beim Laden der Fliesen: " + tilesError.message);
+      return;
+    }
+
+    setTiles(tilesData || []);
+
+    const { data: roomsData, error: roomsError } = await supabase
+      .from("arbeitsinfo_tile_rooms")
+      .select("*");
+
+    if (roomsError) {
+      alert("Fehler beim Laden der Fliesen-Räume: " + roomsError.message);
+      return;
+    }
+
+    setTileRooms(roomsData || []);
+  }
+
+  async function loadTools() {
+    const { data, error } = await supabase
+      .from("arbeitsinfo_tools")
+      .select("*")
+      .eq("baustelle_id", baustelleId)
+      .order("id", { ascending: true });
+
+    if (error) {
+      alert("Fehler beim Laden der Werkzeuge: " + error.message);
+      return;
+    }
+
+    setTools(data || []);
+  }
+
+  async function loadFiles() {
+    const { data, error } = await supabase
+      .from("arbeitsinfo_files")
+      .select("*")
+      .eq("baustelle_id", baustelleId)
+      .order("id", { ascending: true });
+
+    if (error) {
+      alert("Fehler beim Laden der Dateien: " + error.message);
+      return;
+    }
+
+    setFiles(data || []);
+  }
+
+  async function loadNotes() {
+    const { data, error } = await supabase
+      .from("arbeitsinfo_notes")
+      .select("*")
+      .eq("baustelle_id", baustelleId)
+      .order("id", { ascending: true });
+
+    if (error) {
+      alert("Fehler beim Laden der Hinweise: " + error.message);
+      return;
+    }
+
+    setNotes(data || []);
+  }
+
   function getGroupByName(groupName: string) {
     return groups.find((group) => group.naziv === groupName);
   }
@@ -475,7 +709,7 @@ export default function ArbeitsinfoPage() {
 
   async function addTask() {
     if (!taskDescription.trim()) {
-      alert(t.enterTaskDescription);
+      alert("Bitte Arbeitsauftrag eingeben.");
       return;
     }
 
@@ -513,36 +747,74 @@ export default function ArbeitsinfoPage() {
     loadTasks();
   }
 
-  async function addArbeitsMaterial(
-    groupName: string,
-    materialId: string,
-    quantity: string,
-    reset: () => void
-  ) {
-    if (!materialId) {
-      alert(t.chooseMaterial);
+  function getRoomName(roomId: any) {
+    if (!roomId) return t.allRooms;
+
+    const room = rooms.find((item) => Number(item.id) === Number(roomId));
+    return room?.naziv || room?.name || "Raum";
+  }
+
+  function toggleMaterial(moduleKey: string, materialId: string) {
+    const current = selectedMaterials[moduleKey] || [];
+
+    if (current.includes(materialId)) {
+      setSelectedMaterials({
+        ...selectedMaterials,
+        [moduleKey]: current.filter((id: string) => id !== materialId),
+      });
+    } else {
+      setSelectedMaterials({
+        ...selectedMaterials,
+        [moduleKey]: [...current, materialId],
+      });
+    }
+  }
+
+  function setMaterialQuantity(moduleKey: string, materialId: string, value: string) {
+    setMaterialQuantities({
+      ...materialQuantities,
+      [`${moduleKey}_${materialId}`]: value,
+    });
+  }
+
+  async function saveSelectedMaterials(moduleKey: string, groupName: string) {
+    const selected = selectedMaterials[moduleKey] || [];
+
+    if (selected.length === 0) {
+      alert("Bitte Material auswählen.");
       return;
     }
 
-    const material = getCatalogMaterialById(materialId);
-    if (!material) {
-      alert("Material nicht gefunden.");
-      return;
-    }
+    const rows = selected.map((materialId: string) => {
+      const material = getCatalogMaterialById(materialId);
 
-    const { error } = await supabase.from("arbeitsinfo_materials").insert({
-      baustelle_id: Number(baustelleId),
-      material_id: Number(materialId),
-      group_id: Number(material.group_id),
-      quantity,
+      return {
+        baustelle_id: Number(baustelleId),
+        material_id: Number(materialId),
+        group_id: Number(material?.group_id),
+        quantity: materialQuantities[`${moduleKey}_${materialId}`] || "",
+      };
     });
 
+    const { error } = await supabase.from("arbeitsinfo_materials").insert(rows);
+
     if (error) {
-      alert("Fehler beim Speichern des Materials: " + error.message);
+      alert("Fehler beim Speichern der Materialien: " + error.message);
       return;
     }
 
-    reset();
+    setSelectedMaterials({
+      ...selectedMaterials,
+      [moduleKey]: [],
+    });
+
+    const newQuantities = { ...materialQuantities };
+    selected.forEach((materialId: string) => {
+      delete newQuantities[`${moduleKey}_${materialId}`];
+    });
+
+    setMaterialQuantities(newQuantities);
+    setOpenMaterialForms({ ...openMaterialForms, [moduleKey]: false });
     loadArbeitsMaterials();
   }
 
@@ -561,39 +833,6 @@ export default function ArbeitsinfoPage() {
     }
 
     loadArbeitsMaterials();
-  }
-
-  function getRoomName(roomId: any) {
-    if (!roomId) return t.allRooms;
-
-    const room = rooms.find((item) => Number(item.id) === Number(roomId));
-    return room?.naziv || room?.name || "Raum";
-  }
-
-  async function loadTiles() {
-    const { data: tilesData, error: tilesError } = await supabase
-      .from("arbeitsinfo_tiles")
-      .select("*")
-      .eq("baustelle_id", baustelleId)
-      .order("id", { ascending: true });
-
-    if (tilesError) {
-      alert("Fehler beim Laden der Fliesen: " + tilesError.message);
-      return;
-    }
-
-    setTiles(tilesData || []);
-
-    const { data: roomsData, error: roomsError } = await supabase
-      .from("arbeitsinfo_tile_rooms")
-      .select("*");
-
-    if (roomsError) {
-      alert("Fehler beim Laden der Fliesen-Räume: " + roomsError.message);
-      return;
-    }
-
-    setTileRooms(roomsData || []);
   }
 
   function toggleRoom(roomId: string) {
@@ -676,78 +915,233 @@ export default function ArbeitsinfoPage() {
 
     return rooms.filter((room) => roomIds.includes(Number(room.id)));
   }
+    function toggleTool(toolName: string) {
+    if (selectedTools.includes(toolName)) {
+      setSelectedTools(selectedTools.filter((item) => item !== toolName));
+    } else {
+      setSelectedTools([...selectedTools, toolName]);
+    }
+  }
 
-  function renderMaterialModule(
-    title: string,
-    groupName: string,
-    showForm: boolean,
-    setShowForm: any,
-    selectedId: string,
-    setSelectedId: any,
-    quantity: string,
-    setQuantity: any
-  ) {
-    const catalog = getCatalogMaterialsForGroup(groupName);
-    const selectedMaterials = getArbeitsMaterialsForGroup(groupName);
+  async function saveTools() {
+    if (selectedTools.length === 0) {
+      alert("Bitte Werkzeug auswählen.");
+      return;
+    }
+
+    const rows = selectedTools.map((toolName) => ({
+      baustelle_id: Number(baustelleId),
+      naziv: toolName,
+      kolicina: toolQuantities[toolName] || "",
+    }));
+
+    const { error } = await supabase.from("arbeitsinfo_tools").insert(rows);
+
+    if (error) {
+      alert("Fehler beim Speichern der Werkzeuge: " + error.message);
+      return;
+    }
+
+    setSelectedTools([]);
+    setToolQuantities({});
+    setShowToolsForm(false);
+    loadTools();
+  }
+
+  async function deleteTool(id: number) {
+    const ok = confirm("Möchten Sie dieses Werkzeug wirklich löschen?");
+    if (!ok) return;
+
+    const { error } = await supabase.from("arbeitsinfo_tools").delete().eq("id", id);
+
+    if (error) {
+      alert("Fehler beim Löschen: " + error.message);
+      return;
+    }
+
+    loadTools();
+  }
+
+  async function saveFile() {
+    if (!selectedFile) {
+      alert("Bitte Datei auswählen.");
+      return;
+    }
+
+    const fileName = `${Date.now()}-${selectedFile.name}`;
+    const filePath = `${baustelleId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("arbeitsinfo-files")
+      .upload(filePath, selectedFile);
+
+    if (uploadError) {
+      alert("Fehler beim Hochladen: " + uploadError.message);
+      return;
+    }
+
+    const { data } = supabase.storage
+      .from("arbeitsinfo-files")
+      .getPublicUrl(filePath);
+
+    const { error } = await supabase.from("arbeitsinfo_files").insert({
+      baustelle_id: Number(baustelleId),
+      title: fileTitle || selectedFile.name,
+      file_url: data.publicUrl,
+      file_type: selectedFile.type,
+    });
+
+    if (error) {
+      alert("Fehler beim Speichern der Datei: " + error.message);
+      return;
+    }
+
+    setFileTitle("");
+    setSelectedFile(null);
+    setShowFileForm(false);
+    loadFiles();
+  }
+
+  async function deleteFile(id: number) {
+    const ok = confirm("Möchten Sie diese Datei wirklich löschen?");
+    if (!ok) return;
+
+    const { error } = await supabase.from("arbeitsinfo_files").delete().eq("id", id);
+
+    if (error) {
+      alert("Fehler beim Löschen: " + error.message);
+      return;
+    }
+
+    loadFiles();
+  }
+
+  async function saveNote() {
+    if (!noteText.trim()) {
+      alert("Bitte Hinweis eingeben.");
+      return;
+    }
+
+    const { error } = await supabase.from("arbeitsinfo_notes").insert({
+      baustelle_id: Number(baustelleId),
+      opis: noteText,
+    });
+
+    if (error) {
+      alert("Fehler beim Speichern des Hinweises: " + error.message);
+      return;
+    }
+
+    setNoteText("");
+    setShowNoteForm(false);
+    loadNotes();
+  }
+
+  async function deleteNote(id: number) {
+    const ok = confirm("Möchten Sie diesen Hinweis wirklich löschen?");
+    if (!ok) return;
+
+    const { error } = await supabase.from("arbeitsinfo_notes").delete().eq("id", id);
+
+    if (error) {
+      alert("Fehler beim Löschen: " + error.message);
+      return;
+    }
+
+    loadNotes();
+  }
+
+  function renderMaterialModule(moduleItem: any) {
+    const title = t[moduleItem.titleKey];
+    const catalog = getCatalogMaterialsForGroup(moduleItem.groupName);
+    const saved = getArbeitsMaterialsForGroup(moduleItem.groupName);
+    const isOpen = openMaterialForms[moduleItem.key] || false;
+    const selected = selectedMaterials[moduleItem.key] || [];
 
     return (
-      <div style={sectionStyle}>
+      <div style={sectionStyle} key={moduleItem.key}>
         <div style={sectionHeaderStyle}>
-          <h2 style={sectionTitleStyle}>📦 {title}</h2>
+          <h2 style={sectionTitleStyle}>
+            {moduleItem.icon} {title}
+          </h2>
 
           {isAdmin && (
             <button
-              onClick={() => setShowForm(!showForm)}
+              onClick={() =>
+                setOpenMaterialForms({
+                  ...openMaterialForms,
+                  [moduleItem.key]: !isOpen,
+                })
+              }
               style={buttonStyle}
             >
-              {showForm ? t.close : t.addMaterial}
+              {isOpen ? t.close : t.addMaterial}
             </button>
           )}
         </div>
 
-        {showForm && isAdmin && (
+        {isOpen && isAdmin && (
           <div style={formStyle}>
-            <select
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="">{t.chooseMaterial}</option>
+            {catalog.length === 0 ? (
+              <p style={emptyStyle}>Keine Materialien in dieser Gruppe.</p>
+            ) : (
+              <div style={multiSelectStyle}>
+                {catalog.map((material) => {
+                  const checked = selected.includes(String(material.id));
 
-              {catalog.map((material) => (
-                <option key={material.id} value={material.id}>
-                  {getMaterialName(material)} ({material.jedinica})
-                </option>
-              ))}
-            </select>
+                  return (
+                    <div key={material.id} style={multiRowStyle}>
+                      <label style={checkBoxLabelStyle}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            toggleMaterial(moduleItem.key, String(material.id))
+                          }
+                        />
+                        {getMaterialName(material)} ({material.jedinica})
+                      </label>
 
-            <input
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              placeholder={t.quantity}
-              style={inputStyle}
-            />
+                      {checked && (
+                        <input
+                          value={
+                            materialQuantities[
+                              `${moduleItem.key}_${material.id}`
+                            ] || ""
+                          }
+                          onChange={(e) =>
+                            setMaterialQuantity(
+                              moduleItem.key,
+                              String(material.id),
+                              e.target.value
+                            )
+                          }
+                          placeholder={t.quantity}
+                          style={smallInputStyle}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <button
               onClick={() =>
-                addArbeitsMaterial(groupName, selectedId, quantity, () => {
-                  setSelectedId("");
-                  setQuantity("");
-                  setShowForm(false);
-                })
+                saveSelectedMaterials(moduleItem.key, moduleItem.groupName)
               }
               style={saveButtonStyle}
             >
-              {t.saveMaterial}
+              {t.saveSelected}
             </button>
           </div>
         )}
 
-        {selectedMaterials.length === 0 ? (
+        {saved.length === 0 ? (
           <p style={emptyStyle}>{t.noMaterial}</p>
         ) : (
           <div style={listStyle}>
-            {selectedMaterials.map((item) => {
+            {saved.map((item) => {
               const material = getCatalogMaterialById(item.material_id);
 
               return (
@@ -755,7 +1149,8 @@ export default function ArbeitsinfoPage() {
                   <h3 style={cardTitleStyle}>{getMaterialName(material)}</h3>
 
                   <p>
-                    <strong>{t.quantity}:</strong> {item.quantity}{" "}
+                    <strong>{t.quantity}:</strong>{" "}
+                    {item.quantity || item.kolicina || ""}{" "}
                     {material?.jedinica || ""}
                   </p>
 
@@ -876,32 +1271,7 @@ export default function ArbeitsinfoPage() {
         )}
       </div>
 
-      {renderMaterialModule(
-        t.glue,
-        "Ljepilo",
-        showGlueForm,
-        setShowGlueForm,
-        glueMaterialId,
-        setGlueMaterialId,
-        glueQuantity,
-        setGlueQuantity
-      )}
-
-      {renderMaterialModule(
-        t.rails,
-        "Schienen",
-        showRailsForm,
-        setShowRailsForm,
-        railMaterialId,
-        setRailMaterialId,
-        railQuantity,
-        setRailQuantity
-      )}
-
-      <div style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>🛠 {t.tool}</h2>
-        <p style={emptyStyle}>{t.noTools}</p>
-      </div>
+      {materialModules.map((moduleItem) => renderMaterialModule(moduleItem))}
 
       <div style={sectionStyle}>
         <div style={sectionHeaderStyle}>
@@ -1034,8 +1404,207 @@ export default function ArbeitsinfoPage() {
       </div>
 
       <div style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>💡 {t.notes}</h2>
-        <p style={emptyStyle}>{t.noNotes}</p>
+        <div style={sectionHeaderStyle}>
+          <h2 style={sectionTitleStyle}>🛠 {t.tool}</h2>
+
+          {isAdmin && (
+            <button
+              onClick={() => setShowToolsForm(!showToolsForm)}
+              style={buttonStyle}
+            >
+              {showToolsForm ? t.close : t.addTools}
+            </button>
+          )}
+        </div>
+
+        {showToolsForm && isAdmin && (
+          <div style={formStyle}>
+            <div style={multiSelectStyle}>
+              {toolList.map((tool) => {
+                const checked = selectedTools.includes(tool);
+
+                return (
+                  <div key={tool} style={multiRowStyle}>
+                    <label style={checkBoxLabelStyle}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleTool(tool)}
+                      />
+                      {tool}
+                    </label>
+
+                    {checked && (
+                      <input
+                        value={toolQuantities[tool] || ""}
+                        onChange={(e) =>
+                          setToolQuantities({
+                            ...toolQuantities,
+                            [tool]: e.target.value,
+                          })
+                        }
+                        placeholder={t.quantity}
+                        style={smallInputStyle}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <button onClick={saveTools} style={saveButtonStyle}>
+              {t.saveTools}
+            </button>
+          </div>
+        )}
+
+        {tools.length === 0 ? (
+          <p style={emptyStyle}>{t.noTools}</p>
+        ) : (
+          <div style={listStyle}>
+            {tools.map((tool) => (
+              <div key={tool.id} style={cardStyle}>
+                <h3 style={cardTitleStyle}>{tool.naziv}</h3>
+                {tool.kolicina && (
+                  <p>
+                    <strong>{t.quantity}:</strong> {tool.kolicina}
+                  </p>
+                )}
+
+                {isAdmin && (
+                  <button
+                    onClick={() => deleteTool(tool.id)}
+                    style={deleteButtonStyle}
+                  >
+                    {t.delete}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={sectionHeaderStyle}>
+          <h2 style={sectionTitleStyle}>📎 {t.files}</h2>
+
+          {isAdmin && (
+            <button
+              onClick={() => setShowFileForm(!showFileForm)}
+              style={buttonStyle}
+            >
+              {showFileForm ? t.close : t.addFile}
+            </button>
+          )}
+        </div>
+
+        {showFileForm && isAdmin && (
+          <div style={formStyle}>
+            <input
+              value={fileTitle}
+              onChange={(e) => setFileTitle(e.target.value)}
+              placeholder={t.fileTitle}
+              style={inputStyle}
+            />
+
+            <input
+              type="file"
+              onChange={(e) =>
+                setSelectedFile(e.target.files ? e.target.files[0] : null)
+              }
+              style={inputStyle}
+            />
+
+            <button onClick={saveFile} style={saveButtonStyle}>
+              {t.saveFile}
+            </button>
+          </div>
+        )}
+
+        {files.length === 0 ? (
+          <p style={emptyStyle}>{t.noFiles}</p>
+        ) : (
+          <div style={listStyle}>
+            {files.map((file) => (
+              <div key={file.id} style={cardStyle}>
+                <h3 style={cardTitleStyle}>{file.title || "Datei"}</h3>
+
+                {file.file_type?.startsWith("image/") ? (
+                  <img src={file.file_url} style={imageStyle} />
+                ) : (
+                  <a
+                    href={file.file_url}
+                    target="_blank"
+                    style={fileLinkStyle}
+                  >
+                    Datei öffnen
+                  </a>
+                )}
+
+                {isAdmin && (
+                  <button
+                    onClick={() => deleteFile(file.id)}
+                    style={deleteButtonStyle}
+                  >
+                    {t.delete}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={sectionStyle}>
+        <div style={sectionHeaderStyle}>
+          <h2 style={sectionTitleStyle}>💡 {t.notes}</h2>
+
+          {isAdmin && (
+            <button
+              onClick={() => setShowNoteForm(!showNoteForm)}
+              style={buttonStyle}
+            >
+              {showNoteForm ? t.close : t.addNote}
+            </button>
+          )}
+        </div>
+
+        {showNoteForm && isAdmin && (
+          <div style={formStyle}>
+            <textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder={t.noteText}
+              style={textareaStyle}
+            />
+
+            <button onClick={saveNote} style={saveButtonStyle}>
+              {t.saveNote}
+            </button>
+          </div>
+        )}
+
+        {notes.length === 0 ? (
+          <p style={emptyStyle}>{t.noNotes}</p>
+        ) : (
+          <div style={listStyle}>
+            {notes.map((note) => (
+              <div key={note.id} style={cardStyle}>
+                <p style={textBlockStyle}>{note.opis}</p>
+
+                {isAdmin && (
+                  <button
+                    onClick={() => deleteNote(note.id)}
+                    style={deleteButtonStyle}
+                  >
+                    {t.delete}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );
@@ -1143,6 +1712,16 @@ const inputStyle: any = {
   marginBottom: "14px",
 };
 
+const smallInputStyle: any = {
+  width: "180px",
+  padding: "12px",
+  borderRadius: "10px",
+  border: "1px solid #333",
+  background: "#1f2937",
+  color: "white",
+  fontSize: "15px",
+};
+
 const textareaStyle: any = {
   width: "100%",
   minHeight: "130px",
@@ -1206,6 +1785,18 @@ const quickButtonStyle: any = {
   cursor: "pointer",
 };
 
+const multiSelectStyle: any = {
+  display: "grid",
+  gap: "12px",
+};
+
+const multiRowStyle: any = {
+  display: "flex",
+  gap: "12px",
+  alignItems: "center",
+  flexWrap: "wrap",
+};
+
 const checkBoxGridStyle: any = {
   display: "flex",
   flexWrap: "wrap",
@@ -1260,4 +1851,17 @@ const roomBadgeStyle: any = {
   borderRadius: "10px",
   fontSize: "14px",
   fontWeight: "bold",
+};
+
+const imageStyle: any = {
+  width: "100%",
+  maxWidth: "420px",
+  borderRadius: "14px",
+  marginTop: "10px",
+};
+
+const fileLinkStyle: any = {
+  color: "#60a5fa",
+  fontWeight: "bold",
+  fontSize: "17px",
 };
