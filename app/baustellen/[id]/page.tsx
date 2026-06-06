@@ -24,8 +24,11 @@ const translations: any = {
     description: "Beschreibung",
     status: "Status",
     active: "Aktiv",
-    rooms: "Räume",
+    addRooms: "Räume hinzufügen",
+    addedRooms: "Hinzugefügte Räume",
+    noRooms: "Noch keine Räume hinzugefügt",
     overview: "Übersicht",
+    arbeitsinfo: "Arbeitsinfo",
     regiebericht: "Regietagesbericht",
     close: "Baustelle abschließen",
     delete: "Baustelle löschen",
@@ -47,8 +50,11 @@ const translations: any = {
     description: "Opis",
     status: "Status",
     active: "Aktiv",
-    rooms: "Prostorije",
+    addRooms: "Dodaj prostorije",
+    addedRooms: "Dodane prostorije",
+    noRooms: "Još nema dodanih prostorija",
     overview: "Pregled",
+    arbeitsinfo: "Arbeitsinfo",
     regiebericht: "Regietagesbericht",
     close: "Zatvori Baustelle",
     delete: "Obriši Baustelle",
@@ -70,8 +76,11 @@ const translations: any = {
     description: "Tavsif",
     status: "Holat",
     active: "Faol",
-    rooms: "Xonalar",
+    addRooms: "Xona qo‘shish",
+    addedRooms: "Qo‘shilgan xonalar",
+    noRooms: "Hali xona qo‘shilmagan",
     overview: "Ko‘rinish",
+    arbeitsinfo: "Ish ma’lumoti",
     regiebericht: "Regie hisoboti",
     close: "Obyektni yopish",
     delete: "Obyektni o‘chirish",
@@ -93,8 +102,11 @@ const translations: any = {
     description: "Description",
     status: "Status",
     active: "Active",
-    rooms: "Rooms",
+    addRooms: "Add Rooms",
+    addedRooms: "Added Rooms",
+    noRooms: "No rooms added yet",
     overview: "Overview",
+    arbeitsinfo: "Work Info",
     regiebericht: "Regie daily report",
     close: "Close Site",
     delete: "Delete Site",
@@ -108,6 +120,7 @@ export default function BaustelleDetailPage() {
   const baustelleId = String(params.id);
 
   const [baustelle, setBaustelle] = useState<any>(null);
+  const [rooms, setRooms] = useState<any[]>([]);
   const [workerRole, setWorkerRole] = useState("");
   const [lang, setLang] = useState("ba");
 
@@ -119,7 +132,9 @@ export default function BaustelleDetailPage() {
 
     setWorkerRole(role);
     setLang(savedLang);
+
     loadBaustelle();
+    loadRooms();
   }, []);
 
   async function loadBaustelle() {
@@ -130,11 +145,27 @@ export default function BaustelleDetailPage() {
       .single();
 
     if (error) {
-      alert(t.loadError + error.message);
+      alert("Greška kod učitavanja Baustelle: " + error.message);
       return;
     }
 
     setBaustelle(data);
+  }
+
+  async function loadRooms() {
+    const { data, error } = await supabase
+      .from("prostorije")
+      .select("*")
+      .eq("baustelle_id", baustelleId)
+      .order("id", { ascending: true });
+
+    if (error) {
+      console.log("Greška kod učitavanja prostorija:", error.message);
+      setRooms([]);
+      return;
+    }
+
+    setRooms(data || []);
   }
 
   async function countRows(tableName: string) {
@@ -245,13 +276,40 @@ export default function BaustelleDetailPage() {
         </p>
       </div>
 
+      <div style={roomsBoxStyle}>
+        <h2 style={sectionTitleStyle}>{t.addedRooms}</h2>
+
+        {rooms.length === 0 ? (
+          <p style={emptyTextStyle}>{t.noRooms}</p>
+        ) : (
+          <div style={roomChipsStyle}>
+            {rooms.map((room) => (
+              <Link
+                key={room.id}
+                href={`/baustellen/${baustelleId}/prostorije/${room.id}`}
+                style={roomChipStyle}
+              >
+                {room.naziv || room.name || "Raum"}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div style={gridStyle}>
         <Link href={`/baustellen/${baustelleId}/prostorije`} style={buttonStyle}>
-          {t.rooms}
+          {t.addRooms}
         </Link>
 
         <Link href={`/baustellen/${baustelleId}/pregled`} style={buttonStyle}>
           {t.overview}
+        </Link>
+
+        <Link
+          href={`/baustellen/${baustelleId}/arbeitsinfo`}
+          style={buttonStyle}
+        >
+          {t.arbeitsinfo}
         </Link>
 
         <Link
@@ -300,8 +358,43 @@ const infoBoxStyle: any = {
   background: "#111",
   padding: "25px",
   borderRadius: "20px",
-  marginBottom: "30px",
+  marginBottom: "25px",
   lineHeight: "1.6",
+};
+
+const roomsBoxStyle: any = {
+  background: "#111",
+  padding: "25px",
+  borderRadius: "20px",
+  marginBottom: "30px",
+};
+
+const sectionTitleStyle: any = {
+  fontSize: "22px",
+  fontWeight: "bold",
+  marginBottom: "18px",
+};
+
+const emptyTextStyle: any = {
+  color: "#aaa",
+  fontSize: "16px",
+};
+
+const roomChipsStyle: any = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "12px",
+};
+
+const roomChipStyle: any = {
+  background: "#1f2937",
+  color: "white",
+  padding: "14px 20px",
+  borderRadius: "14px",
+  textDecoration: "none",
+  fontSize: "17px",
+  fontWeight: "bold",
+  border: "1px solid #374151",
 };
 
 const gridStyle: any = {
