@@ -86,22 +86,15 @@ const workCategories = [
 ];
 
 const toolList = [
-  "Fliesenschneider",
-  "Nassschneider",
-  "Laser",
-  "Rührwerk",
-  "Bohrmaschine",
-  "Akkuschrauber",
-  "Flex",
+  "Schleifmaschine",
   "Staubsauger",
-  "Wasserwaage",
-  "Zahnspachtel",
-  "Gummihammer",
-  "Fugbrett",
-  "Silikonpistole",
-  "Schwammbrett",
-  "Eimer",
-  "Knieschoner",
+  "Multitool",
+  "Bohrmaschine",
+  "Fliesenschneidmaschine 120 cm",
+  "Wasserschneidmaschine",
+  "Gehrungsschneider",
+  "Akkuschrauber",
+  "Hobelmaschine",
 ];
 
 const materialModules = [
@@ -1407,6 +1400,10 @@ export default function ArbeitsinfoPage() {
         <div style={sectionHeaderStyle}>
           <h2 style={sectionTitleStyle}>🛠 {t.tool}</h2>
 
+          <div style={standardToolStyle}>
+            ✓ Grundausstattung (immer vorhanden)
+          </div>
+
           {isAdmin && (
             <button
               onClick={() => setShowToolsForm(!showToolsForm)}
@@ -1864,4 +1861,13 @@ const fileLinkStyle: any = {
   color: "#60a5fa",
   fontWeight: "bold",
   fontSize: "17px",
+};
+
+const standardToolStyle: any = {
+  background: "#1f2937",
+  padding: "14px",
+  borderRadius: "12px",
+  marginBottom: "20px",
+  fontWeight: "bold",
+  color: "#93c5fd",
 };
