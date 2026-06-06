@@ -5,30 +5,176 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
+const translations: any = {
+  de: {
+    back: "Zurück zur Baustelle",
+    title: "Arbeitsinfo",
+    task: "Arbeitsauftrag",
+    material: "Material",
+    tool: "Werkzeug",
+    tiles: "Fliesen",
+    notes: "Zusätzliche Hinweise",
+    noTasks: "Keine Arbeitsaufträge vorhanden.",
+    noMaterial: "Kein Material vorhanden.",
+    noTools: "Kein Werkzeug vorhanden.",
+    noTiles: "Keine Fliesen vorhanden.",
+    noNotes: "Keine Hinweise vorhanden.",
+    addTiles: "Fliesen hinzufügen",
+    close: "Schließen",
+    tileName: "Fliesenname",
+    tileStorage: "Lager / Lagerplatz",
+    quantity: "Menge",
+    roomsForTile: "Räume für diese Fliesen",
+    noRooms: "Keine Räume vorhanden.",
+    saveTiles: "Fliesen speichern",
+    storage: "Lager",
+    rooms: "Räume",
+    notConnected: "Mit keinem Raum verbunden.",
+    delete: "Löschen",
+    enterTileName: "Bitte Fliesenname eingeben.",
+    deleteConfirm: "Möchten Sie diese Fliesen wirklich löschen?",
+    loadRoomsError: "Fehler beim Laden der Räume: ",
+    loadTilesError: "Fehler beim Laden der Fliesen: ",
+    loadTileRoomsError: "Fehler beim Laden der Fliesen-Räume: ",
+    addTilesError: "Fehler beim Hinzufügen der Fliesen: ",
+    relationError:
+      "Fliesen wurden gespeichert, aber Fehler bei den Räumen: ",
+    deleteTilesError: "Fehler beim Löschen der Fliesen: ",
+  },
+  ba: {
+    back: "Nazad na Baustelle",
+    title: "Radne informacije",
+    task: "Radni nalog",
+    material: "Materijal",
+    tool: "Alat",
+    tiles: "Keramika",
+    notes: "Dodatne napomene",
+    noTasks: "Još nema radnih zadataka.",
+    noMaterial: "Još nema materijala.",
+    noTools: "Još nema alata.",
+    noTiles: "Još nema keramike.",
+    noNotes: "Još nema napomena.",
+    addTiles: "Dodaj keramiku",
+    close: "Zatvori",
+    tileName: "Naziv keramike",
+    tileStorage: "Lager / mjesto u lageru",
+    quantity: "Količina",
+    roomsForTile: "Prostorije za ovu keramiku",
+    noRooms: "Nema prostorija.",
+    saveTiles: "Sačuvaj keramiku",
+    storage: "Lager",
+    rooms: "Prostorije",
+    notConnected: "Nije povezana sa prostorijom.",
+    delete: "Obriši",
+    enterTileName: "Unesi naziv keramike.",
+    deleteConfirm: "Da li želiš obrisati ovu keramiku?",
+    loadRoomsError: "Greška kod učitavanja prostorija: ",
+    loadTilesError: "Greška kod učitavanja keramike: ",
+    loadTileRoomsError: "Greška kod učitavanja prostorija za keramiku: ",
+    addTilesError: "Greška kod dodavanja keramike: ",
+    relationError: "Keramika je dodana, ali greška kod prostorija: ",
+    deleteTilesError: "Greška kod brisanja keramike: ",
+  },
+  en: {
+    back: "Back to site",
+    title: "Work Info",
+    task: "Work order",
+    material: "Material",
+    tool: "Tools",
+    tiles: "Tiles",
+    notes: "Additional notes",
+    noTasks: "No work orders yet.",
+    noMaterial: "No material yet.",
+    noTools: "No tools yet.",
+    noTiles: "No tiles yet.",
+    noNotes: "No notes yet.",
+    addTiles: "Add tiles",
+    close: "Close",
+    tileName: "Tile name",
+    tileStorage: "Storage / warehouse place",
+    quantity: "Quantity",
+    roomsForTile: "Rooms for these tiles",
+    noRooms: "No rooms available.",
+    saveTiles: "Save tiles",
+    storage: "Storage",
+    rooms: "Rooms",
+    notConnected: "Not connected to any room.",
+    delete: "Delete",
+    enterTileName: "Enter tile name.",
+    deleteConfirm: "Do you want to delete these tiles?",
+    loadRoomsError: "Error loading rooms: ",
+    loadTilesError: "Error loading tiles: ",
+    loadTileRoomsError: "Error loading tile rooms: ",
+    addTilesError: "Error adding tiles: ",
+    relationError: "Tiles were saved, but room connection failed: ",
+    deleteTilesError: "Error deleting tiles: ",
+  },
+  uz: {
+    back: "Obyektga qaytish",
+    title: "Ish ma’lumoti",
+    task: "Ish topshirig‘i",
+    material: "Material",
+    tool: "Asboblar",
+    tiles: "Plitka",
+    notes: "Qo‘shimcha eslatmalar",
+    noTasks: "Hali ish topshirig‘i yo‘q.",
+    noMaterial: "Hali material yo‘q.",
+    noTools: "Hali asboblar yo‘q.",
+    noTiles: "Hali plitka yo‘q.",
+    noNotes: "Hali eslatma yo‘q.",
+    addTiles: "Plitka qo‘shish",
+    close: "Yopish",
+    tileName: "Plitka nomi",
+    tileStorage: "Ombor / joylashuv",
+    quantity: "Miqdor",
+    roomsForTile: "Bu plitka uchun xonalar",
+    noRooms: "Xonalar yo‘q.",
+    saveTiles: "Plitkani saqlash",
+    storage: "Ombor",
+    rooms: "Xonalar",
+    notConnected: "Hech qaysi xonaga bog‘lanmagan.",
+    delete: "O‘chirish",
+    enterTileName: "Plitka nomini kiriting.",
+    deleteConfirm: "Bu plitkani o‘chirmoqchimisiz?",
+    loadRoomsError: "Xonalarni yuklashda xatolik: ",
+    loadTilesError: "Plitkani yuklashda xatolik: ",
+    loadTileRoomsError: "Plitka xonalarini yuklashda xatolik: ",
+    addTilesError: "Plitka qo‘shishda xatolik: ",
+    relationError: "Plitka saqlandi, lekin xonalarda xatolik: ",
+    deleteTilesError: "Plitkani o‘chirishda xatolik: ",
+  },
+};
+
 export default function ArbeitsinfoPage() {
   const params = useParams();
   const baustelleId = String(params.id);
 
   const [workerRole, setWorkerRole] = useState("");
+  const [lang, setLang] = useState("de");
+
   const [rooms, setRooms] = useState<any[]>([]);
   const [tiles, setTiles] = useState<any[]>([]);
   const [tileRooms, setTileRooms] = useState<any[]>([]);
 
-  const [showKeramikForm, setShowKeramikForm] = useState(false);
-  const [keramikNaziv, setKeramikNaziv] = useState("");
-  const [keramikLager, setKeramikLager] = useState("");
-  const [keramikKolicina, setKeramikKolicina] = useState("");
-  const [keramikJedinica, setKeramikJedinica] = useState("m²");
+  const [showTilesForm, setShowTilesForm] = useState(false);
+  const [tileName, setTileName] = useState("");
+  const [tileStorage, setTileStorage] = useState("");
+  const [tileQuantity, setTileQuantity] = useState("");
+  const [tileUnit, setTileUnit] = useState("m²");
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
 
+  const t = translations[lang] || translations.de;
   const isAdmin = workerRole === "admin";
 
   useEffect(() => {
     const role = localStorage.getItem("worker_role") || "worker";
+    const savedLang = localStorage.getItem("lang") || "de";
+
     setWorkerRole(role);
+    setLang(savedLang);
 
     loadRooms();
-    loadKeramik();
+    loadTiles();
   }, []);
 
   async function loadRooms() {
@@ -39,14 +185,14 @@ export default function ArbeitsinfoPage() {
       .order("id", { ascending: true });
 
     if (error) {
-      alert("Greška kod učitavanja prostorija: " + error.message);
+      alert(t.loadRoomsError + error.message);
       return;
     }
 
     setRooms(data || []);
   }
 
-  async function loadKeramik() {
+  async function loadTiles() {
     const { data: tilesData, error: tilesError } = await supabase
       .from("arbeitsinfo_tiles")
       .select("*")
@@ -54,7 +200,7 @@ export default function ArbeitsinfoPage() {
       .order("id", { ascending: true });
 
     if (tilesError) {
-      alert("Greška kod učitavanja keramike: " + tilesError.message);
+      alert(t.loadTilesError + tilesError.message);
       return;
     }
 
@@ -65,7 +211,7 @@ export default function ArbeitsinfoPage() {
       .select("*");
 
     if (roomsError) {
-      alert("Greška kod učitavanja prostorija za keramiku: " + roomsError.message);
+      alert(t.loadTileRoomsError + roomsError.message);
       return;
     }
 
@@ -80,9 +226,9 @@ export default function ArbeitsinfoPage() {
     }
   }
 
-  async function addKeramik() {
-    if (!keramikNaziv.trim()) {
-      alert("Unesi naziv keramike.");
+  async function addTiles() {
+    if (!tileName.trim()) {
+      alert(t.enterTileName);
       return;
     }
 
@@ -90,16 +236,16 @@ export default function ArbeitsinfoPage() {
       .from("arbeitsinfo_tiles")
       .insert({
         baustelle_id: Number(baustelleId),
-        naziv: keramikNaziv,
-        lager: keramikLager,
-        kolicina: keramikKolicina,
-        jedinica: keramikJedinica,
+        naziv: tileName,
+        lager: tileStorage,
+        kolicina: tileQuantity,
+        jedinica: tileUnit,
       })
       .select()
       .single();
 
     if (tileError) {
-      alert("Greška kod dodavanja keramike: " + tileError.message);
+      alert(t.addTilesError + tileError.message);
       return;
     }
 
@@ -114,22 +260,22 @@ export default function ArbeitsinfoPage() {
         .insert(rows);
 
       if (relationError) {
-        alert("Keramika je dodana, ali greška kod prostorija: " + relationError.message);
+        alert(t.relationError + relationError.message);
       }
     }
 
-    setKeramikNaziv("");
-    setKeramikLager("");
-    setKeramikKolicina("");
-    setKeramikJedinica("m²");
+    setTileName("");
+    setTileStorage("");
+    setTileQuantity("");
+    setTileUnit("m²");
     setSelectedRooms([]);
-    setShowKeramikForm(false);
+    setShowTilesForm(false);
 
-    loadKeramik();
+    loadTiles();
   }
 
-  async function deleteKeramik(tileId: number) {
-    const confirmDelete = confirm("Da li želiš obrisati ovu keramiku?");
+  async function deleteTiles(tileId: number) {
+    const confirmDelete = confirm(t.deleteConfirm);
     if (!confirmDelete) return;
 
     await supabase
@@ -143,11 +289,11 @@ export default function ArbeitsinfoPage() {
       .eq("id", tileId);
 
     if (error) {
-      alert("Greška kod brisanja keramike: " + error.message);
+      alert(t.deleteTilesError + error.message);
       return;
     }
 
-    loadKeramik();
+    loadTiles();
   }
 
   function getRoomsForTile(tileId: number) {
@@ -160,67 +306,67 @@ export default function ArbeitsinfoPage() {
   return (
     <main style={mainStyle}>
       <Link href={`/baustellen/${baustelleId}`} style={backLinkStyle}>
-        ← Nazad na Baustelle
+        ← {t.back}
       </Link>
 
-      <h1 style={titleStyle}>Arbeitsinfo</h1>
+      <h1 style={titleStyle}>{t.title}</h1>
 
       <div style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>📋 Arbeitsauftrag</h2>
-        <p style={emptyStyle}>Još nema dodanih radnih zadataka.</p>
+        <h2 style={sectionTitleStyle}>📋 {t.task}</h2>
+        <p style={emptyStyle}>{t.noTasks}</p>
       </div>
 
       <div style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>📦 Material</h2>
-        <p style={emptyStyle}>Još nema dodanog materijala.</p>
+        <h2 style={sectionTitleStyle}>📦 {t.material}</h2>
+        <p style={emptyStyle}>{t.noMaterial}</p>
       </div>
 
       <div style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>🛠 Werkzeug</h2>
-        <p style={emptyStyle}>Još nema dodanog alata.</p>
+        <h2 style={sectionTitleStyle}>🛠 {t.tool}</h2>
+        <p style={emptyStyle}>{t.noTools}</p>
       </div>
 
       <div style={sectionStyle}>
         <div style={sectionHeaderStyle}>
-          <h2 style={sectionTitleStyle}>🧱 Keramik</h2>
+          <h2 style={sectionTitleStyle}>🧱 {t.tiles}</h2>
 
           {isAdmin && (
             <button
-              onClick={() => setShowKeramikForm(!showKeramikForm)}
+              onClick={() => setShowTilesForm(!showTilesForm)}
               style={buttonStyle}
             >
-              {showKeramikForm ? "Zatvori" : "Dodaj Keramiku"}
+              {showTilesForm ? t.close : t.addTiles}
             </button>
           )}
         </div>
 
-        {showKeramikForm && isAdmin && (
+        {showTilesForm && isAdmin && (
           <div style={formStyle}>
             <input
-              value={keramikNaziv}
-              onChange={(e) => setKeramikNaziv(e.target.value)}
-              placeholder="Naziv keramike"
+              value={tileName}
+              onChange={(e) => setTileName(e.target.value)}
+              placeholder={t.tileName}
               style={inputStyle}
             />
 
             <input
-              value={keramikLager}
-              onChange={(e) => setKeramikLager(e.target.value)}
-              placeholder="Mjesto u lageru"
+              value={tileStorage}
+              onChange={(e) => setTileStorage(e.target.value)}
+              placeholder={t.tileStorage}
               style={inputStyle}
             />
 
             <div style={rowStyle}>
               <input
-                value={keramikKolicina}
-                onChange={(e) => setKeramikKolicina(e.target.value)}
-                placeholder="Količina"
+                value={tileQuantity}
+                onChange={(e) => setTileQuantity(e.target.value)}
+                placeholder={t.quantity}
                 style={inputStyle}
               />
 
               <select
-                value={keramikJedinica}
-                onChange={(e) => setKeramikJedinica(e.target.value)}
+                value={tileUnit}
+                onChange={(e) => setTileUnit(e.target.value)}
                 style={inputStyle}
               >
                 <option value="Palette">Palette</option>
@@ -230,10 +376,10 @@ export default function ArbeitsinfoPage() {
               </select>
             </div>
 
-            <h3 style={smallTitleStyle}>Prostorije za ovu keramiku</h3>
+            <h3 style={smallTitleStyle}>{t.roomsForTile}</h3>
 
             {rooms.length === 0 ? (
-              <p style={emptyStyle}>Nema dodanih prostorija.</p>
+              <p style={emptyStyle}>{t.noRooms}</p>
             ) : (
               <div style={checkBoxGridStyle}>
                 {rooms.map((room) => (
@@ -249,14 +395,14 @@ export default function ArbeitsinfoPage() {
               </div>
             )}
 
-            <button onClick={addKeramik} style={saveButtonStyle}>
-              Sačuvaj Keramiku
+            <button onClick={addTiles} style={saveButtonStyle}>
+              {t.saveTiles}
             </button>
           </div>
         )}
 
         {tiles.length === 0 ? (
-          <p style={emptyStyle}>Još nema dodane keramike.</p>
+          <p style={emptyStyle}>{t.noTiles}</p>
         ) : (
           <div style={listStyle}>
             {tiles.map((tile) => {
@@ -268,21 +414,22 @@ export default function ArbeitsinfoPage() {
 
                   {tile.lager && (
                     <p>
-                      <strong>Lager:</strong> {tile.lager}
+                      <strong>{t.storage}:</strong> {tile.lager}
                     </p>
                   )}
 
                   {(tile.kolicina || tile.jedinica) && (
                     <p>
-                      <strong>Količina:</strong> {tile.kolicina} {tile.jedinica}
+                      <strong>{t.quantity}:</strong> {tile.kolicina}{" "}
+                      {tile.jedinica}
                     </p>
                   )}
 
                   <div>
-                    <strong>Prostorije:</strong>
+                    <strong>{t.rooms}:</strong>
 
                     {connectedRooms.length === 0 ? (
-                      <p style={emptyStyle}>Nije povezana sa prostorijom.</p>
+                      <p style={emptyStyle}>{t.notConnected}</p>
                     ) : (
                       <div style={roomListStyle}>
                         {connectedRooms.map((room) => (
@@ -296,10 +443,10 @@ export default function ArbeitsinfoPage() {
 
                   {isAdmin && (
                     <button
-                      onClick={() => deleteKeramik(tile.id)}
+                      onClick={() => deleteTiles(tile.id)}
                       style={deleteButtonStyle}
                     >
-                      Obriši
+                      {t.delete}
                     </button>
                   )}
                 </div>
@@ -310,8 +457,8 @@ export default function ArbeitsinfoPage() {
       </div>
 
       <div style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>💡 Zusätzliche Hinweise</h2>
-        <p style={emptyStyle}>Još nema dodatnih savjeta.</p>
+        <h2 style={sectionTitleStyle}>💡 {t.notes}</h2>
+        <p style={emptyStyle}>{t.noNotes}</p>
       </div>
     </main>
   );
