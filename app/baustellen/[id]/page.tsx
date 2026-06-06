@@ -27,7 +27,6 @@ const translations: any = {
     save: "Speichern",
     edit: "Bearbeiten",
     delete: "Löschen",
-    chooseInfo: "Information auswählen",
     value: "Information / Text",
     emptyInfo: "Noch keine Informationen eingetragen.",
     ansprechpartner: "Bauleiter / Ansprechpartner",
@@ -63,7 +62,6 @@ const translations: any = {
     save: "Sačuvaj",
     edit: "Uredi",
     delete: "Obriši",
-    chooseInfo: "Izaberi informaciju",
     value: "Informacija / tekst",
     emptyInfo: "Još nema dodanih informacija.",
     ansprechpartner: "Bauleiter / Ansprechpartner",
@@ -99,7 +97,6 @@ const translations: any = {
     save: "Save",
     edit: "Edit",
     delete: "Delete",
-    chooseInfo: "Choose information",
     value: "Information / text",
     emptyInfo: "No information added yet.",
     ansprechpartner: "Site manager / contact person",
@@ -135,7 +132,6 @@ const translations: any = {
     save: "Saqlash",
     edit: "Tahrirlash",
     delete: "O‘chirish",
-    chooseInfo: "Ma’lumot tanlash",
     value: "Ma’lumot / matn",
     emptyInfo: "Hali ma’lumot qo‘shilmagan.",
     ansprechpartner: "Bauleiter / mas’ul shaxs",
@@ -166,6 +162,21 @@ const infoFields = [
   { key: "notizen", icon: "📝" },
 ];
 
+const emptyInfoData: any = {
+  google_maps: "",
+  ansprechpartner: "",
+  zugang: "",
+  parking: "",
+  schluessel: "",
+  wc: "",
+  strom: "",
+  wasser: "",
+  lift: "",
+  arbeitszeit: "",
+  telefone: "",
+  notizen: "",
+};
+
 export default function BaustelleDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -174,20 +185,7 @@ export default function BaustelleDetailPage() {
 
   const [baustelle, setBaustelle] = useState<any>(null);
   const [rooms, setRooms] = useState<any[]>([]);
-  const [info, setInfo] = useState<any>({
-    google_maps: "",
-    ansprechpartner: "",
-    zugang: "",
-    parking: "",
-    schluessel: "",
-    wc: "",
-    strom: "",
-    wasser: "",
-    lift: "",
-    arbeitszeit: "",
-    telefone: "",
-    notizen: "",
-  });
+  const [info, setInfo] = useState<any>(emptyInfoData);
 
   const [workerRole, setWorkerRole] = useState("");
   const [lang, setLang] = useState("de");
@@ -210,6 +208,12 @@ export default function BaustelleDetailPage() {
 
     loadAll();
   }, []);
+
+  function playNotificationSound() {
+    const audio = new Audio("/sounds/notification.mp3");
+    audio.volume = 1;
+    audio.play().catch(() => {});
+  }
 
   async function loadAll() {
     setLoading(true);
@@ -261,22 +265,25 @@ export default function BaustelleDetailPage() {
       return;
     }
 
-    if (data) {
-      setInfo({
-        google_maps: data.google_maps || "",
-        ansprechpartner: data.ansprechpartner || "",
-        zugang: data.zugang || "",
-        parking: data.parking || "",
-        schluessel: data.schluessel || "",
-        wc: data.wc || "",
-        strom: data.strom || "",
-        wasser: data.wasser || "",
-        lift: data.lift || "",
-        arbeitszeit: data.arbeitszeit || "",
-        telefone: data.telefone || "",
-        notizen: data.notizen || "",
-      });
+    if (!data) {
+      setInfo(emptyInfoData);
+      return;
     }
+
+    setInfo({
+      google_maps: data.google_maps || "",
+      ansprechpartner: data.ansprechpartner || "",
+      zugang: data.zugang || "",
+      parking: data.parking || "",
+      schluessel: data.schluessel || "",
+      wc: data.wc || "",
+      strom: data.strom || "",
+      wasser: data.wasser || "",
+      lift: data.lift || "",
+      arbeitszeit: data.arbeitszeit || "",
+      telefone: data.telefone || "",
+      notizen: data.notizen || "",
+    });
   }
 
   function startAddInfo() {
@@ -301,18 +308,6 @@ export default function BaustelleDetailPage() {
 
     const payload: any = {
       baustelle_id: Number(baustelleId),
-      google_maps: info.google_maps || "",
-      ansprechpartner: info.ansprechpartner || "",
-      zugang: info.zugang || "",
-      parking: info.parking || "",
-      schluessel: info.schluessel || "",
-      wc: info.wc || "",
-      strom: info.strom || "",
-      wasser: info.wasser || "",
-      lift: info.lift || "",
-      arbeitszeit: info.arbeitszeit || "",
-      telefone: info.telefone || "",
-      notizen: info.notizen || "",
     };
 
     payload[infoField] = infoValue.trim();
@@ -326,10 +321,12 @@ export default function BaustelleDetailPage() {
       return;
     }
 
+    playNotificationSound();
+
     setShowInfoForm(false);
     setEditingField("");
     setInfoValue("");
-    loadInfo();
+    await loadInfo();
   }
 
   async function deleteInfoField(field: string) {
@@ -338,18 +335,6 @@ export default function BaustelleDetailPage() {
 
     const payload: any = {
       baustelle_id: Number(baustelleId),
-      google_maps: info.google_maps || "",
-      ansprechpartner: info.ansprechpartner || "",
-      zugang: info.zugang || "",
-      parking: info.parking || "",
-      schluessel: info.schluessel || "",
-      wc: info.wc || "",
-      strom: info.strom || "",
-      wasser: info.wasser || "",
-      lift: info.lift || "",
-      arbeitszeit: info.arbeitszeit || "",
-      telefone: info.telefone || "",
-      notizen: info.notizen || "",
     };
 
     payload[field] = "";
@@ -363,7 +348,7 @@ export default function BaustelleDetailPage() {
       return;
     }
 
-    loadInfo();
+    await loadInfo();
   }
 
   async function countRows(tableName: string) {
