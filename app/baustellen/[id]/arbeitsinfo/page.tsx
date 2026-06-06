@@ -85,6 +85,176 @@ const workCategories = [
   },
 ];
 
+const taskTranslations: any = {
+  ba: {
+    Abdecken: "Zakrivanje / zaštita",
+    Reinigung: "Čišćenje",
+    "Vorbereitung Beton": "Priprema betona",
+    "Untergrund vorbereiten": "Priprema podloge",
+    Grundierung: "Grundiranje",
+    Spachteln: "Gletovanje",
+    "Netz + Kleber": "Mrežica i ljepilo",
+    Ausgleichsmasse: "Nivelacija",
+    Estrich: "Estrih",
+    "Estrich nur Dusche": "Estrih samo tuš",
+    "Schleifen Boden": "Brušenje poda",
+
+    "Trockenbau Decke abhängen": "Spušteni knauf plafon",
+    "Trockenbau Wand": "Pregradni knauf zid",
+    Vorwandinstallation: "Predzid instalacije",
+    Revisionsklappe: "Reviziona vrata",
+    "Badewanne einmauern": "Zidanje kade",
+    "Träger montieren": "Montaža nosača",
+    Vorbereitungsbeton: "Pripremni beton",
+
+    "Abdichtung Boden": "Hidroizolacija poda",
+    "Abdichtung Wand": "Hidroizolacija zida",
+    "Abdichtung Dusche": "Hidroizolacija tuša",
+    Dichtband: "Diht traka",
+    Manschetten: "Manžetne",
+
+    "Wandfliesen verlegen": "Postavljanje zidne keramike",
+    "Bodenfliesen verlegen": "Postavljanje podne keramike",
+    Sockelleisten: "Sokl",
+    "Gehrung schneiden": "Gerung rezanje",
+    "Schienen montieren": "Montaža lajsni",
+    "Stufen verlegen": "Postavljanje stepenica",
+    "Treppen sanieren": "Popravka stepenica",
+
+    "Terrasse verlegen": "Postavljanje terase",
+    "Stelzlager Terrasse": "Stelzlager terasa",
+    "Kies Terrasse": "Kies terasa",
+    Drainagematte: "Drenažna membrana",
+
+    Verfugen: "Fugiranje",
+    Silikon: "Silikon",
+    "Fuge reparieren": "Popravka fuga",
+    "Silikon reparieren": "Popravka silikona",
+
+    Edelputz: "Edelputz",
+    Verputzen: "Malterisanje",
+    Glätten: "Gletovanje",
+    Malerarbeiten: "Moleraj",
+    "Ausbesserung Maler": "Popravka moleraja",
+
+    Feinreinigung: "Finalno čišćenje",
+    "Mängel beseitigen": "Otklanjanje nedostataka",
+    "Übergabe vorbereiten": "Priprema za primopredaju",
+  },
+
+  en: {
+    Abdecken: "Covering / protection",
+    Reinigung: "Cleaning",
+    "Vorbereitung Beton": "Concrete preparation",
+    "Untergrund vorbereiten": "Prepare substrate",
+    Grundierung: "Primer",
+    Spachteln: "Skimming / filling",
+    "Netz + Kleber": "Mesh and adhesive",
+    Ausgleichsmasse: "Self-leveling compound",
+    Estrich: "Screed",
+    "Estrich nur Dusche": "Screed only shower",
+    "Schleifen Boden": "Floor sanding",
+
+    "Trockenbau Decke abhängen": "Suspended drywall ceiling",
+    "Trockenbau Wand": "Drywall partition wall",
+    Vorwandinstallation: "Pre-wall installation",
+    Revisionsklappe: "Inspection hatch",
+    "Badewanne einmauern": "Build in bathtub",
+    "Träger montieren": "Install carrier",
+    Vorbereitungsbeton: "Preparation concrete",
+
+    "Abdichtung Boden": "Floor waterproofing",
+    "Abdichtung Wand": "Wall waterproofing",
+    "Abdichtung Dusche": "Shower waterproofing",
+    Dichtband: "Sealing tape",
+    Manschetten: "Sealing collars",
+
+    "Wandfliesen verlegen": "Install wall tiles",
+    "Bodenfliesen verlegen": "Install floor tiles",
+    Sockelleisten: "Skirting tiles",
+    "Gehrung schneiden": "Miter cutting",
+    "Schienen montieren": "Install profiles",
+    "Stufen verlegen": "Install steps",
+    "Treppen sanieren": "Repair stairs",
+
+    "Terrasse verlegen": "Install terrace tiles",
+    "Stelzlager Terrasse": "Pedestal terrace",
+    "Kies Terrasse": "Gravel terrace",
+    Drainagematte: "Drainage mat",
+
+    Verfugen: "Grouting",
+    Silikon: "Silicone",
+    "Fuge reparieren": "Repair grout",
+    "Silikon reparieren": "Repair silicone",
+
+    Edelputz: "Decorative plaster",
+    Verputzen: "Plastering",
+    Glätten: "Smoothing",
+    Malerarbeiten: "Painting work",
+    "Ausbesserung Maler": "Painting touch-up",
+
+    Feinreinigung: "Final cleaning",
+    "Mängel beseitigen": "Fix defects",
+    "Übergabe vorbereiten": "Prepare handover",
+  },
+
+  uz: {
+    Abdecken: "Yopish / himoya qilish",
+    Reinigung: "Tozalash",
+    "Vorbereitung Beton": "Betonni tayyorlash",
+    "Untergrund vorbereiten": "Asosni tayyorlash",
+    Grundierung: "Gruntovka",
+    Spachteln: "Shpaklyovka",
+    "Netz + Kleber": "Setka va kley",
+    Ausgleichsmasse: "Tekislovchi massa",
+    Estrich: "Estrix",
+    "Estrich nur Dusche": "Faqat dush uchun estrix",
+    "Schleifen Boden": "Polni silliqlash",
+
+    "Trockenbau Decke abhängen": "Gipsokarton osma shift",
+    "Trockenbau Wand": "Gipsokarton devor",
+    Vorwandinstallation: "Old devor installatsiyasi",
+    Revisionsklappe: "Revizion qopqoq",
+    "Badewanne einmauern": "Vannani devor bilan yopish",
+    "Träger montieren": "Tayanchni montaj qilish",
+    Vorbereitungsbeton: "Tayyorlov betoni",
+
+    "Abdichtung Boden": "Pol gidroizolyatsiyasi",
+    "Abdichtung Wand": "Devor gidroizolyatsiyasi",
+    "Abdichtung Dusche": "Dush gidroizolyatsiyasi",
+    Dichtband: "Gidro lenta",
+    Manschetten: "Manshetlar",
+
+    "Wandfliesen verlegen": "Devor plitkasini qo‘yish",
+    "Bodenfliesen verlegen": "Pol plitkasini qo‘yish",
+    Sockelleisten: "Plintus plitka",
+    "Gehrung schneiden": "Burchak kesish",
+    "Schienen montieren": "Profil montaj qilish",
+    "Stufen verlegen": "Zinalarni qo‘yish",
+    "Treppen sanieren": "Zinani ta’mirlash",
+
+    "Terrasse verlegen": "Terassa plitkasini qo‘yish",
+    "Stelzlager Terrasse": "Stelzlager terassa",
+    "Kies Terrasse": "Shag‘al terassa",
+    Drainagematte: "Drenaj mat",
+
+    Verfugen: "Fuga qilish",
+    Silikon: "Silikon",
+    "Fuge reparieren": "Fugani ta’mirlash",
+    "Silikon reparieren": "Silikonni ta’mirlash",
+
+    Edelputz: "Dekorativ suvoq",
+    Verputzen: "Suvoq qilish",
+    Glätten: "Tekislash",
+    Malerarbeiten: "Bo‘yash ishlari",
+    "Ausbesserung Maler": "Bo‘yashni tuzatish",
+
+    Feinreinigung: "Yakuniy tozalash",
+    "Mängel beseitigen": "Kamchiliklarni tuzatish",
+    "Übergabe vorbereiten": "Topshirishga tayyorlash",
+  },
+};
+
 const translations: any = {
   de: {
     back: "Zurück zur Baustelle",
@@ -313,6 +483,26 @@ export default function ArbeitsinfoPage() {
     loadTasks();
     loadTiles();
   }, []);
+
+  function translateTaskText(text: string) {
+    if (lang === "de") return text;
+
+    const dict = taskTranslations[lang];
+
+    if (!dict) return text;
+
+    let result = text;
+
+    const sortedEntries = Object.entries(dict).sort(
+      ([a], [b]) => b.length - a.length
+    );
+
+    sortedEntries.forEach(([deText, translatedText]) => {
+      result = result.replaceAll(deText, String(translatedText));
+    });
+
+    return result;
+  }
 
   async function loadRooms() {
     const { data, error } = await supabase
@@ -598,7 +788,9 @@ export default function ArbeitsinfoPage() {
               <div key={taskItem.id} style={cardStyle}>
                 <h3 style={cardTitleStyle}>{getRoomName(taskItem.room_id)}</h3>
 
-                <p style={textBlockStyle}>{taskItem.opis}</p>
+                <p style={textBlockStyle}>
+                  {translateTaskText(taskItem.opis || "")}
+                </p>
 
                 {isAdmin && (
                   <button
