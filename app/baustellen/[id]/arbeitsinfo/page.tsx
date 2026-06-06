@@ -195,6 +195,45 @@ const taskTranslations: any = {
   uz: {},
 };
 
+const toolTranslations: any = {
+  ba: {
+    "Grundausstattung (immer vorhanden)": "Osnovni alat (uvijek prisutan)",
+    "Schleifmaschine": "Mašina za brušenje",
+    "Staubsauger": "Usisivač",
+    "Multitool": "Multitul",
+    "Bohrmaschine": "Bušilica",
+    "Fliesenschneidmaschine 120 cm": "Mašina za keramiku 120 cm",
+    "Wasserschneidmaschine": "Mašina na vodu",
+    "Gehrungsschneider": "Mašina za gerovanje",
+    "Akkuschrauber": "Aku šarafilica",
+    "Hobelmaschine": "Hoblarica",
+  },
+  en: {
+    "Grundausstattung (immer vorhanden)": "Basic tools (always available)",
+    "Schleifmaschine": "Sanding machine",
+    "Staubsauger": "Vacuum cleaner",
+    "Multitool": "Multitool",
+    "Bohrmaschine": "Drill",
+    "Fliesenschneidmaschine 120 cm": "Tile cutter 120 cm",
+    "Wasserschneidmaschine": "Wet tile saw",
+    "Gehrungsschneider": "Miter cutter",
+    "Akkuschrauber": "Cordless screwdriver",
+    "Hobelmaschine": "Planer",
+  },
+  uz: {
+    "Grundausstattung (immer vorhanden)": "Asosiy asboblar (har doim mavjud)",
+    "Schleifmaschine": "Silliqlash mashinasi",
+    "Staubsauger": "Changyutgich",
+    "Multitool": "Multitul",
+    "Bohrmaschine": "Drel",
+    "Fliesenschneidmaschine 120 cm": "Plitka kesish mashinasi 120 cm",
+    "Wasserschneidmaschine": "Suvli kesish mashinasi",
+    "Gehrungsschneider": "Burchak kesish mashinasi",
+    "Akkuschrauber": "Akkumulyatorli shurup buragich",
+    "Hobelmaschine": "Randalash mashinasi",
+  },
+};
+
 const translations: any = {
   de: {
     back: "Zurück zur Baustelle",
@@ -238,6 +277,7 @@ const translations: any = {
     addTools: "Werkzeug hinzufügen",
     saveTools: "Werkzeug speichern",
     noTools: "Kein Werkzeug vorhanden.",
+    standardTool: "Grundausstattung (immer vorhanden)",
 
     addFile: "Bild / Dokument hinzufügen",
     saveFile: "Datei speichern",
@@ -295,6 +335,7 @@ const translations: any = {
     addTools: "Dodaj alat",
     saveTools: "Sačuvaj alat",
     noTools: "Još nema alata.",
+    standardTool: "Osnovni alat (uvijek prisutan)",
 
     addFile: "Dodaj sliku / dokument",
     saveFile: "Sačuvaj fajl",
@@ -352,6 +393,7 @@ const translations: any = {
     addTools: "Add tools",
     saveTools: "Save tools",
     noTools: "No tools yet.",
+    standardTool: "Basic tools (always available)",
 
     addFile: "Add image / document",
     saveFile: "Save file",
@@ -409,6 +451,7 @@ const translations: any = {
     addTools: "Asbob qo‘shish",
     saveTools: "Asboblarni saqlash",
     noTools: "Hali asbob yo‘q.",
+    standardTool: "Asosiy asboblar (har doim mavjud)",
 
     addFile: "Rasm / hujjat qo‘shish",
     saveFile: "Faylni saqlash",
@@ -520,6 +563,15 @@ export default function ArbeitsinfoPage() {
       });
 
     return result;
+  }
+
+  function translateTool(toolName: string) {
+    if (lang === "de") return toolName;
+
+    const dict = toolTranslations[lang];
+    if (!dict) return toolName;
+
+    return dict[toolName] || toolName;
   }
 
   async function loadRooms() {
@@ -1401,7 +1453,7 @@ export default function ArbeitsinfoPage() {
           <h2 style={sectionTitleStyle}>🛠 {t.tool}</h2>
 
           <div style={standardToolStyle}>
-            ✓ Grundausstattung (immer vorhanden)
+            ✓ {t.standardTool}
           </div>
 
           {isAdmin && (
@@ -1428,7 +1480,7 @@ export default function ArbeitsinfoPage() {
                         checked={checked}
                         onChange={() => toggleTool(tool)}
                       />
-                      {tool}
+                      {translateTool(tool)}
                     </label>
 
                     {checked && (
@@ -1461,7 +1513,7 @@ export default function ArbeitsinfoPage() {
           <div style={listStyle}>
             {tools.map((tool) => (
               <div key={tool.id} style={cardStyle}>
-                <h3 style={cardTitleStyle}>{tool.naziv}</h3>
+                <h3 style={cardTitleStyle}>{translateTool(tool.naziv)}</h3>
                 {tool.kolicina && (
                   <p>
                     <strong>{t.quantity}:</strong> {tool.kolicina}
