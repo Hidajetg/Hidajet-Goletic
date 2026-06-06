@@ -5,6 +5,86 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
+const workCategories = [
+  {
+    title: "Vorbereitung",
+    items: [
+      "Abdecken",
+      "Reinigung",
+      "Vorbereitung Beton",
+      "Untergrund vorbereiten",
+      "Grundierung",
+      "Spachteln",
+      "Netz + Kleber",
+      "Ausgleichsmasse",
+      "Estrich",
+      "Estrich nur Dusche",
+      "Schleifen Boden",
+    ],
+  },
+  {
+    title: "Trockenbau",
+    items: [
+      "Trockenbau Decke abhängen",
+      "Trockenbau Wand",
+      "Vorwandinstallation",
+      "Revisionsklappe",
+      "Badewanne einmauern",
+      "Träger montieren",
+      "Vorbereitungsbeton",
+    ],
+  },
+  {
+    title: "Abdichtung",
+    items: [
+      "Abdichtung Boden",
+      "Abdichtung Wand",
+      "Abdichtung Dusche",
+      "Dichtband",
+      "Manschetten",
+    ],
+  },
+  {
+    title: "Fliesenarbeiten",
+    items: [
+      "Wandfliesen verlegen",
+      "Bodenfliesen verlegen",
+      "Sockelleisten",
+      "Gehrung schneiden",
+      "Schienen montieren",
+      "Stufen verlegen",
+      "Treppen sanieren",
+    ],
+  },
+  {
+    title: "Terrasse",
+    items: [
+      "Terrasse verlegen",
+      "Stelzlager Terrasse",
+      "Kies Terrasse",
+      "Drainagematte",
+    ],
+  },
+  {
+    title: "Verfugung",
+    items: ["Verfugen", "Silikon", "Fuge reparieren", "Silikon reparieren"],
+  },
+  {
+    title: "Putz / Maler",
+    items: [
+      "Edelputz",
+      "Verputzen",
+      "Glätten",
+      "Malerarbeiten",
+      "Ausbesserung Maler",
+    ],
+  },
+  {
+    title: "Abschluss",
+    items: ["Feinreinigung", "Mängel beseitigen", "Übergabe vorbereiten"],
+  },
+];
+
 const translations: any = {
   de: {
     back: "Zurück zur Baustelle",
@@ -21,10 +101,10 @@ const translations: any = {
     noTiles: "Keine Fliesen vorhanden.",
     noNotes: "Keine Hinweise vorhanden.",
 
+    quickSelection: "Schnellauswahl Arbeiten",
     addTask: "Arbeitsauftrag hinzufügen",
     saveTask: "Arbeitsauftrag speichern",
     taskDescription: "Arbeitsauftrag / Beschreibung",
-    chooseRoom: "Raum auswählen",
     allRooms: "Allgemein / keine Raumzuordnung",
     enterTaskDescription: "Bitte Arbeitsauftrag eingeben.",
     deleteTaskConfirm: "Möchten Sie diesen Arbeitsauftrag wirklich löschen?",
@@ -68,10 +148,10 @@ const translations: any = {
     noTiles: "Još nema keramike.",
     noNotes: "Još nema napomena.",
 
+    quickSelection: "Brzi izbor poslova",
     addTask: "Dodaj radni nalog",
     saveTask: "Sačuvaj radni nalog",
     taskDescription: "Radni nalog / opis",
-    chooseRoom: "Izaberi prostoriju",
     allRooms: "Općenito / bez prostorije",
     enterTaskDescription: "Unesi radni nalog.",
     deleteTaskConfirm: "Da li želiš obrisati ovaj radni nalog?",
@@ -115,10 +195,10 @@ const translations: any = {
     noTiles: "No tiles yet.",
     noNotes: "No notes yet.",
 
+    quickSelection: "Quick work selection",
     addTask: "Add work order",
     saveTask: "Save work order",
     taskDescription: "Work order / description",
-    chooseRoom: "Choose room",
     allRooms: "General / no room",
     enterTaskDescription: "Enter work order.",
     deleteTaskConfirm: "Do you want to delete this work order?",
@@ -162,10 +242,10 @@ const translations: any = {
     noTiles: "Hali plitka yo‘q.",
     noNotes: "Hali eslatma yo‘q.",
 
+    quickSelection: "Tez ish tanlash",
     addTask: "Ish topshirig‘i qo‘shish",
     saveTask: "Ish topshirig‘ini saqlash",
     taskDescription: "Ish topshirig‘i / tavsif",
-    chooseRoom: "Xonani tanlash",
     allRooms: "Umumiy / xona yo‘q",
     enterTaskDescription: "Ish topshirig‘ini kiriting.",
     deleteTaskConfirm: "Bu ish topshirig‘ini o‘chirmoqchimisiz?",
@@ -262,6 +342,19 @@ export default function ArbeitsinfoPage() {
     }
 
     setTasks(data || []);
+  }
+
+  function addQuickWork(workName: string) {
+    const line = `- ${workName}`;
+    const currentText = taskDescription.trim();
+
+    if (currentText.includes(line)) return;
+
+    if (!currentText) {
+      setTaskDescription(line);
+    } else {
+      setTaskDescription(`${currentText}\n${line}`);
+    }
   }
 
   async function addTask() {
@@ -460,6 +553,29 @@ export default function ArbeitsinfoPage() {
                 </option>
               ))}
             </select>
+
+            <h3 style={smallTitleStyle}>{t.quickSelection}</h3>
+
+            <div style={quickCategoryWrapStyle}>
+              {workCategories.map((category) => (
+                <div key={category.title} style={quickCategoryStyle}>
+                  <h4 style={quickCategoryTitleStyle}>{category.title}</h4>
+
+                  <div style={quickButtonWrapStyle}>
+                    {category.items.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => addQuickWork(item)}
+                        style={quickButtonStyle}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
 
             <textarea
               value={taskDescription}
@@ -772,6 +888,43 @@ const smallTitleStyle: any = {
   fontWeight: "bold",
   marginTop: "10px",
   marginBottom: "12px",
+};
+
+const quickCategoryWrapStyle: any = {
+  display: "grid",
+  gap: "16px",
+  marginBottom: "18px",
+};
+
+const quickCategoryStyle: any = {
+  background: "#111827",
+  border: "1px solid #374151",
+  borderRadius: "14px",
+  padding: "14px",
+};
+
+const quickCategoryTitleStyle: any = {
+  fontSize: "16px",
+  fontWeight: "bold",
+  marginBottom: "10px",
+  color: "#93c5fd",
+};
+
+const quickButtonWrapStyle: any = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "10px",
+};
+
+const quickButtonStyle: any = {
+  background: "#1f2937",
+  color: "white",
+  border: "1px solid #4b5563",
+  borderRadius: "10px",
+  padding: "10px 12px",
+  fontSize: "14px",
+  fontWeight: "bold",
+  cursor: "pointer",
 };
 
 const checkBoxGridStyle: any = {
