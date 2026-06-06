@@ -2,220 +2,267 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabase";
+import { useParams } from "next/navigation";
+import { supabase } from "../../../lib/supabase";
 
-export default function InfoPage() {
-  const router = useRouter();
+const translations: any = {
+  de: {
+    back: "Zurück zur Baustelle",
+    title: "Baustelle Info",
+    google: "Google Maps Standort",
+    ansprechpartner: "Bauleiter / Ansprechpartner",
+    zugang: "Zugang / Türnummer",
+    parking: "Parking",
+    schluessel: "Schlüssel",
+    wc: "WC",
+    strom: "Strom",
+    wasser: "Wasser",
+    lift: "Lift",
+    arbeitszeit: "Arbeitszeit",
+    telefone: "Wichtige Telefonnummern",
+    notizen: "Zusätzliche Hinweise",
+    edit: "Bearbeiten",
+    save: "Speichern",
+    close: "Schließen",
+    empty: "Keine Information eingetragen.",
+  },
+  ba: {
+    back: "Nazad na Baustelle",
+    title: "Info Baustelle",
+    google: "Google Maps lokacija",
+    ansprechpartner: "Bauleiter / Ansprechpartner",
+    zugang: "Zugang / broj vrata",
+    parking: "Parking",
+    schluessel: "Ključevi",
+    wc: "WC",
+    strom: "Struja",
+    wasser: "Voda",
+    lift: "Lift",
+    arbeitszeit: "Radno vrijeme objekta",
+    telefone: "Važni telefoni",
+    notizen: "Dodatne napomene",
+    edit: "Uredi",
+    save: "Sačuvaj",
+    close: "Zatvori",
+    empty: "Nema unesene informacije.",
+  },
+  en: {
+    back: "Back to site",
+    title: "Site Info",
+    google: "Google Maps location",
+    ansprechpartner: "Site manager / contact person",
+    zugang: "Access / door number",
+    parking: "Parking",
+    schluessel: "Keys",
+    wc: "WC",
+    strom: "Electricity",
+    wasser: "Water",
+    lift: "Lift",
+    arbeitszeit: "Working hours",
+    telefone: "Important phone numbers",
+    notizen: "Additional notes",
+    edit: "Edit",
+    save: "Save",
+    close: "Close",
+    empty: "No information entered.",
+  },
+  uz: {
+    back: "Obyektga qaytish",
+    title: "Obyekt ma’lumoti",
+    google: "Google Maps manzil",
+    ansprechpartner: "Bauleiter / mas’ul shaxs",
+    zugang: "Kirish / eshik raqami",
+    parking: "Parking",
+    schluessel: "Kalitlar",
+    wc: "WC",
+    strom: "Elektr",
+    wasser: "Suv",
+    lift: "Lift",
+    arbeitszeit: "Ish vaqti",
+    telefone: "Muhim telefonlar",
+    notizen: "Qo‘shimcha eslatmalar",
+    edit: "Tahrirlash",
+    save: "Saqlash",
+    close: "Yopish",
+    empty: "Ma’lumot kiritilmagan.",
+  },
+};
 
-  const [workerId, setWorkerId] = useState("");
-  const [workerName, setWorkerName] = useState("");
+export default function BaustelleInfoPage() {
+  const params = useParams();
+  const baustelleId = String(params.id);
+
+  const [lang, setLang] = useState("de");
   const [workerRole, setWorkerRole] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
 
-  const [workers, setWorkers] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [info, setInfo] = useState<any>({
+    google_maps: "",
+    ansprechpartner: "",
+    zugang: "",
+    parking: "",
+    schluessel: "",
+    wc: "",
+    strom: "",
+    wasser: "",
+    lift: "",
+    arbeitszeit: "",
+    telefone: "",
+    notizen: "",
+  });
 
-  const [message, setMessage] = useState("");
-  const [visibleToAll, setVisibleToAll] = useState(true);
-  const [targetWorkerId, setTargetWorkerId] = useState("");
+  const t = translations[lang] || translations.de;
+  const isAdmin = workerRole === "admin";
 
   useEffect(() => {
-    const id = localStorage.getItem("worker_id");
-    const name = localStorage.getItem("worker_name");
-    const role = localStorage.getItem("worker_role");
+    const savedLang = localStorage.getItem("lang") || "de";
+    const role = localStorage.getItem("worker_role") || "worker";
 
-    if (!id || !name) {
-      router.push("/login");
-      return;
-    }
+    setLang(savedLang);
+    setWorkerRole(role);
+    loadInfo();
+  }, []);
 
-    setWorkerId(id);
-    setWorkerName(name);
-    setWorkerRole(role || "");
+  async function loadInfo() {
+    setLoading(true);
 
-    loadWorkers();
-    loadMessages(id);
-  }, [router]);
-
-  function playNotificationSound() {
-    const audio = new Audio("/sounds/notification.mp3");
-    audio.volume = 1;
-    audio.play().catch(() => {});
-  }
-
-  async function loadWorkers() {
     const { data, error } = await supabase
-      .from("workers")
+      .from("baustelle_info")
       .select("*")
-      .order("id", { ascending: true });
+      .eq("baustelle_id", baustelleId)
+      .maybeSingle();
 
     if (error) {
-      alert("Greška kod učitavanja radnika: " + error.message);
+      alert("Fehler beim Laden: " + error.message);
+      setLoading(false);
       return;
     }
 
-    setWorkers(data || []);
+    if (data) {
+      setInfo(data);
+    }
+
+    setLoading(false);
   }
 
-  async function loadMessages(currentWorkerId: string) {
-    const { data, error } = await supabase
-      .from("info_messages")
-      .select("*")
-      .or(`visible_to_all.eq.true,target_worker_id.eq.${currentWorkerId}`)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      alert("Greška kod učitavanja poruka: " + error.message);
-      return;
-    }
-
-    setMessages(data || []);
+  function updateField(field: string, value: string) {
+    setInfo({ ...info, [field]: value });
   }
 
-  async function addMessage() {
-    if (!message.trim()) {
-      alert("Napiši poruku.");
-      return;
-    }
-
-    if (!visibleToAll && !targetWorkerId) {
-      alert("Odaberi radnika ili uključi opciju za sve.");
-      return;
-    }
-
-    const { error } = await supabase.from("info_messages").insert({
-      message: message.trim(),
-      sender_id: Number(workerId),
-      sender_name: workerName,
-      visible_to_all: visibleToAll,
-      target_worker_id: visibleToAll ? null : Number(targetWorkerId),
-    });
-
-    if (error) {
-      alert("Greška kod dodavanja poruke: " + error.message);
-      return;
-    }
-
-    playNotificationSound();
-
-    setMessage("");
-    setVisibleToAll(true);
-    setTargetWorkerId("");
-    loadMessages(workerId);
-  }
-
-  async function deleteMessage(id: number) {
-    const ok = confirm("Da li želiš obrisati ovu poruku?");
-    if (!ok) return;
+  async function saveInfo() {
+    const payload = {
+      baustelle_id: Number(baustelleId),
+      google_maps: info.google_maps || "",
+      ansprechpartner: info.ansprechpartner || "",
+      zugang: info.zugang || "",
+      parking: info.parking || "",
+      schluessel: info.schluessel || "",
+      wc: info.wc || "",
+      strom: info.strom || "",
+      wasser: info.wasser || "",
+      lift: info.lift || "",
+      arbeitszeit: info.arbeitszeit || "",
+      telefone: info.telefone || "",
+      notizen: info.notizen || "",
+    };
 
     const { error } = await supabase
-      .from("info_messages")
-      .delete()
-      .eq("id", id);
+      .from("baustelle_info")
+      .upsert(payload, { onConflict: "baustelle_id" });
 
     if (error) {
-      alert("Greška kod brisanja poruke: " + error.message);
+      alert("Fehler beim Speichern: " + error.message);
       return;
     }
 
-    loadMessages(workerId);
+    setEditMode(false);
+    loadInfo();
   }
 
-  function formatDateTime(value: string) {
-    const date = new Date(value);
-    return date.toLocaleString("de-AT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  function renderField(icon: string, label: string, field: string, multiline = false) {
+    const value = info[field] || "";
+
+    return (
+      <div style={fieldCardStyle}>
+        <h3 style={fieldTitleStyle}>
+          {icon} {label}
+        </h3>
+
+        {editMode && isAdmin ? (
+          multiline ? (
+            <textarea
+              value={value}
+              onChange={(e) => updateField(field, e.target.value)}
+              style={textareaStyle}
+            />
+          ) : (
+            <input
+              value={value}
+              onChange={(e) => updateField(field, e.target.value)}
+              style={inputStyle}
+            />
+          )
+        ) : field === "google_maps" && value ? (
+          <a href={value} target="_blank" style={linkStyle}>
+            Google Maps öffnen
+          </a>
+        ) : value ? (
+          <p style={textStyle}>{value}</p>
+        ) : (
+          <p style={emptyStyle}>{t.empty}</p>
+        )}
+      </div>
+    );
   }
 
-  function workerLabel(worker: any) {
-    return worker.name || worker.naziv || worker.ime || `Radnik ${worker.id}`;
+  if (loading) {
+    return (
+      <main style={mainStyle}>
+        <p>Wird geladen...</p>
+      </main>
+    );
   }
 
   return (
     <main style={mainStyle}>
-      <Link href="/dashboard" style={backStyle}>
-        ← Nazad na Dashboard
+      <Link href={`/baustellen/${baustelleId}`} style={backStyle}>
+        ← {t.back}
       </Link>
 
-      <h1 style={titleStyle}>📢 Info</h1>
+      <div style={headerStyle}>
+        <h1 style={titleStyle}>ℹ️ {t.title}</h1>
 
-      <section style={cardStyle}>
-        <h2 style={sectionTitleStyle}>Nova poruka</h2>
-
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Napiši poruku..."
-          style={textareaStyle}
-        />
-
-        <label style={checkStyle}>
-          <input
-            type="checkbox"
-            checked={visibleToAll}
-            onChange={(e) => setVisibleToAll(e.target.checked)}
-          />
-          Poruka za sve radnike
-        </label>
-
-        {!visibleToAll && (
-          <select
-            value={targetWorkerId}
-            onChange={(e) => setTargetWorkerId(e.target.value)}
-            style={inputStyle}
+        {isAdmin && (
+          <button
+            onClick={() => (editMode ? setEditMode(false) : setEditMode(true))}
+            style={editButtonStyle}
           >
-            <option value="">Odaberi radnika</option>
-            {workers.map((worker) => (
-              <option key={worker.id} value={worker.id}>
-                {workerLabel(worker)}
-              </option>
-            ))}
-          </select>
+            {editMode ? t.close : t.edit}
+          </button>
         )}
+      </div>
 
-        <button onClick={addMessage} style={addButtonStyle}>
-          Dodaj poruku
+      <div style={gridStyle}>
+        {renderField("📍", t.google, "google_maps")}
+        {renderField("👷", t.ansprechpartner, "ansprechpartner", true)}
+        {renderField("🚪", t.zugang, "zugang", true)}
+        {renderField("🚗", t.parking, "parking", true)}
+        {renderField("🔑", t.schluessel, "schluessel", true)}
+        {renderField("🚾", t.wc, "wc", true)}
+        {renderField("⚡", t.strom, "strom", true)}
+        {renderField("💧", t.wasser, "wasser", true)}
+        {renderField("🛗", t.lift, "lift", true)}
+        {renderField("⏰", t.arbeitszeit, "arbeitszeit", true)}
+        {renderField("📞", t.telefone, "telefone", true)}
+        {renderField("📝", t.notizen, "notizen", true)}
+      </div>
+
+      {editMode && isAdmin && (
+        <button onClick={saveInfo} style={saveButtonStyle}>
+          {t.save}
         </button>
-      </section>
-
-      <section style={messagesStyle}>
-        <h2 style={sectionTitleStyle}>Napisane poruke</h2>
-
-        {messages.length === 0 ? (
-          <p style={{ color: "#aaa" }}>Nema poruka.</p>
-        ) : (
-          messages.map((msg) => (
-            <div key={msg.id} style={messageCardStyle}>
-              <div style={messageHeaderStyle}>
-                <strong>{msg.sender_name}</strong>
-                <span>{formatDateTime(msg.created_at)}</span>
-              </div>
-
-              <p style={messageTextStyle}>{msg.message}</p>
-
-              <div style={messageFooterStyle}>
-                <span>
-                  {msg.visible_to_all
-                    ? "Vidljivo svima"
-                    : "Vidljivo samo označenom radniku"}
-                </span>
-
-                <button
-                  onClick={() => deleteMessage(msg.id)}
-                  style={deleteButtonStyle}
-                >
-                  Obriši
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </section>
+      )}
     </main>
   );
 }
@@ -224,118 +271,109 @@ const mainStyle: any = {
   background: "#000",
   minHeight: "100vh",
   color: "white",
-  padding: "30px",
+  padding: "40px",
 };
 
 const backStyle: any = {
   color: "#3b82f6",
   textDecoration: "none",
   fontWeight: "bold",
+  fontSize: "18px",
+};
+
+const headerStyle: any = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "20px",
+  flexWrap: "wrap",
+  marginTop: "25px",
+  marginBottom: "30px",
 };
 
 const titleStyle: any = {
-  fontSize: "46px",
-  color: "#f97316",
-  marginTop: "30px",
+  fontSize: "52px",
+  fontWeight: "bold",
 };
 
-const cardStyle: any = {
+const gridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+  gap: "20px",
+};
+
+const fieldCardStyle: any = {
   background: "#111",
   border: "1px solid #333",
   borderRadius: "18px",
-  padding: "25px",
-  marginTop: "25px",
-  maxWidth: "800px",
+  padding: "22px",
 };
 
-const sectionTitleStyle: any = {
-  fontSize: "26px",
-  marginBottom: "15px",
+const fieldTitleStyle: any = {
+  fontSize: "21px",
+  fontWeight: "bold",
+  marginBottom: "14px",
+  color: "#93c5fd",
 };
 
-const textareaStyle: any = {
-  width: "100%",
-  minHeight: "130px",
-  padding: "15px",
-  borderRadius: "12px",
-  border: "1px solid #444",
-  background: "#000",
-  color: "white",
-  fontSize: "18px",
-  marginBottom: "15px",
+const textStyle: any = {
+  whiteSpace: "pre-wrap",
+  lineHeight: "1.6",
+  fontSize: "17px",
+};
+
+const emptyStyle: any = {
+  color: "#777",
+  fontSize: "16px",
 };
 
 const inputStyle: any = {
   width: "100%",
-  padding: "15px",
+  padding: "14px",
   borderRadius: "12px",
   border: "1px solid #444",
   background: "#000",
   color: "white",
-  fontSize: "18px",
-  marginBottom: "15px",
+  fontSize: "16px",
 };
 
-const checkStyle: any = {
-  display: "flex",
-  gap: "10px",
-  alignItems: "center",
-  fontSize: "18px",
-  marginBottom: "15px",
+const textareaStyle: any = {
+  width: "100%",
+  minHeight: "110px",
+  padding: "14px",
+  borderRadius: "12px",
+  border: "1px solid #444",
+  background: "#000",
+  color: "white",
+  fontSize: "16px",
+  resize: "vertical",
 };
 
-const addButtonStyle: any = {
+const editButtonStyle: any = {
   background: "#2563eb",
   color: "white",
-  padding: "15px 25px",
-  borderRadius: "12px",
   border: "none",
+  borderRadius: "12px",
+  padding: "14px 22px",
+  fontSize: "17px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const saveButtonStyle: any = {
+  background: "#16a34a",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  padding: "16px 26px",
   fontSize: "18px",
   fontWeight: "bold",
   cursor: "pointer",
+  marginTop: "30px",
 };
 
-const messagesStyle: any = {
-  marginTop: "35px",
-  maxWidth: "900px",
-};
-
-const messageCardStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "20px",
-  marginBottom: "15px",
-};
-
-const messageHeaderStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "20px",
-  color: "#f97316",
-  marginBottom: "12px",
-};
-
-const messageTextStyle: any = {
-  fontSize: "20px",
-  lineHeight: "1.5",
-  whiteSpace: "pre-wrap",
-};
-
-const messageFooterStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  color: "#aaa",
-  marginTop: "15px",
-};
-
-const deleteButtonStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  border: "none",
-  borderRadius: "10px",
-  padding: "10px 15px",
-  cursor: "pointer",
+const linkStyle: any = {
+  color: "#60a5fa",
   fontWeight: "bold",
+  fontSize: "17px",
 };
