@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "../../../lib/supabase";
+import { supabase } from "../../../../../lib/supabase";
 
 const DEFAULT_GROUP_ORDER = [
   "Priprema podloge",
