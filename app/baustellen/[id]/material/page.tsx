@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 
-const REDOSLIJED_GRUPA = [
-  "Keramika",
+const DEFAULT_GROUP_ORDER = [
   "Priprema podloge",
   "Estrich",
   "Hidroizolacija",
@@ -18,6 +17,36 @@ const REDOSLIJED_GRUPA = [
   "Dodaci",
 ];
 
+const UNIT_OPTIONS = [
+  "kom",
+  "m",
+  "m²",
+  "m³",
+  "kg",
+  "l",
+  "vreća",
+  "rola",
+  "paket",
+  "karton",
+  "set",
+];
+
+function getGroupIcon(name: string) {
+  const n = String(name || "").toLowerCase();
+
+  if (n.includes("priprema")) return "🧹";
+  if (n.includes("estrich")) return "⬜";
+  if (n.includes("hidro")) return "💧";
+  if (n.includes("ljepilo")) return "🪣";
+  if (n.includes("schienen")) return "📏";
+  if (n.includes("fuge")) return "▦";
+  if (n.includes("silikoni")) return "〰️";
+  if (n.includes("terase")) return "🏗️";
+  if (n.includes("dodaci")) return "+";
+
+  return "📦";
+}
+
 export default function BaustelleMaterialPage() {
   const params = useParams();
   const baustelleId = String(params.id);
@@ -26,6 +55,7 @@ export default function BaustelleMaterialPage() {
   const [materijali, setMaterijali] = useState<any[]>([]);
   const [baustelleMaterijal, setBaustelleMaterijal] = useState<any[]>([]);
   const [aktivnaGrupa, setAktivnaGrupa] = useState<any | null>(null);
+  const [showKeramika, setShowKeramika] = useState(false);
 
   const [kolicine, setKolicine] = useState<{ [key: number]: string }>({});
 
@@ -40,17 +70,24 @@ export default function BaustelleMaterialPage() {
   const [slobodnaJedinica, setSlobodnaJedinica] = useState("kom");
   const [slobodnaKolicina, setSlobodnaKolicina] = useState("");
 
+  const [searchTerm, setSearchTerm] = useState("");
+
   useEffect(() => {
     loadData();
   }, []);
 
-  function sortirajGrupe(data: any[]) {
+  function sortGroups(data: any[]) {
     return [...data].sort((a, b) => {
-      const indexA = REDOSLIJED_GRUPA.indexOf(a.naziv);
-      const indexB = REDOSLIJED_GRUPA.indexOf(b.naziv);
+      const orderA = Number(a.sort_order || 9999);
+      const orderB = Number(b.sort_order || 9999);
+
+      if (orderA !== orderB) return orderA - orderB;
+
+      const indexA = DEFAULT_GROUP_ORDER.indexOf(a.naziv);
+      const indexB = DEFAULT_GROUP_ORDER.indexOf(b.naziv);
 
       if (indexA === -1 && indexB === -1) {
-        return a.naziv.localeCompare(b.naziv);
+        return String(a.naziv || "").localeCompare(String(b.naziv || ""));
       }
 
       if (indexA === -1) return 1;
@@ -61,8 +98,15 @@ export default function BaustelleMaterialPage() {
   }
 
   async function loadData() {
-    const grupeRes = await supabase.from("material_groups").select("*");
-    const materijaliRes = await supabase.from("materials").select("*").order("id");
+    const grupeRes = await supabase
+      .from("material_groups")
+      .select("*")
+      .order("sort_order", { ascending: true });
+
+    const materijaliRes = await supabase
+      .from("materials")
+      .select("*")
+      .order("naziv", { ascending: true });
 
     const baustelleMaterijalRes = await supabase
       .from("baustelle_material")
@@ -85,7 +129,7 @@ export default function BaustelleMaterialPage() {
       return;
     }
 
-    setGrupe(sortirajGrupe(grupeRes.data || []));
+    setGrupe(sortGroups(grupeRes.data || []));
     setMaterijali(materijaliRes.data || []);
     setBaustelleMaterijal(baustelleMaterijalRes.data || []);
   }
@@ -94,13 +138,18 @@ export default function BaustelleMaterialPage() {
     return materijali.find((m) => Number(m.id) === Number(materialId));
   }
 
-  function materijaliAktivneGrupe() {
+  const materijaliAktivneGrupe = useMemo(() => {
     if (!aktivnaGrupa) return [];
 
-    return materijali.filter(
-      (m) => Number(m.group_id) === Number(aktivnaGrupa.id)
-    );
-  }
+    const term = searchTerm.trim().toLowerCase();
+
+    return materijali
+      .filter((m) => Number(m.group_id) === Number(aktivnaGrupa.id))
+      .filter((m) => {
+        if (!term) return true;
+        return String(m.naziv || "").toLowerCase().includes(term);
+      });
+  }, [aktivnaGrupa, materijali, searchTerm]);
 
   async function dodajKataloskiMaterijal(material: any) {
     const kolicina = kolicine[material.id];
@@ -164,7 +213,7 @@ export default function BaustelleMaterialPage() {
       return;
     }
 
-    const naziv = `Keramika - ${keramikaNaziv}`;
+    const naziv = `Keramika - ${keramikaNaziv.trim()}`;
 
     const { error } = await supabase.from("baustelle_material").insert([
       {
@@ -202,9 +251,9 @@ export default function BaustelleMaterialPage() {
       {
         baustelle_id: Number(baustelleId),
         material_id: null,
-        materijal: dodatakNaziv,
+        materijal: dodatakNaziv.trim(),
         kolicina: Number(dodatakKolicina),
-        custom_naziv: dodatakNaziv,
+        custom_naziv: dodatakNaziv.trim(),
         custom_jedinica: dodatakJedinica,
       },
     ]);
@@ -307,6 +356,26 @@ export default function BaustelleMaterialPage() {
     return material ? material.jedinica : "";
   }
 
+  function openGroup(group: any) {
+    setShowKeramika(false);
+    setAktivnaGrupa(group);
+    setSearchTerm("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function openKeramika() {
+    setAktivnaGrupa(null);
+    setShowKeramika(true);
+    setSearchTerm("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function closeActiveView() {
+    setAktivnaGrupa(null);
+    setShowKeramika(false);
+    setSearchTerm("");
+  }
+
   return (
     <main style={styles.page}>
       <Link href={`/baustellen/${baustelleId}`} style={styles.backLink}>
@@ -318,49 +387,55 @@ export default function BaustelleMaterialPage() {
       <section style={styles.freeBox}>
         <h2 style={styles.subtitle}>+ Slobodni materijal</h2>
 
-        <input
-          value={slobodniNaziv}
-          onChange={(e) => setSlobodniNaziv(e.target.value)}
-          placeholder="Naziv materijala"
-          style={styles.input}
-        />
+        <div style={styles.freeGrid}>
+          <input
+            value={slobodniNaziv}
+            onChange={(e) => setSlobodniNaziv(e.target.value)}
+            placeholder="Naziv materijala"
+            style={styles.input}
+          />
 
-        <select
-          value={slobodnaJedinica}
-          onChange={(e) => setSlobodnaJedinica(e.target.value)}
-          style={styles.input}
-        >
-          <option value="kom">kom</option>
-          <option value="m">m</option>
-          <option value="m²">m²</option>
-          <option value="m³">m³</option>
-          <option value="kg">kg</option>
-          <option value="l">l</option>
-          <option value="vreća">vreća</option>
-          <option value="rola">rola</option>
-          <option value="paket">paket</option>
-          <option value="karton">karton</option>
-          <option value="set">set</option>
-        </select>
+          <select
+            value={slobodnaJedinica}
+            onChange={(e) => setSlobodnaJedinica(e.target.value)}
+            style={styles.input}
+          >
+            {UNIT_OPTIONS.map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+          </select>
 
-        <input
-          value={slobodnaKolicina}
-          onChange={(e) => setSlobodnaKolicina(e.target.value)}
-          placeholder="Količina"
-          type="number"
-          style={styles.input}
-        />
+          <input
+            value={slobodnaKolicina}
+            onChange={(e) => setSlobodnaKolicina(e.target.value)}
+            placeholder="Količina"
+            type="number"
+            style={styles.input}
+          />
 
-        <button onClick={dodajSlobodniMaterijal} style={styles.saveButton}>
-          Dodaj slobodni materijal
-        </button>
+          <button onClick={dodajSlobodniMaterijal} style={styles.saveButton}>
+            Dodaj
+          </button>
+        </div>
       </section>
 
-      {!aktivnaGrupa && (
+      {!aktivnaGrupa && !showKeramika && (
         <section style={styles.box}>
           <h2 style={styles.subtitle}>Odaberi grupu</h2>
 
+          <div style={styles.mobileHint}>
+            Radnik odabere jednu grupu i vidi samo materijale iz te grupe.
+          </div>
+
           <div style={styles.groupGrid}>
+            <button onClick={openKeramika} style={styles.groupCardSpecial}>
+              <div style={styles.groupIcon}>▧</div>
+              <div style={styles.groupName}>Keramika</div>
+              <div style={styles.groupCount}>Ručni unos</div>
+            </button>
+
             {grupe.map((g) => {
               const broj = materijali.filter(
                 (m) => Number(m.group_id) === Number(g.id)
@@ -369,17 +444,12 @@ export default function BaustelleMaterialPage() {
               return (
                 <button
                   key={g.id}
-                  onClick={() => setAktivnaGrupa(g)}
+                  onClick={() => openGroup(g)}
                   style={styles.groupCard}
                 >
+                  <div style={styles.groupIcon}>{getGroupIcon(g.naziv)}</div>
                   <div style={styles.groupName}>{g.naziv}</div>
-                  <div style={styles.groupCount}>
-                    {g.naziv === "Keramika"
-                      ? "Ručni unos"
-                      : g.naziv === "Dodaci"
-                      ? "Ručni unos"
-                      : `${broj} materijala`}
-                  </div>
+                  <div style={styles.groupCount}>{broj} mat.</div>
                 </button>
               );
             })}
@@ -387,36 +457,46 @@ export default function BaustelleMaterialPage() {
         </section>
       )}
 
-      {aktivnaGrupa && (
+      {showKeramika && (
         <section style={styles.box}>
-          <button onClick={() => setAktivnaGrupa(null)} style={styles.backButton}>
+          <button onClick={closeActiveView} style={styles.backButton}>
             ← Nazad na grupe
           </button>
 
-          <h2 style={styles.groupTitle}>{aktivnaGrupa.naziv}</h2>
+          <h2 style={styles.groupTitle}>Keramika</h2>
 
-          {aktivnaGrupa.naziv === "Keramika" && (
-            <div style={styles.manualBox}>
-              <input
-                value={keramikaNaziv}
-                onChange={(e) => setKeramikaNaziv(e.target.value)}
-                placeholder="Unesi format / naziv keramike"
-                style={styles.input}
-              />
+          <div style={styles.manualBox}>
+            <input
+              value={keramikaNaziv}
+              onChange={(e) => setKeramikaNaziv(e.target.value)}
+              placeholder="Format / naziv keramike"
+              style={styles.input}
+            />
 
-              <input
-                value={keramikaKolicina}
-                onChange={(e) => setKeramikaKolicina(e.target.value)}
-                placeholder="Količina paketa"
-                type="number"
-                style={styles.input}
-              />
+            <input
+              value={keramikaKolicina}
+              onChange={(e) => setKeramikaKolicina(e.target.value)}
+              placeholder="Količina paketa"
+              type="number"
+              style={styles.input}
+            />
 
-              <button onClick={dodajKeramiku} style={styles.saveButton}>
-                Dodaj keramiku
-              </button>
-            </div>
-          )}
+            <button onClick={dodajKeramiku} style={styles.saveButton}>
+              Dodaj keramiku
+            </button>
+          </div>
+        </section>
+      )}
+
+      {aktivnaGrupa && (
+        <section style={styles.box}>
+          <button onClick={closeActiveView} style={styles.backButton}>
+            ← Nazad na grupe
+          </button>
+
+          <h2 style={styles.groupTitle}>
+            {getGroupIcon(aktivnaGrupa.naziv)} {aktivnaGrupa.naziv}
+          </h2>
 
           {aktivnaGrupa.naziv === "Dodaci" && (
             <div style={styles.manualBox}>
@@ -432,17 +512,11 @@ export default function BaustelleMaterialPage() {
                 onChange={(e) => setDodatakJedinica(e.target.value)}
                 style={styles.input}
               >
-                <option value="kom">kom</option>
-                <option value="m">m</option>
-                <option value="m²">m²</option>
-                <option value="m³">m³</option>
-                <option value="kg">kg</option>
-                <option value="l">l</option>
-                <option value="vreća">vreća</option>
-                <option value="rola">rola</option>
-                <option value="paket">paket</option>
-                <option value="karton">karton</option>
-                <option value="set">set</option>
+                {UNIT_OPTIONS.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
               </select>
 
               <input
@@ -459,39 +533,52 @@ export default function BaustelleMaterialPage() {
             </div>
           )}
 
-          {aktivnaGrupa.naziv !== "Keramika" && aktivnaGrupa.naziv !== "Dodaci" && (
-            <div>
-              {materijaliAktivneGrupe().map((m) => (
-                <div key={m.id} style={styles.materialRow}>
-                  <div>
-                    <strong>{m.naziv}</strong>
-                    <div style={styles.smallText}>{m.jedinica}</div>
-                  </div>
+          {aktivnaGrupa.naziv !== "Dodaci" && (
+            <>
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Pretraga u ovoj grupi..."
+                style={styles.searchInput}
+              />
 
-                  <div style={styles.addArea}>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={kolicine[m.id] || ""}
-                      onChange={(e) =>
-                        setKolicine((prev) => ({
-                          ...prev,
-                          [m.id]: e.target.value,
-                        }))
-                      }
-                      style={styles.quantityInput}
-                    />
+              {materijaliAktivneGrupe.length === 0 ? (
+                <div style={styles.emptyText}>Nema materijala u ovoj grupi.</div>
+              ) : (
+                <div style={styles.materialList}>
+                  {materijaliAktivneGrupe.map((m) => (
+                    <div key={m.id} style={styles.materialRow}>
+                      <div style={styles.materialTextBox}>
+                        <strong>{m.naziv}</strong>
+                        <div style={styles.smallText}>{m.jedinica}</div>
+                      </div>
 
-                    <button
-                      onClick={() => dodajKataloskiMaterijal(m)}
-                      style={styles.addButton}
-                    >
-                      Dodaj
-                    </button>
-                  </div>
+                      <div style={styles.addArea}>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={kolicine[m.id] || ""}
+                          onChange={(e) =>
+                            setKolicine((prev) => ({
+                              ...prev,
+                              [m.id]: e.target.value,
+                            }))
+                          }
+                          style={styles.quantityInput}
+                        />
+
+                        <button
+                          onClick={() => dodajKataloskiMaterijal(m)}
+                          style={styles.addButton}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </section>
       )}
@@ -507,10 +594,11 @@ export default function BaustelleMaterialPage() {
 
         {baustelleMaterijal.map((m) => (
           <div key={m.id} style={styles.savedCard}>
-            <strong>{nazivUnosa(m)}</strong>
-
-            <div style={styles.savedQuantity}>
-              {m.kolicina} {jedinicaUnosa(m)}
+            <div style={styles.savedTextBox}>
+              <strong>{nazivUnosa(m)}</strong>
+              <div style={styles.savedQuantity}>
+                {m.kolicina} {jedinicaUnosa(m)}
+              </div>
             </div>
 
             <div style={styles.buttonRow}>
@@ -547,177 +635,256 @@ const styles: any = {
     background: "#000",
     minHeight: "100vh",
     color: "white",
-    padding: "30px",
+    padding: "16px",
+    paddingBottom: "40px",
   },
   backLink: {
     color: "#3b82f6",
     textDecoration: "none",
     fontWeight: "bold",
+    fontSize: "14px",
   },
   title: {
-    fontSize: "56px",
+    fontSize: "34px",
     fontWeight: "bold",
-    marginTop: "25px",
-    marginBottom: "30px",
+    marginTop: "18px",
+    marginBottom: "18px",
+    lineHeight: "1.1",
   },
   box: {
     background: "#111",
-    padding: "20px",
-    borderRadius: "20px",
-    marginBottom: "30px",
+    padding: "14px",
+    borderRadius: "16px",
+    marginBottom: "18px",
   },
   freeBox: {
     background: "#111",
     border: "1px solid #16a34a",
-    padding: "20px",
-    borderRadius: "20px",
-    marginBottom: "30px",
+    padding: "14px",
+    borderRadius: "16px",
+    marginBottom: "18px",
   },
   subtitle: {
-    marginBottom: "20px",
+    color: "#60a5fa",
+    fontSize: "17px",
+    marginTop: 0,
+    marginBottom: "12px",
+  },
+  mobileHint: {
+    color: "#aaa",
+    fontSize: "13px",
+    marginBottom: "12px",
+  },
+  freeGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: "10px",
   },
   groupGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
-    gap: "15px",
+    gridTemplateColumns: "repeat(auto-fill, minmax(105px, 1fr))",
+    gap: "9px",
   },
   groupCard: {
     background: "#1f1f1f",
     color: "white",
     border: "1px solid #333",
-    borderRadius: "16px",
-    padding: "22px",
-    textAlign: "left",
+    borderRadius: "14px",
+    padding: "10px 8px",
+    textAlign: "center",
     cursor: "pointer",
+    minHeight: "92px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "5px",
+  },
+  groupCardSpecial: {
+    background: "#172554",
+    color: "white",
+    border: "1px solid #2563eb",
+    borderRadius: "14px",
+    padding: "10px 8px",
+    textAlign: "center",
+    cursor: "pointer",
+    minHeight: "92px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "5px",
+  },
+  groupIcon: {
+    fontSize: "20px",
+    lineHeight: "1",
   },
   groupName: {
-    fontSize: "22px",
+    fontSize: "13px",
     fontWeight: "bold",
-    marginBottom: "8px",
+    lineHeight: "1.15",
   },
   groupCount: {
     color: "#aaa",
+    fontSize: "11px",
   },
   backButton: {
     background: "#222",
     color: "#60a5fa",
     border: "1px solid #333",
-    padding: "12px 18px",
+    padding: "10px 14px",
     borderRadius: "10px",
     cursor: "pointer",
     fontWeight: "bold",
-    marginBottom: "20px",
+    marginBottom: "14px",
+    width: "100%",
   },
   groupTitle: {
     color: "#60a5fa",
-    marginBottom: "20px",
-    fontSize: "32px",
+    marginBottom: "14px",
+    marginTop: 0,
+    fontSize: "25px",
+    lineHeight: "1.2",
   },
   manualBox: {
     background: "#1a1a1a",
-    padding: "18px",
-    borderRadius: "16px",
+    padding: "12px",
+    borderRadius: "14px",
+    display: "grid",
+    gap: "10px",
   },
   input: {
     width: "100%",
-    padding: "14px",
-    borderRadius: "10px",
-    border: "1px solid #333",
     background: "#000",
     color: "white",
+    border: "1px solid #333",
+    borderRadius: "10px",
+    padding: "13px",
+    fontSize: "16px",
+  },
+  searchInput: {
+    width: "100%",
+    background: "#000",
+    color: "white",
+    border: "1px solid #333",
+    borderRadius: "10px",
+    padding: "13px",
     fontSize: "16px",
     marginBottom: "12px",
-  },
-  materialRow: {
-    background: "#222",
-    padding: "15px",
-    borderRadius: "10px",
-    marginBottom: "10px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "20px",
-  },
-  smallText: {
-    color: "#aaa",
-    marginTop: "5px",
-  },
-  addArea: {
-    display: "flex",
-    gap: "10px",
-    alignItems: "center",
-  },
-  quantityInput: {
-    width: "110px",
-    padding: "14px",
-    borderRadius: "8px",
-    border: "1px solid #333",
-    background: "#000",
-    color: "white",
-    fontSize: "18px",
-  },
-  addButton: {
-    background: "#16a34a",
-    color: "white",
-    padding: "14px 18px",
-    border: "none",
-    borderRadius: "10px",
-    cursor: "pointer",
-    fontWeight: "bold",
   },
   saveButton: {
     background: "#16a34a",
     color: "white",
-    padding: "16px 25px",
     border: "none",
     borderRadius: "10px",
+    padding: "13px 16px",
     cursor: "pointer",
     fontWeight: "bold",
+    fontSize: "15px",
+  },
+  materialList: {
+    display: "grid",
+    gap: "9px",
+  },
+  materialRow: {
+    background: "#1f1f1f",
+    borderRadius: "12px",
+    padding: "10px",
+    display: "grid",
+    gridTemplateColumns: "1fr auto",
+    gap: "8px",
+    alignItems: "center",
+  },
+  materialTextBox: {
+    minWidth: 0,
+    overflowWrap: "anywhere",
+    fontSize: "14px",
+  },
+  smallText: {
+    color: "#aaa",
+    marginTop: "4px",
+    fontSize: "12px",
+  },
+  addArea: {
+    display: "flex",
+    gap: "6px",
+    alignItems: "center",
+  },
+  quantityInput: {
+    width: "72px",
+    background: "#000",
+    color: "white",
+    border: "1px solid #333",
+    borderRadius: "8px",
+    padding: "11px 8px",
     fontSize: "16px",
+    textAlign: "center",
+  },
+  addButton: {
+    background: "#2563eb",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    padding: "11px 13px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    fontSize: "18px",
+    minWidth: "44px",
   },
   emptyText: {
-    color: "#999",
+    color: "#aaa",
+    background: "#1a1a1a",
+    padding: "12px",
+    borderRadius: "10px",
   },
   savedCard: {
-    background: "#222",
-    padding: "18px",
+    background: "#1f1f1f",
     borderRadius: "14px",
-    marginTop: "15px",
+    padding: "12px",
+    marginBottom: "10px",
+    display: "grid",
+    gap: "10px",
+  },
+  savedTextBox: {
+    overflowWrap: "anywhere",
   },
   savedQuantity: {
-    marginTop: "10px",
-    color: "#ddd",
+    color: "#60a5fa",
+    marginTop: "6px",
+    fontWeight: "bold",
   },
   buttonRow: {
-    display: "flex",
-    gap: "10px",
-    marginTop: "15px",
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr 1.3fr",
+    gap: "8px",
   },
   plusButton: {
     background: "#16a34a",
     color: "white",
     border: "none",
-    borderRadius: "8px",
-    padding: "12px 18px",
-    fontWeight: "bold",
+    borderRadius: "9px",
+    padding: "11px",
     cursor: "pointer",
+    fontWeight: "bold",
+    fontSize: "18px",
   },
   minusButton: {
-    background: "#f59e0b",
+    background: "#f97316",
     color: "white",
     border: "none",
-    borderRadius: "8px",
-    padding: "12px 18px",
-    fontWeight: "bold",
+    borderRadius: "9px",
+    padding: "11px",
     cursor: "pointer",
+    fontWeight: "bold",
+    fontSize: "18px",
   },
   deleteButton: {
     background: "#dc2626",
     color: "white",
     border: "none",
-    borderRadius: "8px",
-    padding: "12px 18px",
-    fontWeight: "bold",
+    borderRadius: "9px",
+    padding: "11px",
     cursor: "pointer",
+    fontWeight: "bold",
   },
 };
