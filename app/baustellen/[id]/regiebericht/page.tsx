@@ -187,7 +187,7 @@ export default function RegieberichtPage() {
     (workerData || []).forEach((w: any) => {
       const id = Number(w.regiebericht_id);
       totalsByBerichtId[id] =
-        (totalsByBerichtId[id] || 0) + Number(w.stunden || 0);
+        (totalsByBerichtId[id] || 0) + toNumberValue(w.stunden);
     });
 
     setBerichte(
@@ -228,13 +228,26 @@ export default function RegieberichtPage() {
     return Number(total.toFixed(2));
   }
 
+  function toNumberValue(value: any) {
+    if (value === null || value === undefined || value === "") return 0;
+
+    const cleaned = String(value)
+      .replace(",", ".")
+      .replace(/[^0-9.-]/g, "");
+
+    const numberValue = Number(cleaned);
+
+    if (Number.isNaN(numberValue)) return 0;
+    return numberValue;
+  }
+
   const gesamtStunden = workerRows.reduce(
-    (sum, row) => sum + Number(row.stunden || 0),
+    (sum, row) => sum + toNumberValue(row.stunden),
     0
   );
 
   const listeGesamtStunden = berichte.reduce(
-    (sum, b) => sum + Number(b.gesamtstunden || 0),
+    (sum, b) => sum + toNumberValue(b.gesamtstunden),
     0
   );
 
@@ -369,7 +382,7 @@ export default function RegieberichtPage() {
         von: w.von,
         bis: w.bis,
         pause: w.pause ?? 0,
-        stunden: w.stunden,
+        stunden: toNumberValue(w.stunden),
         bemerkung: w.bemerkung,
       }))
     );
@@ -592,7 +605,11 @@ export default function RegieberichtPage() {
 
     const { error } = await supabase.storage
       .from("regiebericht-photos")
-      .upload(filePath, file);
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: file.type || undefined,
+      });
 
     if (error) {
       throw new Error(error.message);
@@ -649,7 +666,7 @@ export default function RegieberichtPage() {
           von: w.von,
           bis: w.bis,
           pause: w.pause ?? 0,
-          stunden: w.stunden,
+          stunden: toNumberValue(w.stunden),
           bemerkung: w.bemerkung,
         }))
       );
@@ -861,7 +878,7 @@ export default function RegieberichtPage() {
                       </div>
 
                       <div style={styles.berichtTotalHours}>
-                        Gesamtstunden: {Number(b.gesamtstunden || 0).toFixed(2)} h
+                        Gesamtstunden: {toNumberValue(b.gesamtstunden).toFixed(2)} h
                       </div>
                     </div>
                   </div>
