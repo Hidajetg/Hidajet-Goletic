@@ -110,7 +110,32 @@ export default function RegieberichtPage() {
       .select("*")
       .order("name", { ascending: true });
 
-    setWorkers((workersRes.data || []).filter((w: any) => w.role !== "admin"));
+    const loadedWorkers = workersRes.data || [];
+
+    const manualWorkers = [
+      { id: "manual-hido", name: "Hido", role: "admin" },
+      { id: "manual-steffi", name: "Steffi", role: "admin" },
+    ];
+
+    const mergedWorkers = [...loadedWorkers];
+
+    manualWorkers.forEach((manualWorker) => {
+      const exists = mergedWorkers.some(
+        (w: any) =>
+          String(w.name || "").toLowerCase() ===
+          String(manualWorker.name).toLowerCase()
+      );
+
+      if (!exists) {
+        mergedWorkers.push(manualWorker);
+      }
+    });
+
+    setWorkers(
+      mergedWorkers.sort((a: any, b: any) =>
+        String(a.name || "").localeCompare(String(b.name || ""))
+      )
+    );
 
     const materialsRes = await supabase
       .from("materials")
@@ -133,7 +158,44 @@ export default function RegieberichtPage() {
       return;
     }
 
-    setBerichte(data || []);
+    const berichtData = data || [];
+    const berichtIds = berichtData.map((b: any) => b.id);
+
+    if (berichtIds.length === 0) {
+      setBerichte([]);
+      return;
+    }
+
+    const { data: workerData, error: workerError } = await supabase
+      .from("regiebericht_workers")
+      .select("regiebericht_id, stunden")
+      .in("regiebericht_id", berichtIds);
+
+    if (workerError) {
+      alert("LOAD REGIEBERICHT WORKERS: " + workerError.message);
+      setBerichte(
+        berichtData.map((b: any) => ({
+          ...b,
+          gesamtstunden: 0,
+        }))
+      );
+      return;
+    }
+
+    const totalsByBerichtId: { [key: number]: number } = {};
+
+    (workerData || []).forEach((w: any) => {
+      const id = Number(w.regiebericht_id);
+      totalsByBerichtId[id] =
+        (totalsByBerichtId[id] || 0) + Number(w.stunden || 0);
+    });
+
+    setBerichte(
+      berichtData.map((b: any) => ({
+        ...b,
+        gesamtstunden: totalsByBerichtId[Number(b.id)] || 0,
+      }))
+    );
   }
 
   async function generateNextBerichtNr() {
@@ -775,16 +837,32 @@ export default function RegieberichtPage() {
             <div style={styles.listBox}>
               {berichte.map((b) => (
                 <div key={b.id} style={styles.berichtCard}>
-                  <div>
+                  <div style={styles.berichtListContent}>
                     <div style={styles.berichtTitle}>
                       Regiebericht Nr. {b.bericht_nr || "-"}
                     </div>
+
                     <div style={styles.berichtInfo}>
                       Datum: {formatDatum(b.datum)} | Ort: {b.ort || "-"}
                     </div>
+
                     <div style={styles.berichtInfo}>
                       Auftraggeber: {b.auftraggeber || "-"} | Bauleiter:{" "}
                       {b.bauleiter || "-"}
+                    </div>
+
+                    <div style={styles.berichtWorkBlock}>
+                      <div style={styles.berichtWorkTitle}>
+                        Ausgeführte Arbeiten
+                      </div>
+
+                      <div style={styles.berichtWorkText}>
+                        {b.ausgefuehrte_arbeiten || "-"}
+                      </div>
+
+                      <div style={styles.berichtTotalHours}>
+                        Gesamtstunden: {Number(b.gesamtstunden || 0).toFixed(2)} h
+                      </div>
                     </div>
                   </div>
 
@@ -1749,6 +1827,30 @@ const styles: any = {
     gap: "15px",
     alignItems: "center",
     flexWrap: "wrap",
+  },
+  berichtListContent: {
+    flex: 1,
+    minWidth: "320px",
+  },
+  berichtWorkBlock: {
+    marginTop: "14px",
+    paddingTop: "12px",
+    borderTop: "1px solid #333",
+  },
+  berichtWorkTitle: {
+    color: "#60a5fa",
+    fontWeight: "bold",
+    marginBottom: "6px",
+    textTransform: "uppercase",
+  },
+  berichtWorkText: {
+    color: "#ddd",
+    marginBottom: "10px",
+    lineHeight: "1.45",
+  },
+  berichtTotalHours: {
+    color: "#fff",
+    fontWeight: "bold",
   },
   berichtTitle: {
     color: "#f97316",
