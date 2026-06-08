@@ -110,31 +110,7 @@ export default function RegieberichtPage() {
       .select("*")
       .order("name", { ascending: true });
 
-    const loadedWorkers = workersRes.data || [];
-    const manualWorkers = [
-      { id: "manual-hido", name: "Hido", role: "admin" },
-      { id: "manual-steffi", name: "Steffi", role: "admin" },
-    ];
-
-    const mergedWorkers = [...loadedWorkers];
-
-    manualWorkers.forEach((manualWorker) => {
-      const exists = mergedWorkers.some(
-        (w: any) =>
-          String(w.name || "").toLowerCase() ===
-          String(manualWorker.name).toLowerCase()
-      );
-
-      if (!exists) {
-        mergedWorkers.push(manualWorker);
-      }
-    });
-
-    setWorkers(
-      mergedWorkers.sort((a: any, b: any) =>
-        String(a.name || "").localeCompare(String(b.name || ""))
-      )
-    );
+    setWorkers((workersRes.data || []).filter((w: any) => w.role !== "admin"));
 
     const materialsRes = await supabase
       .from("materials")
@@ -157,39 +133,7 @@ export default function RegieberichtPage() {
       return;
     }
 
-    const berichtData = data || [];
-    const berichtIds = berichtData.map((b: any) => b.id);
-
-    if (berichtIds.length === 0) {
-      setBerichte([]);
-      return;
-    }
-
-    const { data: workerData, error: workerError } = await supabase
-      .from("regiebericht_workers")
-      .select("regiebericht_id, stunden")
-      .in("regiebericht_id", berichtIds);
-
-    if (workerError) {
-      alert("LOAD REGIEBERICHT WORKERS: " + workerError.message);
-      setBerichte(berichtData);
-      return;
-    }
-
-    const totalsByBerichtId: { [key: number]: number } = {};
-
-    (workerData || []).forEach((w: any) => {
-      const id = Number(w.regiebericht_id);
-      totalsByBerichtId[id] =
-        (totalsByBerichtId[id] || 0) + Number(w.stunden || 0);
-    });
-
-    setBerichte(
-      berichtData.map((b: any) => ({
-        ...b,
-        gesamtstunden: totalsByBerichtId[Number(b.id)] || 0,
-      }))
-    );
+    setBerichte(data || []);
   }
 
   async function generateNextBerichtNr() {
@@ -226,6 +170,33 @@ export default function RegieberichtPage() {
     (sum, row) => sum + Number(row.stunden || 0),
     0
   );
+
+  const listeGesamtStunden = berichte.reduce(
+    (sum, b) => sum + Number(b.gesamtstunden || 0),
+    0
+  );
+
+  function isPdfUrl(url: string) {
+    return String(url || "").toLowerCase().split("?")[0].endsWith(".pdf");
+  }
+
+  function getFileNameFromUrl(url: string) {
+    try {
+      const cleanUrl = String(url || "").split("?")[0];
+      const lastPart = cleanUrl.split("/").pop() || "Datei";
+      return decodeURIComponent(lastPart);
+    } catch {
+      return "Datei";
+    }
+  }
+
+  function getImagePhotos() {
+    return photos.filter((p) => p.kind !== "pdf");
+  }
+
+  function getPdfAttachments() {
+    return photos.filter((p) => p.kind === "pdf");
+  }
 
   function formatDatum(value: string) {
     if (!value) return "";
@@ -351,12 +322,19 @@ export default function RegieberichtPage() {
     );
 
     setPhotos(
-      (photosRes.data || []).map((p: any) => ({
-        file: null,
-        preview: p.photo_url,
-        photo_url: p.photo_url,
-        note: p.note || "",
-      }))
+      (photosRes.data || []).map((p: any) => {
+        const url = p.photo_url || "";
+        const isPdf = isPdfUrl(url);
+
+        return {
+          file: null,
+          preview: url,
+          photo_url: url,
+          note: p.note || "",
+          kind: isPdf ? "pdf" : "image",
+          file_name: getFileNameFromUrl(url),
+        };
+      })
     );
 
     setShowList(false);
@@ -512,20 +490,29 @@ export default function RegieberichtPage() {
   function addPhotos(files: FileList | null) {
     if (!files || files.length === 0) return;
 
-    const allowed = Array.from(files).slice(0, 2 - photos.length);
+    const newFiles = Array.from(files)
+      .filter((file) =>
+        file.type.startsWith("image/") || file.type === "application/pdf"
+      )
+      .map((file) => {
+        const isPdf = file.type === "application/pdf";
 
-    if (photos.length + files.length > 2) {
-      alert("Für den A4-Export sind maximal 2 Fotos vorgesehen.");
+        return {
+          file,
+          preview: URL.createObjectURL(file),
+          photo_url: null,
+          note: photoNote,
+          kind: isPdf ? "pdf" : "image",
+          file_name: file.name,
+        };
+      });
+
+    if (newFiles.length === 0) {
+      alert("Bitte nur Bilder oder PDF-Dateien auswählen.");
+      return;
     }
 
-    const newPhotos = allowed.map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-      photo_url: null,
-      note: photoNote,
-    }));
-
-    setPhotos((prev) => [...prev, ...newPhotos]);
+    setPhotos((prev) => [...prev, ...newFiles]);
     setPhotoNote("");
   }
 
@@ -772,7 +759,13 @@ export default function RegieberichtPage() {
 
       {showList && (
         <section className="no-print" style={styles.inputPanel}>
-          <h1 style={styles.inputTitle}>Liste Regieberichte</h1>
+          <div style={styles.listTitleRow}>
+            <h1 style={styles.inputTitle}>Liste Regieberichte</h1>
+
+            <div style={styles.listTotalBadge}>
+              Gesamt: {listeGesamtStunden.toFixed(2)} h
+            </div>
+          </div>
 
           {berichte.length === 0 ? (
             <div style={styles.emptyListBox}>
@@ -782,32 +775,16 @@ export default function RegieberichtPage() {
             <div style={styles.listBox}>
               {berichte.map((b) => (
                 <div key={b.id} style={styles.berichtCard}>
-                  <div style={styles.berichtListContent}>
+                  <div>
                     <div style={styles.berichtTitle}>
                       Regiebericht Nr. {b.bericht_nr || "-"}
                     </div>
-
                     <div style={styles.berichtInfo}>
                       Datum: {formatDatum(b.datum)} | Ort: {b.ort || "-"}
                     </div>
-
                     <div style={styles.berichtInfo}>
                       Auftraggeber: {b.auftraggeber || "-"} | Bauleiter:{" "}
                       {b.bauleiter || "-"}
-                    </div>
-
-                    <div style={styles.berichtWorkBlock}>
-                      <div style={styles.berichtWorkTitle}>
-                        Ausgeführte Arbeiten
-                      </div>
-
-                      <div style={styles.berichtWorkText}>
-                        {b.ausgefuehrte_arbeiten || "-"}
-                      </div>
-
-                      <div style={styles.berichtTotalHours}>
-                        Gesamtstunden: {Number(b.gesamtstunden || 0).toFixed(2)} h
-                      </div>
                     </div>
                   </div>
 
@@ -1069,12 +1046,45 @@ export default function RegieberichtPage() {
             <input
               type="file"
               multiple
-              accept="image/*"
+              accept="image/*,application/pdf"
               onChange={(e) => addPhotos(e.target.files)}
               style={styles.fileInput}
             />
 
-            <p style={styles.hint}>Maximal 2 Fotos für den A4-Export.</p>
+            <p style={styles.hint}>Die ersten 2 Bilder erscheinen am Hauptblatt. Weitere Bilder und PDFs werden als Beilage geführt.</p>
+
+            {photos.length > 0 && (
+              <div style={styles.attachmentPreviewGrid}>
+                {photos.map((p, index) => (
+                  <div key={index} style={styles.attachmentPreviewCard}>
+                    <div style={styles.attachmentPreviewTitle}>
+                      {p.kind === "pdf" ? "PDF" : `Bild ${index + 1}`}
+                    </div>
+
+                    {p.kind === "pdf" ? (
+                      <div style={styles.pdfPreviewBox}>
+                        PDF: {p.file_name || "Beilage"}
+                      </div>
+                    ) : (
+                      <img
+                        src={p.preview}
+                        alt={`Beilage ${index + 1}`}
+                        style={styles.attachmentPreviewImage}
+                      />
+                    )}
+
+                    {p.note && <div style={styles.photoCaption}>{p.note}</div>}
+
+                    <button
+                      onClick={() => removePhoto(index)}
+                      style={styles.deleteButton}
+                    >
+                      Entfernen
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         </>
       )}
@@ -1350,13 +1360,13 @@ export default function RegieberichtPage() {
               <h2 style={styles.printBlockTitle}>Fotodokumentation</h2>
 
               <div style={styles.printPhotoGrid}>
-                {photos.length === 0 ? (
+                {getImagePhotos().length === 0 ? (
                   <>
                     <div style={styles.emptyPhoto}>Foto 1</div>
                     <div style={styles.emptyPhoto}>Foto 2</div>
                   </>
                 ) : (
-                  photos.slice(0, 2).map((p, index) => (
+                  getImagePhotos().slice(0, 2).map((p, index) => (
                     <div key={index} style={styles.printPhotoCard}>
                       <img
                         src={p.preview}
@@ -1365,14 +1375,6 @@ export default function RegieberichtPage() {
                       />
 
                       {p.note && <div style={styles.photoCaption}>{p.note}</div>}
-
-                      <button
-                        className="no-print"
-                        onClick={() => removePhoto(index)}
-                        style={styles.photoRemoveButton}
-                      >
-                        Foto entfernen
-                      </button>
                     </div>
                   ))
                 )}
@@ -1394,6 +1396,68 @@ export default function RegieberichtPage() {
         </div>
         </div>
       </section>
+
+      {getImagePhotos().slice(2).map((p, index) => (
+        <section
+          key={`image-beilage-${index}`}
+          className="print-sheet beilage-sheet"
+          style={styles.beilageSheet}
+        >
+          <div style={styles.beilageHeader}>
+            <div>
+              <strong>REGIEBERICHT Nr. {berichtNr || "-"}</strong>
+              <br />
+              Fotobeilage {index + 1}
+            </div>
+            <div>{formatDatum(datum)}</div>
+          </div>
+
+          <div style={styles.beilageTitle}>Fotodokumentation / Beilage</div>
+
+          <img
+            src={p.preview}
+            alt={`Fotobeilage ${index + 1}`}
+            style={styles.beilageImage}
+          />
+
+          {p.note && <div style={styles.beilageNote}>{p.note}</div>}
+        </section>
+      ))}
+
+      {getPdfAttachments().length > 0 && (
+        <section className="print-sheet beilage-sheet" style={styles.beilageSheet}>
+          <div style={styles.beilageHeader}>
+            <div>
+              <strong>REGIEBERICHT Nr. {berichtNr || "-"}</strong>
+              <br />
+              PDF-Beilagen
+            </div>
+            <div>{formatDatum(datum)}</div>
+          </div>
+
+          <div style={styles.beilageTitle}>PDF-Beilagen / Rechnungen / Lieferscheine</div>
+
+          <div style={styles.pdfList}>
+            {getPdfAttachments().map((p, index) => (
+              <div key={index} style={styles.pdfListItem}>
+                <strong>PDF {index + 1}:</strong> {p.file_name || "Beilage"}
+                {p.note ? <div style={styles.pdfNote}>{p.note}</div> : null}
+                {p.preview ? (
+                  <a
+                    className="no-print"
+                    href={p.preview}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={styles.pdfLink}
+                  >
+                    PDF öffnen
+                  </a>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="no-print" style={styles.actionRow}>
         <button onClick={saveBericht} style={styles.saveButton}>
@@ -1445,6 +1509,11 @@ export default function RegieberichtPage() {
             page-break-after: avoid !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+          }
+
+          .beilage-sheet {
+            page-break-before: always !important;
+            page-break-after: always !important;
           }
         }
       `}</style>
@@ -1680,30 +1749,6 @@ const styles: any = {
     gap: "15px",
     alignItems: "center",
     flexWrap: "wrap",
-  },
-  berichtListContent: {
-    flex: 1,
-    minWidth: "320px",
-  },
-  berichtWorkBlock: {
-    marginTop: "14px",
-    paddingTop: "12px",
-    borderTop: "1px solid #333",
-  },
-  berichtWorkTitle: {
-    color: "#60a5fa",
-    fontWeight: "bold",
-    marginBottom: "6px",
-    textTransform: "uppercase",
-  },
-  berichtWorkText: {
-    color: "#ddd",
-    marginBottom: "10px",
-    lineHeight: "1.45",
-  },
-  berichtTotalHours: {
-    color: "#fff",
-    fontWeight: "bold",
   },
   berichtTitle: {
     color: "#f97316",
@@ -1986,5 +2031,120 @@ const styles: any = {
     borderTop: "1px solid #111",
     marginBottom: "6px",
     paddingTop: "6px",
+  },
+  listTitleRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "16px",
+    flexWrap: "wrap",
+  },
+  listTotalBadge: {
+    background: "#14532d",
+    color: "white",
+    border: "1px solid #22c55e",
+    borderRadius: "12px",
+    padding: "12px 18px",
+    fontSize: "20px",
+    fontWeight: "bold",
+  },
+  attachmentPreviewGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "12px",
+    marginTop: "16px",
+  },
+  attachmentPreviewCard: {
+    background: "#1a1a1a",
+    border: "1px solid #333",
+    borderRadius: "12px",
+    padding: "10px",
+  },
+  attachmentPreviewTitle: {
+    color: "#60a5fa",
+    fontWeight: "bold",
+    marginBottom: "8px",
+  },
+  attachmentPreviewImage: {
+    width: "100%",
+    height: "120px",
+    objectFit: "cover",
+    borderRadius: "8px",
+    display: "block",
+    marginBottom: "8px",
+  },
+  pdfPreviewBox: {
+    minHeight: "80px",
+    background: "#222",
+    border: "1px dashed #555",
+    borderRadius: "8px",
+    padding: "12px",
+    color: "#ddd",
+    marginBottom: "8px",
+    display: "flex",
+    alignItems: "center",
+  },
+  beilageSheet: {
+    background: "#fff",
+    color: "#111",
+    maxWidth: "1100px",
+    minHeight: "760px",
+    margin: "30px auto",
+    padding: "22px",
+    borderRadius: "8px",
+    boxShadow: "0 10px 35px rgba(0,0,0,0.35)",
+    fontFamily: "Arial, sans-serif",
+    WebkitPrintColorAdjust: "exact",
+    printColorAdjust: "exact",
+  },
+  beilageHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    borderBottom: "2px solid #1e3a8a",
+    paddingBottom: "10px",
+    marginBottom: "18px",
+    color: "#1e3a8a",
+  },
+  beilageTitle: {
+    color: "#f97316",
+    fontSize: "24px",
+    fontWeight: "bold",
+    marginBottom: "18px",
+    textTransform: "uppercase",
+  },
+  beilageImage: {
+    width: "100%",
+    maxHeight: "620px",
+    objectFit: "contain",
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    display: "block",
+  },
+  beilageNote: {
+    marginTop: "12px",
+    fontSize: "14px",
+    color: "#333",
+  },
+  pdfList: {
+    display: "grid",
+    gap: "12px",
+  },
+  pdfListItem: {
+    border: "1px solid #d8dee9",
+    borderRadius: "8px",
+    padding: "14px",
+    background: "#f8fafc",
+    fontSize: "14px",
+  },
+  pdfNote: {
+    marginTop: "6px",
+    color: "#555",
+  },
+  pdfLink: {
+    display: "inline-block",
+    marginTop: "8px",
+    color: "#2563eb",
+    fontWeight: "bold",
   },
 };
