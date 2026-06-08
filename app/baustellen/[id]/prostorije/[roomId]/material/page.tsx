@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { supabase } from "../../../../../lib/supabase";
 
 const DEFAULT_GROUP_ORDER = [
@@ -47,15 +47,30 @@ function getGroupIcon(name: string) {
   return "📦";
 }
 
-export default function BaustelleMaterialPage() {
+function toNumber(value: any) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export default function RoomMaterialPage() {
   const params = useParams();
   const baustelleId = String(params.id);
+  const roomId = String(params.roomId);
+
+  const [loading, setLoading] = useState(true);
+  const [baustelle, setBaustelle] = useState<any>(null);
+  const [room, setRoom] = useState<any>(null);
 
   const [grupe, setGrupe] = useState<any[]>([]);
   const [materijali, setMaterijali] = useState<any[]>([]);
-  const [baustelleMaterijal, setBaustelleMaterijal] = useState<any[]>([]);
+  const [dodaniMaterijali, setDodaniMaterijali] = useState<any[]>([]);
+
   const [aktivnaGrupa, setAktivnaGrupa] = useState<any | null>(null);
   const [showKeramika, setShowKeramika] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [entryTable, setEntryTable] = useState("room_material");
+  const [entryMode, setEntryMode] = useState<"room" | "baustelle_room" | "baustelle_only">("room");
 
   const [kolicine, setKolicine] = useState<{ [key: number]: string }>({});
 
@@ -70,72 +85,151 @@ export default function BaustelleMaterialPage() {
   const [slobodnaJedinica, setSlobodnaJedinica] = useState("kom");
   const [slobodnaKolicina, setSlobodnaKolicina] = useState("");
 
-  const [searchTerm, setSearchTerm] = useState("");
-
   useEffect(() => {
     loadData();
   }, []);
 
   function sortGroups(data: any[]) {
-    return [...data].sort((a, b) => {
-      const orderA = Number(a.sort_order || 9999);
-      const orderB = Number(b.sort_order || 9999);
+    return [...data]
+      .filter((g) => String(g.naziv || "").toLowerCase() !== "keramika")
+      .sort((a, b) => {
+        const orderA = Number(a.sort_order || 9999);
+        const orderB = Number(b.sort_order || 9999);
 
-      if (orderA !== orderB) return orderA - orderB;
+        if (orderA !== orderB) return orderA - orderB;
 
-      const indexA = DEFAULT_GROUP_ORDER.indexOf(a.naziv);
-      const indexB = DEFAULT_GROUP_ORDER.indexOf(b.naziv);
+        const indexA = DEFAULT_GROUP_ORDER.indexOf(a.naziv);
+        const indexB = DEFAULT_GROUP_ORDER.indexOf(b.naziv);
 
-      if (indexA === -1 && indexB === -1) {
-        return String(a.naziv || "").localeCompare(String(b.naziv || ""));
-      }
+        if (indexA === -1 && indexB === -1) {
+          return String(a.naziv || "").localeCompare(String(b.naziv || ""));
+        }
 
-      if (indexA === -1) return 1;
-      if (indexB === -1) return -1;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
 
-      return indexA - indexB;
-    });
+        return indexA - indexB;
+      });
   }
 
-  async function loadData() {
-    const grupeRes = await supabase
-      .from("material_groups")
+  async function loadDodaniMaterijali(materijaliData: any[]) {
+    // Prvo pokušava staru/pravu tabelu za prostoriju: room_material.
+    let res = await supabase
+      .from("room_material")
       .select("*")
-      .order("sort_order", { ascending: true });
+      .eq("baustelle_id", Number(baustelleId))
+      .eq("room_id", Number(roomId))
+      .order("id", { ascending: false });
 
-    const materijaliRes = await supabase
-      .from("materials")
+    if (!res.error) {
+      setEntryTable("room_material");
+      setEntryMode("room");
+      setDodaniMaterijali(res.data || []);
+      return;
+    }
+
+    // Ako nema room_material tabele, pokušava baustelle_material sa room_id kolonom.
+    res = await supabase
+      .from("baustelle_material")
       .select("*")
-      .order("naziv", { ascending: true });
+      .eq("baustelle_id", Number(baustelleId))
+      .eq("room_id", Number(roomId))
+      .order("id", { ascending: false });
 
-    const baustelleMaterijalRes = await supabase
+    if (!res.error) {
+      setEntryTable("baustelle_material");
+      setEntryMode("baustelle_room");
+      setDodaniMaterijali(res.data || []);
+      return;
+    }
+
+    // Zadnji fallback: stara tabela bez room_id. Ovo će prikazati sve materijale za gradilište.
+    const fallback = await supabase
       .from("baustelle_material")
       .select("*")
       .eq("baustelle_id", Number(baustelleId))
       .order("id", { ascending: false });
 
+    if (fallback.error) {
+      alert("LOAD DODANI MATERIJALI: " + fallback.error.message);
+      setDodaniMaterijali([]);
+      return;
+    }
+
+    setEntryTable("baustelle_material");
+    setEntryMode("baustelle_only");
+    setDodaniMaterijali(fallback.data || []);
+  }
+
+  async function loadData() {
+    setLoading(true);
+
+    const [baustelleRes, roomRes, grupeRes, materijaliRes] = await Promise.all([
+      supabase
+        .from("baustellen")
+        .select("*")
+        .eq("id", Number(baustelleId))
+        .maybeSingle(),
+      supabase
+        .from("prostorije")
+        .select("*")
+        .eq("id", Number(roomId))
+        .maybeSingle(),
+      supabase
+        .from("material_groups")
+        .select("*")
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("materials")
+        .select("*")
+        .order("naziv", { ascending: true }),
+    ]);
+
+    if (baustelleRes.error) {
+      alert("LOAD BAUSTELLE: " + baustelleRes.error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (roomRes.error) {
+      alert("LOAD ROOM: " + roomRes.error.message);
+      setLoading(false);
+      return;
+    }
+
     if (grupeRes.error) {
       alert("LOAD GRUPE: " + grupeRes.error.message);
+      setLoading(false);
       return;
     }
 
     if (materijaliRes.error) {
       alert("LOAD MATERIALS: " + materijaliRes.error.message);
+      setLoading(false);
       return;
     }
 
-    if (baustelleMaterijalRes.error) {
-      alert("LOAD BAUSTELLE MATERIAL: " + baustelleMaterijalRes.error.message);
-      return;
-    }
+    const materialsData = materijaliRes.data || [];
 
+    setBaustelle(baustelleRes.data);
+    setRoom(roomRes.data);
     setGrupe(sortGroups(grupeRes.data || []));
-    setMaterijali(materijaliRes.data || []);
-    setBaustelleMaterijal(baustelleMaterijalRes.data || []);
+    setMaterijali(materialsData);
+
+    await loadDodaniMaterijali(materialsData);
+    setLoading(false);
   }
 
   function getMaterial(materialId: number) {
     return materijali.find((m) => Number(m.id) === Number(materialId));
+  }
+
+  function getMaterialUnit(material: any) {
+    return material?.jedinica || material?.unit || material?.einheit || "";
+  }
+
+  function getMaterialGroupId(material: any) {
+    return Number(material?.group_id ?? material?.gruppe_id ?? material?.material_group_id ?? 0);
   }
 
   const materijaliAktivneGrupe = useMemo(() => {
@@ -144,12 +238,75 @@ export default function BaustelleMaterialPage() {
     const term = searchTerm.trim().toLowerCase();
 
     return materijali
-      .filter((m) => Number(m.group_id) === Number(aktivnaGrupa.id))
+      .filter((m) => getMaterialGroupId(m) === Number(aktivnaGrupa.id))
       .filter((m) => {
         if (!term) return true;
         return String(m.naziv || "").toLowerCase().includes(term);
       });
   }, [aktivnaGrupa, materijali, searchTerm]);
+
+  function baseEntryPayload() {
+    const base: any = {
+      baustelle_id: Number(baustelleId),
+    };
+
+    if (entryMode === "room" || entryMode === "baustelle_room") {
+      base.room_id = Number(roomId);
+    }
+
+    return base;
+  }
+
+  async function insertEntry(payload: any) {
+    const finalPayload = {
+      ...baseEntryPayload(),
+      ...payload,
+    };
+
+    let { error } = await supabase.from(entryTable).insert([finalPayload]);
+
+    // Ako tabela ne podržava room_id, pokušaj bez room_id.
+    if (error && String(error.message || "").toLowerCase().includes("room_id")) {
+      const withoutRoom = { ...finalPayload };
+      delete withoutRoom.room_id;
+      const retry = await supabase.from(entryTable).insert([withoutRoom]);
+      error = retry.error;
+    }
+
+    return error;
+  }
+
+  async function findExistingEntry(materialId: number) {
+    let query = supabase
+      .from(entryTable)
+      .select("*")
+      .eq("baustelle_id", Number(baustelleId))
+      .eq("material_id", Number(materialId));
+
+    if (entryMode === "room" || entryMode === "baustelle_room") {
+      query = query.eq("room_id", Number(roomId));
+    }
+
+    let { data, error } = await query.maybeSingle();
+
+    if (error && String(error.message || "").toLowerCase().includes("room_id")) {
+      const retry = await supabase
+        .from(entryTable)
+        .select("*")
+        .eq("baustelle_id", Number(baustelleId))
+        .eq("material_id", Number(materialId))
+        .maybeSingle();
+
+      data = retry.data;
+      error = retry.error;
+    }
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  }
 
   async function dodajKataloskiMaterijal(material: any) {
     const kolicina = kolicine[material.id];
@@ -159,52 +316,43 @@ export default function BaustelleMaterialPage() {
       return;
     }
 
-    const { data: existing, error: existingError } = await supabase
-      .from("baustelle_material")
-      .select("*")
-      .eq("baustelle_id", Number(baustelleId))
-      .eq("material_id", Number(material.id))
-      .maybeSingle();
+    try {
+      const existing = await findExistingEntry(Number(material.id));
 
-    if (existingError) {
-      alert("CHECK EXISTING: " + existingError.message);
-      return;
-    }
+      if (existing) {
+        const { error } = await supabase
+          .from(entryTable)
+          .update({
+            kolicina: toNumber(existing.kolicina) + Number(kolicina),
+          })
+          .eq("id", existing.id);
 
-    if (existing) {
-      const { error } = await supabase
-        .from("baustelle_material")
-        .update({
-          kolicina: Number(existing.kolicina) + Number(kolicina),
-        })
-        .eq("id", existing.id);
-
-      if (error) {
-        alert("UPDATE: " + error.message);
-        return;
-      }
-    } else {
-      const { error } = await supabase.from("baustelle_material").insert([
-        {
-          baustelle_id: Number(baustelleId),
+        if (error) {
+          alert("UPDATE: " + error.message);
+          return;
+        }
+      } else {
+        const error = await insertEntry({
           material_id: Number(material.id),
           materijal: material.naziv,
           kolicina: Number(kolicina),
-        },
-      ]);
+        });
 
-      if (error) {
-        alert("INSERT: " + error.message);
-        return;
+        if (error) {
+          alert("INSERT: " + error.message);
+          return;
+        }
       }
+
+      setKolicine((prev) => ({
+        ...prev,
+        [material.id]: "",
+      }));
+
+      await loadData();
+    } catch (err: any) {
+      alert("CHECK EXISTING: " + err.message);
     }
-
-    setKolicine((prev) => ({
-      ...prev,
-      [material.id]: "",
-    }));
-
-    await loadData();
   }
 
   async function dodajKeramiku() {
@@ -215,16 +363,13 @@ export default function BaustelleMaterialPage() {
 
     const naziv = `Keramika - ${keramikaNaziv.trim()}`;
 
-    const { error } = await supabase.from("baustelle_material").insert([
-      {
-        baustelle_id: Number(baustelleId),
-        material_id: null,
-        materijal: naziv,
-        kolicina: Number(keramikaKolicina),
-        custom_naziv: naziv,
-        custom_jedinica: "paket",
-      },
-    ]);
+    const error = await insertEntry({
+      material_id: null,
+      materijal: naziv,
+      kolicina: Number(keramikaKolicina),
+      custom_naziv: naziv,
+      custom_jedinica: "paket",
+    });
 
     if (error) {
       alert("INSERT KERAMIKA: " + error.message);
@@ -237,26 +382,18 @@ export default function BaustelleMaterialPage() {
   }
 
   async function dodajDodatak() {
-    if (
-      !dodatakNaziv ||
-      !dodatakJedinica ||
-      !dodatakKolicina ||
-      Number(dodatakKolicina) <= 0
-    ) {
+    if (!dodatakNaziv || !dodatakJedinica || !dodatakKolicina || Number(dodatakKolicina) <= 0) {
       alert("Unesi naziv, jedinicu i količinu.");
       return;
     }
 
-    const { error } = await supabase.from("baustelle_material").insert([
-      {
-        baustelle_id: Number(baustelleId),
-        material_id: null,
-        materijal: dodatakNaziv.trim(),
-        kolicina: Number(dodatakKolicina),
-        custom_naziv: dodatakNaziv.trim(),
-        custom_jedinica: dodatakJedinica,
-      },
-    ]);
+    const error = await insertEntry({
+      material_id: null,
+      materijal: dodatakNaziv.trim(),
+      kolicina: Number(dodatakKolicina),
+      custom_naziv: dodatakNaziv.trim(),
+      custom_jedinica: dodatakJedinica,
+    });
 
     if (error) {
       alert("INSERT DODATAK: " + error.message);
@@ -270,26 +407,18 @@ export default function BaustelleMaterialPage() {
   }
 
   async function dodajSlobodniMaterijal() {
-    if (
-      !slobodniNaziv ||
-      !slobodnaJedinica ||
-      !slobodnaKolicina ||
-      Number(slobodnaKolicina) <= 0
-    ) {
+    if (!slobodniNaziv || !slobodnaJedinica || !slobodnaKolicina || Number(slobodnaKolicina) <= 0) {
       alert("Unesi naziv materijala, jedinicu i količinu.");
       return;
     }
 
-    const { error } = await supabase.from("baustelle_material").insert([
-      {
-        baustelle_id: Number(baustelleId),
-        material_id: null,
-        materijal: slobodniNaziv.trim(),
-        kolicina: Number(slobodnaKolicina),
-        custom_naziv: slobodniNaziv.trim(),
-        custom_jedinica: slobodnaJedinica,
-      },
-    ]);
+    const error = await insertEntry({
+      material_id: null,
+      materijal: slobodniNaziv.trim(),
+      kolicina: Number(slobodnaKolicina),
+      custom_naziv: slobodniNaziv.trim(),
+      custom_jedinica: slobodnaJedinica,
+    });
 
     if (error) {
       alert("INSERT SLOBODNI MATERIJAL: " + error.message);
@@ -299,20 +428,19 @@ export default function BaustelleMaterialPage() {
     setSlobodniNaziv("");
     setSlobodnaJedinica("kom");
     setSlobodnaKolicina("");
-
     await loadData();
   }
 
   async function promijeniKolicinu(id: number, trenutna: number, promjena: number) {
-    const novaKolicina = Number(trenutna) + promjena;
+    const novaKolicina = toNumber(trenutna) + promjena;
 
     if (novaKolicina <= 0) {
-      await obrisiMaterijal(id);
+      await obrisiMaterijal(id, true);
       return;
     }
 
     const { error } = await supabase
-      .from("baustelle_material")
+      .from(entryTable)
       .update({ kolicina: novaKolicina })
       .eq("id", id);
 
@@ -324,12 +452,37 @@ export default function BaustelleMaterialPage() {
     await loadData();
   }
 
-  async function obrisiMaterijal(id: number) {
-    const potvrda = confirm("Da li želiš obrisati ovaj materijal?");
-    if (!potvrda) return;
+  async function setKolicinaDirektno(id: number, value: string) {
+    const novaKolicina = Number(value);
+
+    if (!Number.isFinite(novaKolicina) || novaKolicina < 0) return;
+
+    if (novaKolicina === 0) {
+      await obrisiMaterijal(id, true);
+      return;
+    }
 
     const { error } = await supabase
-      .from("baustelle_material")
+      .from(entryTable)
+      .update({ kolicina: novaKolicina })
+      .eq("id", id);
+
+    if (error) {
+      alert("UPDATE: " + error.message);
+      return;
+    }
+
+    await loadData();
+  }
+
+  async function obrisiMaterijal(id: number, skipConfirm = false) {
+    if (!skipConfirm) {
+      const potvrda = confirm("Da li želiš obrisati ovaj materijal?");
+      if (!potvrda) return;
+    }
+
+    const { error } = await supabase
+      .from(entryTable)
       .delete()
       .eq("id", id);
 
@@ -353,7 +506,7 @@ export default function BaustelleMaterialPage() {
     if (unos.custom_jedinica) return unos.custom_jedinica;
 
     const material = getMaterial(unos.material_id);
-    return material ? material.jedinica : "";
+    return material ? getMaterialUnit(material) : "";
   }
 
   function openGroup(group: any) {
@@ -382,7 +535,13 @@ export default function BaustelleMaterialPage() {
         ← Nazad na Baustelle
       </Link>
 
-      <h1 style={styles.title}>Materijal gradilišta</h1>
+      <h1 style={styles.title}>Materijal u prostoriji</h1>
+
+      <div style={styles.roomInfo}>
+        <strong>{baustelle?.naziv || "Baustelle"}</strong>
+        <span> / </span>
+        <strong>{room?.naziv || "Prostorija"}</strong>
+      </div>
 
       <section style={styles.freeBox}>
         <h2 style={styles.subtitle}>+ Slobodni materijal</h2>
@@ -438,7 +597,7 @@ export default function BaustelleMaterialPage() {
 
             {grupe.map((g) => {
               const broj = materijali.filter(
-                (m) => Number(m.group_id) === Number(g.id)
+                (m) => getMaterialGroupId(m) === Number(g.id)
               ).length;
 
               return (
@@ -533,98 +692,101 @@ export default function BaustelleMaterialPage() {
             </div>
           )}
 
-          {aktivnaGrupa.naziv !== "Dodaci" && (
-            <>
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Pretraga u ovoj grupi..."
-                style={styles.searchInput}
-              />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Pretraga materijala u grupi..."
+            style={styles.searchInput}
+          />
 
-              {materijaliAktivneGrupe.length === 0 ? (
-                <div style={styles.emptyText}>Nema materijala u ovoj grupi.</div>
-              ) : (
-                <div style={styles.materialList}>
-                  {materijaliAktivneGrupe.map((m) => (
-                    <div key={m.id} style={styles.materialRow}>
-                      <div style={styles.materialTextBox}>
-                        <strong>{m.naziv}</strong>
-                        <div style={styles.smallText}>{m.jedinica}</div>
-                      </div>
+          {materijaliAktivneGrupe.length === 0 ? (
+            <div style={styles.emptyBox}>Nema materijala u ovoj grupi.</div>
+          ) : (
+            <div style={styles.materialList}>
+              {materijaliAktivneGrupe.map((m) => (
+                <div key={m.id} style={styles.materialRow}>
+                  <div style={styles.materialInfo}>
+                    <strong>{m.naziv}</strong>
+                    <span>{getMaterialUnit(m)}</span>
+                  </div>
 
-                      <div style={styles.addArea}>
-                        <input
-                          type="number"
-                          placeholder="0"
-                          value={kolicine[m.id] || ""}
-                          onChange={(e) =>
-                            setKolicine((prev) => ({
-                              ...prev,
-                              [m.id]: e.target.value,
-                            }))
-                          }
-                          style={styles.quantityInput}
-                        />
+                  <input
+                    type="number"
+                    value={kolicine[m.id] || ""}
+                    onChange={(e) =>
+                      setKolicine((prev) => ({
+                        ...prev,
+                        [m.id]: e.target.value,
+                      }))
+                    }
+                    placeholder="0"
+                    style={styles.qtyInput}
+                  />
 
-                        <button
-                          onClick={() => dodajKataloskiMaterijal(m)}
-                          style={styles.addButton}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                  <button
+                    onClick={() => dodajKataloskiMaterijal(m)}
+                    style={styles.addButton}
+                  >
+                    +
+                  </button>
                 </div>
-              )}
-            </>
+              ))}
+            </div>
           )}
         </section>
       )}
 
       <section style={styles.box}>
         <h2 style={styles.subtitle}>
-          Lista materijala za gradilište ({baustelleMaterijal.length})
+          Dodani materijali u prostoriji ({dodaniMaterijali.length})
         </h2>
 
-        {baustelleMaterijal.length === 0 && (
-          <p style={styles.emptyText}>Još nema unesenog materijala.</p>
-        )}
+        {loading ? (
+          <div style={styles.emptyBox}>Učitavanje...</div>
+        ) : dodaniMaterijali.length === 0 ? (
+          <div style={styles.emptyBox}>Još nema unesenog materijala.</div>
+        ) : (
+          <div style={styles.addedList}>
+            {dodaniMaterijali.map((unos) => (
+              <div key={unos.id} style={styles.addedRow}>
+                <div style={styles.addedInfo}>
+                  <strong>{nazivUnosa(unos)}</strong>
+                  <span>{jedinicaUnosa(unos)}</span>
+                </div>
 
-        {baustelleMaterijal.map((m) => (
-          <div key={m.id} style={styles.savedCard}>
-            <div style={styles.savedTextBox}>
-              <strong>{nazivUnosa(m)}</strong>
-              <div style={styles.savedQuantity}>
-                {m.kolicina} {jedinicaUnosa(m)}
+                <div style={styles.addedActions}>
+                  <button
+                    onClick={() => promijeniKolicinu(unos.id, unos.kolicina, -1)}
+                    style={styles.minusButton}
+                  >
+                    -
+                  </button>
+
+                  <input
+                    type="number"
+                    value={String(unos.kolicina ?? 0)}
+                    onChange={(e) => setKolicinaDirektno(unos.id, e.target.value)}
+                    style={styles.addedQtyInput}
+                  />
+
+                  <button
+                    onClick={() => promijeniKolicinu(unos.id, unos.kolicina, 1)}
+                    style={styles.plusButton}
+                  >
+                    +
+                  </button>
+
+                  <button
+                    onClick={() => obrisiMaterijal(unos.id)}
+                    style={styles.deleteButton}
+                  >
+                    Obriši
+                  </button>
+                </div>
               </div>
-            </div>
-
-            <div style={styles.buttonRow}>
-              <button
-                onClick={() => promijeniKolicinu(m.id, m.kolicina, 1)}
-                style={styles.plusButton}
-              >
-                +
-              </button>
-
-              <button
-                onClick={() => promijeniKolicinu(m.id, m.kolicina, -1)}
-                style={styles.minusButton}
-              >
-                -
-              </button>
-
-              <button
-                onClick={() => obrisiMaterijal(m.id)}
-                style={styles.deleteButton}
-              >
-                Obriši
-              </button>
-            </div>
+            ))}
           </div>
-        ))}
+        )}
       </section>
     </main>
   );
@@ -635,256 +797,251 @@ const styles: any = {
     background: "#000",
     minHeight: "100vh",
     color: "white",
-    padding: "16px",
+    padding: "14px",
     paddingBottom: "40px",
   },
   backLink: {
     color: "#3b82f6",
     textDecoration: "none",
     fontWeight: "bold",
-    fontSize: "14px",
+    fontSize: "13px",
   },
   title: {
-    fontSize: "34px",
+    fontSize: "30px",
     fontWeight: "bold",
-    marginTop: "18px",
-    marginBottom: "18px",
-    lineHeight: "1.1",
+    marginTop: "24px",
+    marginBottom: "8px",
   },
-  box: {
-    background: "#111",
-    padding: "14px",
-    borderRadius: "16px",
+  roomInfo: {
+    color: "#bbb",
     marginBottom: "18px",
+    fontSize: "14px",
   },
   freeBox: {
     background: "#111",
     border: "1px solid #16a34a",
-    padding: "14px",
-    borderRadius: "16px",
-    marginBottom: "18px",
+    borderRadius: "14px",
+    padding: "12px",
+    marginBottom: "14px",
+  },
+  box: {
+    background: "#111",
+    border: "1px solid #1f1f1f",
+    borderRadius: "14px",
+    padding: "12px",
+    marginBottom: "14px",
   },
   subtitle: {
     color: "#60a5fa",
-    fontSize: "17px",
+    fontSize: "15px",
     marginTop: 0,
-    marginBottom: "12px",
+    marginBottom: "10px",
   },
   mobileHint: {
-    color: "#aaa",
-    fontSize: "13px",
-    marginBottom: "12px",
+    color: "#bbb",
+    fontSize: "11px",
+    marginBottom: "10px",
   },
   freeGrid: {
     display: "grid",
     gridTemplateColumns: "1fr",
-    gap: "10px",
-  },
-  groupGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(105px, 1fr))",
-    gap: "9px",
-  },
-  groupCard: {
-    background: "#1f1f1f",
-    color: "white",
-    border: "1px solid #333",
-    borderRadius: "14px",
-    padding: "10px 8px",
-    textAlign: "center",
-    cursor: "pointer",
-    minHeight: "92px",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: "5px",
-  },
-  groupCardSpecial: {
-    background: "#172554",
-    color: "white",
-    border: "1px solid #2563eb",
-    borderRadius: "14px",
-    padding: "10px 8px",
-    textAlign: "center",
-    cursor: "pointer",
-    minHeight: "92px",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: "5px",
-  },
-  groupIcon: {
-    fontSize: "20px",
-    lineHeight: "1",
-  },
-  groupName: {
-    fontSize: "13px",
-    fontWeight: "bold",
-    lineHeight: "1.15",
-  },
-  groupCount: {
-    color: "#aaa",
-    fontSize: "11px",
-  },
-  backButton: {
-    background: "#222",
-    color: "#60a5fa",
-    border: "1px solid #333",
-    padding: "10px 14px",
-    borderRadius: "10px",
-    cursor: "pointer",
-    fontWeight: "bold",
-    marginBottom: "14px",
-    width: "100%",
-  },
-  groupTitle: {
-    color: "#60a5fa",
-    marginBottom: "14px",
-    marginTop: 0,
-    fontSize: "25px",
-    lineHeight: "1.2",
-  },
-  manualBox: {
-    background: "#1a1a1a",
-    padding: "12px",
-    borderRadius: "14px",
-    display: "grid",
-    gap: "10px",
+    gap: "8px",
   },
   input: {
     width: "100%",
     background: "#000",
     color: "white",
     border: "1px solid #333",
-    borderRadius: "10px",
-    padding: "13px",
-    fontSize: "16px",
+    padding: "11px",
+    borderRadius: "8px",
+    fontSize: "15px",
   },
   searchInput: {
     width: "100%",
     background: "#000",
     color: "white",
     border: "1px solid #333",
-    borderRadius: "10px",
-    padding: "13px",
-    fontSize: "16px",
-    marginBottom: "12px",
+    padding: "11px",
+    borderRadius: "8px",
+    fontSize: "15px",
+    marginBottom: "10px",
   },
   saveButton: {
     background: "#16a34a",
     color: "white",
     border: "none",
-    borderRadius: "10px",
-    padding: "13px 16px",
+    borderRadius: "8px",
+    padding: "12px 14px",
     cursor: "pointer",
     fontWeight: "bold",
-    fontSize: "15px",
+  },
+  backButton: {
+    background: "#222",
+    color: "#60a5fa",
+    border: "1px solid #333",
+    borderRadius: "8px",
+    padding: "9px 12px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    marginBottom: "10px",
+  },
+  groupTitle: {
+    color: "#fff",
+    marginTop: "4px",
+    marginBottom: "12px",
+    fontSize: "22px",
+  },
+  groupGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(76px, 1fr))",
+    gap: "8px",
+  },
+  groupCard: {
+    background: "#222",
+    color: "white",
+    border: "1px solid #333",
+    borderRadius: "10px",
+    minHeight: "74px",
+    padding: "8px 5px",
+    cursor: "pointer",
+    textAlign: "center",
+  },
+  groupCardSpecial: {
+    background: "#172554",
+    color: "white",
+    border: "1px solid #2563eb",
+    borderRadius: "10px",
+    minHeight: "74px",
+    padding: "8px 5px",
+    cursor: "pointer",
+    textAlign: "center",
+  },
+  groupIcon: {
+    fontSize: "17px",
+    lineHeight: "1",
+    marginBottom: "5px",
+  },
+  groupName: {
+    fontSize: "11px",
+    fontWeight: "bold",
+    lineHeight: "1.15",
+    wordBreak: "break-word",
+  },
+  groupCount: {
+    color: "#bbb",
+    fontSize: "10px",
+    marginTop: "4px",
+  },
+  manualBox: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: "8px",
+    marginBottom: "12px",
   },
   materialList: {
     display: "grid",
-    gap: "9px",
+    gap: "8px",
   },
   materialRow: {
-    background: "#1f1f1f",
-    borderRadius: "12px",
+    background: "#202020",
+    borderRadius: "10px",
     padding: "10px",
     display: "grid",
-    gridTemplateColumns: "1fr auto",
+    gridTemplateColumns: "1fr 82px 42px",
     gap: "8px",
     alignItems: "center",
   },
-  materialTextBox: {
-    minWidth: 0,
-    overflowWrap: "anywhere",
-    fontSize: "14px",
+  materialInfo: {
+    display: "grid",
+    gap: "4px",
+    fontSize: "13px",
   },
-  smallText: {
-    color: "#aaa",
-    marginTop: "4px",
-    fontSize: "12px",
-  },
-  addArea: {
-    display: "flex",
-    gap: "6px",
-    alignItems: "center",
-  },
-  quantityInput: {
-    width: "72px",
+  qtyInput: {
     background: "#000",
     color: "white",
     border: "1px solid #333",
     borderRadius: "8px",
-    padding: "11px 8px",
+    padding: "10px",
+    width: "100%",
     fontSize: "16px",
     textAlign: "center",
   },
   addButton: {
-    background: "#2563eb",
+    background: "#16a34a",
     color: "white",
     border: "none",
     borderRadius: "8px",
-    padding: "11px 13px",
-    cursor: "pointer",
+    padding: "10px 0",
     fontWeight: "bold",
     fontSize: "18px",
-    minWidth: "44px",
+    cursor: "pointer",
   },
-  emptyText: {
-    color: "#aaa",
-    background: "#1a1a1a",
-    padding: "12px",
+  emptyBox: {
+    background: "#1b1b1b",
+    color: "#bbb",
     borderRadius: "10px",
+    padding: "14px",
+    fontSize: "14px",
   },
-  savedCard: {
-    background: "#1f1f1f",
-    borderRadius: "14px",
-    padding: "12px",
-    marginBottom: "10px",
+  addedList: {
     display: "grid",
+    gap: "8px",
+  },
+  addedRow: {
+    background: "#202020",
+    borderRadius: "10px",
+    padding: "10px",
+    display: "grid",
+    gridTemplateColumns: "1fr",
     gap: "10px",
   },
-  savedTextBox: {
-    overflowWrap: "anywhere",
-  },
-  savedQuantity: {
-    color: "#60a5fa",
-    marginTop: "6px",
-    fontWeight: "bold",
-  },
-  buttonRow: {
+  addedInfo: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 1.3fr",
+    gap: "4px",
+    fontSize: "14px",
+  },
+  addedActions: {
+    display: "grid",
+    gridTemplateColumns: "42px 1fr 42px 80px",
     gap: "8px",
+    alignItems: "center",
+  },
+  addedQtyInput: {
+    background: "#000",
+    color: "white",
+    border: "1px solid #333",
+    borderRadius: "8px",
+    padding: "10px",
+    width: "100%",
+    fontSize: "16px",
+    textAlign: "center",
+  },
+  minusButton: {
+    background: "#475569",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    padding: "10px 0",
+    fontWeight: "bold",
+    cursor: "pointer",
   },
   plusButton: {
     background: "#16a34a",
     color: "white",
     border: "none",
-    borderRadius: "9px",
-    padding: "11px",
-    cursor: "pointer",
+    borderRadius: "8px",
+    padding: "10px 0",
     fontWeight: "bold",
-    fontSize: "18px",
-  },
-  minusButton: {
-    background: "#f97316",
-    color: "white",
-    border: "none",
-    borderRadius: "9px",
-    padding: "11px",
     cursor: "pointer",
-    fontWeight: "bold",
-    fontSize: "18px",
   },
   deleteButton: {
     background: "#dc2626",
     color: "white",
     border: "none",
-    borderRadius: "9px",
-    padding: "11px",
+    borderRadius: "8px",
+    padding: "10px 6px",
     cursor: "pointer",
     fontWeight: "bold",
+    fontSize: "12px",
   },
 };
