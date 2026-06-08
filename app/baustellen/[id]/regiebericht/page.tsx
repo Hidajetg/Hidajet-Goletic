@@ -58,8 +58,7 @@ export default function RegieberichtPage() {
   const [mountainBgUrl, setMountainBgUrl] = useState("");
 
   function getStoragePublicUrl(fileName: string) {
-    const url = supabase.storage.from(PDF_BUCKET).getPublicUrl(fileName)
-      .data.publicUrl;
+    const url = supabase.storage.from(PDF_BUCKET).getPublicUrl(fileName).data.publicUrl;
     return `${url}?v=${Date.now()}`;
   }
 
@@ -112,17 +111,30 @@ export default function RegieberichtPage() {
       .order("name", { ascending: true });
 
     const loadedWorkers = workersRes.data || [];
-    const extraWorkers = ["Hido", "Steffi"]
-      .filter(
-        (name) =>
-          !loadedWorkers.some(
-            (w: any) =>
-              String(w.name || "").toLowerCase() === name.toLowerCase(),
-          ),
-      )
-      .map((name) => ({ id: `extra-${name}`, name, role: "worker" }));
+    const manualWorkers = [
+      { id: "manual-hido", name: "Hido", role: "admin" },
+      { id: "manual-steffi", name: "Steffi", role: "admin" },
+    ];
 
-    setWorkers([...loadedWorkers, ...extraWorkers]);
+    const mergedWorkers = [...loadedWorkers];
+
+    manualWorkers.forEach((manualWorker) => {
+      const exists = mergedWorkers.some(
+        (w: any) =>
+          String(w.name || "").toLowerCase() ===
+          String(manualWorker.name).toLowerCase()
+      );
+
+      if (!exists) {
+        mergedWorkers.push(manualWorker);
+      }
+    });
+
+    setWorkers(
+      mergedWorkers.sort((a: any, b: any) =>
+        String(a.name || "").localeCompare(String(b.name || ""))
+      )
+    );
 
     const materialsRes = await supabase
       .from("materials")
@@ -135,14 +147,7 @@ export default function RegieberichtPage() {
   async function loadBerichte() {
     const { data, error } = await supabase
       .from("regieberichte")
-      .select(
-        `
-        *,
-        regiebericht_workers (
-          stunden
-        )
-      `,
-      )
+      .select("*")
       .eq("baustelle_id", Number(baustelleId))
       .order("datum", { ascending: false })
       .order("id", { ascending: false });
@@ -152,13 +157,38 @@ export default function RegieberichtPage() {
       return;
     }
 
-    setBerichte(data || []);
-  }
+    const berichtData = data || [];
+    const berichtIds = berichtData.map((b: any) => b.id);
 
-  function getBerichtGesamtStunden(bericht: any) {
-    return (bericht.regiebericht_workers || []).reduce(
-      (sum: number, worker: any) => sum + Number(worker.stunden || 0),
-      0,
+    if (berichtIds.length === 0) {
+      setBerichte([]);
+      return;
+    }
+
+    const { data: workerData, error: workerError } = await supabase
+      .from("regiebericht_workers")
+      .select("regiebericht_id, stunden")
+      .in("regiebericht_id", berichtIds);
+
+    if (workerError) {
+      alert("LOAD REGIEBERICHT WORKERS: " + workerError.message);
+      setBerichte(berichtData);
+      return;
+    }
+
+    const totalsByBerichtId: { [key: number]: number } = {};
+
+    (workerData || []).forEach((w: any) => {
+      const id = Number(w.regiebericht_id);
+      totalsByBerichtId[id] =
+        (totalsByBerichtId[id] || 0) + Number(w.stunden || 0);
+    });
+
+    setBerichte(
+      berichtData.map((b: any) => ({
+        ...b,
+        gesamtstunden: totalsByBerichtId[Number(b.id)] || 0,
+      }))
     );
   }
 
@@ -187,15 +217,14 @@ export default function RegieberichtPage() {
   }
 
   function calcHours(start: string, end: string, pauseValue: string | number) {
-    const total =
-      timeToNumber(end) - timeToNumber(start) - Number(pauseValue || 0);
+    const total = timeToNumber(end) - timeToNumber(start) - Number(pauseValue || 0);
     if (total < 0) return 0;
     return Number(total.toFixed(2));
   }
 
   const gesamtStunden = workerRows.reduce(
     (sum, row) => sum + Number(row.stunden || 0),
-    0,
+    0
   );
 
   function formatDatum(value: string) {
@@ -298,7 +327,7 @@ export default function RegieberichtPage() {
       (roomsRes.data || []).map((r: any) => ({
         room_id: r.room_id,
         room_name: r.room_name,
-      })),
+      }))
     );
 
     setWorkerRows(
@@ -309,7 +338,7 @@ export default function RegieberichtPage() {
         pause: w.pause ?? 0,
         stunden: w.stunden,
         bemerkung: w.bemerkung,
-      })),
+      }))
     );
 
     setMaterialRows(
@@ -318,7 +347,7 @@ export default function RegieberichtPage() {
         bezeichnung: m.bezeichnung,
         menge: m.menge,
         einheit: m.einheit,
-      })),
+      }))
     );
 
     setPhotos(
@@ -327,7 +356,7 @@ export default function RegieberichtPage() {
         preview: p.photo_url,
         photo_url: p.photo_url,
         note: p.note || "",
-      })),
+      }))
     );
 
     setShowList(false);
@@ -554,7 +583,7 @@ export default function RegieberichtPage() {
           regiebericht_id: berichtId,
           room_id: r.room_id,
           room_name: r.room_name,
-        })),
+        }))
       );
 
       if (error) {
@@ -573,7 +602,7 @@ export default function RegieberichtPage() {
           pause: w.pause ?? 0,
           stunden: w.stunden,
           bemerkung: w.bemerkung,
-        })),
+        }))
       );
 
       if (error) {
@@ -590,7 +619,7 @@ export default function RegieberichtPage() {
           bezeichnung: m.bezeichnung,
           menge: m.menge,
           einheit: m.einheit,
-        })),
+        }))
       );
 
       if (error) {
@@ -622,7 +651,7 @@ export default function RegieberichtPage() {
           alert(
             "UPLOAD FOTO FEHLER: " +
               err.message +
-              "\n\nFalls der Bucket fehlt, in Supabase Storage erstellen: regiebericht-photos",
+              "\n\nFalls der Bucket fehlt, in Supabase Storage erstellen: regiebericht-photos"
           );
           return false;
         }
@@ -711,7 +740,7 @@ export default function RegieberichtPage() {
     alert(
       wasExisting
         ? "Regiebericht wurde aktualisiert."
-        : "Regiebericht wurde gespeichert.",
+        : "Regiebericht wurde gespeichert."
     );
   }
 
@@ -727,10 +756,7 @@ export default function RegieberichtPage() {
         </Link>
 
         <div style={styles.topButtons}>
-          <button
-            onClick={() => setShowList(!showList)}
-            style={styles.listButton}
-          >
+          <button onClick={() => setShowList(!showList)} style={styles.listButton}>
             {showList ? "Formular anzeigen" : "Liste Regieberichte"}
           </button>
 
@@ -756,7 +782,7 @@ export default function RegieberichtPage() {
             <div style={styles.listBox}>
               {berichte.map((b) => (
                 <div key={b.id} style={styles.berichtCard}>
-                  <div style={styles.berichtContent}>
+                  <div style={styles.berichtListContent}>
                     <div style={styles.berichtTitle}>
                       Regiebericht Nr. {b.bericht_nr || "-"}
                     </div>
@@ -770,17 +796,17 @@ export default function RegieberichtPage() {
                       {b.bauleiter || "-"}
                     </div>
 
-                    <div style={styles.berichtWorkBox}>
+                    <div style={styles.berichtWorkBlock}>
                       <div style={styles.berichtWorkTitle}>
-                        AUSGEFÜHRTE ARBEITEN
+                        Ausgeführte Arbeiten
                       </div>
 
                       <div style={styles.berichtWorkText}>
                         {b.ausgefuehrte_arbeiten || "-"}
                       </div>
 
-                      <div style={styles.berichtHours}>
-                        Gesamtstunden: {getBerichtGesamtStunden(b).toFixed(2)} h
+                      <div style={styles.berichtTotalHours}>
+                        Gesamtstunden: {Number(b.gesamtstunden || 0).toFixed(2)} h
                       </div>
                     </div>
                   </div>
@@ -1152,7 +1178,9 @@ export default function RegieberichtPage() {
 
               <div>
                 <div style={styles.documentTitle}>REGIEBERICHT</div>
-                <div style={styles.documentSub}>Tagesbericht / Regiearbeit</div>
+                <div style={styles.documentSub}>
+                  Tagesbericht / Regiearbeit
+                </div>
               </div>
             </div>
 
@@ -1166,208 +1194,204 @@ export default function RegieberichtPage() {
             </div>
           </div>
 
-          <div style={styles.metaGrid}>
-            <div style={styles.metaBox}>
-              <div style={styles.metaLabel}>Baustelle</div>
-              <div style={styles.metaValue}>{baustelle?.naziv || "-"}</div>
-            </div>
+        <div style={styles.metaGrid}>
+          <div style={styles.metaBox}>
+            <div style={styles.metaLabel}>Baustelle</div>
+            <div style={styles.metaValue}>{baustelle?.naziv || "-"}</div>
+          </div>
 
-            <div style={styles.metaBox}>
-              <div style={styles.metaLabel}>Ort</div>
-              <div style={styles.metaValue}>{ort || "-"}</div>
-            </div>
+          <div style={styles.metaBox}>
+            <div style={styles.metaLabel}>Ort</div>
+            <div style={styles.metaValue}>{ort || "-"}</div>
+          </div>
 
-            <div style={styles.metaBox}>
-              <div style={styles.metaLabel}>Auftraggeber</div>
-              <div style={styles.metaValue}>{auftraggeber || "-"}</div>
-            </div>
+          <div style={styles.metaBox}>
+            <div style={styles.metaLabel}>Auftraggeber</div>
+            <div style={styles.metaValue}>{auftraggeber || "-"}</div>
+          </div>
 
-            <div style={styles.metaBox}>
-              <div style={styles.metaLabel}>Auftragnehmer</div>
-              <div style={styles.metaValue}>
-                {FIRMA}
-                <br />
-                {FIRMA_ADRESA}
-              </div>
-            </div>
-
-            <div style={styles.metaBox}>
-              <div style={styles.metaLabel}>Bauleiter / Vertreter</div>
-              <div style={styles.metaValue}>{bauleiter || "-"}</div>
-            </div>
-
-            <div style={styles.metaBox}>
-              <div style={styles.metaLabel}>Bauteile / Räume</div>
-              <div style={styles.metaValue}>
-                {selectedRooms.length > 0
-                  ? selectedRooms.map((r) => r.room_name).join(", ")
-                  : "-"}
-              </div>
+          <div style={styles.metaBox}>
+            <div style={styles.metaLabel}>Auftragnehmer</div>
+            <div style={styles.metaValue}>
+              {FIRMA}
+              <br />
+              {FIRMA_ADRESA}
             </div>
           </div>
 
-          <div style={styles.printMainGrid}>
-            <div style={styles.leftColumn}>
-              <section style={styles.printBlock}>
-                <h2 style={styles.printBlockTitle}>Ausgeführte Arbeiten</h2>
-                <div style={styles.workText}>
-                  {arbeiten || "Keine Beschreibung eingetragen."}
-                </div>
-              </section>
+          <div style={styles.metaBox}>
+            <div style={styles.metaLabel}>Bauleiter / Vertreter</div>
+            <div style={styles.metaValue}>{bauleiter || "-"}</div>
+          </div>
 
-              <section style={styles.printBlock}>
-                <div style={styles.blockHeaderRow}>
-                  <h2 style={styles.printBlockTitle}>Arbeitskräfte</h2>
-                  <strong>Gesamt: {gesamtStunden.toFixed(2)} h</strong>
-                </div>
-
-                <table style={styles.cleanTable}>
-                  <thead>
-                    <tr>
-                      <th style={styles.cleanTh}>Mitarbeiter</th>
-                      <th style={styles.cleanTh}>von</th>
-                      <th style={styles.cleanTh}>bis</th>
-                      <th style={styles.cleanTh}>Pause</th>
-                      <th style={styles.cleanTh}>Std.</th>
-                      <th style={styles.cleanTh}>Bemerkung</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {workerRows.length === 0 ? (
-                      <tr>
-                        <td style={styles.cleanTd} colSpan={6}>
-                          Keine Arbeitskräfte eingetragen.
-                        </td>
-                      </tr>
-                    ) : (
-                      workerRows.map((w, index) => (
-                        <tr key={index}>
-                          <td style={styles.cleanTd}>{w.worker_name}</td>
-                          <td style={styles.cleanTd}>{w.von}</td>
-                          <td style={styles.cleanTd}>{w.bis}</td>
-                          <td style={styles.cleanTd}>{w.pause ?? 0} h</td>
-                          <td style={styles.cleanTd}>{w.stunden}</td>
-                          <td style={styles.cleanTd}>{w.bemerkung || "-"}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-
-                {workerRows.length > 0 && (
-                  <div className="no-print" style={styles.editList}>
-                    {workerRows.map((w, index) => (
-                      <button
-                        key={index}
-                        onClick={() => removeWorker(index)}
-                        style={styles.deleteButton}
-                      >
-                        {w.worker_name} entfernen
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              <section style={styles.printBlock}>
-                <h2 style={styles.printBlockTitle}>
-                  Material / Geräte / Sonstiges
-                </h2>
-
-                <table style={styles.cleanTable}>
-                  <thead>
-                    <tr>
-                      <th style={styles.cleanTh}>Bezeichnung</th>
-                      <th style={styles.cleanTh}>Menge</th>
-                      <th style={styles.cleanTh}>EH</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {materialRows.length === 0 ? (
-                      <tr>
-                        <td style={styles.cleanTd} colSpan={3}>
-                          Kein Material eingetragen.
-                        </td>
-                      </tr>
-                    ) : (
-                      materialRows.map((m, index) => (
-                        <tr key={index}>
-                          <td style={styles.cleanTd}>{m.bezeichnung}</td>
-                          <td style={styles.cleanTd}>{m.menge}</td>
-                          <td style={styles.cleanTd}>{m.einheit}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-
-                {materialRows.length > 0 && (
-                  <div className="no-print" style={styles.editList}>
-                    {materialRows.map((m, index) => (
-                      <button
-                        key={index}
-                        onClick={() => removeMaterial(index)}
-                        style={styles.deleteButton}
-                      >
-                        {m.bezeichnung} entfernen
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </section>
+          <div style={styles.metaBox}>
+            <div style={styles.metaLabel}>Bauteile / Räume</div>
+            <div style={styles.metaValue}>
+              {selectedRooms.length > 0
+                ? selectedRooms.map((r) => r.room_name).join(", ")
+                : "-"}
             </div>
+          </div>
+        </div>
 
-            <div style={styles.rightColumn}>
-              <section style={styles.photoPrintBlock}>
-                <h2 style={styles.printBlockTitle}>Fotodokumentation</h2>
+        <div style={styles.printMainGrid}>
+          <div style={styles.leftColumn}>
+            <section style={styles.printBlock}>
+              <h2 style={styles.printBlockTitle}>Ausgeführte Arbeiten</h2>
+              <div style={styles.workText}>
+                {arbeiten || "Keine Beschreibung eingetragen."}
+              </div>
+            </section>
 
-                <div style={styles.printPhotoGrid}>
-                  {photos.length === 0 ? (
-                    <>
-                      <div style={styles.emptyPhoto}>Foto 1</div>
-                      <div style={styles.emptyPhoto}>Foto 2</div>
-                    </>
+            <section style={styles.printBlock}>
+              <div style={styles.blockHeaderRow}>
+                <h2 style={styles.printBlockTitle}>Arbeitskräfte</h2>
+                <strong>Gesamt: {gesamtStunden.toFixed(2)} h</strong>
+              </div>
+
+              <table style={styles.cleanTable}>
+                <thead>
+                  <tr>
+                    <th style={styles.cleanTh}>Mitarbeiter</th>
+                    <th style={styles.cleanTh}>von</th>
+                    <th style={styles.cleanTh}>bis</th>
+                    <th style={styles.cleanTh}>Pause</th>
+                    <th style={styles.cleanTh}>Std.</th>
+                    <th style={styles.cleanTh}>Bemerkung</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {workerRows.length === 0 ? (
+                    <tr>
+                      <td style={styles.cleanTd} colSpan={6}>
+                        Keine Arbeitskräfte eingetragen.
+                      </td>
+                    </tr>
                   ) : (
-                    photos.slice(0, 2).map((p, index) => (
-                      <div key={index} style={styles.printPhotoCard}>
-                        <img
-                          src={p.preview}
-                          alt={`Foto ${index + 1}`}
-                          style={styles.printPhoto}
-                        />
-
-                        {p.note && (
-                          <div style={styles.photoCaption}>{p.note}</div>
-                        )}
-
-                        <button
-                          className="no-print"
-                          onClick={() => removePhoto(index)}
-                          style={styles.photoRemoveButton}
-                        >
-                          Foto entfernen
-                        </button>
-                      </div>
+                    workerRows.map((w, index) => (
+                      <tr key={index}>
+                        <td style={styles.cleanTd}>{w.worker_name}</td>
+                        <td style={styles.cleanTd}>{w.von}</td>
+                        <td style={styles.cleanTd}>{w.bis}</td>
+                        <td style={styles.cleanTd}>{w.pause ?? 0} h</td>
+                        <td style={styles.cleanTd}>{w.stunden}</td>
+                        <td style={styles.cleanTd}>{w.bemerkung || "-"}</td>
+                      </tr>
                     ))
                   )}
-                </div>
-              </section>
+                </tbody>
+              </table>
 
-              <section style={styles.signatureBlock}>
-                <div style={styles.signatureItem}>
-                  <div style={styles.signatureLine}></div>
-                  <strong>Auftragnehmer: {POTPIS}</strong>
+              {workerRows.length > 0 && (
+                <div className="no-print" style={styles.editList}>
+                  {workerRows.map((w, index) => (
+                    <button
+                      key={index}
+                      onClick={() => removeWorker(index)}
+                      style={styles.deleteButton}
+                    >
+                      {w.worker_name} entfernen
+                    </button>
+                  ))}
                 </div>
+              )}
+            </section>
 
-                <div style={styles.signatureItem}>
-                  <div style={styles.signatureLine}></div>
-                  <strong>Auftraggeber / Vertreter: {bauleiter || "-"}</strong>
+            <section style={styles.printBlock}>
+              <h2 style={styles.printBlockTitle}>Material / Geräte / Sonstiges</h2>
+
+              <table style={styles.cleanTable}>
+                <thead>
+                  <tr>
+                    <th style={styles.cleanTh}>Bezeichnung</th>
+                    <th style={styles.cleanTh}>Menge</th>
+                    <th style={styles.cleanTh}>EH</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {materialRows.length === 0 ? (
+                    <tr>
+                      <td style={styles.cleanTd} colSpan={3}>
+                        Kein Material eingetragen.
+                      </td>
+                    </tr>
+                  ) : (
+                    materialRows.map((m, index) => (
+                      <tr key={index}>
+                        <td style={styles.cleanTd}>{m.bezeichnung}</td>
+                        <td style={styles.cleanTd}>{m.menge}</td>
+                        <td style={styles.cleanTd}>{m.einheit}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+
+              {materialRows.length > 0 && (
+                <div className="no-print" style={styles.editList}>
+                  {materialRows.map((m, index) => (
+                    <button
+                      key={index}
+                      onClick={() => removeMaterial(index)}
+                      style={styles.deleteButton}
+                    >
+                      {m.bezeichnung} entfernen
+                    </button>
+                  ))}
                 </div>
-              </section>
-            </div>
+              )}
+            </section>
           </div>
+
+          <div style={styles.rightColumn}>
+            <section style={styles.photoPrintBlock}>
+              <h2 style={styles.printBlockTitle}>Fotodokumentation</h2>
+
+              <div style={styles.printPhotoGrid}>
+                {photos.length === 0 ? (
+                  <>
+                    <div style={styles.emptyPhoto}>Foto 1</div>
+                    <div style={styles.emptyPhoto}>Foto 2</div>
+                  </>
+                ) : (
+                  photos.slice(0, 2).map((p, index) => (
+                    <div key={index} style={styles.printPhotoCard}>
+                      <img
+                        src={p.preview}
+                        alt={`Foto ${index + 1}`}
+                        style={styles.printPhoto}
+                      />
+
+                      {p.note && <div style={styles.photoCaption}>{p.note}</div>}
+
+                      <button
+                        className="no-print"
+                        onClick={() => removePhoto(index)}
+                        style={styles.photoRemoveButton}
+                      >
+                        Foto entfernen
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section style={styles.signatureBlock}>
+              <div style={styles.signatureItem}>
+                <div style={styles.signatureLine}></div>
+                <strong>Auftragnehmer: {POTPIS}</strong>
+              </div>
+
+              <div style={styles.signatureItem}>
+                <div style={styles.signatureLine}></div>
+                <strong>Auftraggeber / Vertreter: {bauleiter || "-"}</strong>
+              </div>
+            </section>
+          </div>
+        </div>
         </div>
       </section>
 
@@ -1657,21 +1681,11 @@ const styles: any = {
     alignItems: "center",
     flexWrap: "wrap",
   },
-  berichtTitle: {
-    color: "#f97316",
-    fontSize: "22px",
-    fontWeight: "bold",
-    marginBottom: "6px",
-  },
-  berichtInfo: {
-    color: "#ddd",
-    marginTop: "3px",
-  },
-  berichtContent: {
+  berichtListContent: {
     flex: 1,
     minWidth: "320px",
   },
-  berichtWorkBox: {
+  berichtWorkBlock: {
     marginTop: "14px",
     paddingTop: "12px",
     borderTop: "1px solid #333",
@@ -1686,11 +1700,20 @@ const styles: any = {
     color: "#ddd",
     marginBottom: "10px",
     lineHeight: "1.45",
-    whiteSpace: "pre-wrap",
   },
-  berichtHours: {
+  berichtTotalHours: {
     color: "#fff",
     fontWeight: "bold",
+  },
+  berichtTitle: {
+    color: "#f97316",
+    fontSize: "22px",
+    fontWeight: "bold",
+    marginBottom: "6px",
+  },
+  berichtInfo: {
+    color: "#ddd",
+    marginTop: "3px",
   },
   berichtActions: {
     display: "flex",
@@ -1751,7 +1774,7 @@ const styles: any = {
     height: "100%",
     objectFit: "cover",
     objectPosition: "center",
-    opacity: 0.3,
+    opacity: 0.30,
     zIndex: 1,
     pointerEvents: "none",
     borderRight: "2px solid rgba(249, 115, 22, 0.35)",
