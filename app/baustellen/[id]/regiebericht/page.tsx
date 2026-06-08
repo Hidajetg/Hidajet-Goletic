@@ -726,18 +726,56 @@ export default function RegieberichtPage() {
             <div style={styles.listBox}>
               {berichte.map((b) => (
                 <div key={b.id} style={styles.berichtCard}>
-                  <div>
-                    <div style={styles.berichtTitle}>
-                      Regiebericht Nr. {b.bericht_nr || "-"}
-                    </div>
-                    <div style={styles.berichtInfo}>
-                      Datum: {formatDatum(b.datum)} | Ort: {b.ort || "-"}
-                    </div>
-                    <div style={styles.berichtInfo}>
-                      Auftraggeber: {b.auftraggeber || "-"} | Bauleiter:{" "}
-                      {b.bauleiter || "-"}
-                    </div>
-                  </div>
+        <div style={{ flex: 1 }}>
+  <div style={styles.berichtTitle}>
+    Regiebericht Nr. {b.bericht_nr || "-"}
+  </div>
+
+  <div style={styles.berichtInfo}>
+    Datum: {formatDatum(b.datum)} | Ort: {b.ort || "-"}
+  </div>
+
+  <div style={styles.berichtInfo}>
+    Auftraggeber: {b.auftraggeber || "-"} | Bauleiter: {b.bauleiter || "-"}
+  </div>
+
+  <div
+    style={{
+      marginTop: "14px",
+      paddingTop: "12px",
+      borderTop: "1px solid #333",
+    }}
+  >
+    <div
+      style={{
+        color: "#60a5fa",
+        fontWeight: "bold",
+        marginBottom: "6px",
+        textTransform: "uppercase",
+      }}
+    >
+      Ausgeführte Arbeiten
+    </div>
+
+    <div
+      style={{
+        color: "#ddd",
+        marginBottom: "10px",
+      }}
+    >
+      {b.ausgefuehrte_arbeiten || "-"}
+    </div>
+
+    <div
+      style={{
+        color: "#fff",
+        fontWeight: "bold",
+      }}
+    >
+      Gesamtstunden: {Number(b.gesamtstunden || 0).toFixed(2)} h
+    </div>
+  </div>
+</div>
 
                   <div style={styles.berichtActions}>
                     <button
