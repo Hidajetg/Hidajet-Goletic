@@ -1,10 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
 const ADMINI = ["Hido", "Steffi", "Admin"];
+
+const UNIT_OPTIONS = [
+  "Stk.",
+  "kom",
+  "Paket",
+  "Karton",
+  "Sack",
+  "kg",
+  "m",
+  "lfm",
+  "m²",
+  "m3",
+  "L",
+  "Rolle",
+  "Eimer",
+];
 
 const translations: any = {
   de: {
@@ -17,7 +33,9 @@ const translations: any = {
     materialType: "Materialart",
     catalog: "Aus Katalog",
     free: "Freies Material",
+    chooseGroup: "Gruppe auswählen",
     chooseMaterial: "Material auswählen",
+    selectedMaterial: "Ausgewähltes Material",
     materialName: "Materialname",
     unit: "Einheit",
     quantity: "Menge",
@@ -34,6 +52,8 @@ const translations: any = {
     enterMaterial: "Materialname eingeben.",
     enterUnit: "Einheit eingeben.",
     enterQuantity: "Menge eingeben.",
+    search: "Material in dieser Gruppe suchen...",
+    backGroups: "← Zurück zu Gruppen",
   },
   ba: {
     title: "Naruči materijal",
@@ -45,7 +65,9 @@ const translations: any = {
     materialType: "Vrsta materijala",
     catalog: "Iz kataloga",
     free: "Slobodni materijal",
+    chooseGroup: "Odaberi grupu",
     chooseMaterial: "Odaberi materijal",
+    selectedMaterial: "Odabrani materijal",
     materialName: "Naziv materijala",
     unit: "Jedinica",
     quantity: "Količina",
@@ -62,6 +84,8 @@ const translations: any = {
     enterMaterial: "Unesi naziv materijala.",
     enterUnit: "Unesi jedinicu.",
     enterQuantity: "Unesi količinu.",
+    search: "Traži materijal u ovoj grupi...",
+    backGroups: "← Nazad na grupe",
   },
   uz: {
     title: "Material buyurtma",
@@ -73,7 +97,9 @@ const translations: any = {
     materialType: "Material turi",
     catalog: "Katalogdan",
     free: "Erkin material",
+    chooseGroup: "Guruhni tanlang",
     chooseMaterial: "Material tanlang",
+    selectedMaterial: "Tanlangan material",
     materialName: "Material nomi",
     unit: "Birlik",
     quantity: "Miqdor",
@@ -90,6 +116,8 @@ const translations: any = {
     enterMaterial: "Material nomini kiriting.",
     enterUnit: "Birlikni kiriting.",
     enterQuantity: "Miqdorni kiriting.",
+    search: "Bu guruhda material qidirish...",
+    backGroups: "← Guruhlarga qaytish",
   },
   en: {
     title: "Order material",
@@ -101,7 +129,9 @@ const translations: any = {
     materialType: "Material type",
     catalog: "From catalog",
     free: "Free material",
+    chooseGroup: "Choose group",
     chooseMaterial: "Choose material",
+    selectedMaterial: "Selected material",
     materialName: "Material name",
     unit: "Unit",
     quantity: "Quantity",
@@ -118,44 +148,63 @@ const translations: any = {
     enterMaterial: "Enter material name.",
     enterUnit: "Enter unit.",
     enterQuantity: "Enter quantity.",
+    search: "Search material in this group...",
+    backGroups: "← Back to groups",
   },
 };
 
 const statusLabels: any = {
-  de: {
-    NEW: "Neu",
-    APPROVED: "Freigegeben",
-    ORDERED: "Bestellt",
-    DELIVERED: "Geliefert",
-    REJECTED: "Abgelehnt",
-  },
-  ba: {
-    NEW: "Novo",
-    APPROVED: "Odobreno",
-    ORDERED: "Naručeno",
-    DELIVERED: "Isporučeno",
-    REJECTED: "Odbijeno",
-  },
-  uz: {
-    NEW: "Yangi",
-    APPROVED: "Tasdiqlangan",
-    ORDERED: "Buyurtma qilingan",
-    DELIVERED: "Yetkazildi",
-    REJECTED: "Rad etildi",
-  },
-  en: {
-    NEW: "New",
-    APPROVED: "Approved",
-    ORDERED: "Ordered",
-    DELIVERED: "Delivered",
-    REJECTED: "Rejected",
-  },
+  de: { NEW: "Neu", APPROVED: "Freigegeben", ORDERED: "Bestellt", DELIVERED: "Geliefert", REJECTED: "Abgelehnt" },
+  ba: { NEW: "Novo", APPROVED: "Odobreno", ORDERED: "Naručeno", DELIVERED: "Isporučeno", REJECTED: "Odbijeno" },
+  uz: { NEW: "Yangi", APPROVED: "Tasdiqlangan", ORDERED: "Buyurtma qilingan", DELIVERED: "Yetkazildi", REJECTED: "Rad etildi" },
+  en: { NEW: "New", APPROVED: "Approved", ORDERED: "Ordered", DELIVERED: "Delivered", REJECTED: "Rejected" },
 };
+
+const STATUS_OPTIONS = ["NEW", "APPROVED", "ORDERED", "DELIVERED", "REJECTED"];
+
+function safeNumber(value: any) {
+  const n = Number(String(value ?? "0").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function getMaterialGroupId(material: any) {
+  return Number(material?.group_id ?? material?.gruppe_id ?? material?.material_group_id ?? 0);
+}
+
+function getGroupIcon(name: string) {
+  const n = String(name || "").toLowerCase();
+  if (n.includes("vorbereitung") || n.includes("priprema")) return "🧹";
+  if (n.includes("estrich")) return "◻️";
+  if (n.includes("hidro") || n.includes("abdicht")) return "💧";
+  if (n.includes("ljep") || n.includes("kleber")) return "🧴";
+  if (n.includes("schienen")) return "📏";
+  if (n.includes("fuge")) return "▦";
+  if (n.includes("silikon")) return "〰️";
+  if (n.includes("terase") || n.includes("terrasse")) return "🧱";
+  if (n.includes("dodaci") || n.includes("zusatz")) return "+";
+  return "📦";
+}
+
+function formatDate(value: string) {
+  if (!value) return "-";
+  try {
+    return new Date(value).toLocaleString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return value;
+  }
+}
 
 export default function MaterialOrdersPage() {
   const [lang, setLang] = useState("ba");
   const [workerName, setWorkerName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [ziel, setZiel] = useState("BAUSTELLE");
   const [baustelleId, setBaustelleId] = useState("");
@@ -168,8 +217,12 @@ export default function MaterialOrdersPage() {
   const [notiz, setNotiz] = useState("");
 
   const [baustellen, setBaustellen] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+
+  const [activeGroup, setActiveGroup] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const t = translations[lang] || translations.ba;
   const s = statusLabels[lang] || statusLabels.ba;
@@ -186,36 +239,83 @@ export default function MaterialOrdersPage() {
   }, []);
 
   async function loadData() {
-    const baustellenRes = await supabase
-      .from("baustellen")
-      .select("id, naziv, lokacija, status")
-      .eq("status", "Aktiv")
-      .order("naziv", { ascending: true });
+    setLoading(true);
 
-    const materialsRes = await supabase
-      .from("materials")
-      .select("*")
-      .order("naziv", { ascending: true });
+    const [baustellenRes, groupsRes, materialsRes, ordersRes] = await Promise.all([
+      supabase
+        .from("baustellen")
+        .select("id, naziv, lokacija, status")
+        .eq("status", "Aktiv")
+        .order("naziv", { ascending: true }),
+      supabase
+        .from("material_groups")
+        .select("*")
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("materials")
+        .select("*")
+        .order("naziv", { ascending: true }),
+      supabase
+        .from("material_orders")
+        .select("*")
+        .order("created_at", { ascending: false }),
+    ]);
 
-    const ordersRes = await supabase
-      .from("material_orders")
-      .select("*")
-      .order("created_at", { ascending: false });
+    if (baustellenRes.error) alert("LOAD BAUSTELLEN: " + baustellenRes.error.message);
+    if (groupsRes.error) alert("LOAD MATERIAL GROUPS: " + groupsRes.error.message);
+    if (materialsRes.error) alert("LOAD MATERIALS: " + materialsRes.error.message);
+    if (ordersRes.error) alert("LOAD ORDERS: " + ordersRes.error.message);
+
+    const loadedGroups = groupsRes.data || [];
+    const loadedMaterials = materialsRes.data || [];
 
     setBaustellen(baustellenRes.data || []);
-    setMaterials(materialsRes.data || []);
+    setGroups(loadedGroups);
+    setMaterials(loadedMaterials);
     setOrders(ordersRes.data || []);
+
+    if (!activeGroup && loadedGroups.length > 0) {
+      setActiveGroup(loadedGroups[0]);
+    }
+
+    setLoading(false);
   }
 
-  function changeMaterial(value: string) {
-    setMaterialId(value);
+  const filteredMaterials = useMemo(() => {
+    if (materialType !== "CATALOG" || !activeGroup) return [];
 
-    const selected = materials.find((m) => String(m.id) === String(value));
+    const term = searchTerm.trim().toLowerCase();
 
-    if (selected) {
-      setMaterialName(selected.naziv || "");
-      setEinheit(selected.jedinica || "");
-    }
+    return materials
+      .filter((m) => getMaterialGroupId(m) === Number(activeGroup.id))
+      .filter((m) => {
+        if (!term) return true;
+        return String(m.naziv || "").toLowerCase().includes(term);
+      });
+  }, [materials, activeGroup, searchTerm, materialType]);
+
+  function groupCount(groupId: number) {
+    return materials.filter((m) => getMaterialGroupId(m) === Number(groupId)).length;
+  }
+
+  function selectMaterial(material: any) {
+    setMaterialId(String(material.id));
+    setMaterialName(material.naziv || "");
+    setEinheit(material.jedinica || material.unit || material.einheit || "");
+  }
+
+  function switchToCatalog() {
+    setMaterialType("CATALOG");
+    setMaterialId("");
+    setMaterialName("");
+    setEinheit("");
+  }
+
+  function switchToFree() {
+    setMaterialType("FREE");
+    setMaterialId("");
+    setMaterialName("");
+    setEinheit("");
   }
 
   function resetForm() {
@@ -227,6 +327,7 @@ export default function MaterialOrdersPage() {
     setEinheit("");
     setMenge("");
     setNotiz("");
+    setSearchTerm("");
   }
 
   async function saveOrder() {
@@ -245,7 +346,7 @@ export default function MaterialOrdersPage() {
       return;
     }
 
-    if (!materialName.trim()) {
+    if (materialType === "FREE" && !materialName.trim()) {
       alert(t.enterMaterial);
       return;
     }
@@ -255,31 +356,46 @@ export default function MaterialOrdersPage() {
       return;
     }
 
-    if (!menge || Number(menge) <= 0) {
+    if (!menge || safeNumber(menge) <= 0) {
       alert(t.enterQuantity);
       return;
     }
 
-    const { error } = await supabase.from("material_orders").insert([
-      {
-        worker_name: workerName || "Unbekannt",
-        ziel,
-        baustelle_id: ziel === "BAUSTELLE" ? Number(baustelleId) : null,
-        material_id: materialType === "CATALOG" ? Number(materialId) : null,
-        material_name: materialName.trim(),
-        einheit: einheit.trim(),
-        menge: Number(menge),
-        notiz: notiz.trim(),
-        status: "NEW",
-      },
-    ]);
+    const payload: any = {
+      ziel,
+      baustelle_id: ziel === "BAUSTELLE" ? Number(baustelleId) : null,
+      material_id: materialType === "CATALOG" ? Number(materialId) : null,
+      material_name: materialName.trim(),
+      einheit: einheit.trim(),
+      menge: safeNumber(menge),
+      notiz: notiz.trim(),
+      worker_name: workerName || "Unbekannt",
+      status: "NEW",
+    };
+
+    const { error } = await supabase.from("material_orders").insert([payload]);
 
     if (error) {
-      alert("INSERT MATERIAL ORDER: " + error.message);
+      alert("SAVE MATERIAL ORDER: " + error.message);
       return;
     }
 
     resetForm();
+    await loadData();
+    alert("Materialbestellung wurde gespeichert.");
+  }
+
+  async function deleteOrder(id: number) {
+    const ok = confirm("Materialbestellung wirklich löschen?");
+    if (!ok) return;
+
+    const { error } = await supabase.from("material_orders").delete().eq("id", id);
+
+    if (error) {
+      alert("DELETE MATERIAL ORDER: " + error.message);
+      return;
+    }
+
     await loadData();
   }
 
@@ -297,64 +413,37 @@ export default function MaterialOrdersPage() {
     await loadData();
   }
 
-  async function deleteOrder(id: number) {
-    const potvrda = confirm("Narudžbu obrisati?");
-    if (!potvrda) return;
-
-    const { error } = await supabase
-      .from("material_orders")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      alert("DELETE ORDER: " + error.message);
-      return;
-    }
-
-    await loadData();
-  }
-
-  function getBaustelleName(id: number) {
+  function baustelleName(id: any) {
     const b = baustellen.find((x) => Number(x.id) === Number(id));
     if (!b) return "-";
-    return `${b.naziv}${b.lokacija ? " - " + b.lokacija : ""}`;
+    return `${b.naziv || "Baustelle"}${b.lokacija ? " - " + b.lokacija : ""}`;
   }
 
-  function formatDateTime(value: string) {
-    return new Date(value).toLocaleString("de-AT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  function orderMaterialName(order: any) {
+    if (order.material_name) return order.material_name;
+    const material = materials.find((m) => Number(m.id) === Number(order.material_id));
+    return material?.naziv || "-";
   }
 
   return (
     <main style={styles.page}>
-      <Link href="/dashboard" style={styles.backLink}>
-        {t.back}
-      </Link>
+      <Link href="/dashboard" style={styles.backLink}>{t.back}</Link>
 
       <h1 style={styles.title}>🧱 {t.title}</h1>
 
-      <section style={styles.box}>
-        <h2 style={styles.subtitle}>{t.destination}</h2>
-
+      <section style={styles.formBox}>
+        <div style={styles.label}>{t.destination}</div>
         <div style={styles.toggleRow}>
           <button
             onClick={() => setZiel("BAUSTELLE")}
-            style={ziel === "BAUSTELLE" ? styles.activeToggle : styles.toggle}
+            style={ziel === "BAUSTELLE" ? styles.activeToggle : styles.toggleButton}
           >
             🏗️ {t.baustelle}
           </button>
 
           <button
-            onClick={() => {
-              setZiel("LAGER");
-              setBaustelleId("");
-            }}
-            style={ziel === "LAGER" ? styles.activeToggle : styles.toggle}
+            onClick={() => setZiel("LAGER")}
+            style={ziel === "LAGER" ? styles.activeToggle : styles.toggleButton}
           >
             📦 {t.lager}
           </button>
@@ -367,7 +456,6 @@ export default function MaterialOrdersPage() {
             style={styles.input}
           >
             <option value="">{t.chooseBaustelle}</option>
-
             {baustellen.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.naziv} {b.lokacija ? `- ${b.lokacija}` : ""}
@@ -376,49 +464,91 @@ export default function MaterialOrdersPage() {
           </select>
         )}
 
-        <h2 style={styles.subtitle}>{t.materialType}</h2>
-
+        <div style={styles.label}>{t.materialType}</div>
         <div style={styles.toggleRow}>
           <button
-            onClick={() => {
-              setMaterialType("CATALOG");
-              setMaterialName("");
-              setEinheit("");
-            }}
-            style={
-              materialType === "CATALOG" ? styles.activeToggle : styles.toggle
-            }
+            onClick={switchToCatalog}
+            style={materialType === "CATALOG" ? styles.activeToggle : styles.toggleButton}
           >
             📋 {t.catalog}
           </button>
 
           <button
-            onClick={() => {
-              setMaterialType("FREE");
-              setMaterialId("");
-              setMaterialName("");
-              setEinheit("");
-            }}
-            style={materialType === "FREE" ? styles.activeToggle : styles.toggle}
+            onClick={switchToFree}
+            style={materialType === "FREE" ? styles.activeToggle : styles.toggleButton}
           >
             ✍️ {t.free}
           </button>
         </div>
 
         {materialType === "CATALOG" ? (
-          <select
-            value={materialId}
-            onChange={(e) => changeMaterial(e.target.value)}
-            style={styles.input}
-          >
-            <option value="">{t.chooseMaterial}</option>
+          <>
+            <section style={styles.groupBox}>
+              <div style={styles.label}>{t.chooseGroup}</div>
+              <div style={styles.groupGrid}>
+                {groups.map((g) => {
+                  const active = Number(activeGroup?.id) === Number(g.id);
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => {
+                        setActiveGroup(g);
+                        setSearchTerm("");
+                        setMaterialId("");
+                        setMaterialName("");
+                        setEinheit("");
+                      }}
+                      style={active ? styles.activeGroupCard : styles.groupCard}
+                    >
+                      <div style={styles.groupIcon}>{getGroupIcon(g.naziv)}</div>
+                      <div style={styles.groupName}>{g.naziv}</div>
+                      <div style={styles.groupCount}>{groupCount(g.id)} mat.</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
-            {materials.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.naziv} {m.jedinica ? `(${m.jedinica})` : ""}
-              </option>
-            ))}
-          </select>
+            {activeGroup && (
+              <section style={styles.materialBox}>
+                <div style={styles.materialBoxHeader}>
+                  <div style={styles.label}>
+                    {getGroupIcon(activeGroup.naziv)} {activeGroup.naziv}
+                  </div>
+                  {materialName && (
+                    <div style={styles.selectedBadge}>{t.selectedMaterial}: {materialName}</div>
+                  )}
+                </div>
+
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={t.search}
+                  style={styles.input}
+                />
+
+                <div style={styles.materialGrid}>
+                  {filteredMaterials.length === 0 ? (
+                    <div style={styles.emptySmall}>Nema materijala u ovoj grupi.</div>
+                  ) : (
+                    filteredMaterials.map((m) => {
+                      const active = String(materialId) === String(m.id);
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => selectMaterial(m)}
+                          style={active ? styles.activeMaterialCard : styles.materialCard}
+                        >
+                          <strong>{m.naziv}</strong>
+                          <span>{m.jedinica || m.unit || m.einheit || ""}</span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
+            )}
+          </>
         ) : (
           <>
             <input
@@ -428,12 +558,16 @@ export default function MaterialOrdersPage() {
               style={styles.input}
             />
 
-            <input
+            <select
               value={einheit}
               onChange={(e) => setEinheit(e.target.value)}
-              placeholder={`${t.unit}: kom, m², m, kg, l...`}
               style={styles.input}
-            />
+            >
+              <option value="">{t.unit}</option>
+              {UNIT_OPTIONS.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
           </>
         )}
 
@@ -461,74 +595,56 @@ export default function MaterialOrdersPage() {
           style={styles.textarea}
         />
 
-        <button onClick={saveOrder} style={styles.saveButton}>
-          {t.save}
-        </button>
+        <button onClick={saveOrder} style={styles.saveButton}>{t.save}</button>
       </section>
 
-      <section style={styles.box}>
-        <h2 style={styles.subtitle}>
-          {t.orders} ({orders.length})
-        </h2>
+      <section style={styles.ordersBox}>
+        <h2 style={styles.sectionTitle}>{t.orders} ({orders.length})</h2>
 
-        {orders.length === 0 && <p style={styles.emptyText}>{t.empty}</p>}
+        {loading ? (
+          <div style={styles.emptyBox}>Lade...</div>
+        ) : orders.length === 0 ? (
+          <div style={styles.emptyBox}>{t.empty}</div>
+        ) : (
+          <div style={styles.ordersList}>
+            {orders.map((o) => (
+              <div key={o.id} style={styles.orderCard}>
+                <div style={styles.orderMain}>
+                  <div style={styles.orderTitle}>{orderMaterialName(o)}</div>
+                  <div style={styles.orderText}>
+                    <strong>{o.menge}</strong> {o.einheit}
+                  </div>
+                  <div style={styles.orderText}>Ziel: {o.ziel === "LAGER" ? t.lager : baustelleName(o.baustelle_id)}</div>
+                  <div style={styles.orderText}>{t.worker}: {o.worker_name || "-"}</div>
+                  {o.notiz && <div style={styles.orderNote}>{o.notiz}</div>}
+                  <div style={styles.orderText}>Datum: {formatDate(o.created_at)}</div>
+                </div>
 
-        {orders.map((o) => (
-          <div key={o.id} style={styles.orderCard}>
-            <div style={styles.orderTop}>
-              <strong>{o.material_name}</strong>
-              <span style={styles.statusBadge}>{s[o.status] || o.status}</span>
-            </div>
+                <div style={styles.orderActions}>
+                  <div style={styles.statusBadge}>{s[o.status] || o.status || "NEW"}</div>
 
-            <p style={styles.line}>
-              {o.menge} {o.einheit}
-            </p>
+                  {isAdmin ? (
+                    <select
+                      value={o.status || "NEW"}
+                      onChange={(e) => updateStatus(o.id, e.target.value)}
+                      style={styles.statusSelect}
+                    >
+                      {STATUS_OPTIONS.map((st) => (
+                        <option key={st} value={st}>{s[st] || st}</option>
+                      ))}
+                    </select>
+                  ) : null}
 
-            <p style={styles.line}>
-              <strong>{t.destination}:</strong>{" "}
-              {o.ziel === "LAGER"
-                ? t.lager
-                : `${t.baustelle}: ${getBaustelleName(o.baustelle_id)}`}
-            </p>
-
-            <p style={styles.line}>
-              <strong>{t.worker}:</strong> {o.worker_name}
-            </p>
-
-            <p style={styles.line}>
-              <strong>Datum:</strong> {formatDateTime(o.created_at)}
-            </p>
-
-            {o.notiz && (
-              <p style={styles.note}>
-                <strong>{t.note}:</strong> {o.notiz}
-              </p>
-            )}
-
-            {isAdmin && (
-              <div style={styles.buttonRow}>
-                <select
-                  value={o.status}
-                  onChange={(e) => updateStatus(o.id, e.target.value)}
-                  style={styles.statusSelect}
-                >
-                  <option value="NEW">{s.NEW}</option>
-                  <option value="APPROVED">{s.APPROVED}</option>
-                  <option value="ORDERED">{s.ORDERED}</option>
-                  <option value="DELIVERED">{s.DELIVERED}</option>
-                  <option value="REJECTED">{s.REJECTED}</option>
-                </select>
-
-                <button
-                  onClick={() => deleteOrder(o.id)}
-                  style={styles.deleteButton}
-                >
-                  {t.delete}
-                </button>
+                  {(isAdmin || o.worker_name === workerName) && (
+                    <button onClick={() => deleteOrder(o.id)} style={styles.deleteButton}>
+                      {t.delete}
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
+            ))}
           </div>
-        ))}
+        )}
       </section>
     </main>
   );
@@ -539,7 +655,8 @@ const styles: any = {
     background: "#000",
     minHeight: "100vh",
     color: "white",
-    padding: "24px",
+    padding: "18px",
+    paddingBottom: "45px",
   },
   backLink: {
     color: "#3b82f6",
@@ -547,128 +664,264 @@ const styles: any = {
     fontWeight: "bold",
   },
   title: {
-    fontSize: "42px",
     color: "#f97316",
-    marginTop: "24px",
-    marginBottom: "28px",
-  },
-  box: {
-    background: "#111",
-    border: "1px solid #333",
-    padding: "20px",
-    borderRadius: "18px",
+    fontSize: "34px",
+    marginTop: "22px",
     marginBottom: "24px",
   },
-  subtitle: {
+  formBox: {
+    background: "#111",
+    border: "1px solid #333",
+    borderRadius: "14px",
+    padding: "16px",
+    display: "grid",
+    gap: "12px",
+    marginBottom: "20px",
+  },
+  label: {
     color: "#f97316",
-    marginBottom: "14px",
+    fontWeight: "bold",
+    fontSize: "14px",
   },
   toggleRow: {
     display: "flex",
-    gap: "10px",
+    gap: "8px",
     flexWrap: "wrap",
-    marginBottom: "16px",
   },
-  toggle: {
+  toggleButton: {
     background: "#222",
     color: "white",
-    border: "1px solid #333",
-    padding: "12px 16px",
-    borderRadius: "12px",
-    cursor: "pointer",
+    border: "1px solid #444",
+    borderRadius: "10px",
+    padding: "12px 14px",
     fontWeight: "bold",
+    cursor: "pointer",
   },
   activeToggle: {
     background: "#2563eb",
     color: "white",
-    border: "1px solid #2563eb",
-    padding: "12px 16px",
-    borderRadius: "12px",
-    cursor: "pointer",
+    border: "1px solid #3b82f6",
+    borderRadius: "10px",
+    padding: "12px 14px",
     fontWeight: "bold",
+    cursor: "pointer",
   },
   input: {
     width: "100%",
     background: "#222",
     color: "white",
     border: "1px solid #333",
-    padding: "14px",
     borderRadius: "10px",
-    marginBottom: "14px",
-    fontSize: "16px",
+    padding: "13px",
+    fontSize: "15px",
   },
   textarea: {
     width: "100%",
-    minHeight: "110px",
+    minHeight: "90px",
     background: "#222",
     color: "white",
     border: "1px solid #333",
-    padding: "14px",
     borderRadius: "10px",
-    marginBottom: "14px",
-    fontSize: "16px",
+    padding: "13px",
+    fontSize: "15px",
+    resize: "vertical",
   },
   saveButton: {
     background: "#16a34a",
     color: "white",
     border: "none",
-    padding: "14px 22px",
     borderRadius: "10px",
+    padding: "15px 20px",
+    fontWeight: "bold",
     cursor: "pointer",
+    fontSize: "16px",
+  },
+  groupBox: {
+    background: "#151515",
+    border: "1px solid #222",
+    borderRadius: "12px",
+    padding: "12px",
+  },
+  groupGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(78px, 1fr))",
+    gap: "8px",
+    marginTop: "10px",
+  },
+  groupCard: {
+    minHeight: "72px",
+    background: "#242424",
+    color: "white",
+    border: "1px solid #3a3a3a",
+    borderRadius: "10px",
+    padding: "8px 5px",
+    textAlign: "center",
+    cursor: "pointer",
+  },
+  activeGroupCard: {
+    minHeight: "72px",
+    background: "#1e3a8a",
+    color: "white",
+    border: "1px solid #3b82f6",
+    borderRadius: "10px",
+    padding: "8px 5px",
+    textAlign: "center",
+    cursor: "pointer",
+  },
+  groupIcon: {
+    fontSize: "18px",
+    lineHeight: "1",
+    marginBottom: "4px",
+  },
+  groupName: {
+    fontSize: "11px",
+    fontWeight: "bold",
+    lineHeight: "1.15",
+    minHeight: "24px",
+  },
+  groupCount: {
+    fontSize: "10px",
+    color: "#ccc",
+    marginTop: "2px",
+  },
+  materialBox: {
+    background: "#151515",
+    border: "1px solid #222",
+    borderRadius: "12px",
+    padding: "12px",
+    display: "grid",
+    gap: "10px",
+  },
+  materialBoxHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+  selectedBadge: {
+    background: "#14532d",
+    border: "1px solid #22c55e",
+    color: "white",
+    borderRadius: "999px",
+    padding: "7px 10px",
+    fontSize: "12px",
     fontWeight: "bold",
   },
-  emptyText: {
-    color: "#aaa",
+  materialGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+    gap: "8px",
   },
-  orderCard: {
-    background: "#000",
+  materialCard: {
+    background: "#222",
+    color: "white",
     border: "1px solid #333",
-    padding: "16px",
+    borderRadius: "10px",
+    padding: "12px",
+    cursor: "pointer",
+    textAlign: "left",
+    display: "grid",
+    gap: "5px",
+  },
+  activeMaterialCard: {
+    background: "#064e3b",
+    color: "white",
+    border: "1px solid #22c55e",
+    borderRadius: "10px",
+    padding: "12px",
+    cursor: "pointer",
+    textAlign: "left",
+    display: "grid",
+    gap: "5px",
+  },
+  emptySmall: {
+    background: "#222",
+    color: "#aaa",
+    borderRadius: "10px",
+    padding: "12px",
+  },
+  ordersBox: {
+    background: "#111",
+    border: "1px solid #333",
     borderRadius: "14px",
+    padding: "16px",
+  },
+  sectionTitle: {
+    color: "#f97316",
+    fontSize: "18px",
+    marginTop: 0,
     marginBottom: "14px",
   },
-  orderTop: {
+  emptyBox: {
+    background: "#1a1a1a",
+    borderRadius: "10px",
+    padding: "16px",
+    color: "#aaa",
+  },
+  ordersList: {
+    display: "grid",
+    gap: "12px",
+  },
+  orderCard: {
+    background: "#050505",
+    border: "1px solid #333",
+    borderRadius: "12px",
+    padding: "14px",
     display: "flex",
     justifyContent: "space-between",
     gap: "12px",
+    flexWrap: "wrap",
+  },
+  orderMain: {
+    display: "grid",
+    gap: "6px",
+    minWidth: "260px",
+  },
+  orderTitle: {
     color: "#f97316",
-    marginBottom: "10px",
+    fontWeight: "bold",
+    fontSize: "16px",
+  },
+  orderText: {
+    color: "#eee",
+    fontWeight: "bold",
+  },
+  orderNote: {
+    color: "#ccc",
+    background: "#111",
+    borderRadius: "8px",
+    padding: "8px",
+  },
+  orderActions: {
+    display: "flex",
+    alignItems: "flex-end",
+    gap: "8px",
+    flexWrap: "wrap",
   },
   statusBadge: {
     background: "#222",
     color: "white",
-    padding: "5px 10px",
     borderRadius: "999px",
-    fontSize: "13px",
-  },
-  line: {
-    margin: "6px 0",
-  },
-  note: {
-    color: "#ddd",
-    whiteSpace: "pre-wrap",
-    marginTop: "10px",
-  },
-  buttonRow: {
-    display: "flex",
-    gap: "10px",
-    flexWrap: "wrap",
-    marginTop: "14px",
+    padding: "7px 10px",
+    fontSize: "12px",
+    fontWeight: "bold",
   },
   statusSelect: {
     background: "#222",
     color: "white",
     border: "1px solid #333",
-    padding: "10px",
     borderRadius: "8px",
+    padding: "9px",
+    fontWeight: "bold",
   },
   deleteButton: {
     background: "#dc2626",
     color: "white",
     border: "none",
-    padding: "10px 16px",
     borderRadius: "8px",
-    cursor: "pointer",
+    padding: "10px 14px",
     fontWeight: "bold",
+    cursor: "pointer",
   },
 };
