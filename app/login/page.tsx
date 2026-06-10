@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 
+const LOGO_URL =
+  "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/logo.png";
+
+const BACKGROUND_URL =
+  "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/pozadina.png";
+
 export default function LoginPage() {
   const [name, setName] = useState("");
   const [pin, setPin] = useState("");
@@ -26,68 +32,82 @@ export default function LoginPage() {
     );
 
     if (!user) {
-      alert("Pogrešno ime ili PIN.");
+      alert("Falscher Name oder PIN.");
       return;
     }
 
     localStorage.setItem("worker_id", String(user.id));
     localStorage.setItem("worker_name", user.name);
     localStorage.setItem("worker_role", user.role);
+    localStorage.setItem("userName", user.name);
 
     window.location.href = "/dashboard";
   }
 
   return (
     <main style={mainStyle}>
-      <div style={boxStyle}>
-        <div style={logoBoxStyle}>
-          <h1 style={brandStyle}>STONE BOUTIQUE</h1>
-          <p style={companyStyle}>*********************</p>
-          <p style={systemStyle}>Baustellen Management System</p>
-          <p style={systemStyle}>Der dargestellte Inhalt dient ausschließlich der Unterhaltung und Meinungsäußerung. Er erhebt keinen Anspruch auf Tatsachenfeststellung und stellt weder einen Beweis noch eine verbindliche Aussage über tatsächliche Sachverhalte dar.</p>
-        </div>
+      <div style={overlayStyle}>
+        <div style={boxStyle}>
+          <div style={logoBoxStyle}>
+            <img src={LOGO_URL} alt="Solstone Logo" style={logoStyle} />
 
-        <label>Name</label>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={inputStyle}
-        />
+            <p style={systemStyle}>Baustellen Management System</p>
+            <p style={testStyle}>Testbetrieb</p>
+          </div>
 
-        <label>PIN</label>
-
-        <div style={pinBoxStyle}>
+          <label style={labelStyle}>Name</label>
           <input
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            type={showPin ? "text" : "password"}
-            style={{ ...inputStyle, marginBottom: 0, paddingRight: "55px" }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") login();
-            }}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={inputStyle}
+            placeholder="Name eingeben"
           />
 
-          <button
-            type="button"
-            onClick={() => setShowPin(!showPin)}
-            style={eyeButtonStyle}
-          >
-            {showPin ? "🙈" : "👁"}
+          <label style={labelStyle}>PIN</label>
+
+          <div style={pinBoxStyle}>
+            <input
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              type={showPin ? "text" : "password"}
+              style={{ ...inputStyle, marginBottom: 0, paddingRight: "55px" }}
+              placeholder="PIN eingeben"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") login();
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowPin(!showPin)}
+              style={eyeButtonStyle}
+            >
+              {showPin ? "🙈" : "👁"}
+            </button>
+          </div>
+
+          <button onClick={login} style={buttonStyle}>
+            LOGIN
           </button>
         </div>
-
-        <button onClick={login} style={buttonStyle}>
-          LOGIN
-        </button>
       </div>
     </main>
   );
 }
 
 const mainStyle: any = {
-  background: "#000",
   minHeight: "100vh",
   color: "white",
+  backgroundImage: `url(${BACKGROUND_URL})`,
+  backgroundSize: "cover",
+  backgroundPosition: "center",
+  backgroundRepeat: "no-repeat",
+};
+
+const overlayStyle: any = {
+  minHeight: "100vh",
+  background:
+    "linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.9))",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
@@ -95,12 +115,14 @@ const mainStyle: any = {
 };
 
 const boxStyle: any = {
-  background: "#111",
+  background: "rgba(0,0,0,0.78)",
   padding: "35px",
-  borderRadius: "22px",
+  borderRadius: "24px",
   width: "100%",
-  maxWidth: "500px",
-  border: "1px solid #222",
+  maxWidth: "520px",
+  border: "1px solid rgba(249,115,22,0.45)",
+  boxShadow: "0 0 40px rgba(0,0,0,0.8)",
+  backdropFilter: "blur(6px)",
 };
 
 const logoBoxStyle: any = {
@@ -110,24 +132,29 @@ const logoBoxStyle: any = {
   borderBottom: "1px solid #333",
 };
 
-const brandStyle: any = {
-  fontSize: "42px",
-  fontWeight: "900",
-  margin: "0 0 12px 0",
-  color: "#f97316",
-  letterSpacing: "2px",
-};
-
-const companyStyle: any = {
-  fontSize: "22px",
-  fontWeight: "bold",
-  margin: "0 0 8px 0",
+const logoStyle: any = {
+  width: "100%",
+  maxWidth: "360px",
+  height: "auto",
+  marginBottom: "16px",
 };
 
 const systemStyle: any = {
-  fontSize: "16px",
+  fontSize: "18px",
+  margin: "8px 0 4px 0",
+  color: "#ddd",
+  fontWeight: "bold",
+};
+
+const testStyle: any = {
+  fontSize: "15px",
   margin: 0,
-  color: "#aaa",
+  color: "#f97316",
+};
+
+const labelStyle: any = {
+  fontWeight: "bold",
+  color: "#ddd",
 };
 
 const inputStyle: any = {
@@ -136,10 +163,11 @@ const inputStyle: any = {
   marginTop: "8px",
   marginBottom: "20px",
   borderRadius: "12px",
-  border: "1px solid #333",
-  background: "#000",
+  border: "1px solid #444",
+  background: "rgba(0,0,0,0.75)",
   color: "white",
   fontSize: "18px",
+  outline: "none",
 };
 
 const pinBoxStyle: any = {
@@ -162,7 +190,7 @@ const eyeButtonStyle: any = {
 const buttonStyle: any = {
   width: "100%",
   padding: "16px",
-  background: "#2563eb",
+  background: "#f97316",
   color: "white",
   border: "none",
   borderRadius: "14px",
