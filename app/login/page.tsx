@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 export default function LoginPage() {
-  const [name, setName] = useState("Admin");
+  const [name, setName] = useState("");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
 
