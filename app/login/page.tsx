@@ -106,8 +106,7 @@ const mainStyle: any = {
 
 const overlayStyle: any = {
   minHeight: "100vh",
-  background:
-    "linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.9))",
+  background: "rgba(0,0,0,0.28)",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
@@ -115,21 +114,22 @@ const overlayStyle: any = {
 };
 
 const boxStyle: any = {
-  background: "rgba(0,0,0,0.78)",
+  background: "rgba(0,0,0,0.28)",
   padding: "35px",
   borderRadius: "24px",
   width: "100%",
   maxWidth: "520px",
-  border: "1px solid rgba(249,115,22,0.45)",
-  boxShadow: "0 0 40px rgba(0,0,0,0.8)",
-  backdropFilter: "blur(6px)",
+  border: "1px solid rgba(249,115,22,0.85)",
+  boxShadow: "0 0 50px rgba(0,0,0,0.55)",
+  backdropFilter: "blur(3px)",
+  WebkitBackdropFilter: "blur(3px)",
 };
 
 const logoBoxStyle: any = {
   textAlign: "center",
   marginBottom: "35px",
   paddingBottom: "25px",
-  borderBottom: "1px solid #333",
+  borderBottom: "1px solid rgba(255,255,255,0.18)",
 };
 
 const logoStyle: any = {
@@ -142,19 +142,23 @@ const logoStyle: any = {
 const systemStyle: any = {
   fontSize: "18px",
   margin: "8px 0 4px 0",
-  color: "#ddd",
+  color: "#fff",
   fontWeight: "bold",
+  textShadow: "0 2px 8px rgba(0,0,0,0.9)",
 };
 
 const testStyle: any = {
   fontSize: "15px",
   margin: 0,
   color: "#f97316",
+  fontWeight: "bold",
+  textShadow: "0 2px 8px rgba(0,0,0,0.9)",
 };
 
 const labelStyle: any = {
   fontWeight: "bold",
-  color: "#ddd",
+  color: "#fff",
+  textShadow: "0 2px 8px rgba(0,0,0,0.9)",
 };
 
 const inputStyle: any = {
@@ -163,9 +167,9 @@ const inputStyle: any = {
   marginTop: "8px",
   marginBottom: "20px",
   borderRadius: "12px",
-  border: "1px solid #444",
-  background: "rgba(0,0,0,0.75)",
-  color: "white",
+  border: "1px solid rgba(255,255,255,0.5)",
+  background: "rgba(255,255,255,0.82)",
+  color: "#000",
   fontSize: "18px",
   outline: "none",
 };
@@ -182,7 +186,7 @@ const eyeButtonStyle: any = {
   transform: "translateY(-50%)",
   background: "transparent",
   border: "none",
-  color: "white",
+  color: "#111",
   cursor: "pointer",
   fontSize: "20px",
 };
