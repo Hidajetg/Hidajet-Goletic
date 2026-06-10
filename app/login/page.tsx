@@ -130,13 +130,17 @@ const logoBoxStyle: any = {
   marginBottom: "35px",
   paddingBottom: "25px",
   borderBottom: "1px solid rgba(255,255,255,0.18)",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
 };
 
 const logoStyle: any = {
+  display: "block",
   width: "100%",
   maxWidth: "360px",
   height: "auto",
-  marginBottom: "16px",
+  margin: "0 auto 16px auto",
 };
 
 const systemStyle: any = {
