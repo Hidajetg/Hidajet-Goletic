@@ -19,7 +19,7 @@ const translations: any = {
     damages: "Schäden / Mängel",
     reportDamage: "Schaden melden",
     damageText: "Schaden beschreiben",
-    uploadImage: "Bild hinzufügen",
+    chooseCar: "Auto wählen",
     send: "Senden",
     history: "Fahrhistorie",
     statistics: "Statistik",
@@ -36,18 +36,20 @@ const translations: any = {
     noActive: "Aktuell fährt niemand.",
     noHistory: "Keine Historie vorhanden.",
     noDamages: "Keine Schäden vorhanden.",
-    saved: "Gespeichert.",
     enterName: "Bitte Auto Name eingeben.",
     alreadyTaken: "Dieses Auto ist bereits vergeben.",
+    alreadyHaveCar: "Du hast bereits ein Auto. Bitte zuerst zurückgeben.",
+    notLoggedIn: "Du bist nicht angemeldet.",
+    enterDamage: "Bitte Auto und Beschreibung eingeben.",
     repaired: "Erledigt",
     open: "Offen",
     active: "Aktiv",
     free: "Frei",
-    driver: "Fahrer",
     since: "Seit",
     returned: "Zurückgegeben",
     totalTrips: "Fahrten",
     activeDamages: "Offene Schäden",
+    sending: "Wird gesendet...",
   },
   ba: {
     title: "Auta",
@@ -61,7 +63,7 @@ const translations: any = {
     damages: "Kvarovi / šteta",
     reportDamage: "Prijavi kvar",
     damageText: "Opiši kvar",
-    uploadImage: "Dodaj sliku",
+    chooseCar: "Izaberi auto",
     send: "Pošalji",
     history: "Historija vožnje",
     statistics: "Statistika",
@@ -78,18 +80,64 @@ const translations: any = {
     noActive: "Trenutno niko ne vozi.",
     noHistory: "Nema historije.",
     noDamages: "Nema kvarova.",
-    saved: "Spremljeno.",
     enterName: "Upiši ime auta.",
     alreadyTaken: "Ovo auto je već zauzeto.",
+    alreadyHaveCar: "Već imaš auto. Prvo ga moraš vratiti.",
+    notLoggedIn: "Nisi prijavljen.",
+    enterDamage: "Izaberi auto i upiši opis kvara.",
     repaired: "Riješeno",
     open: "Otvoreno",
     active: "Aktivno",
     free: "Slobodno",
-    driver: "Radnik",
     since: "Od",
     returned: "Vraćeno",
     totalTrips: "Vožnje",
     activeDamages: "Otvoreni kvarovi",
+    sending: "Šalje se...",
+  },
+  uz: {
+    title: "Mashinalar",
+    back: "← Orqaga",
+    myCar: "Mening mashinam",
+    takeCar: "Mashinani olish",
+    returnCar: "Mashinani qaytarish",
+    freeCars: "Bo‘sh mashinalar",
+    currentUse: "Hozirgi foydalanish",
+    fleet: "Avtopark",
+    damages: "Nosozliklar",
+    reportDamage: "Nosozlik xabar berish",
+    damageText: "Nosozlikni yozing",
+    chooseCar: "Mashina tanlang",
+    send: "Yuborish",
+    history: "Haydash tarixi",
+    statistics: "Statistika",
+    addCar: "Mashina qo‘shish",
+    edit: "Tahrirlash",
+    delete: "O‘chirish",
+    cancel: "Bekor qilish",
+    name: "Mashina nomi",
+    plate: "Raqam",
+    registration: "Ro‘yxatdan o‘tish muddati",
+    warning: "Ro‘yxatdan o‘tish muddati tugayapti!",
+    noCars: "Mashina yo‘q.",
+    noFreeCars: "Bo‘sh mashina yo‘q.",
+    noActive: "Hozir hech kim haydamayapti.",
+    noHistory: "Tarix yo‘q.",
+    noDamages: "Nosozlik yo‘q.",
+    enterName: "Mashina nomini yozing.",
+    alreadyTaken: "Bu mashina band.",
+    alreadyHaveCar: "Sizda allaqachon mashina bor. Avval qaytaring.",
+    notLoggedIn: "Siz tizimga kirmagansiz.",
+    enterDamage: "Mashina tanlang va nosozlikni yozing.",
+    repaired: "Tuzatildi",
+    open: "Ochiq",
+    active: "Aktiv",
+    free: "Bo‘sh",
+    since: "Boshlangan vaqt",
+    returned: "Qaytarildi",
+    totalTrips: "Safarlar",
+    activeDamages: "Ochiq nosozliklar",
+    sending: "Yuborilmoqda...",
   },
   en: {
     title: "Cars",
@@ -103,7 +151,7 @@ const translations: any = {
     damages: "Damages",
     reportDamage: "Report damage",
     damageText: "Describe damage",
-    uploadImage: "Add image",
+    chooseCar: "Choose car",
     send: "Send",
     history: "Driving history",
     statistics: "Statistics",
@@ -120,18 +168,20 @@ const translations: any = {
     noActive: "Nobody is driving now.",
     noHistory: "No history.",
     noDamages: "No damages.",
-    saved: "Saved.",
     enterName: "Enter car name.",
     alreadyTaken: "This car is already taken.",
+    alreadyHaveCar: "You already have a car. Return it first.",
+    notLoggedIn: "You are not logged in.",
+    enterDamage: "Choose a car and enter damage description.",
     repaired: "Done",
     open: "Open",
     active: "Active",
     free: "Free",
-    driver: "Worker",
     since: "Since",
     returned: "Returned",
     totalTrips: "Trips",
     activeDamages: "Open damages",
+    sending: "Sending...",
   },
 };
 
@@ -211,9 +261,7 @@ export default function AutaPage() {
       .eq("is_active", true)
       .order("check_in_at", { ascending: false });
 
-    if (!activeRes.error) {
-      setActiveAssignments(activeRes.data || []);
-    }
+    if (!activeRes.error) setActiveAssignments(activeRes.data || []);
 
     const historyRes = await supabase
       .from("car_assignments")
@@ -221,18 +269,14 @@ export default function AutaPage() {
       .order("check_in_at", { ascending: false })
       .limit(200);
 
-    if (!historyRes.error) {
-      setHistory(historyRes.data || []);
-    }
+    if (!historyRes.error) setHistory(historyRes.data || []);
 
     const damageRes = await supabase
       .from("car_damages")
       .select("*, cars(*)")
       .order("created_at", { ascending: false });
 
-    if (!damageRes.error) {
-      setDamages(damageRes.data || []);
-    }
+    if (!damageRes.error) setDamages(damageRes.data || []);
   }
 
   const myActiveCar = activeAssignments.find((a) => a.worker_name === workerName);
@@ -241,12 +285,12 @@ export default function AutaPage() {
 
   async function takeCar(carId: number) {
     if (!workerName) {
-      alert("Nicht angemeldet.");
+      alert(t.notLoggedIn);
       return;
     }
 
     if (myActiveCar) {
-      alert("Du hast bereits ein Auto. Bitte zuerst zurückgeben.");
+      alert(t.alreadyHaveCar);
       return;
     }
 
@@ -364,7 +408,7 @@ export default function AutaPage() {
 
   async function sendDamage() {
     if (!damageCarId || !damageText.trim()) {
-      alert("Auto und Beschreibung eingeben.");
+      alert(t.enterDamage);
       return;
     }
 
@@ -502,7 +546,7 @@ export default function AutaPage() {
               onChange={(e) => setSelectedCarId(e.target.value)}
               style={inputStyle}
             >
-              <option value="">{t.freeCars}</option>
+              <option value="">{t.chooseCar}</option>
               {freeCars.map((car) => (
                 <option key={car.id} value={car.id}>
                   {car.name} {car.plate ? `- ${car.plate}` : ""}
@@ -580,7 +624,7 @@ export default function AutaPage() {
           onChange={(e) => setDamageCarId(e.target.value)}
           style={inputStyle}
         >
-          <option value="">Auto wählen</option>
+          <option value="">{t.chooseCar}</option>
           {cars.map((car) => (
             <option key={car.id} value={car.id}>
               {car.name} {car.plate ? `- ${car.plate}` : ""}
@@ -603,7 +647,7 @@ export default function AutaPage() {
         />
 
         <button onClick={sendDamage} disabled={uploading} style={orangeButtonStyle}>
-          {uploading ? "Wird gesendet..." : t.send}
+          {uploading ? t.sending : t.send}
         </button>
       </section>
 
@@ -613,26 +657,9 @@ export default function AutaPage() {
             <h2>👨‍💼 {t.fleet}</h2>
 
             <div style={adminFormStyle}>
-              <input
-                value={carName}
-                onChange={(e) => setCarName(e.target.value)}
-                placeholder={t.name}
-                style={inputStyle}
-              />
-
-              <input
-                value={plate}
-                onChange={(e) => setPlate(e.target.value)}
-                placeholder={t.plate}
-                style={inputStyle}
-              />
-
-              <input
-                type="date"
-                value={registrationUntil}
-                onChange={(e) => setRegistrationUntil(e.target.value)}
-                style={inputStyle}
-              />
+              <input value={carName} onChange={(e) => setCarName(e.target.value)} placeholder={t.name} style={inputStyle} />
+              <input value={plate} onChange={(e) => setPlate(e.target.value)} placeholder={t.plate} style={inputStyle} />
+              <input type="date" value={registrationUntil} onChange={(e) => setRegistrationUntil(e.target.value)} style={inputStyle} />
 
               <button onClick={saveCar} style={greenButtonStyle}>
                 {editingCar ? t.edit : t.addCar}
@@ -645,44 +672,20 @@ export default function AutaPage() {
               )}
             </div>
 
-            {cars.length === 0 ? (
-              <p style={{ color: "#aaa" }}>{t.noCars}</p>
-            ) : (
-              cars.map((car) => (
-                <div
-                  key={car.id}
-                  style={
-                    isRegistrationWarning(car.registration_until)
-                      ? warningCarStyle
-                      : carInfoStyle
-                  }
-                >
-                  <strong>
-                    {car.name} {car.plate ? `- ${car.plate}` : ""}
-                  </strong>
+            {cars.map((car) => (
+              <div key={car.id} style={isRegistrationWarning(car.registration_until) ? warningCarStyle : carInfoStyle}>
+                <strong>{car.name} {car.plate ? `- ${car.plate}` : ""}</strong>
+                <p>{carStatus(car)}</p>
+                <p>{t.registration}: {car.registration_until || "-"}</p>
 
-                  <p>{carStatus(car)}</p>
+                {isRegistrationWarning(car.registration_until) && <p style={{ fontWeight: "bold" }}>⚠️ {t.warning}</p>}
 
-                  <p>
-                    {t.registration}: {car.registration_until || "-"}
-                  </p>
-
-                  {isRegistrationWarning(car.registration_until) && (
-                    <p style={{ fontWeight: "bold" }}>⚠️ {t.warning}</p>
-                  )}
-
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                    <button onClick={() => startEdit(car)} style={blueSmallButtonStyle}>
-                      {t.edit}
-                    </button>
-
-                    <button onClick={() => deleteCar(car.id)} style={redSmallButtonStyle}>
-                      {t.delete}
-                    </button>
-                  </div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button onClick={() => startEdit(car)} style={blueSmallButtonStyle}>{t.edit}</button>
+                  <button onClick={() => deleteCar(car.id)} style={redSmallButtonStyle}>{t.delete}</button>
                 </div>
-              ))
-            )}
+              </div>
+            ))}
           </section>
 
           <section style={boxStyle}>
@@ -690,9 +693,7 @@ export default function AutaPage() {
 
             {cars.map((car) => (
               <div key={car.id} style={statCardStyle}>
-                <strong>
-                  {car.name} {car.plate ? `- ${car.plate}` : ""}
-                </strong>
+                <strong>{car.name} {car.plate ? `- ${car.plate}` : ""}</strong>
 
                 <div style={statGridStyle}>
                   <div>
@@ -716,24 +717,12 @@ export default function AutaPage() {
               <p style={{ color: "#aaa" }}>{t.noDamages}</p>
             ) : (
               damages.map((d) => (
-                <div
-                  key={d.id}
-                  style={d.status === "OPEN" ? damageOpenStyle : damageDoneStyle}
-                >
-                  <strong>
-                    {d.cars?.name} {d.cars?.plate ? `- ${d.cars.plate}` : ""}
-                  </strong>
-
+                <div key={d.id} style={d.status === "OPEN" ? damageOpenStyle : damageDoneStyle}>
+                  <strong>{d.cars?.name} {d.cars?.plate ? `- ${d.cars.plate}` : ""}</strong>
                   <p>{d.description}</p>
+                  <p style={{ color: "#aaa" }}>{d.worker_name} · {formatDateTime(d.created_at)} · {d.status === "OPEN" ? t.open : t.repaired}</p>
 
-                  <p style={{ color: "#aaa" }}>
-                    {d.worker_name} · {formatDateTime(d.created_at)} ·{" "}
-                    {d.status === "OPEN" ? t.open : t.repaired}
-                  </p>
-
-                  {d.image_url && (
-                    <img src={d.image_url} alt="Schaden" style={damageImageStyle} />
-                  )}
+                  {d.image_url && <img src={d.image_url} alt="Schaden" style={damageImageStyle} />}
 
                   <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                     {d.status === "OPEN" && (
@@ -759,10 +748,7 @@ export default function AutaPage() {
             ) : (
               history.map((h) => (
                 <div key={h.id} style={historyRowStyle}>
-                  <strong>
-                    {h.cars?.name} {h.cars?.plate ? `- ${h.cars.plate}` : ""}
-                  </strong>
-
+                  <strong>{h.cars?.name} {h.cars?.plate ? `- ${h.cars.plate}` : ""}</strong>
                   <p>
                     {h.worker_name}
                     <br />
@@ -780,200 +766,31 @@ export default function AutaPage() {
   );
 }
 
-const mainStyle: any = {
-  background: "#000",
-  minHeight: "100vh",
-  color: "white",
-  padding: "20px",
-};
-
-const backStyle: any = {
-  color: "#3b82f6",
-  textDecoration: "none",
-  fontWeight: "bold",
-};
-
-const titleStyle: any = {
-  fontSize: "38px",
-  color: "#f97316",
-  marginTop: "20px",
-};
-
-const boxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "16px",
-  marginTop: "18px",
-};
-
-const highlightBoxStyle: any = {
-  ...boxStyle,
-  border: "1px solid #f97316",
-};
-
-const myCarStyle: any = {
-  background: "#052e16",
-  border: "1px solid #16a34a",
-  borderRadius: "14px",
-  padding: "14px",
-  marginBottom: "12px",
-};
-
-const inputStyle: any = {
-  width: "100%",
-  padding: "13px",
-  borderRadius: "10px",
-  border: "1px solid #333",
-  background: "#000",
-  color: "white",
-  marginBottom: "10px",
-  fontSize: "16px",
-};
-
-const textAreaStyle: any = {
-  ...inputStyle,
-  minHeight: "110px",
-  resize: "vertical",
-};
-
-const greenButtonStyle: any = {
-  width: "100%",
-  padding: "13px",
-  borderRadius: "10px",
-  border: "none",
-  background: "#16a34a",
-  color: "white",
-  fontWeight: "bold",
-  fontSize: "16px",
-  cursor: "pointer",
-};
-
-const redButtonStyle: any = {
-  ...greenButtonStyle,
-  background: "#dc2626",
-};
-
-const orangeButtonStyle: any = {
-  ...greenButtonStyle,
-  background: "#f97316",
-};
-
-const grayButtonStyle: any = {
-  ...greenButtonStyle,
-  background: "#555",
-  marginTop: "8px",
-};
-
-const rowStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "12px",
-  alignItems: "center",
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "12px",
-  marginBottom: "8px",
-};
-
-const adminFormStyle: any = {
-  marginBottom: "16px",
-};
-
-const carInfoStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "12px",
-  marginBottom: "10px",
-};
-
-const warningCarStyle: any = {
-  ...carInfoStyle,
-  background: "#7f1d1d",
-  border: "1px solid #dc2626",
-};
-
-const smallGreenButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "9px 12px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const smallRedButtonStyle: any = {
-  ...smallGreenButtonStyle,
-  background: "#dc2626",
-};
-
-const blueSmallButtonStyle: any = {
-  ...smallGreenButtonStyle,
-  background: "#2563eb",
-};
-
-const redSmallButtonStyle: any = {
-  ...smallGreenButtonStyle,
-  background: "#dc2626",
-};
-
-const greenSmallButtonStyle: any = {
-  ...smallGreenButtonStyle,
-  background: "#16a34a",
-};
-
-const statCardStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "12px",
-  marginBottom: "10px",
-};
-
-const statGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "10px",
-  marginTop: "10px",
-};
-
-const statNumberStyle: any = {
-  fontSize: "28px",
-  fontWeight: "bold",
-  color: "#f97316",
-};
-
-const damageOpenStyle: any = {
-  background: "#3b1600",
-  border: "1px solid #f97316",
-  borderRadius: "12px",
-  padding: "12px",
-  marginBottom: "10px",
-};
-
-const damageDoneStyle: any = {
-  background: "#052e16",
-  border: "1px solid #16a34a",
-  borderRadius: "12px",
-  padding: "12px",
-  marginBottom: "10px",
-};
-
-const damageImageStyle: any = {
-  width: "100%",
-  maxHeight: "260px",
-  objectFit: "cover",
-  borderRadius: "12px",
-  marginBottom: "10px",
-};
-
-const historyRowStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "12px",
-  marginBottom: "10px",
-};
+const mainStyle: any = { background: "#000", minHeight: "100vh", color: "white", padding: "20px" };
+const backStyle: any = { color: "#3b82f6", textDecoration: "none", fontWeight: "bold" };
+const titleStyle: any = { fontSize: "38px", color: "#f97316", marginTop: "20px" };
+const boxStyle: any = { background: "#111", border: "1px solid #333", borderRadius: "16px", padding: "16px", marginTop: "18px" };
+const highlightBoxStyle: any = { ...boxStyle, border: "1px solid #f97316" };
+const myCarStyle: any = { background: "#052e16", border: "1px solid #16a34a", borderRadius: "14px", padding: "14px", marginBottom: "12px" };
+const inputStyle: any = { width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #333", background: "#000", color: "white", marginBottom: "10px", fontSize: "16px" };
+const textAreaStyle: any = { ...inputStyle, minHeight: "110px", resize: "vertical" };
+const greenButtonStyle: any = { width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: "#16a34a", color: "white", fontWeight: "bold", fontSize: "16px", cursor: "pointer" };
+const redButtonStyle: any = { ...greenButtonStyle, background: "#dc2626" };
+const orangeButtonStyle: any = { ...greenButtonStyle, background: "#f97316" };
+const grayButtonStyle: any = { ...greenButtonStyle, background: "#555", marginTop: "8px" };
+const rowStyle: any = { display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", background: "#000", border: "1px solid #333", borderRadius: "12px", padding: "12px", marginBottom: "8px" };
+const adminFormStyle: any = { marginBottom: "16px" };
+const carInfoStyle: any = { background: "#000", border: "1px solid #333", borderRadius: "12px", padding: "12px", marginBottom: "10px" };
+const warningCarStyle: any = { ...carInfoStyle, background: "#7f1d1d", border: "1px solid #dc2626" };
+const smallGreenButtonStyle: any = { background: "#16a34a", color: "white", border: "none", borderRadius: "8px", padding: "9px 12px", fontWeight: "bold", cursor: "pointer" };
+const smallRedButtonStyle: any = { ...smallGreenButtonStyle, background: "#dc2626" };
+const blueSmallButtonStyle: any = { ...smallGreenButtonStyle, background: "#2563eb" };
+const redSmallButtonStyle: any = { ...smallGreenButtonStyle, background: "#dc2626" };
+const greenSmallButtonStyle: any = { ...smallGreenButtonStyle, background: "#16a34a" };
+const statCardStyle: any = { background: "#000", border: "1px solid #333", borderRadius: "12px", padding: "12px", marginBottom: "10px" };
+const statGridStyle: any = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "10px" };
+const statNumberStyle: any = { fontSize: "28px", fontWeight: "bold", color: "#f97316" };
+const damageOpenStyle: any = { background: "#3b1600", border: "1px solid #f97316", borderRadius: "12px", padding: "12px", marginBottom: "10px" };
+const damageDoneStyle: any = { background: "#052e16", border: "1px solid #16a34a", borderRadius: "12px", padding: "12px", marginBottom: "10px" };
+const damageImageStyle: any = { width: "100%", maxHeight: "260px", objectFit: "cover", borderRadius: "12px", marginBottom: "10px" };
+const historyRowStyle: any = { background: "#000", border: "1px solid #333", borderRadius: "12px", padding: "12px", marginBottom: "10px" };
