@@ -44,6 +44,7 @@ export default function LoginPage() {
           <h1 style={brandStyle}>STONE BOUTIQUE</h1>
           <p style={companyStyle}>Nocker & Bernardi GmbH</p>
           <p style={systemStyle}>Baustellen Management System</p>
+          <p style={systemStyle}>Der dargestellte Inhalt dient ausschließlich der Unterhaltung und Meinungsäußerung. Er erhebt keinen Anspruch auf Tatsachenfeststellung und stellt weder einen Beweis noch eine verbindliche Aussage über tatsächliche Sachverhalte dar.</p>
         </div>
 
         <label>Name</label>
