@@ -5,6 +5,57 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../../lib/supabase";
 
+const translations: any = {
+  de: {
+    back: "← Zurück zum Raum",
+    photos: "Fotografien",
+    totalPhotos: "Bilder insgesamt",
+    addPhotos: "Bilder hinzufügen",
+    uploading: "Bilder werden hochgeladen...",
+    gallery: "Galerie",
+    noPhotos: "Noch keine Bilder für diesen Raum vorhanden.",
+    worker: "Mitarbeiter",
+    openFullscreen: "Im Vollbild öffnen",
+    download: "Herunterladen",
+    delete: "Löschen",
+    previous: "← Vorheriges",
+    next: "Nächstes →",
+    confirmDelete: "Möchten Sie dieses Bild wirklich löschen?",
+    uploadError: "Fehler beim Hochladen des Bildes",
+    saveError: "Fehler beim Speichern des Bildes",
+    loadError: "Fehler beim Laden der Bilder",
+    deleteError: "Fehler beim Löschen des Bildes",
+    downloadError: "Fehler beim Herunterladen des Bildes.",
+    defaultRoom: "Raum",
+    photoAlt: "Raumfoto",
+    bigPhotoAlt: "Großes Foto",
+  },
+  bs: {
+    back: "← Nazad na prostoriju",
+    photos: "Fotografije",
+    totalPhotos: "Ukupno slika",
+    addPhotos: "Dodaj slike",
+    uploading: "Slike se dodaju...",
+    gallery: "Galerija",
+    noPhotos: "Još nema dodanih slika za ovu prostoriju.",
+    worker: "Radnik",
+    openFullscreen: "Otvori preko cijelog ekrana",
+    download: "Preuzmi",
+    delete: "Obriši",
+    previous: "← Prethodna",
+    next: "Sljedeća →",
+    confirmDelete: "Da li sigurno želiš obrisati ovu sliku?",
+    uploadError: "Greška kod upload slike",
+    saveError: "Greška kod spremanja slike",
+    loadError: "Greška kod učitavanja slika",
+    deleteError: "Greška kod brisanja slike",
+    downloadError: "Greška kod preuzimanja slike.",
+    defaultRoom: "Prostorija",
+    photoAlt: "Fotografija prostorije",
+    bigPhotoAlt: "Velika fotografija",
+  },
+};
+
 export default function RoomPhotosPage() {
   const params = useParams();
 
@@ -12,11 +63,20 @@ export default function RoomPhotosPage() {
   const roomId = String(params.roomId);
 
   const [photos, setPhotos] = useState<any[]>([]);
-  const [roomName, setRoomName] = useState("Prostorija");
+  const [roomName, setRoomName] = useState("Raum");
   const [uploading, setUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
+  const [lang, setLang] = useState("de");
+
+  const t = translations[lang] || translations.de;
 
   useEffect(() => {
+    const savedLang =
+      localStorage.getItem("lang") ||
+      localStorage.getItem("language") ||
+      "de";
+
+    setLang(savedLang);
     loadRoom();
     loadPhotos();
   }, []);
@@ -26,7 +86,7 @@ export default function RoomPhotosPage() {
       localStorage.getItem("userName") ||
       localStorage.getItem("name") ||
       localStorage.getItem("workerName") ||
-      "Radnik"
+      t.worker
     );
   }
 
@@ -54,7 +114,7 @@ export default function RoomPhotosPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      alert("Greška kod učitavanja slika: " + error.message);
+      alert(translations.de.loadError + ": " + error.message);
       return;
     }
 
@@ -78,7 +138,7 @@ export default function RoomPhotosPage() {
         .upload(storagePath, file);
 
       if (uploadError) {
-        alert("Greška kod upload slike: " + uploadError.message);
+        alert(t.uploadError + ": " + uploadError.message);
         continue;
       }
 
@@ -95,7 +155,7 @@ export default function RoomPhotosPage() {
       });
 
       if (insertError) {
-        alert("Greška kod spremanja slike: " + insertError.message);
+        alert(t.saveError + ": " + insertError.message);
       }
     }
 
@@ -106,7 +166,7 @@ export default function RoomPhotosPage() {
   }
 
   async function deletePhoto(photo: any) {
-    if (!confirm("Da li sigurno želiš obrisati ovu sliku?")) return;
+    if (!confirm(t.confirmDelete)) return;
 
     if (photo.storage_path) {
       await supabase.storage.from("room-photos").remove([photo.storage_path]);
@@ -118,7 +178,7 @@ export default function RoomPhotosPage() {
       .eq("id", photo.id);
 
     if (error) {
-      alert("Greška kod brisanja slike: " + error.message);
+      alert(t.deleteError + ": " + error.message);
       return;
     }
 
@@ -134,14 +194,14 @@ export default function RoomPhotosPage() {
       const a = document.createElement("a");
 
       a.href = url;
-      a.download = `fotografija-${roomName}-${photo.id}.jpg`;
+      a.download = `foto-${roomName}-${photo.id}.jpg`;
       document.body.appendChild(a);
       a.click();
 
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch {
-      alert("Greška kod preuzimanja slike.");
+      alert(t.downloadError);
     }
   }
 
@@ -169,16 +229,23 @@ export default function RoomPhotosPage() {
 
   return (
     <main style={mainStyle}>
-      <Link href={`/baustellen/${baustelleId}/prostorije/${roomId}`} style={backStyle}>
-        ← Nazad na prostoriju
+      <Link
+        href={`/baustellen/${baustelleId}/prostorije/${roomId}`}
+        style={backStyle}
+      >
+        {t.back}
       </Link>
 
-      <h1 style={titleStyle}>Fotografije - {roomName}</h1>
+      <h1 style={titleStyle}>
+        {t.photos} - {roomName}
+      </h1>
 
-      <p style={countStyle}>Ukupno slika: {photos.length}</p>
+      <p style={countStyle}>
+        {t.totalPhotos}: {photos.length}
+      </p>
 
       <label style={uploadButtonStyle}>
-        {uploading ? "Slike se dodaju..." : "Dodaj slike"}
+        {uploading ? t.uploading : t.addPhotos}
         <input
           type="file"
           accept="image/*"
@@ -189,40 +256,49 @@ export default function RoomPhotosPage() {
         />
       </label>
 
-      <h2 style={galleryTitleStyle}>Galerija</h2>
+      <h2 style={galleryTitleStyle}>{t.gallery}</h2>
 
       {photos.length === 0 ? (
-        <div style={emptyStyle}>Još nema dodanih slika za ovu prostoriju.</div>
+        <div style={emptyStyle}>{t.noPhotos}</div>
       ) : (
         <div style={gridStyle}>
           {photos.map((photo) => (
             <div key={photo.id} style={cardStyle}>
               <img
                 src={photo.image_url}
-                alt="Fotografija prostorije"
+                alt={t.photoAlt}
                 onClick={() => setSelectedPhoto(photo)}
                 style={imageStyle}
               />
 
               <div style={{ padding: "10px" }}>
-                <p style={{ margin: "0 0 5px 0", fontWeight: "bold", fontSize: "13px" }}>
-                  {photo.worker_name || "Radnik"}
+                <p style={workerTextStyle}>
+                  {photo.worker_name || t.worker}
                 </p>
 
-                <p style={{ margin: "0 0 10px 0", color: "#aaa", fontSize: "11px" }}>
+                <p style={dateTextStyle}>
                   {formatDate(photo.created_at)}
                 </p>
 
-                <button onClick={() => setSelectedPhoto(photo)} style={openButtonStyle}>
-                  Otvori preko cijelog ekrana
+                <button
+                  onClick={() => setSelectedPhoto(photo)}
+                  style={openButtonStyle}
+                >
+                  {t.openFullscreen}
                 </button>
 
-                <button onClick={() => downloadPhoto(photo)} style={downloadButtonStyle}>
-                  Preuzmi
+                <button
+                  onClick={() => downloadPhoto(photo)}
+                  style={downloadButtonStyle}
+                >
+                  {t.download}
                 </button>
 
-                <button onClick={() => deletePhoto(photo)} style={deleteButtonStyle}>
-                  Obriši
+                <button
+                  onClick={() => deletePhoto(photo)}
+                  style={deleteButtonStyle}
+                >
+                  {t.delete}
                 </button>
               </div>
             </div>
@@ -232,15 +308,22 @@ export default function RoomPhotosPage() {
 
       {selectedPhoto && (
         <div style={fullscreenStyle}>
-          <button onClick={() => setSelectedPhoto(null)} style={closeButtonStyle}>
+          <button
+            onClick={() => setSelectedPhoto(null)}
+            style={closeButtonStyle}
+          >
             X
           </button>
 
-          <img src={selectedPhoto.image_url} alt="Velika fotografija" style={fullscreenImageStyle} />
+          <img
+            src={selectedPhoto.image_url}
+            alt={t.bigPhotoAlt}
+            style={fullscreenImageStyle}
+          />
 
           <div style={fullscreenInfoStyle}>
             <p style={{ margin: "0 0 5px 0", fontWeight: "bold" }}>
-              {selectedPhoto.worker_name || "Radnik"}
+              {selectedPhoto.worker_name || t.worker}
             </p>
 
             <p style={{ margin: "0 0 15px 0", color: "#aaa" }}>
@@ -249,19 +332,25 @@ export default function RoomPhotosPage() {
 
             <div style={fullscreenButtonsStyle}>
               <button onClick={previousPhoto} style={navButtonStyle}>
-                ← Prethodna
+                {t.previous}
               </button>
 
               <button onClick={nextPhoto} style={navButtonStyle}>
-                Sljedeća →
+                {t.next}
               </button>
 
-              <button onClick={() => downloadPhoto(selectedPhoto)} style={downloadButtonStyle}>
-                Preuzmi
+              <button
+                onClick={() => downloadPhoto(selectedPhoto)}
+                style={downloadButtonStyle}
+              >
+                {t.download}
               </button>
 
-              <button onClick={() => deletePhoto(selectedPhoto)} style={deleteButtonStyle}>
-                Obriši
+              <button
+                onClick={() => deletePhoto(selectedPhoto)}
+                style={deleteButtonStyle}
+              >
+                {t.delete}
               </button>
             </div>
           </div>
@@ -343,6 +432,18 @@ const imageStyle: any = {
   objectFit: "cover",
   display: "block",
   cursor: "pointer",
+};
+
+const workerTextStyle: any = {
+  margin: "0 0 5px 0",
+  fontWeight: "bold",
+  fontSize: "13px",
+};
+
+const dateTextStyle: any = {
+  margin: "0 0 10px 0",
+  color: "#aaa",
+  fontSize: "11px",
 };
 
 const openButtonStyle: any = {

@@ -13,6 +13,7 @@ const translations: any = {
     hours: "Stunden",
     calendar: "Kalender",
     info: "Info",
+    cars: "Autos",
     notes: "Notizen",
     materialOrder: "Material bestellen",
     privateNote: "Private Notiz",
@@ -25,6 +26,7 @@ const translations: any = {
     hours: "Sati",
     calendar: "Kalendar",
     info: "Info",
+    cars: "Auta",
     notes: "Bilješke",
     materialOrder: "Naruči materijal",
     privateNote: "Privatna bilješka",
@@ -37,6 +39,7 @@ const translations: any = {
     hours: "Soatlar",
     calendar: "Kalendar",
     info: "Info",
+    cars: "Mashinalar",
     notes: "Eslatmalar",
     materialOrder: "Material buyurtma",
     privateNote: "Shaxsiy eslatma",
@@ -49,6 +52,7 @@ const translations: any = {
     hours: "Hours",
     calendar: "Calendar",
     info: "Info",
+    cars: "Cars",
     notes: "Notes",
     materialOrder: "Order material",
     privateNote: "Private note",
@@ -66,6 +70,7 @@ export default function DashboardPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [todayPlans, setTodayPlans] = useState<any[]>([]);
   const [materialOrders, setMaterialOrders] = useState<any[]>([]);
+  const [carWarnings, setCarWarnings] = useState<any[]>([]);
   const [lang, setLang] = useState("ba");
 
   const t = translations[lang] || translations.ba;
@@ -89,6 +94,10 @@ export default function DashboardPage() {
     loadMessages(id);
     loadTodayPlans(name, adminStatus);
     loadMaterialOrders();
+
+    if (adminStatus) {
+      loadCarWarnings();
+    }
   }, [router]);
 
   function getTodayLocalDate() {
@@ -96,7 +105,15 @@ export default function DashboardPage() {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
 
+  function getOneMonthFromToday() {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 
@@ -153,6 +170,26 @@ export default function DashboardPage() {
     setMaterialOrders(data || []);
   }
 
+  async function loadCarWarnings() {
+    const today = getTodayLocalDate();
+    const oneMonth = getOneMonthFromToday();
+
+    const { data, error } = await supabase
+      .from("cars")
+      .select("*")
+      .not("registration_until", "is", null)
+      .gte("registration_until", today)
+      .lte("registration_until", oneMonth)
+      .order("registration_until", { ascending: true });
+
+    if (error) {
+      setCarWarnings([]);
+      return;
+    }
+
+    setCarWarnings(data || []);
+  }
+
   function changeLanguage(newLang: string) {
     localStorage.setItem("lang", newLang);
     setLang(newLang);
@@ -207,6 +244,19 @@ export default function DashboardPage() {
           style={todayPlans.length > 0 ? alertButtonStyle : buttonStyle}
         >
           📅 {t.calendar}
+        </Link>
+
+        <Link
+          href="/auta"
+          style={carWarnings.length > 0 ? alertButtonStyle : buttonStyle}
+        >
+          🚗 {t.cars}
+          {isAdmin && carWarnings.length > 0 && (
+            <>
+              <br />
+              <small>{carWarnings.length} REG. WARNUNG</small>
+            </>
+          )}
         </Link>
 
         <Link
