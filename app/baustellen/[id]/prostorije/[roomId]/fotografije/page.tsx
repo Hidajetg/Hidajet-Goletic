@@ -21,6 +21,15 @@ export default function RoomPhotosPage() {
     loadPhotos();
   }, []);
 
+  function getWorkerName() {
+    return (
+      localStorage.getItem("userName") ||
+      localStorage.getItem("name") ||
+      localStorage.getItem("workerName") ||
+      "Radnik"
+    );
+  }
+
   function playNotificationSound() {
     const audio = new Audio("/sounds/notification.mp3");
     audio.volume = 1;
@@ -34,9 +43,7 @@ export default function RoomPhotosPage() {
       .eq("id", roomId)
       .single();
 
-    if (data?.naziv) {
-      setRoomName(data.naziv);
-    }
+    if (data?.naziv) setRoomName(data.naziv);
   }
 
   async function loadPhotos() {
@@ -54,55 +61,52 @@ export default function RoomPhotosPage() {
     setPhotos(data || []);
   }
 
-  async function uploadPhoto(event: any) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  async function uploadPhotos(event: any) {
+    const files = Array.from(event.target.files || []) as File[];
+    if (files.length === 0) return;
 
     setUploading(true);
 
-    const fileExt = file.name.split(".").pop();
-    const storagePath = `${baustelleId}/${roomId}/${Date.now()}.${fileExt}`;
+    for (const file of files) {
+      const fileExt = file.name.split(".").pop();
+      const storagePath = `${baustelleId}/${roomId}/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}.${fileExt}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("room-photos")
-      .upload(storagePath, file);
+      const { error: uploadError } = await supabase.storage
+        .from("room-photos")
+        .upload(storagePath, file);
 
-    if (uploadError) {
-      setUploading(false);
-      alert("Greška kod upload slike: " + uploadError.message);
-      return;
-    }
+      if (uploadError) {
+        alert("Greška kod upload slike: " + uploadError.message);
+        continue;
+      }
 
-    const { data: publicUrlData } = supabase.storage
-      .from("room-photos")
-      .getPublicUrl(storagePath);
+      const { data: publicUrlData } = supabase.storage
+        .from("room-photos")
+        .getPublicUrl(storagePath);
 
-    const imageUrl = publicUrlData.publicUrl;
+      const { error: insertError } = await supabase.from("room_photos").insert({
+        baustelle_id: baustelleId,
+        room_id: roomId,
+        image_url: publicUrlData.publicUrl,
+        storage_path: storagePath,
+        worker_name: getWorkerName(),
+      });
 
-    const { error: insertError } = await supabase.from("room_photos").insert({
-      baustelle_id: baustelleId,
-      room_id: roomId,
-      image_url: imageUrl,
-      storage_path: storagePath,
-      worker_name: "Radnik",
-    });
-
-    if (insertError) {
-      setUploading(false);
-      alert("Greška kod spremanja slike: " + insertError.message);
-      return;
+      if (insertError) {
+        alert("Greška kod spremanja slike: " + insertError.message);
+      }
     }
 
     playNotificationSound();
-
     event.target.value = "";
     setUploading(false);
     loadPhotos();
   }
 
   async function deletePhoto(photo: any) {
-    const confirmDelete = confirm("Da li sigurno želiš obrisati ovu sliku?");
-    if (!confirmDelete) return;
+    if (!confirm("Da li sigurno želiš obrisati ovu sliku?")) return;
 
     if (photo.storage_path) {
       await supabase.storage.from("room-photos").remove([photo.storage_path]);
@@ -126,7 +130,6 @@ export default function RoomPhotosPage() {
     try {
       const response = await fetch(photo.image_url);
       const blob = await response.blob();
-
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
 
@@ -154,97 +157,44 @@ export default function RoomPhotosPage() {
 
   function nextPhoto() {
     if (!selectedPhoto) return;
-
     const index = photos.findIndex((p) => p.id === selectedPhoto.id);
-    const nextIndex = index + 1 >= photos.length ? 0 : index + 1;
-
-    setSelectedPhoto(photos[nextIndex]);
+    setSelectedPhoto(photos[index + 1 >= photos.length ? 0 : index + 1]);
   }
 
   function previousPhoto() {
     if (!selectedPhoto) return;
-
     const index = photos.findIndex((p) => p.id === selectedPhoto.id);
-    const previousIndex = index - 1 < 0 ? photos.length - 1 : index - 1;
-
-    setSelectedPhoto(photos[previousIndex]);
+    setSelectedPhoto(photos[index - 1 < 0 ? photos.length - 1 : index - 1]);
   }
 
   return (
-    <main
-      style={{
-        background: "#000",
-        minHeight: "100vh",
-        color: "white",
-        padding: "40px",
-      }}
-    >
-      <Link
-        href={`/baustellen/${baustelleId}/prostorije/${roomId}`}
-        style={{
-          color: "#3b82f6",
-          textDecoration: "none",
-          fontWeight: "bold",
-        }}
-      >
+    <main style={mainStyle}>
+      <Link href={`/baustellen/${baustelleId}/prostorije/${roomId}`} style={backStyle}>
         ← Nazad na prostoriju
       </Link>
 
-      <h1
-        style={{
-          fontSize: "48px",
-          fontWeight: "bold",
-          marginTop: "30px",
-          marginBottom: "10px",
-        }}
-      >
-        Fotografije - {roomName}
-      </h1>
+      <h1 style={titleStyle}>Fotografije - {roomName}</h1>
 
-      <p
-        style={{
-          color: "#aaa",
-          fontSize: "18px",
-          marginBottom: "30px",
-        }}
-      >
-        Ukupno slika: {photos.length}
-      </p>
+      <p style={countStyle}>Ukupno slika: {photos.length}</p>
 
       <label style={uploadButtonStyle}>
-        {uploading ? "Slika se dodaje..." : "Dodaj sliku"}
+        {uploading ? "Slike se dodaju..." : "Dodaj slike"}
         <input
           type="file"
           accept="image/*"
-          onChange={uploadPhoto}
+          multiple
+          onChange={uploadPhotos}
           disabled={uploading}
           style={{ display: "none" }}
         />
       </label>
 
-      <h2 style={{ fontSize: "32px", marginTop: "40px", marginBottom: "20px" }}>
-        Galerija
-      </h2>
+      <h2 style={galleryTitleStyle}>Galerija</h2>
 
       {photos.length === 0 ? (
-        <div
-          style={{
-            background: "#111",
-            padding: "25px",
-            borderRadius: "20px",
-            color: "#aaa",
-          }}
-        >
-          Još nema dodanih slika za ovu prostoriju.
-        </div>
+        <div style={emptyStyle}>Još nema dodanih slika za ovu prostoriju.</div>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-            gap: "25px",
-          }}
-        >
+        <div style={gridStyle}>
           {photos.map((photo) => (
             <div key={photo.id} style={cardStyle}>
               <img
@@ -254,39 +204,24 @@ export default function RoomPhotosPage() {
                 style={imageStyle}
               />
 
-              <div style={{ padding: "15px" }}>
-                <p style={{ margin: "0 0 8px 0", fontWeight: "bold" }}>
+              <div style={{ padding: "10px" }}>
+                <p style={{ margin: "0 0 5px 0", fontWeight: "bold", fontSize: "13px" }}>
                   {photo.worker_name || "Radnik"}
                 </p>
 
-                <p
-                  style={{
-                    margin: "0 0 15px 0",
-                    color: "#aaa",
-                    fontSize: "14px",
-                  }}
-                >
+                <p style={{ margin: "0 0 10px 0", color: "#aaa", fontSize: "11px" }}>
                   {formatDate(photo.created_at)}
                 </p>
 
-                <button
-                  onClick={() => setSelectedPhoto(photo)}
-                  style={openButtonStyle}
-                >
-                  Otvori
+                <button onClick={() => setSelectedPhoto(photo)} style={openButtonStyle}>
+                  Otvori preko cijelog ekrana
                 </button>
 
-                <button
-                  onClick={() => downloadPhoto(photo)}
-                  style={downloadButtonStyle}
-                >
+                <button onClick={() => downloadPhoto(photo)} style={downloadButtonStyle}>
                   Preuzmi
                 </button>
 
-                <button
-                  onClick={() => deletePhoto(photo)}
-                  style={deleteButtonStyle}
-                >
+                <button onClick={() => deletePhoto(photo)} style={deleteButtonStyle}>
                   Obriši
                 </button>
               </div>
@@ -297,41 +232,22 @@ export default function RoomPhotosPage() {
 
       {selectedPhoto && (
         <div style={fullscreenStyle}>
-          <button
-            onClick={() => setSelectedPhoto(null)}
-            style={closeButtonStyle}
-          >
+          <button onClick={() => setSelectedPhoto(null)} style={closeButtonStyle}>
             X
           </button>
 
-          <img
-            src={selectedPhoto.image_url}
-            alt="Velika fotografija"
-            style={{
-              maxWidth: "95%",
-              maxHeight: "75vh",
-              objectFit: "contain",
-              borderRadius: "12px",
-            }}
-          />
+          <img src={selectedPhoto.image_url} alt="Velika fotografija" style={fullscreenImageStyle} />
 
-          <div style={{ marginTop: "20px", textAlign: "center" }}>
+          <div style={fullscreenInfoStyle}>
             <p style={{ margin: "0 0 5px 0", fontWeight: "bold" }}>
               {selectedPhoto.worker_name || "Radnik"}
             </p>
 
-            <p style={{ margin: "0 0 20px 0", color: "#aaa" }}>
+            <p style={{ margin: "0 0 15px 0", color: "#aaa" }}>
               {formatDate(selectedPhoto.created_at)}
             </p>
 
-            <div
-              style={{
-                display: "flex",
-                gap: "15px",
-                justifyContent: "center",
-                flexWrap: "wrap",
-              }}
-            >
+            <div style={fullscreenButtonsStyle}>
               <button onClick={previousPhoto} style={navButtonStyle}>
                 ← Prethodna
               </button>
@@ -340,17 +256,11 @@ export default function RoomPhotosPage() {
                 Sljedeća →
               </button>
 
-              <button
-                onClick={() => downloadPhoto(selectedPhoto)}
-                style={downloadButtonStyle}
-              >
+              <button onClick={() => downloadPhoto(selectedPhoto)} style={downloadButtonStyle}>
                 Preuzmi
               </button>
 
-              <button
-                onClick={() => deletePhoto(selectedPhoto)}
-                style={deleteButtonStyle}
-              >
+              <button onClick={() => deletePhoto(selectedPhoto)} style={deleteButtonStyle}>
                 Obriši
               </button>
             </div>
@@ -361,30 +271,75 @@ export default function RoomPhotosPage() {
   );
 }
 
+const mainStyle: any = {
+  background: "#000",
+  minHeight: "100vh",
+  color: "white",
+  padding: "25px",
+};
+
+const backStyle: any = {
+  color: "#3b82f6",
+  textDecoration: "none",
+  fontWeight: "bold",
+};
+
+const titleStyle: any = {
+  fontSize: "42px",
+  fontWeight: "bold",
+  marginTop: "25px",
+  marginBottom: "10px",
+};
+
+const countStyle: any = {
+  color: "#aaa",
+  fontSize: "16px",
+  marginBottom: "25px",
+};
+
 const uploadButtonStyle: any = {
   display: "inline-flex",
   justifyContent: "center",
   alignItems: "center",
-  padding: "22px 35px",
+  padding: "18px 30px",
   background: "#16a34a",
   color: "white",
   border: "none",
   borderRadius: "16px",
-  fontSize: "20px",
+  fontSize: "18px",
   fontWeight: "bold",
   cursor: "pointer",
 };
 
+const galleryTitleStyle: any = {
+  fontSize: "30px",
+  marginTop: "35px",
+  marginBottom: "20px",
+};
+
+const emptyStyle: any = {
+  background: "#111",
+  padding: "25px",
+  borderRadius: "20px",
+  color: "#aaa",
+};
+
+const gridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+  gap: "18px",
+};
+
 const cardStyle: any = {
   background: "#111",
-  borderRadius: "20px",
+  borderRadius: "16px",
   overflow: "hidden",
   border: "1px solid #222",
 };
 
 const imageStyle: any = {
   width: "100%",
-  height: "230px",
+  height: "120px",
   objectFit: "cover",
   display: "block",
   cursor: "pointer",
@@ -392,38 +347,38 @@ const imageStyle: any = {
 
 const openButtonStyle: any = {
   width: "100%",
-  padding: "12px",
+  padding: "9px",
   background: "#2563eb",
   color: "white",
   border: "none",
-  borderRadius: "10px",
-  fontSize: "16px",
+  borderRadius: "9px",
+  fontSize: "13px",
   fontWeight: "bold",
   cursor: "pointer",
-  marginBottom: "10px",
+  marginBottom: "8px",
 };
 
 const downloadButtonStyle: any = {
   width: "100%",
-  padding: "12px",
+  padding: "9px",
   background: "#f59e0b",
   color: "white",
   border: "none",
-  borderRadius: "10px",
-  fontSize: "16px",
+  borderRadius: "9px",
+  fontSize: "13px",
   fontWeight: "bold",
   cursor: "pointer",
-  marginBottom: "10px",
+  marginBottom: "8px",
 };
 
 const deleteButtonStyle: any = {
   width: "100%",
-  padding: "12px",
+  padding: "9px",
   background: "#dc2626",
   color: "white",
   border: "none",
-  borderRadius: "10px",
-  fontSize: "16px",
+  borderRadius: "9px",
+  fontSize: "13px",
   fontWeight: "bold",
   cursor: "pointer",
 };
@@ -431,37 +386,57 @@ const deleteButtonStyle: any = {
 const fullscreenStyle: any = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.95)",
+  background: "rgba(0,0,0,0.98)",
   zIndex: 9999,
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
   alignItems: "center",
-  padding: "20px",
+  padding: "10px",
+};
+
+const fullscreenImageStyle: any = {
+  width: "100vw",
+  height: "78vh",
+  objectFit: "contain",
+};
+
+const fullscreenInfoStyle: any = {
+  width: "100%",
+  textAlign: "center",
+  padding: "10px",
+};
+
+const fullscreenButtonsStyle: any = {
+  display: "flex",
+  gap: "10px",
+  justifyContent: "center",
+  flexWrap: "wrap",
 };
 
 const closeButtonStyle: any = {
   position: "fixed",
-  top: "25px",
-  right: "25px",
+  top: "20px",
+  right: "20px",
   background: "#dc2626",
   color: "white",
   border: "none",
   borderRadius: "50%",
-  width: "45px",
-  height: "45px",
+  width: "48px",
+  height: "48px",
   fontSize: "22px",
   fontWeight: "bold",
   cursor: "pointer",
+  zIndex: 10000,
 };
 
 const navButtonStyle: any = {
-  padding: "12px 18px",
+  padding: "10px 15px",
   background: "#2563eb",
   color: "white",
   border: "none",
-  borderRadius: "10px",
-  fontSize: "16px",
+  borderRadius: "9px",
+  fontSize: "14px",
   fontWeight: "bold",
   cursor: "pointer",
 };
