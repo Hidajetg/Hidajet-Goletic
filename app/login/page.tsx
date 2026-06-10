@@ -46,7 +46,7 @@ export default function LoginPage() {
           <p style={systemStyle}>Baustellen Management System</p>
         </div>
 
-        <label>Ime radnika</label>
+        <label>Name</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -76,7 +76,7 @@ export default function LoginPage() {
         </div>
 
         <button onClick={login} style={buttonStyle}>
-          Prijavi se
+          LOGIN
         </button>
       </div>
     </main>
