@@ -73,7 +73,7 @@ export default function ArchivBerichtPage() {
         .from("room_photos")
         .select("*")
         .in("room_id", roomIds)
-        .order("id", { ascending: true });
+        .order("created_at", { ascending: true });
 
       photosData = phData || [];
     }
@@ -237,15 +237,24 @@ export default function ArchivBerichtPage() {
   }
 
   function getPhotoWorker(photo: any) {
-    const name =
+    const name = String(
       photo?.worker_name ||
-      photo?.radnik ||
-      photo?.worker ||
-      photo?.uploaded_by ||
-      photo?.created_by ||
-      "";
+        photo?.radnik ||
+        photo?.worker ||
+        photo?.uploaded_by ||
+        photo?.created_by ||
+        ""
+    ).trim();
 
-    if (!name || String(name).toLowerCase() === "radnik" || String(name).toLowerCase() === "mitarbeiter") {
+    const lowerName = name.toLowerCase();
+
+    if (
+      !name ||
+      lowerName === "radnik" ||
+      lowerName === "mitarbeiter" ||
+      lowerName === "nepoznat radnik" ||
+      lowerName === "nicht gespeichert"
+    ) {
       return "Nicht gespeichert";
     }
 
@@ -564,6 +573,7 @@ export default function ArchivBerichtPage() {
                       <tr>
                         <th style={thStyle}>Material</th>
                         <th style={thStyle}>Menge</th>
+                        <th style={thStyle}>Einheit</th>
                       </tr>
                     </thead>
 
@@ -572,6 +582,7 @@ export default function ArchivBerichtPage() {
                         <tr key={m.id}>
                           <td style={tdStyle}>{getMaterialNameFromRoomMaterial(m)}</td>
                           <td style={tdStyle}>{formatNumber(m.kolicina)}</td>
+                          <td style={tdStyle}>{getMaterialUnitFromRoomMaterial(m)}</td>
                         </tr>
                       ))}
                     </tbody>
