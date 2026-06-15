@@ -73,7 +73,7 @@ export default function ArchivBerichtPage() {
         .from("room_photos")
         .select("*")
         .in("room_id", roomIds)
-        .order("id", { ascending: true });
+        .order("created_at", { ascending: true });
 
       photosData = phData || [];
     }
@@ -113,11 +113,60 @@ export default function ArchivBerichtPage() {
     });
   }
 
+  function formatDateTime(value: string) {
+    if (!value) return "-";
+
+    return new Date(value).toLocaleString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
   function formatNumber(value: any) {
     return Number(value || 0).toLocaleString("de-AT", {
       minimumFractionDigits: 1,
       maximumFractionDigits: 2,
     });
+  }
+
+  function translatePosition(position: string) {
+    const value = String(position || "").trim().toLowerCase();
+
+    const translations: Record<string, string> = {
+      zid: "Wand",
+      wand: "Wand",
+
+      pod: "Boden",
+      boden: "Boden",
+
+      "schiene / lajsna": "Schiene / Sockelleiste",
+      "schiene/lajsna": "Schiene / Sockelleiste",
+      schiene: "Schiene",
+      lajsna: "Sockelleiste",
+      randlajsna: "Sockelleiste",
+      sockelleiste: "Sockelleiste",
+
+      silikon: "Silikon",
+      silicone: "Silikon",
+
+      acryl: "Acryl",
+      akril: "Acryl",
+
+      stepenice: "Stufen",
+      stufen: "Stufen",
+
+      "sockel stepenice": "Sockel Stufen",
+      "sockel-stepenice": "Sockel Stufen",
+
+      "fuge": "Fugen",
+      fugovanje: "Fugen",
+      fugen: "Fugen",
+    };
+
+    return translations[value] || position || "-";
   }
 
   function getMaterialName(materialId: number) {
@@ -144,19 +193,47 @@ export default function ArchivBerichtPage() {
     );
   }
 
-  function getPhotoTitle(photo: any) {
+  function getPhotoWorker(photo: any) {
+    return (
+      photo?.radnik ||
+      photo?.worker ||
+      photo?.worker_name ||
+      photo?.uploaded_by ||
+      photo?.created_by ||
+      photo?.name ||
+      "-"
+    );
+  }
+
+  function getPhotoCreatedAt(photo: any) {
+    return (
+      photo?.created_at ||
+      photo?.datum ||
+      photo?.date ||
+      photo?.uploaded_at ||
+      photo?.timestamp ||
+      ""
+    );
+  }
+
+  function getPhotoDescription(photo: any) {
     return (
       photo?.opis ||
       photo?.napomena ||
       photo?.description ||
       photo?.title ||
-      "Foto"
+      ""
     );
   }
 
   function getRoomName(roomId: number) {
     const room = rooms.find((r: any) => Number(r.id) === Number(roomId));
-    return room?.naziv || `Raum ${roomId}`;
+    return room?.naziv || room?.name || `Raum ${roomId}`;
+  }
+
+  function getPhotoRoomName(photo: any) {
+    if (photo?.room_id) return getRoomName(photo.room_id);
+    return photo?.room_name || photo?.raum || "-";
   }
 
   function getHoursForRoom(roomId: number) {
@@ -498,7 +575,9 @@ export default function ArchivBerichtPage() {
                         <tr key={p.id}>
                           <td style={tdStyle}>{formatDate(p.datum)}</td>
                           <td style={tdStyle}>{p.radnik || "-"}</td>
-                          <td style={tdStyle}>{p.pozicija || "-"}</td>
+                          <td style={tdStyle}>
+                            {translatePosition(p.pozicija)}
+                          </td>
                           <td style={tdStyle}>{formatNumber(p.kolicina)}</td>
                           <td style={tdStyle}>{p.jedinica || "-"}</td>
                           <td style={tdStyle}>{p.napomena || "-"}</td>
@@ -517,6 +596,10 @@ export default function ArchivBerichtPage() {
                 <div style={photoGridStyle} className="photo-grid">
                   {roomPhotos.map((photo: any) => {
                     const url = getPhotoUrl(photo);
+                    const description = getPhotoDescription(photo);
+                    const worker = getPhotoWorker(photo);
+                    const createdAt = getPhotoCreatedAt(photo);
+                    const roomName = getPhotoRoomName(photo);
 
                     if (!url) return null;
 
@@ -528,13 +611,30 @@ export default function ArchivBerichtPage() {
                       >
                         <img
                           src={url}
-                          alt={getPhotoTitle(photo)}
+                          alt={description || "Foto"}
                           style={photoStyle}
                           className="photo-img"
                           onClick={() => setSelectedPhoto(url)}
                         />
 
-                        <p style={photoCaptionStyle}>{getPhotoTitle(photo)}</p>
+                        <div style={photoInfoStyle}>
+                          <p style={photoRoomStyle}>{roomName}</p>
+
+                          <p style={photoCaptionStyle}>
+                            <strong>Dodao:</strong> {worker}
+                          </p>
+
+                          <p style={photoCaptionStyle}>
+                            <strong>Datum:</strong>{" "}
+                            {createdAt ? formatDateTime(createdAt) : "-"}
+                          </p>
+
+                          {description && (
+                            <p style={photoCaptionStyle}>
+                              <strong>Opis:</strong> {description}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -715,11 +815,24 @@ const photoStyle: any = {
   cursor: "pointer",
 };
 
+const photoInfoStyle: any = {
+  marginTop: "8px",
+};
+
+const photoRoomStyle: any = {
+  color: "#f97316",
+  fontSize: "14px",
+  fontWeight: "bold",
+  marginTop: "8px",
+  marginBottom: "6px",
+};
+
 const photoCaptionStyle: any = {
   color: "#aaa",
   fontSize: "13px",
-  marginTop: "8px",
+  marginTop: "4px",
   marginBottom: 0,
+  lineHeight: "1.35",
 };
 
 const modalOverlayStyle: any = {
