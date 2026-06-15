@@ -73,7 +73,7 @@ export default function ArchivBerichtPage() {
         .from("room_photos")
         .select("*")
         .in("room_id", roomIds)
-        .order("created_at", { ascending: true });
+        .order("id", { ascending: true });
 
       photosData = phData || [];
     }
@@ -133,33 +133,51 @@ export default function ArchivBerichtPage() {
   }
 
   function translatePosition(position: string) {
-    const value = String(position || "").trim().toLowerCase();
+    const raw = String(position || "").trim();
+    const value = raw.toLowerCase();
 
     const translations: Record<string, string> = {
       zid: "Wand",
+      devor: "Wand",
+      wall: "Wand",
       wand: "Wand",
+
       pod: "Boden",
+      pol: "Boden",
+      floor: "Boden",
       boden: "Boden",
+
+      plintus: "Sockelleiste",
+      randlajsna: "Sockelleiste",
+      lajsna: "Sockelleiste",
+      sockelleiste: "Sockelleiste",
+
+      profil: "Profil",
+      profile: "Profil",
+
+      schiene: "Schiene",
       "schiene / lajsna": "Schiene / Sockelleiste",
       "schiene/lajsna": "Schiene / Sockelleiste",
-      schiene: "Schiene",
-      lajsna: "Sockelleiste",
-      randlajsna: "Sockelleiste",
-      sockelleiste: "Sockelleiste",
+
       silikon: "Silikon",
+      "silikon 5 mm gacha": "Silikon 5 mm",
+      "silikon 5mm gacha": "Silikon 5 mm",
       silicone: "Silikon",
+
       acryl: "Acryl",
       akril: "Acryl",
+      "akril 5 mm gacha": "Acryl 5 mm",
+      "akril 5mm gacha": "Acryl 5 mm",
+
       stepenice: "Stufen",
       stufen: "Stufen",
-      "sockel stepenice": "Sockel Stufen",
-      "sockel-stepenice": "Sockel Stufen",
+
       fuge: "Fugen",
       fugovanje: "Fugen",
       fugen: "Fugen",
     };
 
-    return translations[value] || position || "-";
+    return translations[value] || raw || "-";
   }
 
   function getMaterialName(materialId: number) {
@@ -176,14 +194,15 @@ export default function ArchivBerichtPage() {
 
   function getMaterialNameFromRoomMaterial(m: any) {
     const manualName =
+      m?.custom_naziv ||
+      m?.custom_name ||
+      m?.material_name ||
       m?.naziv ||
       m?.name ||
       m?.material ||
-      m?.material_name ||
       m?.bezeichnung ||
       m?.opis ||
       m?.description ||
-      m?.custom_name ||
       m?.manual_name ||
       m?.keramika_naziv ||
       m?.title ||
@@ -191,7 +210,18 @@ export default function ArchivBerichtPage() {
 
     const catalogName = m?.material_id ? getMaterialName(m.material_id) : "";
 
-    return manualName || catalogName || `Material ID ${m?.material_id || "-"}`;
+    return manualName || catalogName || "Unbekannter Materialeintrag";
+  }
+
+  function getMaterialUnitFromRoomMaterial(m: any) {
+    return (
+      m?.custom_jedinica ||
+      m?.custom_unit ||
+      m?.jedinica ||
+      m?.unit ||
+      m?.einheit ||
+      "-"
+    );
   }
 
   function getPhotoUrl(photo: any) {
@@ -207,46 +237,32 @@ export default function ArchivBerichtPage() {
   }
 
   function getPhotoWorker(photo: any) {
-    return (
+    const name =
+      photo?.worker_name ||
       photo?.radnik ||
       photo?.worker ||
-      photo?.worker_name ||
       photo?.uploaded_by ||
       photo?.created_by ||
-      photo?.name ||
-      "-"
-    );
+      "";
+
+    if (!name || String(name).toLowerCase() === "radnik" || String(name).toLowerCase() === "mitarbeiter") {
+      return "Nicht gespeichert";
+    }
+
+    return name;
   }
 
   function getPhotoCreatedAt(photo: any) {
-    return (
-      photo?.created_at ||
-      photo?.datum ||
-      photo?.date ||
-      photo?.uploaded_at ||
-      photo?.timestamp ||
-      ""
-    );
+    return photo?.created_at || photo?.datum || photo?.date || photo?.uploaded_at || "";
   }
 
   function getPhotoDescription(photo: any) {
-    return (
-      photo?.opis ||
-      photo?.napomena ||
-      photo?.description ||
-      photo?.title ||
-      ""
-    );
+    return photo?.opis || photo?.napomena || photo?.description || photo?.title || "";
   }
 
   function getRoomName(roomId: number) {
     const room = rooms.find((r: any) => Number(r.id) === Number(roomId));
-    return room?.naziv || room?.name || `Raum ${roomId}`;
-  }
-
-  function getPhotoRoomName(photo: any) {
-    if (photo?.room_id) return getRoomName(photo.room_id);
-    return photo?.room_name || photo?.raum || "-";
+    return room?.naziv || `Raum ${roomId}`;
   }
 
   function getHoursForRoom(roomId: number) {
@@ -272,8 +288,12 @@ export default function ArchivBerichtPage() {
 
   const startDate = hours.length > 0 ? hours[0].datum : "-";
   const endDate = hours.length > 0 ? hours[hours.length - 1].datum : "-";
+
   const workers = [...new Set(hours.map((h: any) => h.radnik).filter(Boolean))];
-  const workDays = [...new Set(hours.map((h: any) => h.datum).filter(Boolean))];
+
+  const workDays = [
+    ...new Set(hours.map((h: any) => h.datum).filter(Boolean)),
+  ];
 
   function printPdf() {
     window.print();
@@ -289,6 +309,76 @@ export default function ArchivBerichtPage() {
 
   return (
     <main style={mainStyle}>
+      <style>
+        {`
+          @media print {
+            body {
+              background: white !important;
+            }
+
+            main {
+              background: white !important;
+              color: black !important;
+              padding: 20px !important;
+            }
+
+            .no-print {
+              display: none !important;
+            }
+
+            .print-box {
+              background: white !important;
+              color: black !important;
+              border: 1px solid #ddd !important;
+              page-break-inside: avoid;
+            }
+
+            .print-room {
+              background: white !important;
+              color: black !important;
+              border: 1px solid #ddd !important;
+              page-break-inside: avoid;
+            }
+
+            .photo-grid {
+              grid-template-columns: repeat(3, 1fr) !important;
+              gap: 10px !important;
+            }
+
+            .photo-card {
+              background: white !important;
+              border: 1px solid #ddd !important;
+              padding: 6px !important;
+              page-break-inside: avoid;
+            }
+
+            .photo-img {
+              height: 120px !important;
+              object-fit: cover !important;
+            }
+
+            table {
+              font-size: 11px !important;
+            }
+
+            th, td {
+              color: black !important;
+              border-color: #ccc !important;
+              padding: 5px !important;
+            }
+
+            h1 {
+              font-size: 28px !important;
+              color: black !important;
+            }
+
+            h2, h3 {
+              color: black !important;
+            }
+          }
+        `}
+      </style>
+
       <div style={topBarStyle} className="no-print">
         <Link href="/baustellen/archiv" style={backLinkStyle}>
           ← Zurück zum Archiv
@@ -301,22 +391,61 @@ export default function ArchivBerichtPage() {
 
       <h1 style={titleStyle}>ABSCHLUSSBERICHT BAUSTELLE</h1>
 
-      <section style={boxStyle}>
+      <section style={boxStyle} className="print-box">
         <h2 style={sectionTitleStyle}>Baustellenübersicht</h2>
 
         <div style={infoGridStyle}>
-          <p><strong>Baustelle:</strong><br />{baustelle?.naziv || "-"}</p>
-          <p><strong>Ort:</strong><br />{baustelle?.lokacija || "-"}</p>
-          <p><strong>Projektbeginn:</strong><br />{formatDate(startDate)}</p>
-          <p><strong>Projektende:</strong><br />{formatDate(endDate)}</p>
-          <p><strong>Anzahl Räume:</strong><br />{rooms.length}</p>
-          <p><strong>Anzahl Arbeitstage:</strong><br />{workDays.length}</p>
-          <p><strong>Mitarbeiter:</strong><br />{workers.length > 0 ? workers.join(", ") : "-"}</p>
-          <p><strong>Gesamtstunden:</strong><br />{formatNumber(totalHours)} h</p>
+          <p>
+            <strong>Baustelle:</strong>
+            <br />
+            {baustelle?.naziv || "-"}
+          </p>
+
+          <p>
+            <strong>Ort:</strong>
+            <br />
+            {baustelle?.lokacija || "-"}
+          </p>
+
+          <p>
+            <strong>Projektbeginn:</strong>
+            <br />
+            {formatDate(startDate)}
+          </p>
+
+          <p>
+            <strong>Projektende:</strong>
+            <br />
+            {formatDate(endDate)}
+          </p>
+
+          <p>
+            <strong>Anzahl Räume:</strong>
+            <br />
+            {rooms.length}
+          </p>
+
+          <p>
+            <strong>Anzahl Arbeitstage:</strong>
+            <br />
+            {workDays.length}
+          </p>
+
+          <p>
+            <strong>Mitarbeiter:</strong>
+            <br />
+            {workers.length > 0 ? workers.join(", ") : "-"}
+          </p>
+
+          <p>
+            <strong>Gesamtstunden:</strong>
+            <br />
+            {formatNumber(totalHours)} h
+          </p>
         </div>
       </section>
 
-      <section style={boxStyle}>
+      <section style={boxStyle} className="print-box">
         <h2 style={sectionTitleStyle}>Gesamtübersicht Arbeitsstunden</h2>
 
         {hours.length === 0 ? (
@@ -342,11 +471,15 @@ export default function ArchivBerichtPage() {
                   <tr key={h.id}>
                     <td style={tdStyle}>{formatDate(h.datum)}</td>
                     <td style={tdStyle}>{h.radnik || "-"}</td>
-                    <td style={tdStyle}>{h.room_id ? getRoomName(h.room_id) : "-"}</td>
+                    <td style={tdStyle}>
+                      {h.room_id ? getRoomName(h.room_id) : "-"}
+                    </td>
                     <td style={tdStyle}>{h.pocetak || "-"}</td>
                     <td style={tdStyle}>{h.kraj || "-"}</td>
                     <td style={tdStyle}>{formatNumber(h.pauza)} h</td>
-                    <td style={tdStyle}>{formatNumber(h.ukupno_sati || h.sati)} h</td>
+                    <td style={tdStyle}>
+                      {formatNumber(h.ukupno_sati || h.sati)} h
+                    </td>
                     <td style={tdStyle}>{h.opis_posla || "-"}</td>
                   </tr>
                 ))}
@@ -356,8 +489,12 @@ export default function ArchivBerichtPage() {
         )}
       </section>
 
-      <section style={boxStyle}>
+      <section style={boxStyle} className="print-box">
         <h2 style={sectionTitleStyle}>Raumübersicht</h2>
+
+        {rooms.length === 0 && (
+          <p style={mutedTextStyle}>Keine Räume vorhanden.</p>
+        )}
 
         {rooms.map((room: any) => {
           const roomHours = getHoursForRoom(room.id);
@@ -371,21 +508,43 @@ export default function ArchivBerichtPage() {
           );
 
           return (
-            <div key={room.id} style={roomBoxStyle}>
+            <div key={room.id} style={roomBoxStyle} className="print-room">
               <h2 style={roomTitleStyle}>Raum: {room.naziv}</h2>
 
               <h3 style={subTitleStyle}>Arbeitsstunden</h3>
-              <p><strong>Summe Raum:</strong> {formatNumber(roomTotalHours)} h</p>
 
-              {roomHours.length > 0 && (
+              <p>
+                <strong>Summe Raum:</strong> {formatNumber(roomTotalHours)} h
+              </p>
+
+              {roomHours.length === 0 ? (
+                <p style={mutedTextStyle}>Keine Arbeitsstunden für diesen Raum.</p>
+              ) : (
                 <div style={tableWrapStyle}>
                   <table style={tableStyle}>
+                    <thead>
+                      <tr>
+                        <th style={thStyle}>Datum</th>
+                        <th style={thStyle}>Mitarbeiter</th>
+                        <th style={thStyle}>Beginn</th>
+                        <th style={thStyle}>Ende</th>
+                        <th style={thStyle}>Pause</th>
+                        <th style={thStyle}>Gesamt</th>
+                        <th style={thStyle}>Tätigkeit</th>
+                      </tr>
+                    </thead>
+
                     <tbody>
                       {roomHours.map((h: any) => (
                         <tr key={h.id}>
                           <td style={tdStyle}>{formatDate(h.datum)}</td>
                           <td style={tdStyle}>{h.radnik || "-"}</td>
-                          <td style={tdStyle}>{formatNumber(h.ukupno_sati || h.sati)} h</td>
+                          <td style={tdStyle}>{h.pocetak || "-"}</td>
+                          <td style={tdStyle}>{h.kraj || "-"}</td>
+                          <td style={tdStyle}>{formatNumber(h.pauza)} h</td>
+                          <td style={tdStyle}>
+                            {formatNumber(h.ukupno_sati || h.sati)} h
+                          </td>
                           <td style={tdStyle}>{h.opis_posla || "-"}</td>
                         </tr>
                       ))}
@@ -405,7 +564,6 @@ export default function ArchivBerichtPage() {
                       <tr>
                         <th style={thStyle}>Material</th>
                         <th style={thStyle}>Menge</th>
-                        <th style={thStyle}>Einheit</th>
                       </tr>
                     </thead>
 
@@ -413,8 +571,7 @@ export default function ArchivBerichtPage() {
                       {roomMat.map((m: any) => (
                         <tr key={m.id}>
                           <td style={tdStyle}>{getMaterialNameFromRoomMaterial(m)}</td>
-                          <td style={tdStyle}>{formatNumber(m.kolicina || m.quantity || m.menge)}</td>
-                          <td style={tdStyle}>{m.jedinica || m.unit || m.einheit || "-"}</td>
+                          <td style={tdStyle}>{formatNumber(m.kolicina)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -425,7 +582,9 @@ export default function ArchivBerichtPage() {
               <h3 style={subTitleStyle}>Leistungsnachweis</h3>
 
               {roomProd.length === 0 ? (
-                <p style={mutedTextStyle}>Keine Produktivitätsdaten für diesen Raum.</p>
+                <p style={mutedTextStyle}>
+                  Keine Produktivitätsdaten für diesen Raum.
+                </p>
               ) : (
                 <div style={tableWrapStyle}>
                   <table style={tableStyle}>
@@ -461,29 +620,40 @@ export default function ArchivBerichtPage() {
               {roomPhotos.length === 0 ? (
                 <p style={mutedTextStyle}>Keine Fotos für diesen Raum.</p>
               ) : (
-                <div style={photoGridStyle}>
+                <div style={photoGridStyle} className="photo-grid">
                   {roomPhotos.map((photo: any) => {
                     const url = getPhotoUrl(photo);
+
                     if (!url) return null;
 
                     return (
-                      <div key={photo.id} style={photoCardStyle}>
+                      <div
+                        key={photo.id}
+                        style={photoCardStyle}
+                        className="photo-card"
+                      >
                         <img
                           src={url}
-                          alt="Foto"
+                          alt={getPhotoDescription(photo) || "Foto"}
                           style={photoStyle}
+                          className="photo-img"
                           onClick={() => setSelectedPhoto(url)}
                         />
 
-                        <p style={photoRoomStyle}>{getPhotoRoomName(photo)}</p>
-                        <p style={photoCaptionStyle}><strong>Dodao:</strong> {getPhotoWorker(photo)}</p>
-                        <p style={photoCaptionStyle}><strong>Datum:</strong> {formatDateTime(getPhotoCreatedAt(photo))}</p>
-
-                        {getPhotoDescription(photo) && (
+                        <div style={photoInfoStyle}>
+                          <p style={photoRoomStyle}>{getRoomName(photo.room_id)}</p>
                           <p style={photoCaptionStyle}>
-                            <strong>Opis:</strong> {getPhotoDescription(photo)}
+                            <strong>Hinzugefügt von:</strong> {getPhotoWorker(photo)}
                           </p>
-                        )}
+                          <p style={photoCaptionStyle}>
+                            <strong>Datum:</strong> {formatDateTime(getPhotoCreatedAt(photo))}
+                          </p>
+                          {getPhotoDescription(photo) && (
+                            <p style={photoCaptionStyle}>
+                              <strong>Beschreibung:</strong> {getPhotoDescription(photo)}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -494,18 +664,41 @@ export default function ArchivBerichtPage() {
         })}
       </section>
 
-      <section style={boxStyle}>
+      <section style={boxStyle} className="print-box">
         <h2 style={sectionTitleStyle}>Gesamtauswertung</h2>
-        <p><strong>Gesamtstunden:</strong> {formatNumber(totalHours)} h</p>
-        <p><strong>Anzahl Mitarbeiter:</strong> {workers.length}</p>
-        <p><strong>Anzahl Räume:</strong> {rooms.length}</p>
-        <p><strong>Anzahl Arbeitstage:</strong> {workDays.length}</p>
-        <p><strong>Anzahl Fotos:</strong> {photos.length}</p>
-        <p><strong>Bericht erstellt am:</strong> {new Date().toLocaleDateString("de-AT")}</p>
+
+        <p>
+          <strong>Gesamtstunden:</strong> {formatNumber(totalHours)} h
+        </p>
+
+        <p>
+          <strong>Anzahl Mitarbeiter:</strong> {workers.length}
+        </p>
+
+        <p>
+          <strong>Anzahl Räume:</strong> {rooms.length}
+        </p>
+
+        <p>
+          <strong>Anzahl Arbeitstage:</strong> {workDays.length}
+        </p>
+
+        <p>
+          <strong>Anzahl Fotos:</strong> {photos.length}
+        </p>
+
+        <p>
+          <strong>Bericht erstellt am:</strong>{" "}
+          {new Date().toLocaleDateString("de-AT")}
+        </p>
       </section>
 
       {selectedPhoto && (
-        <div style={modalOverlayStyle} onClick={() => setSelectedPhoto(null)}>
+        <div
+          style={modalOverlayStyle}
+          className="no-print"
+          onClick={() => setSelectedPhoto(null)}
+        >
           <img src={selectedPhoto} alt="Foto" style={modalImageStyle} />
         </div>
       )}
@@ -513,26 +706,167 @@ export default function ArchivBerichtPage() {
   );
 }
 
-const mainStyle: any = { background: "#000", minHeight: "100vh", color: "white", padding: "40px" };
-const topBarStyle: any = { display: "flex", justifyContent: "space-between", gap: "20px", alignItems: "center", marginBottom: "30px" };
-const backLinkStyle: any = { color: "#3b82f6", textDecoration: "none", fontWeight: "bold" };
-const pdfButtonStyle: any = { background: "#16a34a", color: "white", border: "none", borderRadius: "10px", padding: "12px 20px", fontWeight: "bold", cursor: "pointer" };
-const titleStyle: any = { fontSize: "56px", fontWeight: "bold", marginBottom: "30px" };
-const boxStyle: any = { background: "#111", padding: "25px", borderRadius: "20px", marginBottom: "30px" };
-const sectionTitleStyle: any = { fontSize: "28px", color: "#f97316", marginBottom: "20px" };
-const infoGridStyle: any = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px" };
-const roomBoxStyle: any = { background: "#000", border: "1px solid #333", padding: "25px", borderRadius: "18px", marginBottom: "30px" };
-const roomTitleStyle: any = { fontSize: "30px", color: "#f97316", marginBottom: "20px" };
-const subTitleStyle: any = { fontSize: "22px", marginTop: "25px", marginBottom: "12px" };
-const mutedTextStyle: any = { color: "#999" };
-const tableWrapStyle: any = { overflowX: "auto" };
-const tableStyle: any = { width: "100%", borderCollapse: "collapse", marginTop: "10px" };
-const thStyle: any = { borderBottom: "1px solid #444", padding: "10px", textAlign: "left", color: "#f97316", whiteSpace: "nowrap" };
-const tdStyle: any = { borderBottom: "1px solid #333", padding: "10px", verticalAlign: "top" };
-const photoGridStyle: any = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 260px))", gap: "16px", marginTop: "15px" };
-const photoCardStyle: any = { background: "#111", border: "1px solid #333", borderRadius: "14px", padding: "10px", maxWidth: "260px" };
-const photoStyle: any = { width: "100%", height: "150px", objectFit: "cover", borderRadius: "10px", display: "block", cursor: "pointer" };
-const photoRoomStyle: any = { color: "#f97316", fontSize: "14px", fontWeight: "bold", marginTop: "8px", marginBottom: "6px" };
-const photoCaptionStyle: any = { color: "#aaa", fontSize: "13px", marginTop: "4px", marginBottom: 0, lineHeight: "1.35" };
-const modalOverlayStyle: any = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "30px", cursor: "pointer" };
-const modalImageStyle: any = { maxWidth: "90vw", maxHeight: "90vh", borderRadius: "14px", objectFit: "contain" };
+const mainStyle: any = {
+  background: "#000",
+  minHeight: "100vh",
+  color: "white",
+  padding: "40px",
+};
+
+const topBarStyle: any = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "20px",
+  alignItems: "center",
+  marginBottom: "30px",
+};
+
+const backLinkStyle: any = {
+  color: "#3b82f6",
+  textDecoration: "none",
+  fontWeight: "bold",
+};
+
+const pdfButtonStyle: any = {
+  background: "#16a34a",
+  color: "white",
+  border: "none",
+  borderRadius: "10px",
+  padding: "12px 20px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const titleStyle: any = {
+  fontSize: "56px",
+  fontWeight: "bold",
+  marginBottom: "30px",
+};
+
+const boxStyle: any = {
+  background: "#111",
+  padding: "25px",
+  borderRadius: "20px",
+  marginBottom: "30px",
+};
+
+const sectionTitleStyle: any = {
+  fontSize: "28px",
+  color: "#f97316",
+  marginBottom: "20px",
+};
+
+const infoGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+  gap: "20px",
+};
+
+const roomBoxStyle: any = {
+  background: "#000",
+  border: "1px solid #333",
+  padding: "25px",
+  borderRadius: "18px",
+  marginBottom: "30px",
+};
+
+const roomTitleStyle: any = {
+  fontSize: "30px",
+  color: "#f97316",
+  marginBottom: "20px",
+};
+
+const subTitleStyle: any = {
+  fontSize: "22px",
+  marginTop: "25px",
+  marginBottom: "12px",
+};
+
+const mutedTextStyle: any = {
+  color: "#999",
+};
+
+const tableWrapStyle: any = {
+  overflowX: "auto",
+};
+
+const tableStyle: any = {
+  width: "100%",
+  borderCollapse: "collapse",
+  marginTop: "10px",
+};
+
+const thStyle: any = {
+  borderBottom: "1px solid #444",
+  padding: "10px",
+  textAlign: "left",
+  color: "#f97316",
+  whiteSpace: "nowrap",
+};
+
+const tdStyle: any = {
+  borderBottom: "1px solid #333",
+  padding: "10px",
+  verticalAlign: "top",
+};
+
+const photoGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 260px))",
+  gap: "16px",
+  marginTop: "15px",
+};
+
+const photoCardStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "14px",
+  padding: "10px",
+  maxWidth: "260px",
+};
+
+const photoStyle: any = {
+  width: "100%",
+  height: "150px",
+  objectFit: "cover",
+  borderRadius: "10px",
+  display: "block",
+  cursor: "pointer",
+};
+
+const photoCaptionStyle: any = {
+  color: "#aaa",
+  fontSize: "13px",
+  marginTop: "8px",
+  marginBottom: 0,
+};
+
+const modalOverlayStyle: any = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.85)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 9999,
+  padding: "30px",
+  cursor: "pointer",
+};
+
+const modalImageStyle: any = {
+  maxWidth: "90vw",
+  maxHeight: "90vh",
+  borderRadius: "14px",
+  objectFit: "contain",
+};
+const photoInfoStyle: any = {
+  marginTop: "8px",
+};
+
+const photoRoomStyle: any = {
+  color: "#f97316",
+  fontSize: "14px",
+  fontWeight: "bold",
+  marginTop: "8px",
+  marginBottom: "6px",
+};
