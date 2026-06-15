@@ -1,840 +1,600 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../../lib/supabase";
 
-const UNIT_OPTIONS = ["kom", "m", "m²", "m³", "kg", "l", "vreća", "rola", "paket", "karton", "set"];
+const translations: any = {
+  de: {
+    back: "← Zurück zum Raum",
+    photos: "Fotografien",
+    totalPhotos: "Bilder insgesamt",
+    addPhotos: "Bilder hinzufügen",
+    uploading: "Bilder werden hochgeladen...",
+    gallery: "Galerie",
+    noPhotos: "Noch keine Bilder für diesen Raum vorhanden.",
+    worker: "Mitarbeiter",
+    openFullscreen: "Im Vollbild öffnen",
+    download: "Herunterladen",
+    delete: "Löschen",
+    previous: "← Vorheriges",
+    next: "Nächstes →",
+    confirmDelete: "Möchten Sie dieses Bild wirklich löschen?",
+    uploadError: "Fehler beim Hochladen des Bildes",
+    saveError: "Fehler beim Speichern des Bildes",
+    loadError: "Fehler beim Laden der Bilder",
+    deleteError: "Fehler beim Löschen des Bildes",
+    downloadError: "Fehler beim Herunterladen des Bildes.",
+    defaultRoom: "Raum",
+    photoAlt: "Raumfoto",
+    bigPhotoAlt: "Großes Foto",
+    addedBy: "Hinzugefügt von",
+    date: "Datum",
+  },
+  ba: {
+    back: "← Nazad na prostoriju",
+    photos: "Fotografije",
+    totalPhotos: "Ukupno slika",
+    addPhotos: "Dodaj slike",
+    uploading: "Slike se dodaju...",
+    gallery: "Galerija",
+    noPhotos: "Još nema dodanih slika za ovu prostoriju.",
+    worker: "Radnik",
+    openFullscreen: "Otvori preko cijelog ekrana",
+    download: "Preuzmi",
+    delete: "Obriši",
+    previous: "← Prethodna",
+    next: "Sljedeća →",
+    confirmDelete: "Da li sigurno želiš obrisati ovu sliku?",
+    uploadError: "Greška kod upload slike",
+    saveError: "Greška kod spremanja slike",
+    loadError: "Greška kod učitavanja slika",
+    deleteError: "Greška kod brisanja slike",
+    downloadError: "Greška kod preuzimanja slike.",
+    defaultRoom: "Prostorija",
+    photoAlt: "Fotografija prostorije",
+    bigPhotoAlt: "Velika fotografija",
+    addedBy: "Dodao",
+    date: "Datum",
+  },
+};
 
-const DEFAULT_GROUP_ORDER = [
-  "Priprema podloge",
-  "Estrich",
-  "Hidroizolacija",
-  "Ljepilo",
-  "Schienen",
-  "Fuge",
-  "Silikoni",
-  "Terase",
-  "Dodaci",
-];
-
-function getGroupIcon(name: string) {
-  const n = String(name || "").toLowerCase();
-  if (n.includes("priprema")) return "🧹";
-  if (n.includes("estrich")) return "⬜";
-  if (n.includes("hidro")) return "💧";
-  if (n.includes("ljepilo")) return "🪣";
-  if (n.includes("schienen")) return "📏";
-  if (n.includes("fuge")) return "▦";
-  if (n.includes("silikoni")) return "〰️";
-  if (n.includes("terase")) return "🏗️";
-  if (n.includes("dodaci")) return "+";
-  return "📦";
-}
-
-function toNumber(value: any) {
-  const n = Number(String(value ?? "0").replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
-}
-
-export default function RoomMaterialPage() {
+export default function RoomPhotosPage() {
   const params = useParams();
+
   const baustelleId = String(params.id);
   const roomId = String(params.roomId);
 
-  const [loading, setLoading] = useState(true);
-  const [baustelle, setBaustelle] = useState<any>(null);
-  const [room, setRoom] = useState<any>(null);
+  const [photos, setPhotos] = useState<any[]>([]);
+  const [roomName, setRoomName] = useState("Raum");
+  const [uploading, setUploading] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
+  const [lang, setLang] = useState("de");
 
-  const [grupe, setGrupe] = useState<any[]>([]);
-  const [materijali, setMaterijali] = useState<any[]>([]);
-  const [roomMaterial, setRoomMaterial] = useState<any[]>([]);
-
-  const [aktivnaGrupa, setAktivnaGrupa] = useState<any | null>(null);
-  const [showKeramika, setShowKeramika] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const [kolicine, setKolicine] = useState<{ [key: number]: string }>({});
-
-  const [keramikaNaziv, setKeramikaNaziv] = useState("");
-  const [keramikaKolicina, setKeramikaKolicina] = useState("");
-
-  const [dodatakNaziv, setDodatakNaziv] = useState("");
-  const [dodatakJedinica, setDodatakJedinica] = useState("kom");
-  const [dodatakKolicina, setDodatakKolicina] = useState("");
-
-  const [slobodniNaziv, setSlobodniNaziv] = useState("");
-  const [slobodnaJedinica, setSlobodnaJedinica] = useState("kom");
-  const [slobodnaKolicina, setSlobodnaKolicina] = useState("");
+  const t = translations[lang] || translations.de;
 
   useEffect(() => {
-    loadData();
+    const savedLang =
+      localStorage.getItem("lang") ||
+      localStorage.getItem("language") ||
+      "de";
+
+    setLang(savedLang);
+    loadRoom();
+    loadPhotos();
   }, []);
 
-  function sortGroups(data: any[]) {
-    return [...data]
-      .filter((g) => String(g.naziv || "").toLowerCase() !== "keramika")
-      .sort((a, b) => {
-        const orderA = Number(a.sort_order || 9999);
-        const orderB = Number(b.sort_order || 9999);
-        if (orderA !== orderB) return orderA - orderB;
-
-        const indexA = DEFAULT_GROUP_ORDER.indexOf(a.naziv);
-        const indexB = DEFAULT_GROUP_ORDER.indexOf(b.naziv);
-        if (indexA === -1 && indexB === -1) {
-          return String(a.naziv || "").localeCompare(String(b.naziv || ""));
-        }
-        if (indexA === -1) return 1;
-        if (indexB === -1) return -1;
-        return indexA - indexB;
-      });
+  function getWorkerName() {
+    return (
+      localStorage.getItem("userName") ||
+      localStorage.getItem("name") ||
+      localStorage.getItem("workerName") ||
+      localStorage.getItem("radnik") ||
+      localStorage.getItem("mitarbeiter") ||
+      t.worker
+    );
   }
 
-  async function loadData() {
-    setLoading(true);
-
-    const [baustelleRes, roomRes, grupeRes, materijaliRes, roomMaterialRes] =
-      await Promise.all([
-        supabase
-          .from("baustellen")
-          .select("*")
-          .eq("id", Number(baustelleId))
-          .maybeSingle(),
-        supabase
-          .from("prostorije")
-          .select("*")
-          .eq("id", Number(roomId))
-          .maybeSingle(),
-        supabase
-          .from("material_groups")
-          .select("*")
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("materials")
-          .select("*")
-          .order("naziv", { ascending: true }),
-        supabase
-          .from("room_material")
-          .select("*")
-          .eq("room_id", Number(roomId))
-          .order("id", { ascending: false }),
-      ]);
-
-    if (baustelleRes.error) {
-      alert("LOAD BAUSTELLE: " + baustelleRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    if (roomRes.error) {
-      alert("LOAD ROOM: " + roomRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    if (grupeRes.error) {
-      alert("LOAD GRUPE: " + grupeRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    if (materijaliRes.error) {
-      alert("LOAD MATERIALS: " + materijaliRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    if (roomMaterialRes.error) {
-      alert("LOAD ROOM MATERIAL: " + roomMaterialRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    setBaustelle(baustelleRes.data);
-    setRoom(roomRes.data);
-    setGrupe(sortGroups(grupeRes.data || []));
-    setMaterijali(materijaliRes.data || []);
-    setRoomMaterial(roomMaterialRes.data || []);
-    setLoading(false);
+  function playNotificationSound() {
+    const audio = new Audio("/sounds/notification.mp3");
+    audio.volume = 1;
+    audio.play().catch(() => {});
   }
 
-  function getMaterial(materialId: number) {
-    return materijali.find((m) => Number(m.id) === Number(materialId));
+  async function loadRoom() {
+    const { data } = await supabase
+      .from("prostorije")
+      .select("naziv")
+      .eq("id", Number(roomId))
+      .single();
+
+    if (data?.naziv) setRoomName(data.naziv);
   }
 
-  function getMaterialUnit(material: any) {
-    return material?.jedinica || material?.unit || material?.einheit || "";
-  }
-
-  function getMaterialGroupId(material: any) {
-    return Number(material?.group_id ?? material?.gruppe_id ?? material?.material_group_id ?? 0);
-  }
-
-  const materijaliAktivneGrupe = useMemo(() => {
-    if (!aktivnaGrupa) return [];
-    const term = searchTerm.trim().toLowerCase();
-
-    return materijali
-      .filter((m) => getMaterialGroupId(m) === Number(aktivnaGrupa.id))
-      .filter((m) => {
-        if (!term) return true;
-        return String(m.naziv || "").toLowerCase().includes(term);
-      });
-  }, [aktivnaGrupa, materijali, searchTerm]);
-
-  function getGroupCount(groupId: number) {
-    return materijali.filter((m) => getMaterialGroupId(m) === Number(groupId)).length;
-  }
-
-  async function dodajKataloskiMaterijal(material: any) {
-    const kolicina = kolicine[material.id];
-
-    if (!kolicina || toNumber(kolicina) <= 0) {
-      alert("Unesi količinu.");
-      return;
-    }
-
-    const { data: existing, error: existingError } = await supabase
-      .from("room_material")
+  async function loadPhotos() {
+    const { data, error } = await supabase
+      .from("room_photos")
       .select("*")
       .eq("room_id", Number(roomId))
-      .eq("material_id", Number(material.id))
-      .maybeSingle();
+      .order("created_at", { ascending: false });
 
-    if (existingError) {
-      alert("CHECK EXISTING ROOM MATERIAL: " + existingError.message);
+    if (error) {
+      alert(t.loadError + ": " + error.message);
       return;
     }
 
-    if (existing) {
-      const { error } = await supabase
-        .from("room_material")
-        .update({ kolicina: toNumber(existing.kolicina) + toNumber(kolicina) })
-        .eq("id", existing.id);
+    setPhotos(data || []);
+  }
 
-      if (error) {
-        alert("UPDATE ROOM MATERIAL: " + error.message);
-        return;
+  function getPhotoUrl(photo: any) {
+    return (
+      photo?.image_url ||
+      photo?.photo_url ||
+      photo?.url ||
+      photo?.public_url ||
+      photo?.bild_url ||
+      photo?.foto_url ||
+      ""
+    );
+  }
+
+  function getPhotoWorker(photo: any) {
+    return (
+      photo?.worker_name ||
+      photo?.radnik ||
+      photo?.worker ||
+      photo?.uploaded_by ||
+      photo?.created_by ||
+      t.worker
+    );
+  }
+
+  async function uploadPhotos(event: any) {
+    const files = Array.from(event.target.files || []) as File[];
+    if (files.length === 0) return;
+
+    setUploading(true);
+
+    const workerName = getWorkerName();
+
+    for (const file of files) {
+      const fileExt = file.name.split(".").pop();
+      const storagePath = `${baustelleId}/${roomId}/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("room-photos")
+        .upload(storagePath, file);
+
+      if (uploadError) {
+        alert(t.uploadError + ": " + uploadError.message);
+        continue;
       }
-    } else {
-      const { error } = await supabase.from("room_material").insert([
-        {
-          room_id: Number(roomId),
-          material_id: Number(material.id),
-          kolicina: toNumber(kolicina),
-          custom_naziv: null,
-          custom_jedinica: null,
-        },
-      ]);
 
-      if (error) {
-        alert("INSERT ROOM MATERIAL: " + error.message);
-        return;
+      const { data: publicUrlData } = supabase.storage
+        .from("room-photos")
+        .getPublicUrl(storagePath);
+
+      const { error: insertError } = await supabase.from("room_photos").insert({
+        baustelle_id: Number(baustelleId),
+        room_id: Number(roomId),
+        image_url: publicUrlData.publicUrl,
+        storage_path: storagePath,
+        worker_name: workerName,
+        radnik: workerName,
+        room_name: roomName,
+      });
+
+      if (insertError) {
+        alert(t.saveError + ": " + insertError.message);
       }
     }
 
-    setKolicine((prev) => ({ ...prev, [material.id]: "" }));
-    await loadData();
+    playNotificationSound();
+    event.target.value = "";
+    setUploading(false);
+    loadPhotos();
   }
 
-  async function dodajKeramiku() {
-    if (!keramikaNaziv.trim() || !keramikaKolicina || toNumber(keramikaKolicina) <= 0) {
-      alert("Unesi naziv/format keramike i količinu paketa.");
-      return;
-    }
+  async function deletePhoto(photo: any) {
+    if (!confirm(t.confirmDelete)) return;
 
-    const naziv = `Keramika - ${keramikaNaziv.trim()}`;
-
-    const { error } = await supabase.from("room_material").insert([
-      {
-        room_id: Number(roomId),
-        material_id: null,
-        kolicina: toNumber(keramikaKolicina),
-        custom_naziv: naziv,
-        custom_jedinica: "paket",
-      },
-    ]);
-
-    if (error) {
-      alert("INSERT KERAMIKA: " + error.message);
-      return;
-    }
-
-    setKeramikaNaziv("");
-    setKeramikaKolicina("");
-    await loadData();
-  }
-
-  async function dodajDodatak() {
-    if (!dodatakNaziv.trim() || !dodatakJedinica || !dodatakKolicina || toNumber(dodatakKolicina) <= 0) {
-      alert("Unesi naziv, jedinicu i količinu.");
-      return;
-    }
-
-    const { error } = await supabase.from("room_material").insert([
-      {
-        room_id: Number(roomId),
-        material_id: null,
-        kolicina: toNumber(dodatakKolicina),
-        custom_naziv: dodatakNaziv.trim(),
-        custom_jedinica: dodatakJedinica,
-      },
-    ]);
-
-    if (error) {
-      alert("INSERT DODATAK: " + error.message);
-      return;
-    }
-
-    setDodatakNaziv("");
-    setDodatakJedinica("kom");
-    setDodatakKolicina("");
-    await loadData();
-  }
-
-  async function dodajSlobodniMaterijal() {
-    if (!slobodniNaziv.trim() || !slobodnaJedinica || !slobodnaKolicina || toNumber(slobodnaKolicina) <= 0) {
-      alert("Unesi naziv materijala, jedinicu i količinu.");
-      return;
-    }
-
-    const { error } = await supabase.from("room_material").insert([
-      {
-        room_id: Number(roomId),
-        material_id: null,
-        kolicina: toNumber(slobodnaKolicina),
-        custom_naziv: slobodniNaziv.trim(),
-        custom_jedinica: slobodnaJedinica,
-      },
-    ]);
-
-    if (error) {
-      alert("INSERT SLOBODNI MATERIJAL: " + error.message);
-      return;
-    }
-
-    setSlobodniNaziv("");
-    setSlobodnaJedinica("kom");
-    setSlobodnaKolicina("");
-    await loadData();
-  }
-
-  async function promijeniKolicinu(id: number, trenutna: number, promjena: number) {
-    const novaKolicina = toNumber(trenutna) + promjena;
-
-    if (novaKolicina <= 0) {
-      await obrisiMaterijal(id);
-      return;
+    if (photo.storage_path) {
+      await supabase.storage.from("room-photos").remove([photo.storage_path]);
     }
 
     const { error } = await supabase
-      .from("room_material")
-      .update({ kolicina: novaKolicina })
-      .eq("id", id);
+      .from("room_photos")
+      .delete()
+      .eq("id", photo.id);
 
     if (error) {
-      alert("UPDATE ROOM MATERIAL: " + error.message);
+      alert(t.deleteError + ": " + error.message);
       return;
     }
 
-    await loadData();
+    setSelectedPhoto(null);
+    loadPhotos();
   }
 
-  async function obrisiMaterijal(id: number) {
-    const potvrda = confirm("Da li želiš obrisati ovaj materijal?");
-    if (!potvrda) return;
+  async function downloadPhoto(photo: any) {
+    try {
+      const url = getPhotoUrl(photo);
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
 
-    const { error } = await supabase.from("room_material").delete().eq("id", id);
+      a.href = downloadUrl;
+      a.download = `foto-${roomName}-${photo.id}.jpg`;
+      document.body.appendChild(a);
+      a.click();
 
-    if (error) {
-      alert("DELETE ROOM MATERIAL: " + error.message);
-      return;
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch {
+      alert(t.downloadError);
     }
-
-    await loadData();
   }
 
-  function nazivUnosa(unos: any) {
-    if (unos.custom_naziv) return unos.custom_naziv;
-    const material = getMaterial(unos.material_id);
-    return material ? material.naziv : "Nepoznat materijal";
+  function formatDate(dateString: string) {
+    if (!dateString) return "-";
+
+    return new Date(dateString).toLocaleString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
-  function jedinicaUnosa(unos: any) {
-    if (unos.custom_jedinica) return unos.custom_jedinica;
-    const material = getMaterial(unos.material_id);
-    return material ? getMaterialUnit(material) : "";
+  function nextPhoto() {
+    if (!selectedPhoto) return;
+
+    const index = photos.findIndex((p) => p.id === selectedPhoto.id);
+    setSelectedPhoto(photos[index + 1 >= photos.length ? 0 : index + 1]);
   }
 
-  function openGroup(group: any) {
-    setShowKeramika(false);
-    setAktivnaGrupa(group);
-    setSearchTerm("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
+  function previousPhoto() {
+    if (!selectedPhoto) return;
 
-  function openKeramika() {
-    setAktivnaGrupa(null);
-    setShowKeramika(true);
-    setSearchTerm("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const index = photos.findIndex((p) => p.id === selectedPhoto.id);
+    setSelectedPhoto(photos[index - 1 < 0 ? photos.length - 1 : index - 1]);
   }
-
-  function closeActiveView() {
-    setAktivnaGrupa(null);
-    setShowKeramika(false);
-    setSearchTerm("");
-  }
-
-  const roomTitle = room?.naziv || room?.name || room?.title || `Raum ${roomId}`;
-  const baustelleTitle = baustelle?.naziv || baustelle?.name || `Baustelle ${baustelleId}`;
 
   return (
-    <main style={styles.page}>
-      <Link href={`/baustellen/${baustelleId}/prostorije`} style={styles.backLink}>
-        ← Nazad na prostorije
+    <main style={mainStyle}>
+      <Link
+        href={`/baustellen/${baustelleId}/prostorije/${roomId}`}
+        style={backStyle}
+      >
+        {t.back}
       </Link>
 
-      <h1 style={styles.title}>Materijal u prostoriji</h1>
-      <div style={styles.contextText}>{baustelleTitle} / {roomTitle}</div>
+      <h1 style={titleStyle}>
+        {t.photos} - {roomName}
+      </h1>
 
-      <section style={styles.freeBox}>
-        <h2 style={styles.subtitle}>+ Slobodni materijal</h2>
+      <p style={countStyle}>
+        {t.totalPhotos}: {photos.length}
+      </p>
 
-        <div style={styles.freeGrid}>
-          <input
-            value={slobodniNaziv}
-            onChange={(e) => setSlobodniNaziv(e.target.value)}
-            placeholder="Naziv materijala"
-            style={styles.input}
-          />
+      <label style={uploadButtonStyle}>
+        {uploading ? t.uploading : t.addPhotos}
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={uploadPhotos}
+          disabled={uploading}
+          style={{ display: "none" }}
+        />
+      </label>
 
-          <select
-            value={slobodnaJedinica}
-            onChange={(e) => setSlobodnaJedinica(e.target.value)}
-            style={styles.input}
-          >
-            {UNIT_OPTIONS.map((u) => (
-              <option key={u} value={u}>{u}</option>
-            ))}
-          </select>
+      <h2 style={galleryTitleStyle}>{t.gallery}</h2>
 
-          <input
-            value={slobodnaKolicina}
-            onChange={(e) => setSlobodnaKolicina(e.target.value)}
-            placeholder="Količina"
-            type="number"
-            inputMode="decimal"
-            style={styles.input}
-          />
+      {photos.length === 0 ? (
+        <div style={emptyStyle}>{t.noPhotos}</div>
+      ) : (
+        <div style={gridStyle}>
+          {photos.map((photo) => {
+            const url = getPhotoUrl(photo);
 
-          <button onClick={dodajSlobodniMaterijal} style={styles.saveButton}>Dodaj</button>
-        </div>
-      </section>
+            if (!url) return null;
 
-      {!aktivnaGrupa && !showKeramika && (
-        <section style={styles.box}>
-          <h2 style={styles.subtitle}>Odaberi grupu</h2>
-          <div style={styles.mobileHint}>Radnik odabere jednu grupu i vidi samo materijale iz te grupe.</div>
+            return (
+              <div key={photo.id} style={cardStyle}>
+                <img
+                  src={url}
+                  alt={t.photoAlt}
+                  onClick={() => setSelectedPhoto(photo)}
+                  style={imageStyle}
+                />
 
-          <div style={styles.groupGrid}>
-            <button onClick={openKeramika} style={styles.groupCardSpecial}>
-              <div style={styles.groupIcon}>▧</div>
-              <div style={styles.groupName}>Keramika</div>
-              <div style={styles.groupCount}>Ručni unos</div>
-            </button>
+                <div style={{ padding: "10px" }}>
+                  <p style={roomTextStyle}>{roomName}</p>
 
-            {grupe.map((g) => (
-              <button key={g.id} onClick={() => openGroup(g)} style={styles.groupCard}>
-                <div style={styles.groupIcon}>{getGroupIcon(g.naziv)}</div>
-                <div style={styles.groupName}>{g.naziv}</div>
-                <div style={styles.groupCount}>{getGroupCount(g.id)} mat.</div>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+                  <p style={workerTextStyle}>
+                    {t.addedBy}: {getPhotoWorker(photo)}
+                  </p>
 
-      {showKeramika && (
-        <section style={styles.box}>
-          <button onClick={closeActiveView} style={styles.backButton}>← Nazad na grupe</button>
-          <h2 style={styles.groupTitle}>Keramika</h2>
+                  <p style={dateTextStyle}>
+                    {t.date}: {formatDate(photo.created_at)}
+                  </p>
 
-          <div style={styles.manualBox}>
-            <input
-              value={keramikaNaziv}
-              onChange={(e) => setKeramikaNaziv(e.target.value)}
-              placeholder="Format / naziv keramike"
-              style={styles.input}
-            />
-            <input
-              value={keramikaKolicina}
-              onChange={(e) => setKeramikaKolicina(e.target.value)}
-              placeholder="Količina paketa"
-              type="number"
-              inputMode="decimal"
-              style={styles.input}
-            />
-            <button onClick={dodajKeramiku} style={styles.saveButton}>Dodaj keramiku</button>
-          </div>
-        </section>
-      )}
+                  <button
+                    onClick={() => setSelectedPhoto(photo)}
+                    style={openButtonStyle}
+                  >
+                    {t.openFullscreen}
+                  </button>
 
-      {aktivnaGrupa && (
-        <section style={styles.box}>
-          <button onClick={closeActiveView} style={styles.backButton}>← Nazad na grupe</button>
-          <h2 style={styles.groupTitle}>{getGroupIcon(aktivnaGrupa.naziv)} {aktivnaGrupa.naziv}</h2>
+                  <button
+                    onClick={() => downloadPhoto(photo)}
+                    style={downloadButtonStyle}
+                  >
+                    {t.download}
+                  </button>
 
-          {aktivnaGrupa.naziv === "Dodaci" && (
-            <div style={styles.manualBox}>
-              <input
-                value={dodatakNaziv}
-                onChange={(e) => setDodatakNaziv(e.target.value)}
-                placeholder="Unesi naziv dodatka"
-                style={styles.input}
-              />
-              <select value={dodatakJedinica} onChange={(e) => setDodatakJedinica(e.target.value)} style={styles.input}>
-                {UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-              <input
-                value={dodatakKolicina}
-                onChange={(e) => setDodatakKolicina(e.target.value)}
-                placeholder="Količina"
-                type="number"
-                inputMode="decimal"
-                style={styles.input}
-              />
-              <button onClick={dodajDodatak} style={styles.saveButton}>Dodaj dodatak</button>
-            </div>
-          )}
-
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Pretraga materijala u ovoj grupi..."
-            style={styles.searchInput}
-          />
-
-          {loading ? (
-            <div style={styles.emptyBox}>Učitavanje...</div>
-          ) : materijaliAktivneGrupe.length === 0 ? (
-            <div style={styles.emptyBox}>Nema materijala u ovoj grupi.</div>
-          ) : (
-            <div style={styles.materialList}>
-              {materijaliAktivneGrupe.map((m) => (
-                <div key={m.id} style={styles.materialRow}>
-                  <div style={styles.materialInfo}>
-                    <strong>{m.naziv}</strong>
-                    <span>{getMaterialUnit(m)}</span>
-                  </div>
-
-                  <div style={styles.addInline}>
-                    <input
-                      value={kolicine[m.id] || ""}
-                      onChange={(e) => setKolicine((prev) => ({ ...prev, [m.id]: e.target.value }))}
-                      placeholder="0"
-                      type="number"
-                      inputMode="decimal"
-                      style={styles.qtyInput}
-                    />
-                    <button onClick={() => dodajKataloskiMaterijal(m)} style={styles.smallSaveButton}>Dodaj</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      <section style={styles.box}>
-        <h2 style={styles.subtitle}>Dodani materijali u prostoriji ({roomMaterial.length})</h2>
-
-        {roomMaterial.length === 0 ? (
-          <div style={styles.emptyBox}>Još nema unesenog materijala.</div>
-        ) : (
-          <div style={styles.addedList}>
-            {roomMaterial.map((unos) => (
-              <div key={unos.id} style={styles.addedRow}>
-                <div style={styles.addedInfo}>
-                  <strong>{nazivUnosa(unos)}</strong>
-                  <span>{jedinicaUnosa(unos)}</span>
-                </div>
-
-                <div style={styles.qtyControls}>
-                  <button onClick={() => promijeniKolicinu(unos.id, unos.kolicina, -1)} style={styles.minusButton}>−</button>
-                  <div style={styles.qtyBadge}>{Number(unos.kolicina || 0)}</div>
-                  <button onClick={() => promijeniKolicinu(unos.id, unos.kolicina, 1)} style={styles.plusButton}>+</button>
-                  <button onClick={() => obrisiMaterijal(unos.id)} style={styles.deleteButton}>Obriši</button>
+                  <button
+                    onClick={() => deletePhoto(photo)}
+                    style={deleteButtonStyle}
+                  >
+                    {t.delete}
+                  </button>
                 </div>
               </div>
-            ))}
+            );
+          })}
+        </div>
+      )}
+
+      {selectedPhoto && (
+        <div style={fullscreenStyle}>
+          <button
+            onClick={() => setSelectedPhoto(null)}
+            style={closeButtonStyle}
+          >
+            X
+          </button>
+
+          <img
+            src={getPhotoUrl(selectedPhoto)}
+            alt={t.bigPhotoAlt}
+            style={fullscreenImageStyle}
+          />
+
+          <div style={fullscreenInfoStyle}>
+            <p style={{ margin: "0 0 5px 0", fontWeight: "bold" }}>
+              {roomName}
+            </p>
+
+            <p style={{ margin: "0 0 5px 0", fontWeight: "bold" }}>
+              {t.addedBy}: {getPhotoWorker(selectedPhoto)}
+            </p>
+
+            <p style={{ margin: "0 0 15px 0", color: "#aaa" }}>
+              {t.date}: {formatDate(selectedPhoto.created_at)}
+            </p>
+
+            <div style={fullscreenButtonsStyle}>
+              <button onClick={previousPhoto} style={navButtonStyle}>
+                {t.previous}
+              </button>
+
+              <button onClick={nextPhoto} style={navButtonStyle}>
+                {t.next}
+              </button>
+
+              <button
+                onClick={() => downloadPhoto(selectedPhoto)}
+                style={downloadButtonStyle}
+              >
+                {t.download}
+              </button>
+
+              <button
+                onClick={() => deletePhoto(selectedPhoto)}
+                style={deleteButtonStyle}
+              >
+                {t.delete}
+              </button>
+            </div>
           </div>
-        )}
-      </section>
+        </div>
+      )}
     </main>
   );
 }
 
-const styles: any = {
-  page: {
-    background: "#000",
-    minHeight: "100vh",
-    color: "white",
-    padding: "16px",
-    paddingBottom: "40px",
-  },
-  backLink: {
-    color: "#3b82f6",
-    textDecoration: "none",
-    fontWeight: "bold",
-    fontSize: "14px",
-  },
-  title: {
-    fontSize: "34px",
-    fontWeight: "bold",
-    marginTop: "26px",
-    marginBottom: "8px",
-  },
-  contextText: {
-    color: "#ddd",
-    fontSize: "14px",
-    fontWeight: "bold",
-    marginBottom: "18px",
-  },
-  freeBox: {
-    border: "1px solid #16a34a",
-    borderRadius: "16px",
-    padding: "14px",
-    marginBottom: "18px",
-    background: "#111",
-  },
-  box: {
-    background: "#111",
-    borderRadius: "16px",
-    padding: "14px",
-    marginBottom: "14px",
-  },
-  subtitle: {
-    color: "#3b82f6",
-    fontSize: "16px",
-    marginTop: 0,
-    marginBottom: "12px",
-  },
-  mobileHint: {
-    color: "#aaa",
-    fontSize: "12px",
-    marginBottom: "12px",
-  },
-  freeGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr",
-    gap: "10px",
-  },
-  input: {
-    width: "100%",
-    background: "#000",
-    color: "white",
-    border: "1px solid #333",
-    padding: "13px",
-    borderRadius: "9px",
-    fontSize: "16px",
-  },
-  searchInput: {
-    width: "100%",
-    background: "#000",
-    color: "white",
-    border: "1px solid #333",
-    padding: "13px",
-    borderRadius: "9px",
-    fontSize: "16px",
-    marginBottom: "12px",
-  },
-  saveButton: {
-    width: "100%",
-    background: "#16a34a",
-    color: "white",
-    border: "none",
-    borderRadius: "9px",
-    padding: "14px",
-    fontWeight: "bold",
-    cursor: "pointer",
-  },
-  groupGrid: {
-    display: "flex",
-    gap: "8px",
-    overflowX: "auto",
-    paddingBottom: "4px",
-  },
-  groupCard: {
-    minWidth: "82px",
-    width: "82px",
-    minHeight: "74px",
-    background: "#222",
-    color: "white",
-    border: "1px solid #333",
-    borderRadius: "10px",
-    padding: "7px 5px",
-    cursor: "pointer",
-    textAlign: "center",
-  },
-  groupCardSpecial: {
-    minWidth: "82px",
-    width: "82px",
-    minHeight: "74px",
-    background: "#172554",
-    color: "white",
-    border: "1px solid #2563eb",
-    borderRadius: "10px",
-    padding: "7px 5px",
-    cursor: "pointer",
-    textAlign: "center",
-  },
-  groupIcon: {
-    fontSize: "18px",
-    lineHeight: "20px",
-    marginBottom: "3px",
-  },
-  groupName: {
-    fontSize: "11px",
-    fontWeight: "bold",
-    lineHeight: "13px",
-  },
-  groupCount: {
-    fontSize: "9px",
-    color: "#ddd",
-    marginTop: "2px",
-  },
-  backButton: {
-    background: "#2563eb",
-    color: "white",
-    border: "none",
-    borderRadius: "9px",
-    padding: "10px 12px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    marginBottom: "12px",
-  },
-  groupTitle: {
-    color: "#f97316",
-    fontSize: "24px",
-    marginTop: 0,
-    marginBottom: "12px",
-  },
-  manualBox: {
-    display: "grid",
-    gridTemplateColumns: "1fr",
-    gap: "10px",
-    marginBottom: "12px",
-  },
-  materialList: {
-    display: "grid",
-    gap: "8px",
-  },
-  materialRow: {
-    background: "#222",
-    borderRadius: "10px",
-    padding: "10px",
-    display: "grid",
-    gridTemplateColumns: "1fr auto",
-    gap: "10px",
-    alignItems: "center",
-  },
-  materialInfo: {
-    display: "grid",
-    gap: "4px",
-    fontSize: "14px",
-  },
-  addInline: {
-    display: "flex",
-    gap: "6px",
-    alignItems: "center",
-  },
-  qtyInput: {
-    width: "76px",
-    background: "#000",
-    color: "white",
-    border: "1px solid #333",
-    padding: "10px",
-    borderRadius: "8px",
-    fontSize: "16px",
-  },
-  smallSaveButton: {
-    background: "#16a34a",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    padding: "10px 12px",
-    fontWeight: "bold",
-    cursor: "pointer",
-  },
-  emptyBox: {
-    background: "#1a1a1a",
-    borderRadius: "10px",
-    padding: "14px",
-    color: "#ddd",
-  },
-  addedList: {
-    display: "grid",
-    gap: "8px",
-  },
-  addedRow: {
-    background: "#222",
-    borderRadius: "10px",
-    padding: "10px",
-    display: "grid",
-    gridTemplateColumns: "1fr auto",
-    gap: "10px",
-    alignItems: "center",
-  },
-  addedInfo: {
-    display: "grid",
-    gap: "4px",
-    fontSize: "14px",
-  },
-  qtyControls: {
-    display: "flex",
-    gap: "6px",
-    alignItems: "center",
-    flexWrap: "wrap",
-    justifyContent: "flex-end",
-  },
-  minusButton: {
-    background: "#374151",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    width: "34px",
-    height: "34px",
-    fontWeight: "bold",
-    cursor: "pointer",
-  },
-  plusButton: {
-    background: "#16a34a",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    width: "34px",
-    height: "34px",
-    fontWeight: "bold",
-    cursor: "pointer",
-  },
-  qtyBadge: {
-    minWidth: "54px",
-    textAlign: "center",
-    background: "#000",
-    border: "1px solid #333",
-    borderRadius: "8px",
-    padding: "8px",
-    fontWeight: "bold",
-  },
-  deleteButton: {
-    background: "#dc2626",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    padding: "9px 10px",
-    fontWeight: "bold",
-    cursor: "pointer",
-  },
+const mainStyle: any = {
+  background: "#000",
+  minHeight: "100vh",
+  color: "white",
+  padding: "25px",
+};
+
+const backStyle: any = {
+  color: "#3b82f6",
+  textDecoration: "none",
+  fontWeight: "bold",
+};
+
+const titleStyle: any = {
+  fontSize: "42px",
+  fontWeight: "bold",
+  marginTop: "25px",
+  marginBottom: "10px",
+};
+
+const countStyle: any = {
+  color: "#aaa",
+  fontSize: "16px",
+  marginBottom: "25px",
+};
+
+const uploadButtonStyle: any = {
+  display: "inline-flex",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: "18px 30px",
+  background: "#16a34a",
+  color: "white",
+  border: "none",
+  borderRadius: "16px",
+  fontSize: "18px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const galleryTitleStyle: any = {
+  fontSize: "30px",
+  marginTop: "35px",
+  marginBottom: "20px",
+};
+
+const emptyStyle: any = {
+  background: "#111",
+  padding: "25px",
+  borderRadius: "20px",
+  color: "#aaa",
+};
+
+const gridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+  gap: "18px",
+};
+
+const cardStyle: any = {
+  background: "#111",
+  borderRadius: "16px",
+  overflow: "hidden",
+  border: "1px solid #222",
+};
+
+const imageStyle: any = {
+  width: "100%",
+  height: "120px",
+  objectFit: "cover",
+  display: "block",
+  cursor: "pointer",
+};
+
+const roomTextStyle: any = {
+  margin: "0 0 5px 0",
+  color: "#f97316",
+  fontWeight: "bold",
+  fontSize: "13px",
+};
+
+const workerTextStyle: any = {
+  margin: "0 0 5px 0",
+  fontWeight: "bold",
+  fontSize: "13px",
+};
+
+const dateTextStyle: any = {
+  margin: "0 0 10px 0",
+  color: "#aaa",
+  fontSize: "11px",
+};
+
+const openButtonStyle: any = {
+  width: "100%",
+  padding: "9px",
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "9px",
+  fontSize: "13px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  marginBottom: "8px",
+};
+
+const downloadButtonStyle: any = {
+  width: "100%",
+  padding: "9px",
+  background: "#f59e0b",
+  color: "white",
+  border: "none",
+  borderRadius: "9px",
+  fontSize: "13px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  marginBottom: "8px",
+};
+
+const deleteButtonStyle: any = {
+  width: "100%",
+  padding: "9px",
+  background: "#dc2626",
+  color: "white",
+  border: "none",
+  borderRadius: "9px",
+  fontSize: "13px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const fullscreenStyle: any = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.98)",
+  zIndex: 9999,
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: "10px",
+};
+
+const fullscreenImageStyle: any = {
+  width: "100vw",
+  height: "78vh",
+  objectFit: "contain",
+};
+
+const fullscreenInfoStyle: any = {
+  width: "100%",
+  textAlign: "center",
+  padding: "10px",
+};
+
+const fullscreenButtonsStyle: any = {
+  display: "flex",
+  gap: "10px",
+  justifyContent: "center",
+  flexWrap: "wrap",
+};
+
+const closeButtonStyle: any = {
+  position: "fixed",
+  top: "20px",
+  right: "20px",
+  background: "#dc2626",
+  color: "white",
+  border: "none",
+  borderRadius: "50%",
+  width: "48px",
+  height: "48px",
+  fontSize: "22px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  zIndex: 10000,
+};
+
+const navButtonStyle: any = {
+  padding: "10px 15px",
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "9px",
+  fontSize: "14px",
+  fontWeight: "bold",
+  cursor: "pointer",
 };
