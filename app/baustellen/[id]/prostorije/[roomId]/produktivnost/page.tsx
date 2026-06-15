@@ -154,7 +154,7 @@ const pozicije = [
     key: "BODEN",
     jedinica: "m²",
     label: {
-      de: "Boden",
+      de: "Boden  verflisen",
       ba: "Pod",
       uz: "Pol",
       en: "Floor",
@@ -164,7 +164,7 @@ const pozicije = [
     key: "WAND",
     jedinica: "m²",
     label: {
-      de: "Wand",
+      de: "Wand verflisen",
       ba: "Zid",
       uz: "Devor",
       en: "Wall",
