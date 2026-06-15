@@ -23,6 +23,7 @@ export default function RegieberichtPage() {
   const [workers, setWorkers] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
   const [berichte, setBerichte] = useState<any[]>([]);
+  const [firstMeta, setFirstMeta] = useState<any>(null);
 
   const [activeBerichtId, setActiveBerichtId] = useState<number | null>(null);
   const [showList, setShowList] = useState(false);
@@ -72,6 +73,7 @@ export default function RegieberichtPage() {
     loadPdfImages();
     loadData();
     loadBerichte();
+    loadFirstMeta();
     generateNextBerichtNr().then((nr) => setBerichtNr(nr));
   }, []);
 
@@ -95,7 +97,7 @@ export default function RegieberichtPage() {
 
     setBaustelle(baustelleRes.data);
     setOrt(baustelleRes.data?.lokacija || "");
-    setAuftraggeber(baustelleRes.data?.auftraggeber || "");
+    setAuftraggeber((prev) => prev || baustelleRes.data?.auftraggeber || "");
 
     const roomsRes = await supabase
       .from("prostorije")
@@ -198,6 +200,35 @@ export default function RegieberichtPage() {
     );
   }
 
+
+  async function loadFirstMeta() {
+    const { data, error } = await supabase
+      .from("regieberichte")
+      .select("id, auftraggeber, bauleiter")
+      .eq("baustelle_id", Number(baustelleId))
+      .order("id", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      alert("LOAD ERSTER REGIEBERICHT: " + error.message);
+      return null;
+    }
+
+    if (data) {
+      setFirstMeta(data);
+
+      if (!activeBerichtId) {
+        setAuftraggeber(data.auftraggeber || "");
+        setBauleiter(data.bauleiter || "");
+      }
+    } else {
+      setFirstMeta(null);
+    }
+
+    return data;
+  }
+
   async function generateNextBerichtNr() {
     const { data, error } = await supabase
       .from("regieberichte")
@@ -287,8 +318,8 @@ export default function RegieberichtPage() {
     setActiveBerichtId(null);
     setBerichtNr(nextNr);
     setDatum(new Date().toISOString().split("T")[0]);
-    setAuftraggeber(baustelle?.auftraggeber || "");
-    setBauleiter("");
+    setAuftraggeber(firstMeta?.auftraggeber || baustelle?.auftraggeber || "");
+    setBauleiter(firstMeta?.bauleiter || "");
     setOrt(baustelle?.lokacija || "");
     setArbeiten("");
     setSelectedRoom("");
@@ -455,6 +486,7 @@ export default function RegieberichtPage() {
     }
 
     await loadBerichte();
+    await loadFirstMeta();
     alert("Regiebericht wurde gelöscht.");
   }
 
@@ -733,12 +765,20 @@ export default function RegieberichtPage() {
       return;
     }
 
-    if (!auftraggeber.trim()) {
+    const finalAuftraggeber = firstMeta && !activeBerichtId
+      ? String(firstMeta.auftraggeber || "")
+      : auftraggeber.trim();
+
+    const finalBauleiter = firstMeta && !activeBerichtId
+      ? String(firstMeta.bauleiter || "")
+      : bauleiter.trim();
+
+    if (!finalAuftraggeber.trim()) {
       alert("Auftraggeber eingeben.");
       return;
     }
 
-    if (!bauleiter.trim()) {
+    if (!finalBauleiter.trim()) {
       alert("Bauleiter eingeben.");
       return;
     }
@@ -756,8 +796,8 @@ export default function RegieberichtPage() {
       bericht_nr: finalBerichtNr,
       datum,
       auftragnehmer: FIRMA,
-      auftraggeber: auftraggeber.trim(),
-      bauleiter: bauleiter.trim(),
+      auftraggeber: finalAuftraggeber.trim(),
+      bauleiter: finalBauleiter.trim(),
       bauvorhaben: baustelle.naziv || "",
       ort: ort.trim(),
       ausgefuehrte_arbeiten: arbeiten.trim(),
@@ -802,6 +842,7 @@ export default function RegieberichtPage() {
     playNotificationSound();
 
     await loadBerichte();
+    await loadFirstMeta();
 
     alert(
       wasExisting
@@ -813,6 +854,8 @@ export default function RegieberichtPage() {
   function exportPrint() {
     window.print();
   }
+
+  const metaKommtVomErstenBericht = Boolean(firstMeta && !activeBerichtId);
 
   return (
     <main style={styles.page}>
@@ -946,9 +989,13 @@ export default function RegieberichtPage() {
                 <input
                   value={auftraggeber}
                   onChange={(e) => setAuftraggeber(e.target.value)}
-                  style={styles.input}
+                  style={metaKommtVomErstenBericht ? styles.readonlyInput : styles.input}
                   placeholder="Auftraggeber"
+                  disabled={metaKommtVomErstenBericht}
                 />
+                {metaKommtVomErstenBericht && (
+                  <div style={styles.smallHint}>Wird automatisch vom ersten Regiebericht übernommen.</div>
+                )}
               </div>
 
               <div>
@@ -956,9 +1003,13 @@ export default function RegieberichtPage() {
                 <input
                   value={bauleiter}
                   onChange={(e) => setBauleiter(e.target.value)}
-                  style={styles.input}
+                  style={metaKommtVomErstenBericht ? styles.readonlyInput : styles.input}
                   placeholder="Name Bauleiter"
+                  disabled={metaKommtVomErstenBericht}
                 />
+                {metaKommtVomErstenBericht && (
+                  <div style={styles.smallHint}>Wird automatisch vom ersten Regiebericht übernommen.</div>
+                )}
               </div>
 
               <div>
@@ -1701,6 +1752,23 @@ const styles: any = {
     padding: "14px",
     borderRadius: "10px",
     fontSize: "16px",
+  },
+  readonlyInput: {
+    width: "100%",
+    background: "#1a1a1a",
+    color: "#d1d5db",
+    border: "1px solid #333",
+    padding: "14px",
+    borderRadius: "10px",
+    fontSize: "16px",
+    cursor: "not-allowed",
+    opacity: 1,
+  },
+  smallHint: {
+    marginTop: "6px",
+    color: "#fbbf24",
+    fontSize: "12px",
+    fontWeight: "bold",
   },
   readonlyBox: {
     background: "#222",
