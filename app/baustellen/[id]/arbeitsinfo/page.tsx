@@ -1007,18 +1007,80 @@ export default function ArbeitsinfoPage() {
     loadTools();
   }
 
+  function isHeicFile(file: File) {
+    const name = file.name.toLowerCase();
+    return (
+      name.endsWith(".heic") ||
+      name.endsWith(".heif") ||
+      file.type === "image/heic" ||
+      file.type === "image/heif"
+    );
+  }
+
+  function isImageFile(fileItem: any) {
+    const type = String(fileItem.file_type || "").toLowerCase();
+    const url = String(fileItem.file_url || "").toLowerCase();
+    const title = String(fileItem.title || "").toLowerCase();
+
+    if (type.startsWith("image/") && !type.includes("heic") && !type.includes("heif")) {
+      return true;
+    }
+
+    return (
+      url.endsWith(".jpg") ||
+      url.endsWith(".jpeg") ||
+      url.endsWith(".png") ||
+      url.endsWith(".webp") ||
+      url.endsWith(".gif") ||
+      title.endsWith(".jpg") ||
+      title.endsWith(".jpeg") ||
+      title.endsWith(".png") ||
+      title.endsWith(".webp") ||
+      title.endsWith(".gif")
+    );
+  }
+
+  function handleSelectedFile(file: File | null) {
+    if (!file) {
+      setSelectedFile(null);
+      return;
+    }
+
+    if (isHeicFile(file)) {
+      alert(
+        "HEIC slike se ne mogu prikazati u browseru. Molim napravi sliku kao JPG/PNG ili na iPhone uključi: Settings > Camera > Formats > Most Compatible."
+      );
+      setSelectedFile(null);
+      return;
+    }
+
+    setSelectedFile(file);
+  }
+
   async function saveFile() {
     if (!selectedFile) {
       alert("Bitte Datei auswählen.");
       return;
     }
 
-    const fileName = `${Date.now()}-${selectedFile.name}`;
+    if (isHeicFile(selectedFile)) {
+      alert(
+        "HEIC slike se ne mogu prikazati. Molim izaberi JPG, PNG, WEBP ili PDF."
+      );
+      return;
+    }
+
+    const cleanName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const fileName = `${Date.now()}-${cleanName}`;
     const filePath = `${baustelleId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("arbeitsinfo-files")
-      .upload(filePath, selectedFile);
+      .upload(filePath, selectedFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: selectedFile.type || "application/octet-stream",
+      });
 
     if (uploadError) {
       alert("Fehler beim Hochladen: " + uploadError.message);
@@ -1033,7 +1095,7 @@ export default function ArbeitsinfoPage() {
       baustelle_id: Number(baustelleId),
       title: fileTitle || selectedFile.name,
       file_url: data.publicUrl,
-      file_type: selectedFile.type,
+      file_type: selectedFile.type || "application/octet-stream",
     });
 
     if (error) {
@@ -1559,8 +1621,9 @@ export default function ArbeitsinfoPage() {
 
             <input
               type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.jpg,.jpeg,.png,.webp,.gif,.pdf"
               onChange={(e) =>
-                setSelectedFile(e.target.files ? e.target.files[0] : null)
+                handleSelectedFile(e.target.files ? e.target.files[0] : null)
               }
               style={inputStyle}
             />
@@ -1579,8 +1642,14 @@ export default function ArbeitsinfoPage() {
               <div key={file.id} style={cardStyle}>
                 <h3 style={cardTitleStyle}>{file.title || "Datei"}</h3>
 
-                {file.file_type?.startsWith("image/") ? (
-                  <img src={file.file_url} style={imageStyle} />
+                {isImageFile(file) ? (
+                  <a href={file.file_url} target="_blank" style={fileLinkStyle}>
+                    <img
+                      src={file.file_url}
+                      alt={file.title || "Bild"}
+                      style={imageStyle}
+                    />
+                  </a>
                 ) : (
                   <a
                     href={file.file_url}
