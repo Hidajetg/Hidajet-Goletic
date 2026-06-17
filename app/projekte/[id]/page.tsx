@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "../../../lib/supabase";
+import { supabase } from "../../lib/supabase";
 
 const ADMINI = ["Hido", "Steffi", "Admin"];
 
@@ -13,7 +13,6 @@ export default function ProjektDetailPage() {
 
   const projektId = String(params.id);
 
-  const [workerName, setWorkerName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [projekt, setProjekt] = useState<any>(null);
@@ -33,7 +32,6 @@ export default function ProjektDetailPage() {
       return;
     }
 
-    setWorkerName(name);
     setIsAdmin(adminStatus);
     loadProjekt();
   }, [router, projektId]);
