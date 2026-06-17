@@ -199,14 +199,14 @@ export default function ProjektDetailPage() {
             <small>ONLV Hauptimport, PDF Reserve, manueller Eintrag</small>
           </button>
 
-          <button
-            onClick={() => comingSoon("LV Positionen")}
-            style={moduleButtonStyle}
+          <Link
+            href={`/projekte/${projekt.id}/positionen`}
+            style={moduleLinkStyle}
           >
             <span style={moduleIconStyle}>📋</span>
             <strong>LV Positionen</strong>
             <small>Soll-Werte, Menge, Einheit, Preis, Normzeit</small>
-          </button>
+          </Link>
 
           <button
             onClick={() => comingSoon("Aufmaß / Räume")}
@@ -268,9 +268,9 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Nächster Schritt</h2>
 
         <p style={nextTextStyle}>
-          Sljedeće pravimo bazu i stranicu za <strong>LV Positionen</strong>.
-          Tu ćemo kasnije dodati ONLV import, PDF reserve i ručni unos za
-          admina.
+          Sada je otvorena stranica <strong>LV Positionen</strong>. Na njoj
+          admin može ručno dodavati pozicije. ONLV import ćemo dodati poslije
+          na isti modul.
         </p>
       </section>
     </main>
@@ -399,6 +399,11 @@ const moduleButtonStyle: any = {
   display: "flex",
   flexDirection: "column",
   gap: "8px",
+};
+
+const moduleLinkStyle: any = {
+  ...moduleButtonStyle,
+  textDecoration: "none",
 };
 
 const moduleIconStyle: any = {
