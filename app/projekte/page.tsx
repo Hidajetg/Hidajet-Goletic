@@ -327,16 +327,9 @@ export default function ProjektePage() {
                 )}
 
                 <div style={cardButtonRowStyle}>
-                  <button
-                    onClick={() =>
-                      alert(
-                        "Projekt-Detailseite kommt im nächsten Schritt: LV Positionen, Aufmaß, Regie, Material und Auswertung."
-                      )
-                    }
-                    style={openButtonStyle}
-                  >
+                  <Link href={`/projekte/${projekt.id}`} style={openButtonStyle}>
                     Öffnen
-                  </button>
+                  </Link>
 
                   <button
                     onClick={() => deleteProjekt(projekt.id)}
@@ -545,6 +538,9 @@ const openButtonStyle: any = {
   padding: "10px",
   fontWeight: "bold",
   cursor: "pointer",
+  textAlign: "center",
+  textDecoration: "none",
+  display: "block",
 };
 
 const deleteButtonStyle: any = {
