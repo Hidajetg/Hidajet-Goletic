@@ -208,14 +208,11 @@ export default function ProjektDetailPage() {
             <small>Soll-Werte, Menge, Einheit, Preis, Normzeit</small>
           </Link>
 
-          <button
-            onClick={() => comingSoon("Aufmaß / Räume")}
-            style={moduleButtonStyle}
-          >
+          <Link href={`/projekte/${projekt.id}/raeume`} style={moduleLinkStyle}>
             <span style={moduleIconStyle}>📐</span>
             <strong>Aufmaß / Räume</strong>
             <small>Prostorije, m², Faktoren, Soll / Ist</small>
-          </button>
+          </Link>
 
           <button
             onClick={() => comingSoon("Arbeitszeit")}
@@ -268,9 +265,8 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Nächster Schritt</h2>
 
         <p style={nextTextStyle}>
-          Sada je otvorena stranica <strong>LV Positionen</strong>. Na njoj
-          admin može ručno dodavati pozicije. ONLV import ćemo dodati poslije
-          na isti modul.
+          Sada je otvoren modul <strong>Aufmaß / Räume</strong>. Tu se dodaju
+          prostorije, faktor i raspodjela LV pozicija po prostorijama.
         </p>
       </section>
     </main>
