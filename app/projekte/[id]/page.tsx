@@ -214,23 +214,23 @@ export default function ProjektDetailPage() {
             <small>Prostorije, m², Faktoren, Soll / Ist</small>
           </Link>
 
-          <button
-            onClick={() => comingSoon("Arbeitszeit")}
-            style={moduleButtonStyle}
+          <Link
+            href={`/projekte/${projekt.id}/arbeitszeit`}
+            style={moduleLinkStyle}
           >
             <span style={moduleIconStyle}>⏱️</span>
             <strong>Arbeitszeit</strong>
-            <small>Radnik unosi vrijeme po prostoru i danu</small>
-          </button>
+            <small>Radno vrijeme po radniku, prostoru i LV poziciji</small>
+          </Link>
 
-          <button
-            onClick={() => comingSoon("Leistung")}
-            style={moduleButtonStyle}
+          <Link
+            href={`/projekte/${projekt.id}/leistung`}
+            style={moduleLinkStyle}
           >
             <span style={moduleIconStyle}>✅</span>
             <strong>Leistung</strong>
             <small>Dnevni učinak po poziciji, sobi i ekipi</small>
-          </button>
+          </Link>
 
           <button
             onClick={() => comingSoon("Regie")}
@@ -265,8 +265,9 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Nächster Schritt</h2>
 
         <p style={nextTextStyle}>
-          Sada je otvoren modul <strong>Aufmaß / Räume</strong>. Tu se dodaju
-          prostorije, faktor i raspodjela LV pozicija po prostorijama.
+          Sada je otvoren modul <strong>Leistung</strong>. Tu se unosi dnevni
+          učinak jednom po prostoriji i LV poziciji. Podjela po radnicima računa
+          se prema satima iz Arbeitszeit.
         </p>
       </section>
     </main>
