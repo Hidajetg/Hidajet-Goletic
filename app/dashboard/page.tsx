@@ -17,6 +17,7 @@ const translations: any = {
     notes: "Notizen",
     materialOrder: "Material bestellen",
     privateNote: "Private Notiz",
+    projects: "Projekte",
     logout: "Abmelden",
     noMessages: "Aktuell gibt es keine Info-Nachrichten.",
     message: "Nachricht",
@@ -30,6 +31,7 @@ const translations: any = {
     notes: "Bilješke",
     materialOrder: "Naruči materijal",
     privateNote: "Privatna bilješka",
+    projects: "Projekte",
     logout: "Odjava",
     noMessages: "Trenutno nema info poruka.",
     message: "poruka",
@@ -43,6 +45,7 @@ const translations: any = {
     notes: "Eslatmalar",
     materialOrder: "Material buyurtma",
     privateNote: "Shaxsiy eslatma",
+    projects: "Projekte",
     logout: "Chiqish",
     noMessages: "Hozircha xabar yo‘q.",
     message: "xabar",
@@ -56,6 +59,7 @@ const translations: any = {
     notes: "Notes",
     materialOrder: "Order material",
     privateNote: "Private note",
+    projects: "Projects",
     logout: "Logout",
     noMessages: "There are currently no info messages.",
     message: "message",
@@ -234,6 +238,12 @@ export default function DashboardPage() {
         <Link href="/baustellen" style={buttonStyle}>
           🏗️ Baustelle
         </Link>
+
+        {isAdmin && (
+          <Link href="/projekte" style={buttonStyle}>
+            📂 {t.projects}
+          </Link>
+        )}
 
         <Link href="/pregled-sati" style={buttonStyle}>
           ⏰ {t.hours}
