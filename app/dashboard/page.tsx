@@ -18,6 +18,7 @@ const translations: any = {
     materialOrder: "Material bestellen",
     privateNote: "Private Notiz",
     projects: "Projekte",
+    workerProjects: "Radnik Projekte",
     logout: "Abmelden",
     noMessages: "Aktuell gibt es keine Info-Nachrichten.",
     message: "Nachricht",
@@ -32,6 +33,7 @@ const translations: any = {
     materialOrder: "Naruči materijal",
     privateNote: "Privatna bilješka",
     projects: "Projekte",
+    workerProjects: "Radnik Projekte",
     logout: "Odjava",
     noMessages: "Trenutno nema info poruka.",
     message: "poruka",
@@ -46,6 +48,7 @@ const translations: any = {
     materialOrder: "Material buyurtma",
     privateNote: "Shaxsiy eslatma",
     projects: "Projekte",
+    workerProjects: "Radnik Projekte",
     logout: "Chiqish",
     noMessages: "Hozircha xabar yo‘q.",
     message: "xabar",
@@ -60,6 +63,7 @@ const translations: any = {
     materialOrder: "Order material",
     privateNote: "Private note",
     projects: "Projects",
+    workerProjects: "Worker Projects",
     logout: "Logout",
     noMessages: "There are currently no info messages.",
     message: "message",
@@ -109,15 +113,18 @@ export default function DashboardPage() {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
+
     return `${year}-${month}-${day}`;
   }
 
   function getOneMonthFromToday() {
     const d = new Date();
     d.setMonth(d.getMonth() + 1);
+
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
+
     return `${year}-${month}-${day}`;
   }
 
@@ -239,15 +246,15 @@ export default function DashboardPage() {
           🏗️ Baustelle
         </Link>
 
+        <Link href="/projekte/radnik" style={workerProjectButtonStyle}>
+          👷 {t.workerProjects}
+        </Link>
+
         {isAdmin && (
-          <Link href="/projekte" style={buttonStyle}>
+          <Link href="/projekte" style={adminProjectButtonStyle}>
             📂 {t.projects}
           </Link>
         )}
-
-        <Link href="/pregled-sati" style={buttonStyle}>
-          ⏰ {t.hours}
-        </Link>
 
         <Link
           href="/kalendar"
@@ -331,15 +338,18 @@ const titleStyle: any = {
   fontSize: "38px",
   marginBottom: "6px",
   color: "#f97316",
+  textAlign: "center",
 };
 
 const subtitleStyle: any = {
   marginBottom: "14px",
   color: "#ccc",
+  textAlign: "center",
 };
 
 const languageBoxStyle: any = {
   display: "flex",
+  justifyContent: "center",
   gap: "8px",
   marginBottom: "20px",
   flexWrap: "wrap",
@@ -379,6 +389,16 @@ const buttonStyle: any = {
   fontWeight: "bold",
   border: "none",
   cursor: "pointer",
+};
+
+const workerProjectButtonStyle: any = {
+  ...buttonStyle,
+  background: "#16a34a",
+};
+
+const adminProjectButtonStyle: any = {
+  ...buttonStyle,
+  background: "#f97316",
 };
 
 const alertButtonStyle: any = {

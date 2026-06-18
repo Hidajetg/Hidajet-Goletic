@@ -86,6 +86,17 @@ export default function RadnikProjektDetailPage() {
       0
     );
 
+    const alleStatus = [
+      ...myArbeitszeiten.map((z) => normalizeStatus(z.freigabe_status)),
+      ...myLeistungen.map((l) => normalizeStatus(l.status)),
+      ...myRegie.map((r) => normalizeStatus(r.status)),
+      ...myFotos.map((f) => normalizeStatus(f.freigabe_status)),
+    ];
+
+    const wartet = alleStatus.filter((s) => s === "Wartet").length;
+    const genehmigt = alleStatus.filter((s) => s === "Genehmigt").length;
+    const abgelehnt = alleStatus.filter((s) => s === "Abgelehnt").length;
+
     return {
       normalHours,
       regieHours,
@@ -93,11 +104,15 @@ export default function RadnikProjektDetailPage() {
       leistungen: myLeistungen.length,
       aufgaben: myAufgaben.length,
       fotos: myFotos.length,
+      wartet,
+      genehmigt,
+      abgelehnt,
     };
   }, [
     myArbeitszeiten,
     myRegieWorkers,
     myLeistungen,
+    myRegie,
     myAufgaben,
     myFotos,
   ]);
@@ -231,6 +246,16 @@ export default function RadnikProjektDetailPage() {
       .order("created_at", { ascending: false });
 
     setMyFotos(fotosRes.data || []);
+  }
+
+  function normalizeStatus(value: string | null | undefined) {
+    if (!value) return "Wartet";
+    if (value === "Offen") return "Wartet";
+    if (value === "Erledigt") return "Genehmigt";
+    if (value === "Genehmigt") return "Genehmigt";
+    if (value === "Abgelehnt") return "Abgelehnt";
+
+    return "Wartet";
   }
 
   function parseNumber(value: string) {
@@ -397,6 +422,8 @@ export default function RadnikProjektDetailPage() {
       lv_position_id: zeitPositionId ? Number(zeitPositionId) : null,
       arbeitsart,
       notiz: zeitNotiz.trim() || null,
+      freigabe_status: "Wartet",
+      admin_notiz: null,
       created_by: workerName,
     };
 
@@ -442,6 +469,7 @@ export default function RadnikProjektDetailPage() {
       faktor,
       wirksame_menge: menge * faktor,
       status: "Offen",
+      admin_notiz: null,
       notiz: leistungNotiz.trim() || null,
       created_by: workerName,
     };
@@ -490,6 +518,7 @@ export default function RadnikProjektDetailPage() {
       stunden_pro_worker: stunden,
       beschreibung: regieBeschreibung.trim(),
       status: "Wartet",
+      admin_notiz: null,
       auftraggeber: projekt?.auftraggeber || null,
       bauleiter: projekt?.bauleiter || null,
       created_by: workerName,
@@ -543,6 +572,7 @@ export default function RadnikProjektDetailPage() {
       beschreibung: aufgabeBeschreibung.trim() || null,
       prioritaet: aufgabePrioritaet,
       status: "Offen",
+      admin_notiz: null,
       assigned_to: workerName,
       faellig_bis: aufgabeFaellig || null,
       erledigt_am: null,
@@ -611,6 +641,8 @@ export default function RadnikProjektDetailPage() {
       typ: fotoTyp,
       foto_url: publicUrlRes.data.publicUrl,
       storage_path: storagePath,
+      freigabe_status: "Wartet",
+      admin_notiz: null,
       created_by: workerName,
     };
 
@@ -648,6 +680,34 @@ export default function RadnikProjektDetailPage() {
     }
 
     await loadDayData(workerName, datum);
+  }
+
+  function StatusBadge({ status }: { status: string }) {
+    const s = normalizeStatus(status);
+
+    return (
+      <span
+        style={
+          s === "Genehmigt"
+            ? okBadgeStyle
+            : s === "Abgelehnt"
+            ? dangerBadgeStyle
+            : warningBadgeStyle
+        }
+      >
+        {s}
+      </span>
+    );
+  }
+
+  function AdminNotiz({ value }: { value: string | null }) {
+    if (!value) return null;
+
+    return (
+      <p style={adminNotizStyle}>
+        Admin Notiz: <strong>{value}</strong>
+      </p>
+    );
   }
 
   if (loading) {
@@ -710,15 +770,17 @@ export default function RadnikProjektDetailPage() {
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Gesamt</span>
-          <strong style={summaryValueStyle}>
-            {formatNumber(summary.totalHours)} h
+          <span style={summaryLabelStyle}>Wartet</span>
+          <strong style={{ ...summaryValueStyle, color: "#facc15" }}>
+            {summary.wartet}
           </strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Fotos</span>
-          <strong style={summaryValueStyle}>{summary.fotos}</strong>
+          <span style={summaryLabelStyle}>Abgelehnt</span>
+          <strong style={{ ...summaryValueStyle, color: "#ef4444" }}>
+            {summary.abgelehnt}
+          </strong>
         </div>
       </section>
 
@@ -1176,14 +1238,19 @@ export default function RadnikProjektDetailPage() {
         ) : (
           myArbeitszeiten.map((z) => (
             <div key={z.id} style={miniCardStyle}>
-              <strong>
-                {String(z.start_time || "").slice(0, 5)} -{" "}
-                {String(z.end_time || "").slice(0, 5)} |{" "}
-                {formatNumber(z.stunden)} h
-              </strong>
+              <div style={miniTopStyle}>
+                <strong>
+                  {String(z.start_time || "").slice(0, 5)} -{" "}
+                  {String(z.end_time || "").slice(0, 5)} |{" "}
+                  {formatNumber(z.stunden)} h
+                </strong>
+                <StatusBadge status={z.freigabe_status} />
+              </div>
+
               <p style={miniTextStyle}>Raum: {getRaumName(z.raum_id)}</p>
               <p style={miniTextStyle}>LV: {getPositionText(z.lv_position_id)}</p>
               <p style={miniTextStyle}>Art: {z.arbeitsart || "-"}</p>
+              <AdminNotiz value={z.admin_notiz} />
             </div>
           ))
         )}
@@ -1195,12 +1262,16 @@ export default function RadnikProjektDetailPage() {
         ) : (
           myLeistungen.map((l) => (
             <div key={l.id} style={miniCardStyle}>
-              <strong>
-                {formatNumber(l.menge_ist)} {l.einheit || ""}
-              </strong>
+              <div style={miniTopStyle}>
+                <strong>
+                  {formatNumber(l.menge_ist)} {l.einheit || ""}
+                </strong>
+                <StatusBadge status={l.status} />
+              </div>
+
               <p style={miniTextStyle}>Raum: {getRaumName(l.raum_id)}</p>
               <p style={miniTextStyle}>LV: {getPositionText(l.lv_position_id)}</p>
-              <p style={miniTextStyle}>Status: {l.status || "Offen"}</p>
+              <AdminNotiz value={l.admin_notiz} />
             </div>
           ))
         )}
@@ -1212,14 +1283,18 @@ export default function RadnikProjektDetailPage() {
         ) : (
           myRegie.map((r) => (
             <div key={r.id} style={miniCardStyle}>
-              <strong>
-                {String(r.start_time || "").slice(0, 5)} -{" "}
-                {String(r.end_time || "").slice(0, 5)} |{" "}
-                {formatNumber(r.stunden_pro_worker)} h
-              </strong>
+              <div style={miniTopStyle}>
+                <strong>
+                  {String(r.start_time || "").slice(0, 5)} -{" "}
+                  {String(r.end_time || "").slice(0, 5)} |{" "}
+                  {formatNumber(r.stunden_pro_worker)} h
+                </strong>
+                <StatusBadge status={r.status} />
+              </div>
+
               <p style={miniTextStyle}>Raum: {getRaumName(r.raum_id)}</p>
-              <p style={miniTextStyle}>Status: {r.status || "Wartet"}</p>
               <p style={miniTextStyle}>{r.beschreibung}</p>
+              <AdminNotiz value={r.admin_notiz} />
             </div>
           ))
         )}
@@ -1241,9 +1316,14 @@ export default function RadnikProjektDetailPage() {
                 </a>
 
                 <div style={photoBodyStyle}>
-                  <strong>{foto.titel || "-"}</strong>
+                  <div style={miniTopStyle}>
+                    <strong>{foto.titel || "-"}</strong>
+                    <StatusBadge status={foto.freigabe_status} />
+                  </div>
+
                   <p style={miniTextStyle}>Typ: {foto.typ || "-"}</p>
                   <p style={miniTextStyle}>Raum: {getRaumName(foto.raum_id)}</p>
+                  <AdminNotiz value={foto.admin_notiz} />
 
                   <button
                     onClick={() => deleteFoto(foto)}
@@ -1264,12 +1344,16 @@ export default function RadnikProjektDetailPage() {
         ) : (
           myAufgaben.slice(0, 10).map((a) => (
             <div key={a.id} style={miniCardStyle}>
-              <strong>
-                {a.typ}: {a.titel}
-              </strong>
-              <p style={miniTextStyle}>Status: {a.status}</p>
+              <div style={miniTopStyle}>
+                <strong>
+                  {a.typ}: {a.titel}
+                </strong>
+                <StatusBadge status={a.status} />
+              </div>
+
               <p style={miniTextStyle}>Priorität: {a.prioritaet}</p>
               <p style={miniTextStyle}>Raum: {getRaumName(a.raum_id)}</p>
+              <AdminNotiz value={a.admin_notiz} />
             </div>
           ))
         )}
@@ -1494,10 +1578,28 @@ const miniCardStyle: any = {
   marginBottom: "10px",
 };
 
+const miniTopStyle: any = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "8px",
+  flexWrap: "wrap",
+};
+
 const miniTextStyle: any = {
   color: "#ccc",
   fontSize: "13px",
   margin: "5px 0",
+};
+
+const adminNotizStyle: any = {
+  color: "#facc15",
+  background: "#1f1600",
+  border: "1px solid #ca8a04",
+  borderRadius: "10px",
+  padding: "9px",
+  fontSize: "13px",
+  marginTop: "8px",
 };
 
 const photoGridStyle: any = {
@@ -1534,4 +1636,34 @@ const deleteFotoButtonStyle: any = {
   cursor: "pointer",
   width: "100%",
   marginTop: "10px",
+};
+
+const okBadgeStyle: any = {
+  background: "#16a34a",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
+const warningBadgeStyle: any = {
+  background: "#ca8a04",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
+const dangerBadgeStyle: any = {
+  background: "#dc2626",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
 };
