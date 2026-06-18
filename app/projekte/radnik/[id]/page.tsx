@@ -59,6 +59,12 @@ const translations: any = {
     file: "Foto",
     withoutRoom: "Ohne Raum",
 
+    regiePhotos: "Regie Fotos",
+    regiePhotosHint:
+      "Hier Fotos als Nachweis für Regie-Arbeit hinzufügen. Mehrere Fotos sind möglich.",
+    selectedPhotos: "Ausgewählte Fotos",
+    photosOptional: "Fotos optional, aber bei Regie empfohlen.",
+
     performanceHint:
       "Wichtig: Leistung nur einmal pro Raum / LV Position eintragen, nicht jeder Mitarbeiter separat.",
 
@@ -151,6 +157,12 @@ const translations: any = {
     title: "Naslov",
     file: "Slika",
     withoutRoom: "Bez prostorije",
+
+    regiePhotos: "Regie slike",
+    regiePhotosHint:
+      "Ovdje dodaj slike kao dokaz za Regie rad. Možeš dodati više slika.",
+    selectedPhotos: "Odabrane slike",
+    photosOptional: "Slike nisu obavezne, ali su za Regie preporučene.",
 
     performanceHint:
       "Važno: učinak se unosi samo jednom po prostoriji / LV poziciji, ne svaki radnik posebno.",
@@ -245,6 +257,12 @@ const translations: any = {
     file: "Rasm",
     withoutRoom: "Xonasiz",
 
+    regiePhotos: "Regie rasmlar",
+    regiePhotosHint:
+      "Regie ishiga dalil sifatida rasm qo‘shing. Bir nechta rasm qo‘shish mumkin.",
+    selectedPhotos: "Tanlangan rasmlar",
+    photosOptional: "Rasm majburiy emas, lekin Regie uchun tavsiya etiladi.",
+
     performanceHint:
       "Muhim: ish hajmi xona / LV pozitsiya bo‘yicha faqat bir marta kiritiladi, har bir ishchi alohida emas.",
 
@@ -337,6 +355,12 @@ const translations: any = {
     title: "Title",
     file: "Photo",
     withoutRoom: "Without room",
+
+    regiePhotos: "Regie photos",
+    regiePhotosHint:
+      "Add photos here as proof for Regie work. Multiple photos are possible.",
+    selectedPhotos: "Selected photos",
+    photosOptional: "Photos are optional, but recommended for Regie.",
 
     performanceHint:
       "Important: performance is entered only once per room / LV position, not separately by every worker.",
@@ -437,6 +461,7 @@ export default function RadnikProjektDetailPage() {
   const [regiePause, setRegiePause] = useState("0");
   const [regieRaumId, setRegieRaumId] = useState("");
   const [regieBeschreibung, setRegieBeschreibung] = useState("");
+  const [regieFiles, setRegieFiles] = useState<File[]>([]);
 
   const [aufgabeTyp, setAufgabeTyp] = useState("Aufgabe");
   const [aufgabeTitel, setAufgabeTitel] = useState("");
@@ -763,6 +788,7 @@ export default function RadnikProjektDetailPage() {
     setRegiePause("0");
     setRegieRaumId("");
     setRegieBeschreibung("");
+    setRegieFiles([]);
   }
 
   function clearAufgabeForm() {
@@ -782,6 +808,50 @@ export default function RadnikProjektDetailPage() {
     setFotoRaumId("");
     setFotoPositionId("");
     setFotoFile(null);
+  }
+
+  async function uploadRegieFotos(regieId: number) {
+    if (regieFiles.length === 0) return;
+
+    for (let i = 0; i < regieFiles.length; i++) {
+      const file = regieFiles[i];
+      const safeName = getSafeFileName(file.name);
+      const storagePath = `${projektId}/${workerName}/regie-${regieId}/${safeName}`;
+
+      const uploadRes = await supabase.storage
+        .from(BUCKET)
+        .upload(storagePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadRes.error) {
+        alert("Greška kod upload Regie slike: " + uploadRes.error.message);
+        continue;
+      }
+
+      const publicUrlRes = supabase.storage
+        .from(BUCKET)
+        .getPublicUrl(storagePath);
+
+      const fotoPayload = {
+        projekt_id: Number(projektId),
+        regie_id: regieId,
+        datum,
+        raum_id: regieRaumId ? Number(regieRaumId) : null,
+        lv_position_id: null,
+        titel: `Regie Foto ${i + 1}`,
+        beschreibung: regieBeschreibung.trim(),
+        typ: "Regie",
+        foto_url: publicUrlRes.data.publicUrl,
+        storage_path: storagePath,
+        freigabe_status: "Wartet",
+        admin_notiz: null,
+        created_by: workerName,
+      };
+
+      await supabase.from("projekt_fotos").insert(fotoPayload);
+    }
   }
 
   async function saveArbeitszeit() {
@@ -944,6 +1014,8 @@ export default function RadnikProjektDetailPage() {
       return;
     }
 
+    await uploadRegieFotos(regieRes.data.id);
+
     clearRegieForm();
     setActiveForm("");
     await loadDayData(workerName, datum);
@@ -1030,6 +1102,7 @@ export default function RadnikProjektDetailPage() {
       datum,
       raum_id: fotoRaumId ? Number(fotoRaumId) : null,
       lv_position_id: fotoPositionId ? Number(fotoPositionId) : null,
+      regie_id: null,
       titel: fotoTitel.trim(),
       beschreibung: fotoBeschreibung.trim() || null,
       typ: fotoTyp,
@@ -1445,6 +1518,34 @@ export default function RadnikProjektDetailPage() {
             style={textareaStyle}
           />
 
+          <div style={photoUploadBoxStyle}>
+            <label style={labelStyle}>{t.regiePhotos}</label>
+
+            <p style={photoHintStyle}>{t.regiePhotosHint}</p>
+
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                setRegieFiles(files);
+              }}
+              style={inputStyle}
+            />
+
+            {regieFiles.length > 0 && (
+              <p style={selectedPhotoTextStyle}>
+                {t.selectedPhotos}: <strong>{regieFiles.length}</strong>
+              </p>
+            )}
+
+            {regieFiles.length === 0 && (
+              <p style={selectedPhotoTextStyle}>{t.photosOptional}</p>
+            )}
+          </div>
+
           <button onClick={saveRegie} disabled={saving} style={saveButtonStyle}>
             {saving ? "..." : t.saveRegie}
           </button>
@@ -1648,9 +1749,15 @@ export default function RadnikProjektDetailPage() {
                 <StatusBadge status={z.freigabe_status} />
               </div>
 
-              <p style={miniTextStyle}>{t.room}: {getRaumName(z.raum_id)}</p>
-              <p style={miniTextStyle}>{t.lvPosition}: {getPositionText(z.lv_position_id)}</p>
-              <p style={miniTextStyle}>{t.workType}: {z.arbeitsart || "-"}</p>
+              <p style={miniTextStyle}>
+                {t.room}: {getRaumName(z.raum_id)}
+              </p>
+              <p style={miniTextStyle}>
+                {t.lvPosition}: {getPositionText(z.lv_position_id)}
+              </p>
+              <p style={miniTextStyle}>
+                {t.workType}: {z.arbeitsart || "-"}
+              </p>
               <AdminNotiz value={z.admin_notiz} />
             </div>
           ))
@@ -1670,8 +1777,12 @@ export default function RadnikProjektDetailPage() {
                 <StatusBadge status={l.status} />
               </div>
 
-              <p style={miniTextStyle}>{t.room}: {getRaumName(l.raum_id)}</p>
-              <p style={miniTextStyle}>{t.lvPosition}: {getPositionText(l.lv_position_id)}</p>
+              <p style={miniTextStyle}>
+                {t.room}: {getRaumName(l.raum_id)}
+              </p>
+              <p style={miniTextStyle}>
+                {t.lvPosition}: {getPositionText(l.lv_position_id)}
+              </p>
               <AdminNotiz value={l.admin_notiz} />
             </div>
           ))
@@ -1693,7 +1804,9 @@ export default function RadnikProjektDetailPage() {
                 <StatusBadge status={r.status} />
               </div>
 
-              <p style={miniTextStyle}>{t.room}: {getRaumName(r.raum_id)}</p>
+              <p style={miniTextStyle}>
+                {t.room}: {getRaumName(r.raum_id)}
+              </p>
               <p style={miniTextStyle}>{r.beschreibung}</p>
               <AdminNotiz value={r.admin_notiz} />
             </div>
@@ -1722,8 +1835,12 @@ export default function RadnikProjektDetailPage() {
                     <StatusBadge status={foto.freigabe_status} />
                   </div>
 
-                  <p style={miniTextStyle}>{t.type}: {foto.typ || "-"}</p>
-                  <p style={miniTextStyle}>{t.room}: {getRaumName(foto.raum_id)}</p>
+                  <p style={miniTextStyle}>
+                    {t.type}: {foto.typ || "-"}
+                  </p>
+                  <p style={miniTextStyle}>
+                    {t.room}: {getRaumName(foto.raum_id)}
+                  </p>
                   <AdminNotiz value={foto.admin_notiz} />
 
                   <button
@@ -1752,8 +1869,12 @@ export default function RadnikProjektDetailPage() {
                 <StatusBadge status={a.status} />
               </div>
 
-              <p style={miniTextStyle}>{t.priority}: {a.prioritaet}</p>
-              <p style={miniTextStyle}>{t.room}: {getRaumName(a.raum_id)}</p>
+              <p style={miniTextStyle}>
+                {t.priority}: {a.prioritaet}
+              </p>
+              <p style={miniTextStyle}>
+                {t.room}: {getRaumName(a.raum_id)}
+              </p>
               <AdminNotiz value={a.admin_notiz} />
             </div>
           ))
@@ -1956,6 +2077,27 @@ const hintStyle: any = {
   borderRadius: "10px",
   padding: "10px",
   fontSize: "13px",
+};
+
+const photoUploadBoxStyle: any = {
+  background: "#080808",
+  border: "1px solid #333",
+  borderRadius: "14px",
+  padding: "12px",
+  marginTop: "14px",
+};
+
+const photoHintStyle: any = {
+  color: "#aaa",
+  fontSize: "13px",
+  lineHeight: "1.4",
+  marginTop: 0,
+};
+
+const selectedPhotoTextStyle: any = {
+  color: "#facc15",
+  fontSize: "13px",
+  marginBottom: 0,
 };
 
 const saveButtonStyle: any = {
