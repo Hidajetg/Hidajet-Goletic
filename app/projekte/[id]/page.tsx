@@ -59,11 +59,12 @@ export default function ProjektDetailPage() {
   function formatDate(value: string | null) {
     if (!value) return "-";
 
-    return new Date(value).toLocaleDateString("de-AT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+    const parts = String(value).split("-");
+    if (parts.length === 3) {
+      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+
+    return value;
   }
 
   function comingSoon(text: string) {
@@ -232,23 +233,17 @@ export default function ProjektDetailPage() {
             <small>Dnevni učinak po poziciji, sobi i ekipi</small>
           </Link>
 
-          <button
-            onClick={() => comingSoon("Regie")}
-            style={moduleButtonStyle}
-          >
+          <Link href={`/projekte/${projekt.id}/regie`} style={moduleLinkStyle}>
             <span style={moduleIconStyle}>🧾</span>
             <strong>Regie</strong>
-            <small>Isti izgled kao Baustelle-Regie, sati po radniku</small>
-          </button>
+            <small>Regie sati, više radnika, puni sati po radniku</small>
+          </Link>
 
-          <button
-            onClick={() => comingSoon("Material")}
-            style={moduleButtonStyle}
-          >
+          <Link href={`/projekte/${projekt.id}/material`} style={moduleLinkStyle}>
             <span style={moduleIconStyle}>🧱</span>
             <strong>Material</strong>
             <small>Planirano, potrošeno, ostatak po projektu</small>
-          </button>
+          </Link>
 
           <button
             onClick={() => comingSoon("Auswertung")}
@@ -265,9 +260,8 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Nächster Schritt</h2>
 
         <p style={nextTextStyle}>
-          Sada je otvoren modul <strong>Leistung</strong>. Tu se unosi dnevni
-          učinak jednom po prostoriji i LV poziciji. Podjela po radnicima računa
-          se prema satima iz Arbeitszeit.
+          Sada je otvoren modul <strong>Material</strong>. Tu se vodi plan,
+          ulaz, potrošnja, povrat i ostatak materiala po projektu.
         </p>
       </section>
     </main>
