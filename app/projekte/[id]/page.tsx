@@ -245,14 +245,14 @@ export default function ProjektDetailPage() {
             <small>Planirano, potrošeno, ostatak po projektu</small>
           </Link>
 
-          <button
-            onClick={() => comingSoon("Auswertung")}
-            style={moduleButtonStyle}
+          <Link
+            href={`/projekte/${projekt.id}/auswertung`}
+            style={moduleLinkStyle}
           >
             <span style={moduleIconStyle}>📊</span>
             <strong>Auswertung</strong>
-            <small>Soll / Ist, produktivnost, sati, regie</small>
-          </button>
+            <small>Soll / Ist, produktivnost, sati, regie, material</small>
+          </Link>
         </div>
       </section>
 
@@ -260,8 +260,9 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Nächster Schritt</h2>
 
         <p style={nextTextStyle}>
-          Sada je otvoren modul <strong>Material</strong>. Tu se vodi plan,
-          ulaz, potrošnja, povrat i ostatak materiala po projektu.
+          Sada je otvoren modul <strong>Auswertung</strong>. Tu se vidi pregled
+          projekta: Soll / Ist, normalni sati, Regie sati, učinak, radnici i
+          material.
         </p>
       </section>
     </main>
