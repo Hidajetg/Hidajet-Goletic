@@ -253,6 +253,15 @@ export default function ProjektDetailPage() {
           </Link>
 
           <Link
+            href={`/projekte/${projekt.id}/freigabe`}
+            style={moduleLinkStyle}
+          >
+            <span style={moduleIconStyle}>🟢</span>
+            <strong>Freigabe / Kontrolle</strong>
+            <small>Admin potvrđuje Arbeitszeit, Leistung, Regie, Fotos</small>
+          </Link>
+
+          <Link
             href={`/projekte/${projekt.id}/tagesbericht`}
             style={moduleLinkStyle}
           >
@@ -291,9 +300,8 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Nächster Schritt</h2>
 
         <p style={nextTextStyle}>
-          Sada je otvoren modul <strong>Einstellungen</strong>. Tu možeš
-          promijeniti osnovne podatke projekta, status, Google lokaciju ili
-          obrisati projekt.
+          Sada je otvoren modul <strong>Freigabe / Kontrolle</strong>. Admin
+          ovdje potvrđuje ili odbija unose koje su radnici napravili.
         </p>
       </section>
     </main>
