@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-const RADNICI = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun", "Hido", "Steffi"];
+const BUCKET = "projekt-fotos";
 
 function getTodayLocalDate() {
   const d = new Date();
@@ -25,6 +25,7 @@ export default function RadnikProjektDetailPage() {
   const [workerName, setWorkerName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const [projekt, setProjekt] = useState<any>(null);
   const [raeume, setRaeume] = useState<any[]>([]);
@@ -38,6 +39,7 @@ export default function RadnikProjektDetailPage() {
   const [myRegie, setMyRegie] = useState<any[]>([]);
   const [myRegieWorkers, setMyRegieWorkers] = useState<any[]>([]);
   const [myAufgaben, setMyAufgaben] = useState<any[]>([]);
+  const [myFotos, setMyFotos] = useState<any[]>([]);
 
   const [zeitStart, setZeitStart] = useState("");
   const [zeitEnde, setZeitEnde] = useState("");
@@ -66,6 +68,13 @@ export default function RadnikProjektDetailPage() {
   const [aufgabePositionId, setAufgabePositionId] = useState("");
   const [aufgabeFaellig, setAufgabeFaellig] = useState("");
 
+  const [fotoTyp, setFotoTyp] = useState("Fortschritt");
+  const [fotoTitel, setFotoTitel] = useState("");
+  const [fotoBeschreibung, setFotoBeschreibung] = useState("");
+  const [fotoRaumId, setFotoRaumId] = useState("");
+  const [fotoPositionId, setFotoPositionId] = useState("");
+  const [fotoFile, setFotoFile] = useState<File | null>(null);
+
   const summary = useMemo(() => {
     const normalHours = myArbeitszeiten.reduce(
       (sum, z) => sum + Number(z.stunden || 0),
@@ -83,8 +92,15 @@ export default function RadnikProjektDetailPage() {
       totalHours: normalHours + regieHours,
       leistungen: myLeistungen.length,
       aufgaben: myAufgaben.length,
+      fotos: myFotos.length,
     };
-  }, [myArbeitszeiten, myRegieWorkers, myLeistungen, myAufgaben]);
+  }, [
+    myArbeitszeiten,
+    myRegieWorkers,
+    myLeistungen,
+    myAufgaben,
+    myFotos,
+  ]);
 
   useEffect(() => {
     const name = localStorage.getItem("worker_name");
@@ -205,6 +221,16 @@ export default function RadnikProjektDetailPage() {
         );
       })
     );
+
+    const fotosRes = await supabase
+      .from("projekt_fotos")
+      .select("*")
+      .eq("projekt_id", Number(projektId))
+      .eq("created_by", currentWorker)
+      .eq("datum", currentDate)
+      .order("created_at", { ascending: false });
+
+    setMyFotos(fotosRes.data || []);
   }
 
   function parseNumber(value: string) {
@@ -287,6 +313,14 @@ export default function RadnikProjektDetailPage() {
     return pos?.einheit || "";
   }
 
+  function getSafeFileName(originalName: string) {
+    const ext = originalName.split(".").pop() || "jpg";
+    const cleanExt = ext.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "jpg";
+    const random = Math.random().toString(36).slice(2);
+
+    return `${Date.now()}-${random}.${cleanExt}`;
+  }
+
   function clearZeitForm() {
     setZeitStart("");
     setZeitEnde("");
@@ -320,6 +354,15 @@ export default function RadnikProjektDetailPage() {
     setAufgabeRaumId("");
     setAufgabePositionId("");
     setAufgabeFaellig("");
+  }
+
+  function clearFotoForm() {
+    setFotoTyp("Fortschritt");
+    setFotoTitel("");
+    setFotoBeschreibung("");
+    setFotoRaumId("");
+    setFotoPositionId("");
+    setFotoFile(null);
   }
 
   async function saveArbeitszeit() {
@@ -522,6 +565,91 @@ export default function RadnikProjektDetailPage() {
     setSaving(false);
   }
 
+  async function saveFoto() {
+    if (!datum) {
+      alert("Odaberi datum.");
+      return;
+    }
+
+    if (!fotoTitel.trim()) {
+      alert("Unesi naslov slike.");
+      return;
+    }
+
+    if (!fotoFile) {
+      alert("Odaberi sliku.");
+      return;
+    }
+
+    setUploading(true);
+
+    const safeName = getSafeFileName(fotoFile.name);
+    const storagePath = `${projektId}/${workerName}/${safeName}`;
+
+    const uploadRes = await supabase.storage
+      .from(BUCKET)
+      .upload(storagePath, fotoFile, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (uploadRes.error) {
+      alert("Greška kod upload slike: " + uploadRes.error.message);
+      setUploading(false);
+      return;
+    }
+
+    const publicUrlRes = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
+
+    const payload = {
+      projekt_id: Number(projektId),
+      datum,
+      raum_id: fotoRaumId ? Number(fotoRaumId) : null,
+      lv_position_id: fotoPositionId ? Number(fotoPositionId) : null,
+      titel: fotoTitel.trim(),
+      beschreibung: fotoBeschreibung.trim() || null,
+      typ: fotoTyp,
+      foto_url: publicUrlRes.data.publicUrl,
+      storage_path: storagePath,
+      created_by: workerName,
+    };
+
+    const { error } = await supabase.from("projekt_fotos").insert(payload);
+
+    if (error) {
+      alert("Greška kod spremanja slike: " + error.message);
+      setUploading(false);
+      return;
+    }
+
+    clearFotoForm();
+    setActiveForm("");
+    await loadDayData(workerName, datum);
+    setUploading(false);
+  }
+
+  async function deleteFoto(item: any) {
+    const ok = confirm("Da li sigurno želiš obrisati ovu sliku?");
+
+    if (!ok) return;
+
+    if (item.storage_path) {
+      await supabase.storage.from(BUCKET).remove([item.storage_path]);
+    }
+
+    const { error } = await supabase
+      .from("projekt_fotos")
+      .delete()
+      .eq("id", item.id);
+
+    if (error) {
+      alert("Greška kod brisanja slike: " + error.message);
+      return;
+    }
+
+    await loadDayData(workerName, datum);
+  }
+
   if (loading) {
     return (
       <main style={mainStyle}>
@@ -589,8 +717,8 @@ export default function RadnikProjektDetailPage() {
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Leistung</span>
-          <strong style={summaryValueStyle}>{summary.leistungen}</strong>
+          <span style={summaryLabelStyle}>Fotos</span>
+          <strong style={summaryValueStyle}>{summary.fotos}</strong>
         </div>
       </section>
 
@@ -624,7 +752,14 @@ export default function RadnikProjektDetailPage() {
           }
           style={purpleButtonStyle}
         >
-          ⚠️ Aufgabe / Mangel
+          ⚠️ Aufgabe
+        </button>
+
+        <button
+          onClick={() => setActiveForm(activeForm === "foto" ? "" : "foto")}
+          style={photoButtonStyle}
+        >
+          📸 Foto
         </button>
       </section>
 
@@ -761,7 +896,8 @@ export default function RadnikProjektDetailPage() {
           </select>
 
           <label style={labelStyle}>
-            Menge {leistungPositionId ? `(${getPositionEinheit(leistungPositionId)})` : ""}
+            Menge{" "}
+            {leistungPositionId ? `(${getPositionEinheit(leistungPositionId)})` : ""}
           </label>
           <input
             value={leistungMenge}
@@ -946,6 +1082,90 @@ export default function RadnikProjektDetailPage() {
         </section>
       )}
 
+      {activeForm === "foto" && (
+        <section style={formBoxStyle}>
+          <h2 style={formTitleStyle}>Foto hochladen</h2>
+
+          <label style={labelStyle}>Typ</label>
+          <select
+            value={fotoTyp}
+            onChange={(e) => setFotoTyp(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="Fortschritt">Fortschritt</option>
+            <option value="Mangel">Mangel</option>
+            <option value="Vorher">Vorher</option>
+            <option value="Nachher">Nachher</option>
+            <option value="Sonstiges">Sonstiges</option>
+          </select>
+
+          <label style={labelStyle}>Titel *</label>
+          <input
+            value={fotoTitel}
+            onChange={(e) => setFotoTitel(e.target.value)}
+            placeholder="z.B. Bad EG Abdichtung fertig"
+            style={inputStyle}
+          />
+
+          <label style={labelStyle}>Beschreibung</label>
+          <textarea
+            value={fotoBeschreibung}
+            onChange={(e) => setFotoBeschreibung(e.target.value)}
+            placeholder="Opis slike"
+            style={textareaStyle}
+          />
+
+          <label style={labelStyle}>Raum</label>
+          <select
+            value={fotoRaumId}
+            onChange={(e) => setFotoRaumId(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Ohne Raum</option>
+            {raeume.map((raum) => (
+              <option key={raum.id} value={raum.id}>
+                {raum.ebene ? `${raum.ebene} - ` : ""}
+                {raum.raum_name}
+              </option>
+            ))}
+          </select>
+
+          <label style={labelStyle}>LV Position</label>
+          <select
+            value={fotoPositionId}
+            onChange={(e) => setFotoPositionId(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Ohne LV Position</option>
+            {positionen.map((pos) => (
+              <option key={pos.id} value={pos.id}>
+                {pos.position_nr} - {pos.kurztext}
+              </option>
+            ))}
+          </select>
+
+          <label style={labelStyle}>Foto *</label>
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={(e) => setFotoFile(e.target.files?.[0] || null)}
+            style={inputStyle}
+          />
+
+          <button
+            onClick={saveFoto}
+            disabled={uploading}
+            style={{
+              ...saveButtonStyle,
+              opacity: uploading ? 0.5 : 1,
+            }}
+          >
+            {uploading ? "Foto wird gespeichert..." : "Foto speichern"}
+          </button>
+        </section>
+      )}
+
       <section style={listBoxStyle}>
         <h2 style={sectionTitleStyle}>Meine Einträge am {formatDate(datum)}</h2>
 
@@ -1002,6 +1222,39 @@ export default function RadnikProjektDetailPage() {
               <p style={miniTextStyle}>{r.beschreibung}</p>
             </div>
           ))
+        )}
+
+        <h3 style={subTitleStyle}>Fotos</h3>
+
+        {myFotos.length === 0 ? (
+          <p style={emptyStyle}>Keine Fotos vorhanden.</p>
+        ) : (
+          <div style={photoGridStyle}>
+            {myFotos.map((foto) => (
+              <div key={foto.id} style={photoCardStyle}>
+                <a href={foto.foto_url} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={foto.foto_url}
+                    alt={foto.titel || "Foto"}
+                    style={photoStyle}
+                  />
+                </a>
+
+                <div style={photoBodyStyle}>
+                  <strong>{foto.titel || "-"}</strong>
+                  <p style={miniTextStyle}>Typ: {foto.typ || "-"}</p>
+                  <p style={miniTextStyle}>Raum: {getRaumName(foto.raum_id)}</p>
+
+                  <button
+                    onClick={() => deleteFoto(foto)}
+                    style={deleteFotoButtonStyle}
+                  >
+                    Foto löschen
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
         <h3 style={subTitleStyle}>Aufgaben / Mängel</h3>
@@ -1152,6 +1405,12 @@ const purpleButtonStyle: any = {
   background: "#9333ea",
 };
 
+const photoButtonStyle: any = {
+  ...greenButtonStyle,
+  background: "#be123c",
+  gridColumn: "1 / -1",
+};
+
 const blueButtonStyle: any = {
   background: "#2563eb",
   color: "white",
@@ -1239,4 +1498,40 @@ const miniTextStyle: any = {
   color: "#ccc",
   fontSize: "13px",
   margin: "5px 0",
+};
+
+const photoGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: "12px",
+};
+
+const photoCardStyle: any = {
+  background: "#000",
+  border: "1px solid #333",
+  borderRadius: "12px",
+  overflow: "hidden",
+};
+
+const photoStyle: any = {
+  width: "100%",
+  height: "220px",
+  objectFit: "cover",
+  display: "block",
+};
+
+const photoBodyStyle: any = {
+  padding: "12px",
+};
+
+const deleteFotoButtonStyle: any = {
+  background: "#dc2626",
+  color: "white",
+  border: "none",
+  borderRadius: "10px",
+  padding: "10px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  width: "100%",
+  marginTop: "10px",
 };
