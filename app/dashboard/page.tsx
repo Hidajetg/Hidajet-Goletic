@@ -10,6 +10,7 @@ const ADMINI = ["Hido", "Steffi", "Admin"];
 const translations: any = {
   de: {
     welcome: "Willkommen",
+    baustelle: "Baustelle",
     hours: "Stunden",
     calendar: "Kalender",
     info: "Info",
@@ -18,13 +19,14 @@ const translations: any = {
     materialOrder: "Material bestellen",
     privateNote: "Private Notiz",
     projects: "Projekte",
-    workerProjects: "Radnik Projekte",
+    workerProjects: "Meine Projekte",
     logout: "Abmelden",
     noMessages: "Aktuell gibt es keine Info-Nachrichten.",
     message: "Nachricht",
   },
   ba: {
     welcome: "Dobrodošao",
+    baustelle: "Baustelle",
     hours: "Sati",
     calendar: "Kalendar",
     info: "Info",
@@ -32,14 +34,15 @@ const translations: any = {
     notes: "Bilješke",
     materialOrder: "Naruči materijal",
     privateNote: "Privatna bilješka",
-    projects: "Projekte",
-    workerProjects: "Radnik Projekte",
+    projects: "Projekti",
+    workerProjects: "Moji projekti",
     logout: "Odjava",
     noMessages: "Trenutno nema info poruka.",
     message: "poruka",
   },
   uz: {
     welcome: "Xush kelibsiz",
+    baustelle: "Ish joyi",
     hours: "Soatlar",
     calendar: "Kalendar",
     info: "Info",
@@ -47,14 +50,15 @@ const translations: any = {
     notes: "Eslatmalar",
     materialOrder: "Material buyurtma",
     privateNote: "Shaxsiy eslatma",
-    projects: "Projekte",
-    workerProjects: "Radnik Projekte",
+    projects: "Loyihalar",
+    workerProjects: "Mening loyihalarim",
     logout: "Chiqish",
     noMessages: "Hozircha xabar yo‘q.",
     message: "xabar",
   },
   en: {
     welcome: "Welcome",
+    baustelle: "Construction site",
     hours: "Hours",
     calendar: "Calendar",
     info: "Info",
@@ -63,7 +67,7 @@ const translations: any = {
     materialOrder: "Order material",
     privateNote: "Private note",
     projects: "Projects",
-    workerProjects: "Worker Projects",
+    workerProjects: "My projects",
     logout: "Logout",
     noMessages: "There are currently no info messages.",
     message: "message",
@@ -243,7 +247,7 @@ export default function DashboardPage() {
 
       <div style={gridStyle}>
         <Link href="/baustellen" style={buttonStyle}>
-          🏗️ Baustelle
+          🏗️ {t.baustelle}
         </Link>
 
         <Link href="/projekte/radnik" style={workerProjectButtonStyle}>
@@ -255,6 +259,10 @@ export default function DashboardPage() {
             📂 {t.projects}
           </Link>
         )}
+
+        <Link href="/pregled-sati" style={buttonStyle}>
+          ⏰ {t.hours}
+        </Link>
 
         <Link
           href="/kalendar"
@@ -338,18 +346,15 @@ const titleStyle: any = {
   fontSize: "38px",
   marginBottom: "6px",
   color: "#f97316",
-  textAlign: "center",
 };
 
 const subtitleStyle: any = {
   marginBottom: "14px",
   color: "#ccc",
-  textAlign: "center",
 };
 
 const languageBoxStyle: any = {
   display: "flex",
-  justifyContent: "center",
   gap: "8px",
   marginBottom: "20px",
   flexWrap: "wrap",
