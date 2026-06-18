@@ -244,6 +244,12 @@ export default function ProjektDetailPage() {
             <small>Slike projekta, prostorija, Mangel, Vorher / Nachher</small>
           </Link>
 
+          <Link href={`/projekte/${projekt.id}/aufgaben`} style={moduleLinkStyle}>
+            <span style={moduleIconStyle}>✅</span>
+            <strong>Aufgaben / Mängel</strong>
+            <small>Zadaci, nedostaci, rokovi i zaduženi radnici</small>
+          </Link>
+
           <Link
             href={`/projekte/${projekt.id}/auswertung`}
             style={moduleLinkStyle}
@@ -265,9 +271,9 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Nächster Schritt</h2>
 
         <p style={nextTextStyle}>
-          Sada je otvoren modul <strong>Fotos</strong>. Tu možeš dodavati slike
-          projekta, povezati ih sa prostorijom i LV pozicijom, te označiti tip
-          slike.
+          Sada je otvoren modul <strong>Aufgaben / Mängel</strong>. Tu možeš
+          dodavati zadatke i nedostatke, odrediti radnika, rok, prioritet i
+          status.
         </p>
       </section>
     </main>
