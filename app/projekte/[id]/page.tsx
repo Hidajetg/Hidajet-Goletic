@@ -251,6 +251,15 @@ export default function ProjektDetailPage() {
           </Link>
 
           <Link
+            href={`/projekte/${projekt.id}/tagesbericht`}
+            style={moduleLinkStyle}
+          >
+            <span style={moduleIconStyle}>📅</span>
+            <strong>Tagesbericht</strong>
+            <small>Dnevni pregled: sati, učinak, regie, material, slike</small>
+          </Link>
+
+          <Link
             href={`/projekte/${projekt.id}/auswertung`}
             style={moduleLinkStyle}
           >
@@ -271,9 +280,8 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Nächster Schritt</h2>
 
         <p style={nextTextStyle}>
-          Sada je otvoren modul <strong>Aufgaben / Mängel</strong>. Tu možeš
-          dodavati zadatke i nedostatke, odrediti radnika, rok, prioritet i
-          status.
+          Sada je otvoren modul <strong>Tagesbericht</strong>. Tu vidiš sve za
+          jedan dan: radne sate, Leistung, Regie, Material, slike i zadatke.
         </p>
       </section>
     </main>
