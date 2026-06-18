@@ -67,10 +67,6 @@ export default function ProjektDetailPage() {
     return value;
   }
 
-  function comingSoon(text: string) {
-    alert(text + " dolazi u sljedećem koraku.");
-  }
-
   if (loading) {
     return (
       <main style={mainStyle}>
@@ -191,14 +187,11 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Projekt Module</h2>
 
         <div style={moduleGridStyle}>
-          <button
-            onClick={() => comingSoon("LV Import / ONLV Import")}
-            style={moduleButtonStyle}
-          >
+          <Link href={`/projekte/${projekt.id}/import`} style={moduleLinkStyle}>
             <span style={moduleIconStyle}>📥</span>
             <strong>LV Import</strong>
-            <small>ONLV Hauptimport, PDF Reserve, manueller Eintrag</small>
-          </button>
+            <small>ONLV / ÖNORM XML import za LV pozicije</small>
+          </Link>
 
           <Link
             href={`/projekte/${projekt.id}/positionen`}
@@ -260,9 +253,8 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Nächster Schritt</h2>
 
         <p style={nextTextStyle}>
-          Sada je otvoren modul <strong>Auswertung</strong>. Tu se vidi pregled
-          projekta: Soll / Ist, normalni sati, Regie sati, učinak, radnici i
-          material.
+          Sada je otvoren modul <strong>LV Import</strong>. Tu možeš ubaciti
+          ONLV datoteku i automatski napraviti LV pozicije za projekt.
         </p>
       </section>
     </main>
