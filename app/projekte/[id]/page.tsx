@@ -238,6 +238,12 @@ export default function ProjektDetailPage() {
             <small>Planirano, potrošeno, ostatak po projektu</small>
           </Link>
 
+          <Link href={`/projekte/${projekt.id}/fotos`} style={moduleLinkStyle}>
+            <span style={moduleIconStyle}>📸</span>
+            <strong>Fotos</strong>
+            <small>Slike projekta, prostorija, Mangel, Vorher / Nachher</small>
+          </Link>
+
           <Link
             href={`/projekte/${projekt.id}/auswertung`}
             style={moduleLinkStyle}
@@ -259,8 +265,9 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Nächster Schritt</h2>
 
         <p style={nextTextStyle}>
-          Sada je otvoren modul <strong>Bericht / Druck</strong>. Tu možeš
-          napraviti pregled projekta i preko browsera sačuvati kao PDF.
+          Sada je otvoren modul <strong>Fotos</strong>. Tu možeš dodavati slike
+          projekta, povezati ih sa prostorijom i LV pozicijom, te označiti tip
+          slike.
         </p>
       </section>
     </main>
