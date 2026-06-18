@@ -117,7 +117,9 @@ export default function ProjektDetailPage() {
                 ? "#2563eb"
                 : projekt.status === "Pausiert"
                 ? "#ca8a04"
-                : "#4b5563",
+                : projekt.status === "Abgeschlossen"
+                ? "#4b5563"
+                : "#9333ea",
           }}
         >
           {projekt.status || "Aktiv"}
@@ -273,6 +275,15 @@ export default function ProjektDetailPage() {
             <strong>Bericht / Druck</strong>
             <small>Projektbericht drucken oder als PDF speichern</small>
           </Link>
+
+          <Link
+            href={`/projekte/${projekt.id}/einstellungen`}
+            style={moduleLinkStyle}
+          >
+            <span style={moduleIconStyle}>⚙️</span>
+            <strong>Einstellungen</strong>
+            <small>Projekt bearbeiten, Status ändern oder löschen</small>
+          </Link>
         </div>
       </section>
 
@@ -280,8 +291,9 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Nächster Schritt</h2>
 
         <p style={nextTextStyle}>
-          Sada je otvoren modul <strong>Tagesbericht</strong>. Tu vidiš sve za
-          jedan dan: radne sate, Leistung, Regie, Material, slike i zadatke.
+          Sada je otvoren modul <strong>Einstellungen</strong>. Tu možeš
+          promijeniti osnovne podatke projekta, status, Google lokaciju ili
+          obrisati projekt.
         </p>
       </section>
     </main>
