@@ -7,6 +7,381 @@ import { supabase } from "../../../lib/supabase";
 
 const BUCKET = "projekt-fotos";
 
+const translations: any = {
+  de: {
+    back: "← Zurück zu Projekte",
+    project: "Projekt",
+    worker: "Mitarbeiter",
+    date: "Datum",
+    load: "Laden",
+    loading: "Wird geladen...",
+
+    normalHours: "Normal h",
+    regieHours: "Regie h",
+    waiting: "Wartet",
+    approved: "Genehmigt",
+    rejected: "Abgelehnt",
+
+    workTime: "Arbeitszeit",
+    performance: "Leistung",
+    regie: "Regie",
+    task: "Aufgabe",
+    photo: "Foto",
+
+    saveWorkTime: "Arbeitszeit speichern",
+    savePerformance: "Leistung speichern",
+    saveRegie: "Regie speichern",
+    saveTask: "Aufgabe speichern",
+    savePhoto: "Foto speichern",
+
+    workTimeTitle: "Arbeitszeit eintragen",
+    performanceTitle: "Leistung eintragen",
+    regieTitle: "Regie melden",
+    taskTitle: "Aufgabe / Mangel melden",
+    photoTitle: "Foto hochladen",
+
+    start: "Start",
+    end: "Ende",
+    pause: "Pause Minuten",
+    room: "Raum",
+    chooseRoom: "Raum wählen",
+    lvPosition: "LV Position",
+    withoutLv: "Ohne LV Position",
+    chooseLv: "LV Position wählen",
+    workType: "Arbeitsart",
+    note: "Notiz",
+    amount: "Menge",
+    description: "Beschreibung",
+    type: "Typ",
+    priority: "Priorität",
+    dueUntil: "Fällig bis",
+    title: "Titel",
+    file: "Foto",
+    withoutRoom: "Ohne Raum",
+
+    performanceHint:
+      "Wichtig: Leistung nur einmal pro Raum / LV Position eintragen, nicht jeder Mitarbeiter separat.",
+
+    myEntries: "Meine Einträge am",
+    noWorkTime: "Keine Arbeitszeit vorhanden.",
+    noPerformance: "Keine Leistung vorhanden.",
+    noRegie: "Keine Regie vorhanden.",
+    noPhotos: "Keine Fotos vorhanden.",
+    noTasks: "Keine Aufgaben vorhanden.",
+    adminNote: "Admin Notiz",
+    deletePhoto: "Foto löschen",
+
+    fortschritt: "Fortschritt",
+    mangel: "Mangel",
+    vorher: "Vorher",
+    nachher: "Nachher",
+    sonstiges: "Sonstiges",
+    aufgabe: "Aufgabe",
+    info: "Info",
+
+    niedrig: "Niedrig",
+    normal: "Normal",
+    hoch: "Hoch",
+    dringend: "Dringend",
+
+    leistung: "Leistung",
+    vorbereitung: "Vorbereitung",
+    material: "Material",
+    reinigung: "Reinigung",
+
+    alertDateTime: "Datum, Start und Ende eingeben.",
+    alertRoom: "Raum auswählen.",
+    alertHours: "Stunden müssen größer als 0 sein.",
+    alertLv: "Datum, Raum und LV Position auswählen.",
+    alertAmount: "Menge muss größer als 0 sein.",
+    alertRegieDescription: "Beschreibung für Regie eingeben.",
+    alertTitle: "Titel eingeben.",
+    alertDate: "Datum auswählen.",
+    alertPhotoTitle: "Titel für Foto eingeben.",
+    alertPhotoFile: "Foto auswählen.",
+    confirmDeletePhoto: "Foto wirklich löschen?",
+  },
+  ba: {
+    back: "← Nazad na projekte",
+    project: "Projekt",
+    worker: "Radnik",
+    date: "Datum",
+    load: "Učitaj",
+    loading: "Učitava se...",
+
+    normalHours: "Normal h",
+    regieHours: "Regie h",
+    waiting: "Čeka",
+    approved: "Potvrđeno",
+    rejected: "Odbijeno",
+
+    workTime: "Radno vrijeme",
+    performance: "Učinak",
+    regie: "Regie",
+    task: "Zadatak",
+    photo: "Slika",
+
+    saveWorkTime: "Sačuvaj radno vrijeme",
+    savePerformance: "Sačuvaj učinak",
+    saveRegie: "Sačuvaj Regie",
+    saveTask: "Sačuvaj zadatak",
+    savePhoto: "Sačuvaj sliku",
+
+    workTimeTitle: "Unesi radno vrijeme",
+    performanceTitle: "Unesi učinak",
+    regieTitle: "Prijavi Regie",
+    taskTitle: "Prijavi zadatak / Mangel",
+    photoTitle: "Dodaj sliku",
+
+    start: "Početak",
+    end: "Kraj",
+    pause: "Pauza minute",
+    room: "Prostorija",
+    chooseRoom: "Odaberi prostoriju",
+    lvPosition: "LV pozicija",
+    withoutLv: "Bez LV pozicije",
+    chooseLv: "Odaberi LV poziciju",
+    workType: "Vrsta rada",
+    note: "Napomena",
+    amount: "Količina",
+    description: "Opis",
+    type: "Tip",
+    priority: "Prioritet",
+    dueUntil: "Rok do",
+    title: "Naslov",
+    file: "Slika",
+    withoutRoom: "Bez prostorije",
+
+    performanceHint:
+      "Važno: učinak se unosi samo jednom po prostoriji / LV poziciji, ne svaki radnik posebno.",
+
+    myEntries: "Moji unosi za",
+    noWorkTime: "Nema radnog vremena.",
+    noPerformance: "Nema učinka.",
+    noRegie: "Nema Regie unosa.",
+    noPhotos: "Nema slika.",
+    noTasks: "Nema zadataka.",
+    adminNote: "Admin napomena",
+    deletePhoto: "Obriši sliku",
+
+    fortschritt: "Napredak",
+    mangel: "Mangel",
+    vorher: "Prije",
+    nachher: "Poslije",
+    sonstiges: "Ostalo",
+    aufgabe: "Zadatak",
+    info: "Info",
+
+    niedrig: "Nisko",
+    normal: "Normalno",
+    hoch: "Visoko",
+    dringend: "Hitno",
+
+    leistung: "Učinak",
+    vorbereitung: "Priprema",
+    material: "Materijal",
+    reinigung: "Čišćenje",
+
+    alertDateTime: "Unesi datum, početak i kraj.",
+    alertRoom: "Odaberi prostoriju.",
+    alertHours: "Sati moraju biti veći od 0.",
+    alertLv: "Odaberi datum, prostoriju i LV poziciju.",
+    alertAmount: "Količina mora biti veća od 0.",
+    alertRegieDescription: "Unesi opis Regie rada.",
+    alertTitle: "Unesi naslov.",
+    alertDate: "Odaberi datum.",
+    alertPhotoTitle: "Unesi naslov slike.",
+    alertPhotoFile: "Odaberi sliku.",
+    confirmDeletePhoto: "Da li sigurno želiš obrisati sliku?",
+  },
+  uz: {
+    back: "← Loyihalarga qaytish",
+    project: "Loyiha",
+    worker: "Ishchi",
+    date: "Sana",
+    load: "Yuklash",
+    loading: "Yuklanmoqda...",
+
+    normalHours: "Oddiy soat",
+    regieHours: "Regie soat",
+    waiting: "Kutilmoqda",
+    approved: "Tasdiqlandi",
+    rejected: "Rad etildi",
+
+    workTime: "Ish vaqti",
+    performance: "Ish hajmi",
+    regie: "Regie",
+    task: "Vazifa",
+    photo: "Rasm",
+
+    saveWorkTime: "Ish vaqtini saqlash",
+    savePerformance: "Ish hajmini saqlash",
+    saveRegie: "Regie saqlash",
+    saveTask: "Vazifani saqlash",
+    savePhoto: "Rasmni saqlash",
+
+    workTimeTitle: "Ish vaqtini kiritish",
+    performanceTitle: "Ish hajmini kiritish",
+    regieTitle: "Regie yuborish",
+    taskTitle: "Vazifa / Mangel yuborish",
+    photoTitle: "Rasm yuklash",
+
+    start: "Boshlanish",
+    end: "Tugash",
+    pause: "Tanaffus minut",
+    room: "Xona",
+    chooseRoom: "Xonani tanlang",
+    lvPosition: "LV pozitsiya",
+    withoutLv: "LV pozitsiyasiz",
+    chooseLv: "LV pozitsiyani tanlang",
+    workType: "Ish turi",
+    note: "Eslatma",
+    amount: "Miqdor",
+    description: "Tavsif",
+    type: "Tur",
+    priority: "Muhimlik",
+    dueUntil: "Muddat",
+    title: "Sarlavha",
+    file: "Rasm",
+    withoutRoom: "Xonasiz",
+
+    performanceHint:
+      "Muhim: ish hajmi xona / LV pozitsiya bo‘yicha faqat bir marta kiritiladi, har bir ishchi alohida emas.",
+
+    myEntries: "Mening yozuvlarim",
+    noWorkTime: "Ish vaqti yo‘q.",
+    noPerformance: "Ish hajmi yo‘q.",
+    noRegie: "Regie yo‘q.",
+    noPhotos: "Rasm yo‘q.",
+    noTasks: "Vazifa yo‘q.",
+    adminNote: "Admin eslatmasi",
+    deletePhoto: "Rasmni o‘chirish",
+
+    fortschritt: "Jarayon",
+    mangel: "Kamchilik",
+    vorher: "Oldin",
+    nachher: "Keyin",
+    sonstiges: "Boshqa",
+    aufgabe: "Vazifa",
+    info: "Info",
+
+    niedrig: "Past",
+    normal: "Normal",
+    hoch: "Yuqori",
+    dringend: "Shoshilinch",
+
+    leistung: "Ish hajmi",
+    vorbereitung: "Tayyorlash",
+    material: "Material",
+    reinigung: "Tozalash",
+
+    alertDateTime: "Sana, boshlanish va tugashni kiriting.",
+    alertRoom: "Xonani tanlang.",
+    alertHours: "Soat 0 dan katta bo‘lishi kerak.",
+    alertLv: "Sana, xona va LV pozitsiyani tanlang.",
+    alertAmount: "Miqdor 0 dan katta bo‘lishi kerak.",
+    alertRegieDescription: "Regie ishining tavsifini kiriting.",
+    alertTitle: "Sarlavha kiriting.",
+    alertDate: "Sana tanlang.",
+    alertPhotoTitle: "Rasm sarlavhasini kiriting.",
+    alertPhotoFile: "Rasm tanlang.",
+    confirmDeletePhoto: "Rasmni o‘chirishni xohlaysizmi?",
+  },
+  en: {
+    back: "← Back to projects",
+    project: "Project",
+    worker: "Worker",
+    date: "Date",
+    load: "Load",
+    loading: "Loading...",
+
+    normalHours: "Normal h",
+    regieHours: "Regie h",
+    waiting: "Waiting",
+    approved: "Approved",
+    rejected: "Rejected",
+
+    workTime: "Work time",
+    performance: "Performance",
+    regie: "Regie",
+    task: "Task",
+    photo: "Photo",
+
+    saveWorkTime: "Save work time",
+    savePerformance: "Save performance",
+    saveRegie: "Save Regie",
+    saveTask: "Save task",
+    savePhoto: "Save photo",
+
+    workTimeTitle: "Enter work time",
+    performanceTitle: "Enter performance",
+    regieTitle: "Report Regie",
+    taskTitle: "Report task / defect",
+    photoTitle: "Upload photo",
+
+    start: "Start",
+    end: "End",
+    pause: "Break minutes",
+    room: "Room",
+    chooseRoom: "Choose room",
+    lvPosition: "LV position",
+    withoutLv: "Without LV position",
+    chooseLv: "Choose LV position",
+    workType: "Work type",
+    note: "Note",
+    amount: "Amount",
+    description: "Description",
+    type: "Type",
+    priority: "Priority",
+    dueUntil: "Due until",
+    title: "Title",
+    file: "Photo",
+    withoutRoom: "Without room",
+
+    performanceHint:
+      "Important: performance is entered only once per room / LV position, not separately by every worker.",
+
+    myEntries: "My entries on",
+    noWorkTime: "No work time available.",
+    noPerformance: "No performance available.",
+    noRegie: "No Regie available.",
+    noPhotos: "No photos available.",
+    noTasks: "No tasks available.",
+    adminNote: "Admin note",
+    deletePhoto: "Delete photo",
+
+    fortschritt: "Progress",
+    mangel: "Defect",
+    vorher: "Before",
+    nachher: "After",
+    sonstiges: "Other",
+    aufgabe: "Task",
+    info: "Info",
+
+    niedrig: "Low",
+    normal: "Normal",
+    hoch: "High",
+    dringend: "Urgent",
+
+    leistung: "Performance",
+    vorbereitung: "Preparation",
+    material: "Material",
+    reinigung: "Cleaning",
+
+    alertDateTime: "Enter date, start and end.",
+    alertRoom: "Choose room.",
+    alertHours: "Hours must be greater than 0.",
+    alertLv: "Choose date, room and LV position.",
+    alertAmount: "Amount must be greater than 0.",
+    alertRegieDescription: "Enter Regie work description.",
+    alertTitle: "Enter title.",
+    alertDate: "Choose date.",
+    alertPhotoTitle: "Enter photo title.",
+    alertPhotoFile: "Choose photo.",
+    confirmDeletePhoto: "Delete this photo?",
+  },
+};
+
 function getTodayLocalDate() {
   const d = new Date();
   const year = d.getFullYear();
@@ -23,9 +398,12 @@ export default function RadnikProjektDetailPage() {
   const projektId = String(params.id);
 
   const [workerName, setWorkerName] = useState("");
+  const [lang, setLang] = useState("ba");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  const t = translations[lang] || translations.ba;
 
   const [projekt, setProjekt] = useState<any>(null);
   const [raeume, setRaeume] = useState<any[]>([]);
@@ -119,6 +497,7 @@ export default function RadnikProjektDetailPage() {
 
   useEffect(() => {
     const name = localStorage.getItem("worker_name");
+    const savedLang = localStorage.getItem("lang") || "ba";
 
     if (!name) {
       router.push("/login");
@@ -126,6 +505,7 @@ export default function RadnikProjektDetailPage() {
     }
 
     setWorkerName(name);
+    setLang(savedLang);
     loadBaseData(name, datum);
   }, [router, projektId]);
 
@@ -248,6 +628,11 @@ export default function RadnikProjektDetailPage() {
     setMyFotos(fotosRes.data || []);
   }
 
+  function changeLanguage(newLang: string) {
+    localStorage.setItem("lang", newLang);
+    setLang(newLang);
+  }
+
   function normalizeStatus(value: string | null | undefined) {
     if (!value) return "Wartet";
     if (value === "Offen") return "Wartet";
@@ -256,6 +641,15 @@ export default function RadnikProjektDetailPage() {
     if (value === "Abgelehnt") return "Abgelehnt";
 
     return "Wartet";
+  }
+
+  function statusText(value: string | null | undefined) {
+    const s = normalizeStatus(value);
+
+    if (s === "Genehmigt") return t.approved;
+    if (s === "Abgelehnt") return t.rejected;
+
+    return t.waiting;
   }
 
   function parseNumber(value: string) {
@@ -392,19 +786,19 @@ export default function RadnikProjektDetailPage() {
 
   async function saveArbeitszeit() {
     if (!datum || !zeitStart || !zeitEnde) {
-      alert("Unesi datum, start i ende.");
+      alert(t.alertDateTime);
       return;
     }
 
     if (!zeitRaumId) {
-      alert("Odaberi Raum.");
+      alert(t.alertRoom);
       return;
     }
 
     const stunden = calculateHours(zeitStart, zeitEnde, zeitPause);
 
     if (stunden <= 0) {
-      alert("Stunden moraju biti veće od 0.");
+      alert(t.alertHours);
       return;
     }
 
@@ -443,14 +837,14 @@ export default function RadnikProjektDetailPage() {
 
   async function saveLeistung() {
     if (!datum || !leistungRaumId || !leistungPositionId) {
-      alert("Odaberi datum, Raum i LV Position.");
+      alert(t.alertLv);
       return;
     }
 
     const menge = parseNumber(leistungMenge);
 
     if (menge <= 0) {
-      alert("Menge mora biti veća od 0.");
+      alert(t.alertAmount);
       return;
     }
 
@@ -490,19 +884,19 @@ export default function RadnikProjektDetailPage() {
 
   async function saveRegie() {
     if (!datum || !regieStart || !regieEnde || !regieRaumId) {
-      alert("Unesi datum, vrijeme i Raum.");
+      alert(t.alertDateTime);
       return;
     }
 
     if (!regieBeschreibung.trim()) {
-      alert("Unesi opis Regie rada.");
+      alert(t.alertRegieDescription);
       return;
     }
 
     const stunden = calculateHours(regieStart, regieEnde, regiePause);
 
     if (stunden <= 0) {
-      alert("Regie Stunden moraju biti veće od 0.");
+      alert(t.alertHours);
       return;
     }
 
@@ -558,7 +952,7 @@ export default function RadnikProjektDetailPage() {
 
   async function saveAufgabe() {
     if (!aufgabeTitel.trim()) {
-      alert("Unesi naslov.");
+      alert(t.alertTitle);
       return;
     }
 
@@ -597,17 +991,17 @@ export default function RadnikProjektDetailPage() {
 
   async function saveFoto() {
     if (!datum) {
-      alert("Odaberi datum.");
+      alert(t.alertDate);
       return;
     }
 
     if (!fotoTitel.trim()) {
-      alert("Unesi naslov slike.");
+      alert(t.alertPhotoTitle);
       return;
     }
 
     if (!fotoFile) {
-      alert("Odaberi sliku.");
+      alert(t.alertPhotoFile);
       return;
     }
 
@@ -661,7 +1055,7 @@ export default function RadnikProjektDetailPage() {
   }
 
   async function deleteFoto(item: any) {
-    const ok = confirm("Da li sigurno želiš obrisati ovu sliku?");
+    const ok = confirm(t.confirmDeletePhoto);
 
     if (!ok) return;
 
@@ -695,7 +1089,7 @@ export default function RadnikProjektDetailPage() {
             : warningBadgeStyle
         }
       >
-        {s}
+        {statusText(status)}
       </span>
     );
   }
@@ -705,7 +1099,7 @@ export default function RadnikProjektDetailPage() {
 
     return (
       <p style={adminNotizStyle}>
-        Admin Notiz: <strong>{value}</strong>
+        {t.adminNote}: <strong>{value}</strong>
       </p>
     );
   }
@@ -714,11 +1108,11 @@ export default function RadnikProjektDetailPage() {
     return (
       <main style={mainStyle}>
         <Link href="/projekte/radnik" style={backStyle}>
-          ← Zurück zu Projekte
+          {t.back}
         </Link>
 
-        <h1 style={titleStyle}>👷 Projekt</h1>
-        <p style={loadingStyle}>Wird geladen...</p>
+        <h1 style={titleStyle}>👷 {t.project}</h1>
+        <p style={loadingStyle}>{t.loading}</p>
       </main>
     );
   }
@@ -726,17 +1120,29 @@ export default function RadnikProjektDetailPage() {
   return (
     <main style={mainStyle}>
       <Link href="/projekte/radnik" style={backStyle}>
-        ← Zurück zu Projekte
+        {t.back}
       </Link>
 
-      <h1 style={titleStyle}>👷 {projekt?.project_name || "Projekt"}</h1>
+      <h1 style={titleStyle}>👷 {projekt?.project_name || t.project}</h1>
 
       <p style={descriptionStyle}>
-        Radnik: <strong>{workerName}</strong>
+        {t.worker}: <strong>{workerName}</strong>
       </p>
 
+      <div style={languageBoxStyle}>
+        {["de", "ba", "uz", "en"].map((code) => (
+          <button
+            key={code}
+            onClick={() => changeLanguage(code)}
+            style={lang === code ? activeLangButtonStyle : langButtonStyle}
+          >
+            {code.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
       <section style={dateBoxStyle}>
-        <label style={labelStyle}>Datum</label>
+        <label style={labelStyle}>{t.date}</label>
         <div style={dateRowStyle}>
           <input
             type="date"
@@ -749,35 +1155,35 @@ export default function RadnikProjektDetailPage() {
             onClick={() => loadDayData(workerName, datum)}
             style={blueButtonStyle}
           >
-            Laden
+            {t.load}
           </button>
         </div>
       </section>
 
       <section style={summaryGridStyle}>
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Normal h</span>
+          <span style={summaryLabelStyle}>{t.normalHours}</span>
           <strong style={summaryValueStyle}>
             {formatNumber(summary.normalHours)} h
           </strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Regie h</span>
+          <span style={summaryLabelStyle}>{t.regieHours}</span>
           <strong style={summaryValueStyle}>
             {formatNumber(summary.regieHours)} h
           </strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Wartet</span>
+          <span style={summaryLabelStyle}>{t.waiting}</span>
           <strong style={{ ...summaryValueStyle, color: "#facc15" }}>
             {summary.wartet}
           </strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Abgelehnt</span>
+          <span style={summaryLabelStyle}>{t.rejected}</span>
           <strong style={{ ...summaryValueStyle, color: "#ef4444" }}>
             {summary.abgelehnt}
           </strong>
@@ -789,7 +1195,7 @@ export default function RadnikProjektDetailPage() {
           onClick={() => setActiveForm(activeForm === "zeit" ? "" : "zeit")}
           style={greenButtonStyle}
         >
-          ⏱️ Arbeitszeit
+          ⏱️ {t.workTime}
         </button>
 
         <button
@@ -798,14 +1204,14 @@ export default function RadnikProjektDetailPage() {
           }
           style={blueButtonFullStyle}
         >
-          ✅ Leistung
+          ✅ {t.performance}
         </button>
 
         <button
           onClick={() => setActiveForm(activeForm === "regie" ? "" : "regie")}
           style={orangeButtonStyle}
         >
-          🧾 Regie
+          🧾 {t.regie}
         </button>
 
         <button
@@ -814,24 +1220,24 @@ export default function RadnikProjektDetailPage() {
           }
           style={purpleButtonStyle}
         >
-          ⚠️ Aufgabe
+          ⚠️ {t.task}
         </button>
 
         <button
           onClick={() => setActiveForm(activeForm === "foto" ? "" : "foto")}
           style={photoButtonStyle}
         >
-          📸 Foto
+          📸 {t.photo}
         </button>
       </section>
 
       {activeForm === "zeit" && (
         <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>Arbeitszeit eintragen</h2>
+          <h2 style={formTitleStyle}>{t.workTimeTitle}</h2>
 
           <div style={formGridStyle}>
             <div>
-              <label style={labelStyle}>Start</label>
+              <label style={labelStyle}>{t.start}</label>
               <input
                 type="time"
                 value={zeitStart}
@@ -841,7 +1247,7 @@ export default function RadnikProjektDetailPage() {
             </div>
 
             <div>
-              <label style={labelStyle}>Ende</label>
+              <label style={labelStyle}>{t.end}</label>
               <input
                 type="time"
                 value={zeitEnde}
@@ -851,7 +1257,7 @@ export default function RadnikProjektDetailPage() {
             </div>
 
             <div>
-              <label style={labelStyle}>Pause Minuten</label>
+              <label style={labelStyle}>{t.pause}</label>
               <input
                 value={zeitPause}
                 onChange={(e) => setZeitPause(e.target.value)}
@@ -860,13 +1266,13 @@ export default function RadnikProjektDetailPage() {
             </div>
           </div>
 
-          <label style={labelStyle}>Raum *</label>
+          <label style={labelStyle}>{t.room} *</label>
           <select
             value={zeitRaumId}
             onChange={(e) => setZeitRaumId(e.target.value)}
             style={inputStyle}
           >
-            <option value="">Raum wählen</option>
+            <option value="">{t.chooseRoom}</option>
             {raeume.map((raum) => (
               <option key={raum.id} value={raum.id}>
                 {raum.ebene ? `${raum.ebene} - ` : ""}
@@ -875,13 +1281,13 @@ export default function RadnikProjektDetailPage() {
             ))}
           </select>
 
-          <label style={labelStyle}>LV Position</label>
+          <label style={labelStyle}>{t.lvPosition}</label>
           <select
             value={zeitPositionId}
             onChange={(e) => setZeitPositionId(e.target.value)}
             style={inputStyle}
           >
-            <option value="">Ohne LV Position</option>
+            <option value="">{t.withoutLv}</option>
             {positionen.map((pos) => (
               <option key={pos.id} value={pos.id}>
                 {pos.position_nr} - {pos.kurztext}
@@ -889,20 +1295,20 @@ export default function RadnikProjektDetailPage() {
             ))}
           </select>
 
-          <label style={labelStyle}>Arbeitsart</label>
+          <label style={labelStyle}>{t.workType}</label>
           <select
             value={arbeitsart}
             onChange={(e) => setArbeitsart(e.target.value)}
             style={inputStyle}
           >
-            <option value="Leistung">Leistung</option>
-            <option value="Vorbereitung">Vorbereitung</option>
-            <option value="Material">Material</option>
-            <option value="Reinigung">Reinigung</option>
-            <option value="Sonstiges">Sonstiges</option>
+            <option value="Leistung">{t.leistung}</option>
+            <option value="Vorbereitung">{t.vorbereitung}</option>
+            <option value="Material">{t.material}</option>
+            <option value="Reinigung">{t.reinigung}</option>
+            <option value="Sonstiges">{t.sonstiges}</option>
           </select>
 
-          <label style={labelStyle}>Notiz</label>
+          <label style={labelStyle}>{t.note}</label>
           <textarea
             value={zeitNotiz}
             onChange={(e) => setZeitNotiz(e.target.value)}
@@ -914,27 +1320,24 @@ export default function RadnikProjektDetailPage() {
             disabled={saving}
             style={saveButtonStyle}
           >
-            {saving ? "Speichern..." : "Arbeitszeit speichern"}
+            {saving ? "..." : t.saveWorkTime}
           </button>
         </section>
       )}
 
       {activeForm === "leistung" && (
         <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>Leistung eintragen</h2>
+          <h2 style={formTitleStyle}>{t.performanceTitle}</h2>
 
-          <p style={hintStyle}>
-            Wichtig: Leistung nur einmal pro Raum / LV Position eintragen, nicht
-            jeder Radnik separat.
-          </p>
+          <p style={hintStyle}>{t.performanceHint}</p>
 
-          <label style={labelStyle}>Raum *</label>
+          <label style={labelStyle}>{t.room} *</label>
           <select
             value={leistungRaumId}
             onChange={(e) => setLeistungRaumId(e.target.value)}
             style={inputStyle}
           >
-            <option value="">Raum wählen</option>
+            <option value="">{t.chooseRoom}</option>
             {raeume.map((raum) => (
               <option key={raum.id} value={raum.id}>
                 {raum.ebene ? `${raum.ebene} - ` : ""}
@@ -943,13 +1346,13 @@ export default function RadnikProjektDetailPage() {
             ))}
           </select>
 
-          <label style={labelStyle}>LV Position *</label>
+          <label style={labelStyle}>{t.lvPosition} *</label>
           <select
             value={leistungPositionId}
             onChange={(e) => setLeistungPositionId(e.target.value)}
             style={inputStyle}
           >
-            <option value="">LV Position wählen</option>
+            <option value="">{t.chooseLv}</option>
             {positionen.map((pos) => (
               <option key={pos.id} value={pos.id}>
                 {pos.position_nr} - {pos.kurztext} | {pos.einheit}
@@ -958,7 +1361,7 @@ export default function RadnikProjektDetailPage() {
           </select>
 
           <label style={labelStyle}>
-            Menge{" "}
+            {t.amount}{" "}
             {leistungPositionId ? `(${getPositionEinheit(leistungPositionId)})` : ""}
           </label>
           <input
@@ -968,7 +1371,7 @@ export default function RadnikProjektDetailPage() {
             style={inputStyle}
           />
 
-          <label style={labelStyle}>Notiz</label>
+          <label style={labelStyle}>{t.note}</label>
           <textarea
             value={leistungNotiz}
             onChange={(e) => setLeistungNotiz(e.target.value)}
@@ -980,18 +1383,18 @@ export default function RadnikProjektDetailPage() {
             disabled={saving}
             style={saveButtonStyle}
           >
-            {saving ? "Speichern..." : "Leistung speichern"}
+            {saving ? "..." : t.savePerformance}
           </button>
         </section>
       )}
 
       {activeForm === "regie" && (
         <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>Regie melden</h2>
+          <h2 style={formTitleStyle}>{t.regieTitle}</h2>
 
           <div style={formGridStyle}>
             <div>
-              <label style={labelStyle}>Start</label>
+              <label style={labelStyle}>{t.start}</label>
               <input
                 type="time"
                 value={regieStart}
@@ -1001,7 +1404,7 @@ export default function RadnikProjektDetailPage() {
             </div>
 
             <div>
-              <label style={labelStyle}>Ende</label>
+              <label style={labelStyle}>{t.end}</label>
               <input
                 type="time"
                 value={regieEnde}
@@ -1011,7 +1414,7 @@ export default function RadnikProjektDetailPage() {
             </div>
 
             <div>
-              <label style={labelStyle}>Pause Minuten</label>
+              <label style={labelStyle}>{t.pause}</label>
               <input
                 value={regiePause}
                 onChange={(e) => setRegiePause(e.target.value)}
@@ -1020,13 +1423,13 @@ export default function RadnikProjektDetailPage() {
             </div>
           </div>
 
-          <label style={labelStyle}>Raum *</label>
+          <label style={labelStyle}>{t.room} *</label>
           <select
             value={regieRaumId}
             onChange={(e) => setRegieRaumId(e.target.value)}
             style={inputStyle}
           >
-            <option value="">Raum wählen</option>
+            <option value="">{t.chooseRoom}</option>
             {raeume.map((raum) => (
               <option key={raum.id} value={raum.id}>
                 {raum.ebene ? `${raum.ebene} - ` : ""}
@@ -1035,75 +1438,73 @@ export default function RadnikProjektDetailPage() {
             ))}
           </select>
 
-          <label style={labelStyle}>Beschreibung *</label>
+          <label style={labelStyle}>{t.description} *</label>
           <textarea
             value={regieBeschreibung}
             onChange={(e) => setRegieBeschreibung(e.target.value)}
-            placeholder="Opis Regie rada"
             style={textareaStyle}
           />
 
           <button onClick={saveRegie} disabled={saving} style={saveButtonStyle}>
-            {saving ? "Speichern..." : "Regie speichern"}
+            {saving ? "..." : t.saveRegie}
           </button>
         </section>
       )}
 
       {activeForm === "aufgabe" && (
         <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>Aufgabe / Mangel melden</h2>
+          <h2 style={formTitleStyle}>{t.taskTitle}</h2>
 
           <div style={formGridStyle}>
             <div>
-              <label style={labelStyle}>Typ</label>
+              <label style={labelStyle}>{t.type}</label>
               <select
                 value={aufgabeTyp}
                 onChange={(e) => setAufgabeTyp(e.target.value)}
                 style={inputStyle}
               >
-                <option value="Aufgabe">Aufgabe</option>
-                <option value="Mangel">Mangel</option>
-                <option value="Info">Info</option>
+                <option value="Aufgabe">{t.aufgabe}</option>
+                <option value="Mangel">{t.mangel}</option>
+                <option value="Info">{t.info}</option>
               </select>
             </div>
 
             <div>
-              <label style={labelStyle}>Priorität</label>
+              <label style={labelStyle}>{t.priority}</label>
               <select
                 value={aufgabePrioritaet}
                 onChange={(e) => setAufgabePrioritaet(e.target.value)}
                 style={inputStyle}
               >
-                <option value="Niedrig">Niedrig</option>
-                <option value="Normal">Normal</option>
-                <option value="Hoch">Hoch</option>
-                <option value="Dringend">Dringend</option>
+                <option value="Niedrig">{t.niedrig}</option>
+                <option value="Normal">{t.normal}</option>
+                <option value="Hoch">{t.hoch}</option>
+                <option value="Dringend">{t.dringend}</option>
               </select>
             </div>
           </div>
 
-          <label style={labelStyle}>Titel *</label>
+          <label style={labelStyle}>{t.title} *</label>
           <input
             value={aufgabeTitel}
             onChange={(e) => setAufgabeTitel(e.target.value)}
-            placeholder="z.B. Bad EG Mangel an Wand"
             style={inputStyle}
           />
 
-          <label style={labelStyle}>Beschreibung</label>
+          <label style={labelStyle}>{t.description}</label>
           <textarea
             value={aufgabeBeschreibung}
             onChange={(e) => setAufgabeBeschreibung(e.target.value)}
             style={textareaStyle}
           />
 
-          <label style={labelStyle}>Raum</label>
+          <label style={labelStyle}>{t.room}</label>
           <select
             value={aufgabeRaumId}
             onChange={(e) => setAufgabeRaumId(e.target.value)}
             style={inputStyle}
           >
-            <option value="">Ohne Raum</option>
+            <option value="">{t.withoutRoom}</option>
             {raeume.map((raum) => (
               <option key={raum.id} value={raum.id}>
                 {raum.ebene ? `${raum.ebene} - ` : ""}
@@ -1112,13 +1513,13 @@ export default function RadnikProjektDetailPage() {
             ))}
           </select>
 
-          <label style={labelStyle}>LV Position</label>
+          <label style={labelStyle}>{t.lvPosition}</label>
           <select
             value={aufgabePositionId}
             onChange={(e) => setAufgabePositionId(e.target.value)}
             style={inputStyle}
           >
-            <option value="">Ohne LV Position</option>
+            <option value="">{t.withoutLv}</option>
             {positionen.map((pos) => (
               <option key={pos.id} value={pos.id}>
                 {pos.position_nr} - {pos.kurztext}
@@ -1126,7 +1527,7 @@ export default function RadnikProjektDetailPage() {
             ))}
           </select>
 
-          <label style={labelStyle}>Fällig bis</label>
+          <label style={labelStyle}>{t.dueUntil}</label>
           <input
             type="date"
             value={aufgabeFaellig}
@@ -1139,51 +1540,49 @@ export default function RadnikProjektDetailPage() {
             disabled={saving}
             style={saveButtonStyle}
           >
-            {saving ? "Speichern..." : "Aufgabe speichern"}
+            {saving ? "..." : t.saveTask}
           </button>
         </section>
       )}
 
       {activeForm === "foto" && (
         <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>Foto hochladen</h2>
+          <h2 style={formTitleStyle}>{t.photoTitle}</h2>
 
-          <label style={labelStyle}>Typ</label>
+          <label style={labelStyle}>{t.type}</label>
           <select
             value={fotoTyp}
             onChange={(e) => setFotoTyp(e.target.value)}
             style={inputStyle}
           >
-            <option value="Fortschritt">Fortschritt</option>
-            <option value="Mangel">Mangel</option>
-            <option value="Vorher">Vorher</option>
-            <option value="Nachher">Nachher</option>
-            <option value="Sonstiges">Sonstiges</option>
+            <option value="Fortschritt">{t.fortschritt}</option>
+            <option value="Mangel">{t.mangel}</option>
+            <option value="Vorher">{t.vorher}</option>
+            <option value="Nachher">{t.nachher}</option>
+            <option value="Sonstiges">{t.sonstiges}</option>
           </select>
 
-          <label style={labelStyle}>Titel *</label>
+          <label style={labelStyle}>{t.title} *</label>
           <input
             value={fotoTitel}
             onChange={(e) => setFotoTitel(e.target.value)}
-            placeholder="z.B. Bad EG Abdichtung fertig"
             style={inputStyle}
           />
 
-          <label style={labelStyle}>Beschreibung</label>
+          <label style={labelStyle}>{t.description}</label>
           <textarea
             value={fotoBeschreibung}
             onChange={(e) => setFotoBeschreibung(e.target.value)}
-            placeholder="Opis slike"
             style={textareaStyle}
           />
 
-          <label style={labelStyle}>Raum</label>
+          <label style={labelStyle}>{t.room}</label>
           <select
             value={fotoRaumId}
             onChange={(e) => setFotoRaumId(e.target.value)}
             style={inputStyle}
           >
-            <option value="">Ohne Raum</option>
+            <option value="">{t.withoutRoom}</option>
             {raeume.map((raum) => (
               <option key={raum.id} value={raum.id}>
                 {raum.ebene ? `${raum.ebene} - ` : ""}
@@ -1192,13 +1591,13 @@ export default function RadnikProjektDetailPage() {
             ))}
           </select>
 
-          <label style={labelStyle}>LV Position</label>
+          <label style={labelStyle}>{t.lvPosition}</label>
           <select
             value={fotoPositionId}
             onChange={(e) => setFotoPositionId(e.target.value)}
             style={inputStyle}
           >
-            <option value="">Ohne LV Position</option>
+            <option value="">{t.withoutLv}</option>
             {positionen.map((pos) => (
               <option key={pos.id} value={pos.id}>
                 {pos.position_nr} - {pos.kurztext}
@@ -1206,7 +1605,7 @@ export default function RadnikProjektDetailPage() {
             ))}
           </select>
 
-          <label style={labelStyle}>Foto *</label>
+          <label style={labelStyle}>{t.file} *</label>
           <input
             type="file"
             accept="image/*"
@@ -1223,18 +1622,20 @@ export default function RadnikProjektDetailPage() {
               opacity: uploading ? 0.5 : 1,
             }}
           >
-            {uploading ? "Foto wird gespeichert..." : "Foto speichern"}
+            {uploading ? "..." : t.savePhoto}
           </button>
         </section>
       )}
 
       <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Meine Einträge am {formatDate(datum)}</h2>
+        <h2 style={sectionTitleStyle}>
+          {t.myEntries} {formatDate(datum)}
+        </h2>
 
-        <h3 style={subTitleStyle}>Arbeitszeit</h3>
+        <h3 style={subTitleStyle}>{t.workTime}</h3>
 
         {myArbeitszeiten.length === 0 ? (
-          <p style={emptyStyle}>Keine Arbeitszeit vorhanden.</p>
+          <p style={emptyStyle}>{t.noWorkTime}</p>
         ) : (
           myArbeitszeiten.map((z) => (
             <div key={z.id} style={miniCardStyle}>
@@ -1247,18 +1648,18 @@ export default function RadnikProjektDetailPage() {
                 <StatusBadge status={z.freigabe_status} />
               </div>
 
-              <p style={miniTextStyle}>Raum: {getRaumName(z.raum_id)}</p>
-              <p style={miniTextStyle}>LV: {getPositionText(z.lv_position_id)}</p>
-              <p style={miniTextStyle}>Art: {z.arbeitsart || "-"}</p>
+              <p style={miniTextStyle}>{t.room}: {getRaumName(z.raum_id)}</p>
+              <p style={miniTextStyle}>{t.lvPosition}: {getPositionText(z.lv_position_id)}</p>
+              <p style={miniTextStyle}>{t.workType}: {z.arbeitsart || "-"}</p>
               <AdminNotiz value={z.admin_notiz} />
             </div>
           ))
         )}
 
-        <h3 style={subTitleStyle}>Leistung</h3>
+        <h3 style={subTitleStyle}>{t.performance}</h3>
 
         {myLeistungen.length === 0 ? (
-          <p style={emptyStyle}>Keine Leistung vorhanden.</p>
+          <p style={emptyStyle}>{t.noPerformance}</p>
         ) : (
           myLeistungen.map((l) => (
             <div key={l.id} style={miniCardStyle}>
@@ -1269,17 +1670,17 @@ export default function RadnikProjektDetailPage() {
                 <StatusBadge status={l.status} />
               </div>
 
-              <p style={miniTextStyle}>Raum: {getRaumName(l.raum_id)}</p>
-              <p style={miniTextStyle}>LV: {getPositionText(l.lv_position_id)}</p>
+              <p style={miniTextStyle}>{t.room}: {getRaumName(l.raum_id)}</p>
+              <p style={miniTextStyle}>{t.lvPosition}: {getPositionText(l.lv_position_id)}</p>
               <AdminNotiz value={l.admin_notiz} />
             </div>
           ))
         )}
 
-        <h3 style={subTitleStyle}>Regie</h3>
+        <h3 style={subTitleStyle}>{t.regie}</h3>
 
         {myRegie.length === 0 ? (
-          <p style={emptyStyle}>Keine Regie vorhanden.</p>
+          <p style={emptyStyle}>{t.noRegie}</p>
         ) : (
           myRegie.map((r) => (
             <div key={r.id} style={miniCardStyle}>
@@ -1292,17 +1693,17 @@ export default function RadnikProjektDetailPage() {
                 <StatusBadge status={r.status} />
               </div>
 
-              <p style={miniTextStyle}>Raum: {getRaumName(r.raum_id)}</p>
+              <p style={miniTextStyle}>{t.room}: {getRaumName(r.raum_id)}</p>
               <p style={miniTextStyle}>{r.beschreibung}</p>
               <AdminNotiz value={r.admin_notiz} />
             </div>
           ))
         )}
 
-        <h3 style={subTitleStyle}>Fotos</h3>
+        <h3 style={subTitleStyle}>{t.photo}</h3>
 
         {myFotos.length === 0 ? (
-          <p style={emptyStyle}>Keine Fotos vorhanden.</p>
+          <p style={emptyStyle}>{t.noPhotos}</p>
         ) : (
           <div style={photoGridStyle}>
             {myFotos.map((foto) => (
@@ -1321,15 +1722,15 @@ export default function RadnikProjektDetailPage() {
                     <StatusBadge status={foto.freigabe_status} />
                   </div>
 
-                  <p style={miniTextStyle}>Typ: {foto.typ || "-"}</p>
-                  <p style={miniTextStyle}>Raum: {getRaumName(foto.raum_id)}</p>
+                  <p style={miniTextStyle}>{t.type}: {foto.typ || "-"}</p>
+                  <p style={miniTextStyle}>{t.room}: {getRaumName(foto.raum_id)}</p>
                   <AdminNotiz value={foto.admin_notiz} />
 
                   <button
                     onClick={() => deleteFoto(foto)}
                     style={deleteFotoButtonStyle}
                   >
-                    Foto löschen
+                    {t.deletePhoto}
                   </button>
                 </div>
               </div>
@@ -1337,10 +1738,10 @@ export default function RadnikProjektDetailPage() {
           </div>
         )}
 
-        <h3 style={subTitleStyle}>Aufgaben / Mängel</h3>
+        <h3 style={subTitleStyle}>{t.task}</h3>
 
         {myAufgaben.length === 0 ? (
-          <p style={emptyStyle}>Keine Aufgaben vorhanden.</p>
+          <p style={emptyStyle}>{t.noTasks}</p>
         ) : (
           myAufgaben.slice(0, 10).map((a) => (
             <div key={a.id} style={miniCardStyle}>
@@ -1351,8 +1752,8 @@ export default function RadnikProjektDetailPage() {
                 <StatusBadge status={a.status} />
               </div>
 
-              <p style={miniTextStyle}>Priorität: {a.prioritaet}</p>
-              <p style={miniTextStyle}>Raum: {getRaumName(a.raum_id)}</p>
+              <p style={miniTextStyle}>{t.priority}: {a.prioritaet}</p>
+              <p style={miniTextStyle}>{t.room}: {getRaumName(a.raum_id)}</p>
               <AdminNotiz value={a.admin_notiz} />
             </div>
           ))
@@ -1384,11 +1785,35 @@ const titleStyle: any = {
 
 const descriptionStyle: any = {
   color: "#bbb",
-  marginBottom: "18px",
+  marginBottom: "12px",
 };
 
 const loadingStyle: any = {
   color: "#aaa",
+};
+
+const languageBoxStyle: any = {
+  display: "flex",
+  gap: "8px",
+  marginBottom: "16px",
+  flexWrap: "wrap",
+};
+
+const langButtonStyle: any = {
+  background: "#111",
+  color: "white",
+  border: "1px solid #333",
+  borderRadius: "9px",
+  padding: "7px 13px",
+  fontSize: "13px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const activeLangButtonStyle: any = {
+  ...langButtonStyle,
+  background: "#f97316",
+  border: "1px solid #f97316",
 };
 
 const dateBoxStyle: any = {

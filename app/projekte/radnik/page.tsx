@@ -5,6 +5,77 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 
+const translations: any = {
+  de: {
+    back: "← Zurück",
+    title: "👷 Meine Projekte",
+    loggedAs: "Eingeloggt als",
+    searchLabel: "Projekt suchen",
+    searchPlaceholder: "Projekt, Ort oder Auftraggeber suchen...",
+    noProjectsTitle: "Keine aktiven Projekte",
+    noProjectsText: "Aktuell gibt es keine aktiven Projekte.",
+    client: "Auftraggeber",
+    manager: "Bauleiter",
+    place: "Ort",
+    execution: "Ausführung",
+    open: "Öffnen →",
+    loading: "Wird geladen...",
+    planned: "Geplant",
+    active: "Aktiv",
+  },
+  ba: {
+    back: "← Nazad",
+    title: "👷 Moji projekti",
+    loggedAs: "Prijavljen kao",
+    searchLabel: "Pretraži projekt",
+    searchPlaceholder: "Traži projekt, mjesto ili Auftraggeber...",
+    noProjectsTitle: "Nema aktivnih projekata",
+    noProjectsText: "Trenutno nema aktivnih projekata.",
+    client: "Auftraggeber",
+    manager: "Bauleiter",
+    place: "Mjesto",
+    execution: "Izvođenje",
+    open: "Otvori →",
+    loading: "Učitava se...",
+    planned: "Planirano",
+    active: "Aktivno",
+  },
+  uz: {
+    back: "← Orqaga",
+    title: "👷 Mening loyihalarim",
+    loggedAs: "Kirdi",
+    searchLabel: "Loyiha qidirish",
+    searchPlaceholder: "Loyiha, joy yoki Auftraggeber qidirish...",
+    noProjectsTitle: "Aktiv loyihalar yo‘q",
+    noProjectsText: "Hozircha aktiv loyihalar yo‘q.",
+    client: "Buyurtmachi",
+    manager: "Bauleiter",
+    place: "Joy",
+    execution: "Bajarish vaqti",
+    open: "Ochish →",
+    loading: "Yuklanmoqda...",
+    planned: "Rejada",
+    active: "Aktiv",
+  },
+  en: {
+    back: "← Back",
+    title: "👷 My projects",
+    loggedAs: "Logged in as",
+    searchLabel: "Search project",
+    searchPlaceholder: "Search project, place or client...",
+    noProjectsTitle: "No active projects",
+    noProjectsText: "There are currently no active projects.",
+    client: "Client",
+    manager: "Site manager",
+    place: "Place",
+    execution: "Execution",
+    open: "Open →",
+    loading: "Loading...",
+    planned: "Planned",
+    active: "Active",
+  },
+};
+
 export default function RadnikProjektePage() {
   const router = useRouter();
 
@@ -12,6 +83,9 @@ export default function RadnikProjektePage() {
   const [loading, setLoading] = useState(true);
   const [projekte, setProjekte] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [lang, setLang] = useState("ba");
+
+  const t = translations[lang] || translations.ba;
 
   const filteredProjekte = useMemo(() => {
     const s = search.toLowerCase().trim();
@@ -29,6 +103,7 @@ export default function RadnikProjektePage() {
 
   useEffect(() => {
     const name = localStorage.getItem("worker_name");
+    const savedLang = localStorage.getItem("lang") || "ba";
 
     if (!name) {
       router.push("/login");
@@ -36,6 +111,7 @@ export default function RadnikProjektePage() {
     }
 
     setWorkerName(name);
+    setLang(savedLang);
     loadProjekte();
   }, [router]);
 
@@ -59,6 +135,11 @@ export default function RadnikProjektePage() {
     setLoading(false);
   }
 
+  function changeLanguage(newLang: string) {
+    localStorage.setItem("lang", newLang);
+    setLang(newLang);
+  }
+
   function formatDate(value: string | null) {
     if (!value) return "-";
 
@@ -70,45 +151,64 @@ export default function RadnikProjektePage() {
     return value;
   }
 
+  function statusLabel(status: string) {
+    if (status === "Geplant") return t.planned;
+    if (status === "Aktiv") return t.active;
+
+    return status || t.active;
+  }
+
   if (loading) {
     return (
       <main style={mainStyle}>
-        <Link href="/" style={backStyle}>
-          ← Zurück
+        <Link href="/dashboard" style={backStyle}>
+          {t.back}
         </Link>
 
-        <h1 style={titleStyle}>👷 Projekte</h1>
-        <p style={loadingStyle}>Wird geladen...</p>
+        <h1 style={titleStyle}>{t.title}</h1>
+        <p style={loadingStyle}>{t.loading}</p>
       </main>
     );
   }
 
   return (
     <main style={mainStyle}>
-      <Link href="/" style={backStyle}>
-        ← Zurück
+      <Link href="/dashboard" style={backStyle}>
+        {t.back}
       </Link>
 
-      <h1 style={titleStyle}>👷 Radnik Projekte</h1>
+      <h1 style={titleStyle}>{t.title}</h1>
 
       <p style={descriptionStyle}>
-        Eingeloggt als: <strong>{workerName}</strong>
+        {t.loggedAs}: <strong>{workerName}</strong>
       </p>
 
+      <div style={languageBoxStyle}>
+        {["de", "ba", "uz", "en"].map((code) => (
+          <button
+            key={code}
+            onClick={() => changeLanguage(code)}
+            style={lang === code ? activeLangButtonStyle : langButtonStyle}
+          >
+            {code.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
       <section style={searchBoxStyle}>
-        <label style={labelStyle}>Projekt suchen</label>
+        <label style={labelStyle}>{t.searchLabel}</label>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Projekt, Ort oder Auftraggeber suchen..."
+          placeholder={t.searchPlaceholder}
           style={inputStyle}
         />
       </section>
 
       {filteredProjekte.length === 0 ? (
         <section style={emptyBoxStyle}>
-          <h2 style={sectionTitleStyle}>Keine aktiven Projekte</h2>
-          <p style={emptyTextStyle}>Trenutno nema aktivnih projekata.</p>
+          <h2 style={sectionTitleStyle}>{t.noProjectsTitle}</h2>
+          <p style={emptyTextStyle}>{t.noProjectsText}</p>
         </section>
       ) : (
         <section style={gridStyle}>
@@ -128,32 +228,32 @@ export default function RadnikProjektePage() {
                       projekt.status === "Aktiv" ? "#16a34a" : "#2563eb",
                   }}
                 >
-                  {projekt.status || "Aktiv"}
+                  {statusLabel(projekt.status)}
                 </span>
               </div>
 
               <h2 style={cardTitleStyle}>{projekt.project_name}</h2>
 
               <p style={metaStyle}>
-                Auftraggeber: <strong>{projekt.auftraggeber || "-"}</strong>
+                {t.client}: <strong>{projekt.auftraggeber || "-"}</strong>
               </p>
 
               <p style={metaStyle}>
-                Bauleiter: <strong>{projekt.bauleiter || "-"}</strong>
+                {t.manager}: <strong>{projekt.bauleiter || "-"}</strong>
               </p>
 
               <p style={metaStyle}>
-                Ort: <strong>{projekt.ort || "-"}</strong>
+                {t.place}: <strong>{projekt.ort || "-"}</strong>
               </p>
 
               <p style={metaStyle}>
-                Ausführung:{" "}
+                {t.execution}:{" "}
                 <strong>
                   {formatDate(projekt.start_date)} - {formatDate(projekt.end_date)}
                 </strong>
               </p>
 
-              <div style={openButtonStyle}>Öffnen →</div>
+              <div style={openButtonStyle}>{t.open}</div>
             </Link>
           ))}
         </section>
@@ -185,12 +285,36 @@ const titleStyle: any = {
 const descriptionStyle: any = {
   color: "#bbb",
   fontSize: "16px",
-  marginBottom: "18px",
+  marginBottom: "14px",
 };
 
 const loadingStyle: any = {
   color: "#aaa",
   fontSize: "18px",
+};
+
+const languageBoxStyle: any = {
+  display: "flex",
+  gap: "8px",
+  marginBottom: "18px",
+  flexWrap: "wrap",
+};
+
+const langButtonStyle: any = {
+  background: "#111",
+  color: "white",
+  border: "1px solid #333",
+  borderRadius: "9px",
+  padding: "7px 13px",
+  fontSize: "13px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const activeLangButtonStyle: any = {
+  ...langButtonStyle,
+  background: "#f97316",
+  border: "1px solid #f97316",
 };
 
 const searchBoxStyle: any = {
