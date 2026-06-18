@@ -246,6 +246,12 @@ export default function ProjektDetailPage() {
             <strong>Auswertung</strong>
             <small>Soll / Ist, produktivnost, sati, regie, material</small>
           </Link>
+
+          <Link href={`/projekte/${projekt.id}/bericht`} style={moduleLinkStyle}>
+            <span style={moduleIconStyle}>🖨️</span>
+            <strong>Bericht / Druck</strong>
+            <small>Projektbericht drucken oder als PDF speichern</small>
+          </Link>
         </div>
       </section>
 
@@ -253,8 +259,8 @@ export default function ProjektDetailPage() {
         <h2 style={sectionTitleStyle}>Nächster Schritt</h2>
 
         <p style={nextTextStyle}>
-          Sada je otvoren modul <strong>LV Import</strong>. Tu možeš ubaciti
-          ONLV datoteku i automatski napraviti LV pozicije za projekt.
+          Sada je otvoren modul <strong>Bericht / Druck</strong>. Tu možeš
+          napraviti pregled projekta i preko browsera sačuvati kao PDF.
         </p>
       </section>
     </main>
