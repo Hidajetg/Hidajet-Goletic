@@ -46,10 +46,15 @@ export default function ProjektAufgabenPage() {
   const [selectedRaumId, setSelectedRaumId] = useState("");
   const [selectedPositionId, setSelectedPositionId] = useState("");
 
+  const [filterStatus, setFilterStatus] = useState("Alle");
+  const [filterTyp, setFilterTyp] = useState("Alle");
+  const [filterRadnik, setFilterRadnik] = useState("Alle");
+
   const summary = useMemo(() => {
     const offen = aufgaben.filter((a) => a.status === "Offen").length;
     const inArbeit = aufgaben.filter((a) => a.status === "In Arbeit").length;
     const erledigt = aufgaben.filter((a) => a.status === "Erledigt").length;
+    const abgelehnt = aufgaben.filter((a) => a.status === "Abgelehnt").length;
     const mangel = aufgaben.filter((a) => a.typ === "Mangel").length;
 
     const today = getTodayLocalDate();
@@ -57,6 +62,7 @@ export default function ProjektAufgabenPage() {
     const ueberfaellig = aufgaben.filter((a) => {
       if (!a.faellig_bis) return false;
       if (a.status === "Erledigt") return false;
+      if (a.status === "Abgelehnt") return false;
 
       return String(a.faellig_bis) < today;
     }).length;
@@ -66,10 +72,57 @@ export default function ProjektAufgabenPage() {
       offen,
       inArbeit,
       erledigt,
+      abgelehnt,
       mangel,
       ueberfaellig,
     };
   }, [aufgaben]);
+
+  const filteredAufgaben = useMemo(() => {
+    return aufgaben
+      .filter((item) => {
+        if (filterStatus !== "Alle" && item.status !== filterStatus) return false;
+        if (filterTyp !== "Alle" && item.typ !== filterTyp) return false;
+        if (filterRadnik !== "Alle" && item.assigned_to !== filterRadnik) return false;
+
+        return true;
+      })
+      .sort((a, b) => {
+        const overdueA = isOverdue(a) ? 1 : 0;
+        const overdueB = isOverdue(b) ? 1 : 0;
+
+        if (overdueA !== overdueB) return overdueB - overdueA;
+
+        const priorityOrder: any = {
+          Dringend: 1,
+          Hoch: 2,
+          Normal: 3,
+          Niedrig: 4,
+        };
+
+        const statusOrder: any = {
+          Offen: 1,
+          "In Arbeit": 2,
+          Erledigt: 3,
+          Abgelehnt: 4,
+        };
+
+        const pa = priorityOrder[a.prioritaet || "Normal"] || 9;
+        const pb = priorityOrder[b.prioritaet || "Normal"] || 9;
+
+        if (pa !== pb) return pa - pb;
+
+        const sa = statusOrder[a.status || "Offen"] || 9;
+        const sb = statusOrder[b.status || "Offen"] || 9;
+
+        if (sa !== sb) return sa - sb;
+
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+
+        return dateB - dateA;
+      });
+  }, [aufgaben, filterStatus, filterTyp, filterRadnik]);
 
   useEffect(() => {
     const name = localStorage.getItem("worker_name");
@@ -143,8 +196,6 @@ export default function ProjektAufgabenPage() {
       .from("projekt_aufgaben")
       .select("*")
       .eq("projekt_id", Number(projektId))
-      .order("status", { ascending: true })
-      .order("prioritaet", { ascending: true })
       .order("created_at", { ascending: false });
 
     if (aufgabenRes.error) {
@@ -175,7 +226,7 @@ export default function ProjektAufgabenPage() {
   function formatDate(value: string | null) {
     if (!value) return "-";
 
-    const parts = String(value).split("-");
+    const parts = String(value).slice(0, 10).split("-");
     if (parts.length === 3) {
       return `${parts[2]}.${parts[1]}.${parts[0]}`;
     }
@@ -183,14 +234,33 @@ export default function ProjektAufgabenPage() {
     return value;
   }
 
+  function formatDateTime(value: string | null) {
+    if (!value) return "-";
+
+    const d = new Date(value);
+
+    if (Number.isNaN(d.getTime())) {
+      return String(value);
+    }
+
+    return d.toLocaleString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
   function isOverdue(item: any) {
     if (!item.faellig_bis) return false;
     if (item.status === "Erledigt") return false;
+    if (item.status === "Abgelehnt") return false;
 
     return String(item.faellig_bis) < getTodayLocalDate();
   }
 
-  function getRaumName(id: number | null) {
+  function getRaumName(id: number | string | null) {
     if (!id) return "-";
 
     const raum = raeume.find((r) => Number(r.id) === Number(id));
@@ -200,7 +270,7 @@ export default function ProjektAufgabenPage() {
     return `${raum.ebene ? raum.ebene + " - " : ""}${raum.raum_name}`;
   }
 
-  function getPositionText(id: number | null) {
+  function getPositionText(id: number | string | null) {
     if (!id) return "-";
 
     const pos = positionen.find((p) => Number(p.id) === Number(id));
@@ -216,12 +286,9 @@ export default function ProjektAufgabenPage() {
       return;
     }
 
-    const erledigtAm =
-      status === "Erledigt"
-        ? getTodayLocalDate()
-        : null;
+    const erledigtAm = status === "Erledigt" ? getTodayLocalDate() : null;
 
-    const payload = {
+    const payload: any = {
       projekt_id: Number(projektId),
       datum,
       typ,
@@ -234,7 +301,6 @@ export default function ProjektAufgabenPage() {
       erledigt_am: erledigtAm,
       raum_id: selectedRaumId ? Number(selectedRaumId) : null,
       lv_position_id: selectedPositionId ? Number(selectedPositionId) : null,
-      created_by: workerName,
     };
 
     if (editingId) {
@@ -248,6 +314,8 @@ export default function ProjektAufgabenPage() {
         return;
       }
     } else {
+      payload.created_by = workerName;
+
       const { error } = await supabase.from("projekt_aufgaben").insert(payload);
 
       if (error) {
@@ -315,6 +383,22 @@ export default function ProjektAufgabenPage() {
     loadData();
   }
 
+  function getStatusStyle(statusValue: string) {
+    if (statusValue === "Erledigt") return okBadgeStyle;
+    if (statusValue === "Abgelehnt") return dangerBadgeStyle;
+    if (statusValue === "In Arbeit") return blueBadgeStyle;
+
+    return warningBadgeStyle;
+  }
+
+  function getPriorityStyle(priority: string) {
+    if (priority === "Dringend") return dangerBadgeStyle;
+    if (priority === "Hoch") return warningBadgeStyle;
+    if (priority === "Niedrig") return grayBadgeStyle;
+
+    return blueBadgeStyle;
+  }
+
   if (loading) {
     return (
       <main style={mainStyle}>
@@ -343,21 +427,28 @@ export default function ProjektAufgabenPage() {
           ← Zurück zum Projekt
         </Link>
 
-        <button
-          onClick={() => {
-            clearForm();
-            setShowForm(!showForm);
-          }}
-          style={newButtonStyle}
-        >
-          {showForm ? "Schließen" : "+ Aufgabe / Mangel"}
-        </button>
+        <div style={topButtonWrapStyle}>
+          <button onClick={loadData} style={refreshButtonStyle}>
+            Aktualisieren
+          </button>
+
+          <button
+            onClick={() => {
+              clearForm();
+              setShowForm(!showForm);
+            }}
+            style={newButtonStyle}
+          >
+            {showForm ? "Schließen" : "+ Aufgabe / Mangel"}
+          </button>
+        </div>
       </div>
 
       <h1 style={titleStyle}>✅ Aufgaben / Mängel</h1>
 
       <p style={descriptionStyle}>
-        Projekt: <strong>{projekt?.project_name || "-"}</strong>
+        Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
+        <strong>{workerName}</strong>
       </p>
 
       <section style={summaryGridStyle}>
@@ -374,6 +465,20 @@ export default function ProjektAufgabenPage() {
         <div style={summaryCardStyle}>
           <span style={summaryLabelStyle}>In Arbeit</span>
           <strong style={summaryValueStyle}>{summary.inArbeit}</strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Erledigt</span>
+          <strong style={{ ...summaryValueStyle, color: "#22c55e" }}>
+            {summary.erledigt}
+          </strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Abgelehnt</span>
+          <strong style={{ ...summaryValueStyle, color: "#ef4444" }}>
+            {summary.abgelehnt}
+          </strong>
         </div>
 
         <div style={summaryCardStyle}>
@@ -394,10 +499,70 @@ export default function ProjektAufgabenPage() {
         </div>
       </section>
 
+      <section style={filterBoxStyle}>
+        <div style={filterGridStyle}>
+          <div>
+            <label style={labelStyle}>Status Filter</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="Alle">Alle</option>
+              <option value="Offen">Offen</option>
+              <option value="In Arbeit">In Arbeit</option>
+              <option value="Erledigt">Erledigt</option>
+              <option value="Abgelehnt">Abgelehnt</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Typ Filter</label>
+            <select
+              value={filterTyp}
+              onChange={(e) => setFilterTyp(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="Alle">Alle</option>
+              <option value="Aufgabe">Aufgabe</option>
+              <option value="Mangel">Mangel</option>
+              <option value="Info">Info</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Radnik Filter</label>
+            <select
+              value={filterRadnik}
+              onChange={(e) => setFilterRadnik(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="Alle">Alle</option>
+              {RADNICI.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={() => {
+              setFilterStatus("Alle");
+              setFilterTyp("Alle");
+              setFilterRadnik("Alle");
+            }}
+            style={grayButtonStyle}
+          >
+            Filter löschen
+          </button>
+        </div>
+      </section>
+
       <section style={infoBoxStyle}>
         <h2 style={sectionTitleStyle}>Aufgaben Regel</h2>
         <p style={infoTextStyle}>
-          Aufgaben und Mängel können einem Radnik, Raum und einer LV Position
+          Aufgaben, Mängel und Infos können einem Radnik, Raum und einer LV Position
           zugeordnet werden. Überfällige offene Punkte werden rot markiert.
         </p>
       </section>
@@ -421,11 +586,7 @@ export default function ProjektAufgabenPage() {
 
             <div>
               <label style={labelStyle}>Typ</label>
-              <select
-                value={typ}
-                onChange={(e) => setTyp(e.target.value)}
-                style={inputStyle}
-              >
+              <select value={typ} onChange={(e) => setTyp(e.target.value)} style={inputStyle}>
                 <option value="Aufgabe">Aufgabe</option>
                 <option value="Mangel">Mangel</option>
                 <option value="Info">Info</option>
@@ -474,6 +635,7 @@ export default function ProjektAufgabenPage() {
                 <option value="Offen">Offen</option>
                 <option value="In Arbeit">In Arbeit</option>
                 <option value="Erledigt">Erledigt</option>
+                <option value="Abgelehnt">Abgelehnt</option>
               </select>
             </div>
 
@@ -558,21 +720,20 @@ export default function ProjektAufgabenPage() {
       <section style={listBoxStyle}>
         <h2 style={sectionTitleStyle}>Aufgaben Liste</h2>
 
-        {aufgaben.length === 0 ? (
-          <p style={emptyStyle}>Noch keine Aufgaben vorhanden.</p>
+        {filteredAufgaben.length === 0 ? (
+          <p style={emptyStyle}>Keine Aufgaben gefunden.</p>
         ) : (
           <div style={taskGridStyle}>
-            {aufgaben.map((item) => (
+            {filteredAufgaben.map((item) => (
               <div
                 key={item.id}
                 style={{
                   ...taskCardStyle,
-                  border:
-                    isOverdue(item)
-                      ? "1px solid #dc2626"
-                      : item.typ === "Mangel"
-                      ? "1px solid #ca8a04"
-                      : "1px solid #333",
+                  border: isOverdue(item)
+                    ? "1px solid #dc2626"
+                    : item.typ === "Mangel"
+                    ? "1px solid #ca8a04"
+                    : "1px solid #333",
                 }}
               >
                 <div style={taskTopRowStyle}>
@@ -588,15 +749,7 @@ export default function ProjektAufgabenPage() {
                     {item.typ || "Aufgabe"}
                   </span>
 
-                  <span
-                    style={
-                      item.prioritaet === "Dringend"
-                        ? dangerBadgeStyle
-                        : item.prioritaet === "Hoch"
-                        ? warningBadgeStyle
-                        : grayBadgeStyle
-                    }
-                  >
+                  <span style={getPriorityStyle(item.prioritaet || "Normal")}>
                     {item.prioritaet || "Normal"}
                   </span>
                 </div>
@@ -618,7 +771,15 @@ export default function ProjektAufgabenPage() {
                       <option value="Offen">Offen</option>
                       <option value="In Arbeit">In Arbeit</option>
                       <option value="Erledigt">Erledigt</option>
+                      <option value="Abgelehnt">Abgelehnt</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <span style={smallLabelStyle}>Status Anzeige</span>
+                    <span style={getStatusStyle(item.status || "Offen")}>
+                      {item.status || "Offen"}
+                    </span>
                   </div>
 
                   <div>
@@ -637,6 +798,11 @@ export default function ProjektAufgabenPage() {
                     <span style={smallLabelStyle}>Erledigt</span>
                     <strong>{formatDate(item.erledigt_am)}</strong>
                   </div>
+
+                  <div>
+                    <span style={smallLabelStyle}>Datum</span>
+                    <strong>{formatDate(item.datum)}</strong>
+                  </div>
                 </div>
 
                 <p style={taskMetaStyle}>
@@ -648,19 +814,55 @@ export default function ProjektAufgabenPage() {
                 </p>
 
                 <p style={taskMetaStyle}>
-                  Erstellt von: <strong>{item.created_by || "-"}</strong> ·{" "}
-                  {formatDate(item.datum)}
+                  Erstellt von: <strong>{item.created_by || "-"}</strong>
                 </p>
+
+                {isAdmin && (
+                  <p style={taskMetaStyle}>
+                    Zeit der Eingabe:{" "}
+                    <strong>{formatDateTime(item.created_at)}</strong>
+                  </p>
+                )}
+
+                {item.foto_url && (
+                  <a href={item.foto_url} target="_blank" rel="noopener noreferrer">
+                    <img src={item.foto_url} alt={item.titel || "Foto"} style={photoStyle} />
+                  </a>
+                )}
+
+                <div style={quickActionGridStyle}>
+                  <button onClick={() => changeStatus(item, "Offen")} style={waitButtonStyle}>
+                    Offen
+                  </button>
+
+                  <button
+                    onClick={() => changeStatus(item, "In Arbeit")}
+                    style={workButtonStyle}
+                  >
+                    In Arbeit
+                  </button>
+
+                  <button
+                    onClick={() => changeStatus(item, "Erledigt")}
+                    style={doneButtonStyle}
+                  >
+                    Erledigt
+                  </button>
+
+                  <button
+                    onClick={() => changeStatus(item, "Abgelehnt")}
+                    style={rejectButtonStyle}
+                  >
+                    Ablehnen
+                  </button>
+                </div>
 
                 <div style={actionRowStyle}>
                   <button onClick={() => editAufgabe(item)} style={editButtonStyle}>
                     Bearbeiten
                   </button>
 
-                  <button
-                    onClick={() => deleteAufgabe(item.id)}
-                    style={deleteButtonStyle}
-                  >
+                  <button onClick={() => deleteAufgabe(item.id)} style={deleteButtonStyle}>
                     Löschen
                   </button>
                 </div>
@@ -689,6 +891,12 @@ const topBarStyle: any = {
   flexWrap: "wrap",
 };
 
+const topButtonWrapStyle: any = {
+  display: "flex",
+  gap: "10px",
+  flexWrap: "wrap",
+};
+
 const backStyle: any = {
   color: "#3b82f6",
   textDecoration: "none",
@@ -713,6 +921,17 @@ const loadingStyle: any = {
   fontSize: "18px",
 };
 
+const refreshButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 18px",
+  fontSize: "15px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
 const newButtonStyle: any = {
   background: "#16a34a",
   color: "white",
@@ -726,7 +945,7 @@ const newButtonStyle: any = {
 
 const summaryGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
   gap: "12px",
   marginBottom: "20px",
 };
@@ -748,6 +967,21 @@ const summaryLabelStyle: any = {
 const summaryValueStyle: any = {
   color: "#f97316",
   fontSize: "22px",
+};
+
+const filterBoxStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "16px",
+  padding: "18px",
+  marginBottom: "20px",
+};
+
+const filterGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: "12px",
+  alignItems: "end",
 };
 
 const infoBoxStyle: any = {
@@ -844,6 +1078,16 @@ const cancelButtonStyle: any = {
   cursor: "pointer",
 };
 
+const grayButtonStyle: any = {
+  background: "#4b5563",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
 const listBoxStyle: any = {
   background: "#111",
   border: "1px solid #333",
@@ -918,6 +1162,21 @@ const smallSelectStyle: any = {
   width: "100%",
 };
 
+const photoStyle: any = {
+  width: "100%",
+  height: "180px",
+  objectFit: "cover",
+  borderRadius: "12px",
+  marginTop: "10px",
+};
+
+const quickActionGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "8px",
+  marginTop: "12px",
+};
+
 const actionRowStyle: any = {
   display: "flex",
   gap: "8px",
@@ -943,6 +1202,31 @@ const deleteButtonStyle: any = {
   padding: "8px 10px",
   fontWeight: "bold",
   cursor: "pointer",
+};
+
+const waitButtonStyle: any = {
+  background: "#ca8a04",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  padding: "8px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const workButtonStyle: any = {
+  ...waitButtonStyle,
+  background: "#2563eb",
+};
+
+const doneButtonStyle: any = {
+  ...waitButtonStyle,
+  background: "#16a34a",
+};
+
+const rejectButtonStyle: any = {
+  ...waitButtonStyle,
+  background: "#7f1d1d",
 };
 
 const okBadgeStyle: any = {
