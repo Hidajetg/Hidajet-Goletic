@@ -2,1291 +2,1406 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-const ADMINI = ["Hido", "Steffi", "Admin"];
-const BUCKET = "projekt-fotos";
+type Projekt = {
+  id: number | string;
+  name?: string | null;
+  naziv?: string | null;
+  title?: string | null;
+  projekt?: string | null;
+  baustelle_name?: string | null;
+  ort?: string | null;
+  mjesto?: string | null;
+  location?: string | null;
+  adresse?: string | null;
+  [key: string]: any;
+};
 
-function getTodayLocalDate() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+type TableConfig = {
+  table: string;
+  column: string;
+};
 
-  return `${year}-${month}-${day}`;
-}
+type FotoForm = {
+  datum: string;
+  titel: string;
+  beschreibung: string;
+  kategorie: string;
+  raum_id: string;
+  status: string;
+};
+
+const STORAGE_BUCKETS = [
+  "fotos",
+  "photos",
+  "bilder",
+  "projekt-fotos",
+  "baustelle-fotos",
+];
+
+const KATEGORIEN = [
+  "Allgemein",
+  "Vorher",
+  "Während Arbeit",
+  "Nachher",
+  "Mangel",
+  "Material",
+  "Abnahme",
+];
 
 export default function ProjektFotosPage() {
   const params = useParams();
-  const router = useRouter();
-
   const projektId = String(params.id);
-  const uploadLockRef = useRef(false);
+  const projektIdValue = isNaN(Number(projektId)) ? projektId : Number(projektId);
 
-  const [workerName, setWorkerName] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [fileInputKey, setFileInputKey] = useState(Date.now());
+  const [saving, setSaving] = useState(false);
 
-  const [projekt, setProjekt] = useState<any>(null);
-  const [raeume, setRaeume] = useState<any[]>([]);
-  const [positionen, setPositionen] = useState<any[]>([]);
+  const [projekt, setProjekt] = useState<Projekt | null>(null);
   const [fotos, setFotos] = useState<any[]>([]);
+  const [raeume, setRaeume] = useState<any[]>([]);
+  const [errorText, setErrorText] = useState("");
 
+  const [fotoConfig, setFotoConfig] = useState<TableConfig>({
+    table: "fotos",
+    column: "projekt_id",
+  });
+
+  const [search, setSearch] = useState("");
+  const [filterKategorie, setFilterKategorie] = useState("Alle");
+  const [filterRaum, setFilterRaum] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<number | string | null>(null);
 
-  const [datum, setDatum] = useState(getTodayLocalDate());
-  const [selectedRaumId, setSelectedRaumId] = useState("");
-  const [selectedPositionId, setSelectedPositionId] = useState("");
-  const [typ, setTyp] = useState("Fortschritt");
-  const [titel, setTitel] = useState("");
-  const [beschreibung, setBeschreibung] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [freigabeStatus, setFreigabeStatus] = useState("Wartet");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-  const [filterTyp, setFilterTyp] = useState("Alle");
-  const [filterStatus, setFilterStatus] = useState("Alle");
-  const [filterDatum, setFilterDatum] = useState("");
-
-  const summary = useMemo(() => {
-    const fortschritt = fotos.filter((f) => f.typ === "Fortschritt").length;
-    const mangel = fotos.filter((f) => f.typ === "Mangel").length;
-    const vorher = fotos.filter((f) => f.typ === "Vorher").length;
-    const nachher = fotos.filter((f) => f.typ === "Nachher").length;
-    const nachweis = fotos.filter((f) => f.typ === "Nachweis").length;
-
-    const wartet = fotos.filter((f) => (f.freigabe_status || "Wartet") === "Wartet").length;
-    const genehmigt = fotos.filter((f) => f.freigabe_status === "Genehmigt").length;
-    const abgelehnt = fotos.filter((f) => f.freigabe_status === "Abgelehnt").length;
-
-    return {
-      total: fotos.length,
-      fortschritt,
-      mangel,
-      vorher,
-      nachher,
-      nachweis,
-      wartet,
-      genehmigt,
-      abgelehnt,
-    };
-  }, [fotos]);
-
-  const filteredFotos = useMemo(() => {
-    return fotos
-      .filter((foto) => {
-        if (filterTyp !== "Alle" && foto.typ !== filterTyp) return false;
-
-        const status = foto.freigabe_status || "Wartet";
-        if (filterStatus !== "Alle" && status !== filterStatus) return false;
-
-        if (filterDatum && foto.datum !== filterDatum) return false;
-
-        return true;
-      })
-      .sort((a, b) => {
-        const dateA = String(a.datum || "");
-        const dateB = String(b.datum || "");
-
-        if (dateA !== dateB) return dateB.localeCompare(dateA);
-
-        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-
-        return timeB - timeA;
-      });
-  }, [fotos, filterTyp, filterStatus, filterDatum]);
+  const [form, setForm] = useState<FotoForm>({
+    datum: today(),
+    titel: "",
+    beschreibung: "",
+    kategorie: "Allgemein",
+    raum_id: "",
+    status: "Offen",
+  });
 
   useEffect(() => {
-    const name = localStorage.getItem("worker_name");
+    loadAll();
+  }, [projektId]);
 
-    if (!name) {
-      router.push("/login");
-      return;
+  function today() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function getProjektName() {
+    if (!projekt) return "Projekt";
+
+    return (
+      projekt.name ||
+      projekt.naziv ||
+      projekt.title ||
+      projekt.projekt ||
+      projekt.baustelle_name ||
+      `Projekt ${projekt.id}`
+    );
+  }
+
+  function getProjektOrt() {
+    if (!projekt) return "";
+    return projekt.ort || projekt.mjesto || projekt.location || projekt.adresse || "";
+  }
+
+  function getDate(row: any) {
+    return row.datum || row.date || row.tag || row.day || row.created_date || "";
+  }
+
+  function getTitle(row: any) {
+    return row.titel || row.title || row.name || row.foto_name || row.bild_name || "";
+  }
+
+  function getDescription(row: any) {
+    return (
+      row.beschreibung ||
+      row.description ||
+      row.notiz ||
+      row.note ||
+      row.info ||
+      ""
+    );
+  }
+
+  function getCategory(row: any) {
+    return row.kategorie || row.category || row.typ || row.type || "Allgemein";
+  }
+
+  function getStatus(row: any) {
+    return row.status || "Offen";
+  }
+
+  function getRoomId(row: any) {
+    return row.raum_id || row.room_id || row.prostorija_id || "";
+  }
+
+  function getFileName(row: any) {
+    return row.file_name || row.filename || row.dateiname || row.name || "";
+  }
+
+  function getImageUrl(row: any) {
+    return (
+      row.url ||
+      row.image_url ||
+      row.foto_url ||
+      row.photo_url ||
+      row.bild_url ||
+      row.public_url ||
+      row.download_url ||
+      ""
+    );
+  }
+
+  function getStoragePath(row: any) {
+    return row.storage_path || row.path || row.file_path || row.bild_path || "";
+  }
+
+  function getRoomName(room: any) {
+    return (
+      room.name ||
+      room.raum_name ||
+      room.naziv ||
+      room.title ||
+      room.prostorija ||
+      `Raum ${room.id}`
+    );
+  }
+
+  function findRoomName(roomId: string | number) {
+    if (!roomId) return "";
+    const room = raeume.find((r) => String(r.id) === String(roomId));
+    return room ? getRoomName(room) : "";
+  }
+
+  function resetForm() {
+    setEditId(null);
+    setSelectedFiles([]);
+    setForm({
+      datum: today(),
+      titel: "",
+      beschreibung: "",
+      kategorie: "Allgemein",
+      raum_id: "",
+      status: "Offen",
+    });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
+  }
 
-    const adminStatus = ADMINI.includes(name);
-
-    if (!adminStatus) {
-      router.push("/");
-      return;
-    }
-
-    setWorkerName(name);
-    setIsAdmin(adminStatus);
-    loadData();
-  }, [router, projektId]);
-
-  async function loadData() {
+  async function loadAll() {
     setLoading(true);
+    setErrorText("");
 
-    const projektRes = await supabase
-      .from("projekte")
-      .select("*")
-      .eq("id", Number(projektId))
-      .single();
+    await loadProjekt();
+    await loadRaeume();
+    await loadFotos();
 
-    if (projektRes.error) {
-      alert("Greška kod učitavanja projekta: " + projektRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    setProjekt(projektRes.data);
-
-    const raeumeRes = await supabase
-      .from("projekt_raeume")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("created_at", { ascending: true });
-
-    if (raeumeRes.error) {
-      alert("Greška kod učitavanja prostorija: " + raeumeRes.error.message);
-      setRaeume([]);
-      setLoading(false);
-      return;
-    }
-
-    setRaeume(raeumeRes.data || []);
-
-    const positionenRes = await supabase
-      .from("projekt_lv_positionen")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .eq("aktiv", true)
-      .order("position_nr", { ascending: true });
-
-    if (positionenRes.error) {
-      alert("Greška kod učitavanja LV pozicija: " + positionenRes.error.message);
-      setPositionen([]);
-      setLoading(false);
-      return;
-    }
-
-    setPositionen(positionenRes.data || []);
-
-    const fotosRes = await supabase
-      .from("projekt_fotos")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("datum", { ascending: false })
-      .order("created_at", { ascending: false });
-
-    if (fotosRes.error) {
-      alert("Greška kod učitavanja slika: " + fotosRes.error.message);
-      setFotos([]);
-      setLoading(false);
-      return;
-    }
-
-    setFotos(fotosRes.data || []);
     setLoading(false);
   }
 
-  function clearForm() {
-    setEditingId(null);
-    setDatum(getTodayLocalDate());
-    setSelectedRaumId("");
-    setSelectedPositionId("");
-    setTyp("Fortschritt");
-    setTitel("");
-    setBeschreibung("");
-    setFile(null);
-    setFreigabeStatus("Wartet");
-    setFileInputKey(Date.now());
-  }
+  async function loadProjekt() {
+    const tables = ["projekte", "baustellen"];
 
-  function formatDate(value: string | null) {
-    if (!value) return "-";
+    for (const table of tables) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq("id", projektIdValue)
+        .maybeSingle();
 
-    const parts = String(value).slice(0, 10).split("-");
-    if (parts.length === 3) {
-      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+      if (!error && data) {
+        setProjekt(data as Projekt);
+        return;
+      }
     }
 
-    return value;
+    setProjekt(null);
   }
 
-  function formatDateTime(value: string | null) {
-    if (!value) return "-";
+  async function loadRaeume() {
+    const configs: TableConfig[] = [
+      { table: "projekt_raeume", column: "projekt_id" },
+      { table: "raeume", column: "projekt_id" },
+      { table: "raeume", column: "project_id" },
+      { table: "prostorije", column: "projekt_id" },
+      { table: "prostorije", column: "project_id" },
+      { table: "rooms", column: "projekt_id" },
+      { table: "rooms", column: "project_id" },
+      { table: "prostorije", column: "baustelle_id" },
+      { table: "raeume", column: "baustelle_id" },
+    ];
 
-    const d = new Date(value);
+    for (const config of configs) {
+      const { data, error } = await supabase
+        .from(config.table)
+        .select("*")
+        .eq(config.column, projektIdValue);
 
-    if (Number.isNaN(d.getTime())) {
-      return String(value);
+      if (!error) {
+        setRaeume(data || []);
+        return;
+      }
     }
 
-    return d.toLocaleString("de-AT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    setRaeume([]);
+  }
+
+  async function loadFotos() {
+    const configs: TableConfig[] = [
+      { table: "fotos", column: "projekt_id" },
+      { table: "fotos", column: "project_id" },
+      { table: "fotos", column: "baustelle_id" },
+      { table: "fotos", column: "baustellen_id" },
+      { table: "photos", column: "projekt_id" },
+      { table: "photos", column: "project_id" },
+      { table: "photos", column: "baustelle_id" },
+      { table: "bilder", column: "projekt_id" },
+      { table: "bilder", column: "project_id" },
+      { table: "bilder", column: "baustelle_id" },
+    ];
+
+    for (const config of configs) {
+      const { data, error } = await supabase
+        .from(config.table)
+        .select("*")
+        .eq(config.column, projektIdValue);
+
+      if (!error) {
+        const sorted = [...(data || [])].sort((a: any, b: any) => {
+          const da = String(getDate(a));
+          const db = String(getDate(b));
+          return db.localeCompare(da);
+        });
+
+        setFotoConfig(config);
+        setFotos(sorted);
+        return;
+      }
+    }
+
+    setFotos([]);
+    setErrorText(
+      "Ne mogu učitati Fotos. Provjeri tabelu fotos i kolonu projekt_id."
+    );
+  }
+
+  const filteredFotos = useMemo(() => {
+    return fotos.filter((row) => {
+      const roomName = findRoomName(getRoomId(row));
+
+      const text = `
+        ${getDate(row)}
+        ${getTitle(row)}
+        ${getDescription(row)}
+        ${getCategory(row)}
+        ${getStatus(row)}
+        ${getFileName(row)}
+        ${roomName}
+      `.toLowerCase();
+
+      const searchOk = text.includes(search.toLowerCase());
+      const categoryOk =
+        filterKategorie === "Alle" || getCategory(row) === filterKategorie;
+      const roomOk = !filterRaum || String(getRoomId(row)) === String(filterRaum);
+
+      return searchOk && categoryOk && roomOk;
+    });
+  }, [fotos, search, filterKategorie, filterRaum, raeume]);
+
+  function onFilesSelected(files: FileList | null) {
+    const incoming = Array.from(files || []);
+
+    const onlyImages = incoming.filter((file) => file.type.startsWith("image/"));
+
+    const unique = [...selectedFiles];
+
+    onlyImages.forEach((file) => {
+      const exists = unique.some(
+        (old) =>
+          old.name === file.name &&
+          old.size === file.size &&
+          old.lastModified === file.lastModified
+      );
+
+      if (!exists) {
+        unique.push(file);
+      }
+    });
+
+    setSelectedFiles(unique);
+  }
+
+  function removeSelectedFile(index: number) {
+    setSelectedFiles((old) => old.filter((_, i) => i !== index));
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  async function uploadFile(file: File) {
+    const safeName = file.name
+      .replaceAll(" ", "_")
+      .replaceAll("ä", "ae")
+      .replaceAll("ö", "oe")
+      .replaceAll("ü", "ue")
+      .replaceAll("ß", "ss");
+
+    const filePath = `${projektId}/${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2)}_${safeName}`;
+
+    let lastError: any = null;
+
+    for (const bucket of STORAGE_BUCKETS) {
+      const { error } = await supabase.storage.from(bucket).upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+      if (!error) {
+        const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+
+        return {
+          bucket,
+          storage_path: filePath,
+          url: data.publicUrl,
+          file_name: file.name,
+          file_size: file.size,
+          mime_type: file.type,
+        };
+      }
+
+      lastError = error;
+    }
+
+    throw new Error(lastError?.message || "Upload nije uspio.");
+  }
+
+  function isDuplicate(fileName: string, fileSize: number) {
+    return fotos.some((row) => {
+      return (
+        String(getFileName(row)) === String(fileName) &&
+        Number(row.file_size || row.size || 0) === Number(fileSize)
+      );
     });
   }
 
-  function getRaumName(id: number | string | null) {
-    if (!id) return "-";
+  function buildPayloads(uploadData: any) {
+    const base: any = {};
+    base[fotoConfig.column] = projektIdValue;
 
-    const raum = raeume.find((r) => Number(r.id) === Number(id));
+    const roomValue =
+      form.raum_id && !isNaN(Number(form.raum_id))
+        ? Number(form.raum_id)
+        : form.raum_id;
 
-    if (!raum) return "-";
+    const roomPayload1 = form.raum_id ? { raum_id: roomValue } : {};
+    const roomPayload2 = form.raum_id ? { room_id: roomValue } : {};
 
-    return `${raum.ebene ? raum.ebene + " - " : ""}${raum.raum_name}`;
+    return [
+      {
+        ...base,
+        datum: form.datum,
+        titel: form.titel.trim(),
+        beschreibung: form.beschreibung.trim(),
+        kategorie: form.kategorie,
+        status: form.status,
+        url: uploadData.url,
+        image_url: uploadData.url,
+        storage_bucket: uploadData.bucket,
+        storage_path: uploadData.storage_path,
+        file_name: uploadData.file_name,
+        file_size: uploadData.file_size,
+        mime_type: uploadData.mime_type,
+        ...roomPayload1,
+      },
+      {
+        ...base,
+        date: form.datum,
+        title: form.titel.trim(),
+        description: form.beschreibung.trim(),
+        category: form.kategorie,
+        status: form.status,
+        photo_url: uploadData.url,
+        public_url: uploadData.url,
+        storage_bucket: uploadData.bucket,
+        path: uploadData.storage_path,
+        filename: uploadData.file_name,
+        size: uploadData.file_size,
+        type: uploadData.mime_type,
+        ...roomPayload2,
+      },
+      {
+        ...base,
+        datum: form.datum,
+        name: form.titel.trim() || uploadData.file_name,
+        info: form.beschreibung.trim(),
+        typ: form.kategorie,
+        status: form.status,
+        bild_url: uploadData.url,
+        storage_path: uploadData.storage_path,
+        file_name: uploadData.file_name,
+        ...roomPayload1,
+      },
+      {
+        ...base,
+        datum: form.datum,
+        url: uploadData.url,
+        storage_path: uploadData.storage_path,
+        file_name: uploadData.file_name,
+        ...roomPayload1,
+      },
+      {
+        ...base,
+        image_url: uploadData.url,
+      },
+    ];
   }
 
-  function getPositionText(id: number | string | null) {
-    if (!id) return "-";
-
-    const pos = positionen.find((p) => Number(p.id) === Number(id));
-
-    if (!pos) return "-";
-
-    return `${pos.position_nr} - ${pos.kurztext}`;
+  function buildUpdatePayloads() {
+    return [
+      {
+        datum: form.datum,
+        titel: form.titel.trim(),
+        beschreibung: form.beschreibung.trim(),
+        kategorie: form.kategorie,
+        status: form.status,
+        raum_id: form.raum_id ? Number(form.raum_id) : null,
+      },
+      {
+        date: form.datum,
+        title: form.titel.trim(),
+        description: form.beschreibung.trim(),
+        category: form.kategorie,
+        status: form.status,
+        room_id: form.raum_id ? Number(form.raum_id) : null,
+      },
+      {
+        datum: form.datum,
+        name: form.titel.trim(),
+        info: form.beschreibung.trim(),
+        typ: form.kategorie,
+        status: form.status,
+      },
+      {
+        status: form.status,
+      },
+    ];
   }
 
-  function getSafeFileName(originalName: string) {
-    const ext = originalName.split(".").pop() || "jpg";
-    const cleanExt = ext.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "jpg";
-    const random = Math.random().toString(36).slice(2);
-
-    return `${Date.now()}-${random}.${cleanExt}`;
-  }
-
-  function validateImageFile(selectedFile: File) {
-    if (!selectedFile.type.startsWith("image/")) {
-      alert("Odaberi sliku.");
-      return false;
-    }
-
-    const maxSizeMb = 15;
-    const maxSize = maxSizeMb * 1024 * 1024;
-
-    if (selectedFile.size > maxSize) {
-      alert(`Slika je prevelika. Maksimalno ${maxSizeMb} MB.`);
-      return false;
-    }
-
-    return true;
-  }
-
-  async function uploadFoto() {
-    if (uploadLockRef.current) return;
-
-    if (!editingId && !file) {
-      alert("Odaberi sliku.");
-      return;
-    }
-
-    if (file && !validateImageFile(file)) return;
-
-    if (!datum) {
+  async function saveFotos() {
+    if (!form.datum) {
       alert("Odaberi datum.");
       return;
     }
 
-    if (!titel.trim()) {
-      alert("Unesi naslov slike.");
+    if (!editId && selectedFiles.length === 0) {
+      alert("Odaberi najmanje jednu sliku.");
       return;
     }
 
-    uploadLockRef.current = true;
-    setUploading(true);
-
-    let fotoUrl = "";
-    let storagePath = "";
-    let uploadedNewFile = false;
+    setSaving(true);
 
     try {
-      if (file) {
-        const safeName = getSafeFileName(file.name);
-        storagePath = `${projektId}/${safeName}`;
+      if (editId) {
+        let lastError: any = null;
 
-        const uploadRes = await supabase.storage
-          .from(BUCKET)
-          .upload(storagePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-          });
+        for (const payload of buildUpdatePayloads()) {
+          const { error } = await supabase
+            .from(fotoConfig.table)
+            .update(payload as any)
+            .eq("id", editId);
 
-        if (uploadRes.error) {
-          alert("Greška kod upload slike: " + uploadRes.error.message);
-          uploadLockRef.current = false;
-          setUploading(false);
-          return;
-        }
-
-        uploadedNewFile = true;
-
-        const publicUrlRes = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-        fotoUrl = publicUrlRes.data.publicUrl;
-      }
-
-      const payload: any = {
-        projekt_id: Number(projektId),
-        datum,
-        raum_id: selectedRaumId ? Number(selectedRaumId) : null,
-        lv_position_id: selectedPositionId ? Number(selectedPositionId) : null,
-        titel: titel.trim(),
-        beschreibung: beschreibung.trim() || null,
-        typ,
-        freigabe_status: freigabeStatus,
-      };
-
-      if (file) {
-        payload.foto_url = fotoUrl;
-        payload.storage_path = storagePath;
-      }
-
-      if (editingId) {
-        const oldFoto = fotos.find((f) => Number(f.id) === Number(editingId));
-
-        const { error } = await supabase
-          .from("projekt_fotos")
-          .update(payload)
-          .eq("id", editingId);
-
-        if (error) {
-          if (uploadedNewFile && storagePath) {
-            await supabase.storage.from(BUCKET).remove([storagePath]);
+          if (!error) {
+            resetForm();
+            setShowForm(false);
+            setSaving(false);
+            await loadFotos();
+            return;
           }
 
-          alert("Greška kod izmjene slike: " + error.message);
-          uploadLockRef.current = false;
-          setUploading(false);
-          return;
+          lastError = error;
         }
 
-        if (file && oldFoto?.storage_path && oldFoto.storage_path !== storagePath) {
-          await supabase.storage.from(BUCKET).remove([oldFoto.storage_path]);
+        throw new Error(lastError?.message || "Uređivanje nije uspjelo.");
+      }
+
+      let added = 0;
+      let skipped = 0;
+      let lastError: any = null;
+
+      for (const file of selectedFiles) {
+        if (isDuplicate(file.name, file.size)) {
+          skipped += 1;
+          continue;
         }
-      } else {
-        payload.created_by = workerName;
 
-        const { error } = await supabase.from("projekt_fotos").insert(payload);
+        const uploadData = await uploadFile(file);
 
-        if (error) {
-          if (uploadedNewFile && storagePath) {
-            await supabase.storage.from(BUCKET).remove([storagePath]);
+        for (const payload of buildPayloads(uploadData)) {
+          const { error } = await supabase
+            .from(fotoConfig.table)
+            .insert(payload as any);
+
+          if (!error) {
+            added += 1;
+            lastError = null;
+            break;
           }
 
-          alert("Greška kod dodavanja slike: " + error.message);
-          uploadLockRef.current = false;
-          setUploading(false);
-          return;
+          lastError = error;
         }
       }
 
-      clearForm();
+      resetForm();
       setShowForm(false);
-      await loadData();
-    } finally {
-      uploadLockRef.current = false;
-      setUploading(false);
+      setSaving(false);
+      await loadFotos();
+
+      if (added === 0 && skipped > 0) {
+        alert("Slike već postoje. Dupli unos nije dodan.");
+      }
+
+      if (added === 0 && lastError) {
+        alert("Greška kod spremanja slike: " + lastError.message);
+      }
+    } catch (err: any) {
+      setSaving(false);
+      alert("Greška kod upload slika: " + (err?.message || ""));
     }
   }
 
-  function editFoto(item: any) {
-    setEditingId(item.id);
-    setDatum(item.datum || getTodayLocalDate());
-    setSelectedRaumId(item.raum_id ? String(item.raum_id) : "");
-    setSelectedPositionId(item.lv_position_id ? String(item.lv_position_id) : "");
-    setTyp(item.typ || "Fortschritt");
-    setTitel(item.titel || "");
-    setBeschreibung(item.beschreibung || "");
-    setFreigabeStatus(item.freigabe_status || "Wartet");
-    setFile(null);
-    setFileInputKey(Date.now());
-    setShowForm(true);
+  function startEdit(row: any) {
+    setEditId(row.id);
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setForm({
+      datum: String(getDate(row) || today()),
+      titel: String(getTitle(row) || ""),
+      beschreibung: String(getDescription(row) || ""),
+      kategorie: String(getCategory(row) || "Allgemein"),
+      raum_id: String(getRoomId(row) || ""),
+      status: String(getStatus(row) || "Offen"),
+    });
+
+    setSelectedFiles([]);
+    setShowForm(true);
   }
 
-  async function deleteFoto(item: any) {
-    const ok = confirm("Da li sigurno želiš obrisati ovu sliku?");
+  async function changeStatus(row: any, newStatus: string) {
+    const { error } = await supabase
+      .from(fotoConfig.table)
+      .update({ status: newStatus } as any)
+      .eq("id", row.id);
+
+    if (error) {
+      alert("Greška kod statusa: " + error.message);
+      return;
+    }
+
+    await loadFotos();
+  }
+
+  async function deleteFoto(row: any) {
+    const ok = confirm("Da li želiš obrisati ovu sliku?");
 
     if (!ok) return;
 
-    if (item.storage_path) {
-      await supabase.storage.from(BUCKET).remove([item.storage_path]);
-    }
-
     const { error } = await supabase
-      .from("projekt_fotos")
+      .from(fotoConfig.table)
       .delete()
-      .eq("id", item.id);
+      .eq("id", row.id);
 
     if (error) {
-      alert("Greška kod brisanja slike: " + error.message);
+      alert("Greška kod brisanja: " + error.message);
       return;
     }
 
-    loadData();
-  }
+    const bucket = row.storage_bucket || "";
+    const path = getStoragePath(row);
 
-  async function changeStatus(item: any, newStatus: string) {
-    const { error } = await supabase
-      .from("projekt_fotos")
-      .update({ freigabe_status: newStatus })
-      .eq("id", item.id);
-
-    if (error) {
-      alert("Greška kod promjene statusa: " + error.message);
-      return;
+    if (bucket && path) {
+      await supabase.storage.from(bucket).remove([path]);
     }
 
-    loadData();
-  }
-
-  function getTypeBadgeStyle(typeValue: string) {
-    if (typeValue === "Mangel") return dangerBadgeStyle;
-    if (typeValue === "Nachher") return okBadgeStyle;
-    if (typeValue === "Vorher") return blueBadgeStyle;
-    if (typeValue === "Nachweis") return purpleBadgeStyle;
-
-    return warningBadgeStyle;
-  }
-
-  function getStatusBadgeStyle(statusValue: string) {
-    if (statusValue === "Genehmigt") return okBadgeStyle;
-    if (statusValue === "Abgelehnt") return dangerBadgeStyle;
-
-    return waitBadgeStyle;
-  }
-
-  if (loading) {
-    return (
-      <main style={mainStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
-
-        <h1 style={titleStyle}>📸 Fotos</h1>
-        <p style={loadingStyle}>Wird geladen...</p>
-      </main>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <main style={mainStyle}>
-        <h1 style={titleStyle}>Kein Zugriff</h1>
-      </main>
-    );
+    await loadFotos();
   }
 
   return (
-    <main style={mainStyle}>
-      <div style={topBarStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
+    <main className="page">
+      <section className="top">
+        <div>
+          <Link className="back" href={`/projekte/${projektId}`}>
+            ← Zurück zu Projekt
+          </Link>
 
-        <div style={topButtonWrapStyle}>
-          <button onClick={loadData} style={refreshButtonStyle}>
+          <p className="label">Projekt Fotos</p>
+          <h1>Fotos</h1>
+          <p className="subtitle">
+            {getProjektName()}
+            {getProjektOrt() ? ` · ${getProjektOrt()}` : ""}
+          </p>
+        </div>
+
+        <div className="topButtons">
+          <button className="btn gray" onClick={loadAll}>
             Aktualisieren
           </button>
 
           <button
+            className="btn blue"
             onClick={() => {
-              clearForm();
-              setShowForm(!showForm);
+              resetForm();
+              setShowForm(true);
             }}
-            disabled={uploading}
-            style={newButtonStyle}
           >
-            {showForm ? "Schließen" : "+ Foto"}
-          </button>
-        </div>
-      </div>
-
-      <h1 style={titleStyle}>📸 Fotos / Dokumentation</h1>
-
-      <p style={descriptionStyle}>
-        Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
-        <strong>{workerName}</strong>
-      </p>
-
-      <section style={summaryGridStyle}>
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Alle Fotos</span>
-          <strong style={summaryValueStyle}>{summary.total}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Wartet</span>
-          <strong style={{ ...summaryValueStyle, color: "#facc15" }}>
-            {summary.wartet}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Genehmigt</span>
-          <strong style={{ ...summaryValueStyle, color: "#22c55e" }}>
-            {summary.genehmigt}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Abgelehnt</span>
-          <strong style={{ ...summaryValueStyle, color: "#ef4444" }}>
-            {summary.abgelehnt}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Fortschritt</span>
-          <strong style={summaryValueStyle}>{summary.fortschritt}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Mangel</span>
-          <strong style={summaryValueStyle}>{summary.mangel}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Vorher / Nachher</span>
-          <strong style={summaryValueStyle}>
-            {summary.vorher + summary.nachher}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Nachweis</span>
-          <strong style={summaryValueStyle}>{summary.nachweis}</strong>
-        </div>
-      </section>
-
-      <section style={filterBoxStyle}>
-        <div style={filterGridStyle}>
-          <div>
-            <label style={labelStyle}>Typ Filter</label>
-            <select
-              value={filterTyp}
-              onChange={(e) => setFilterTyp(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="Alle">Alle</option>
-              <option value="Fortschritt">Fortschritt</option>
-              <option value="Mangel">Mangel</option>
-              <option value="Nachweis">Nachweis</option>
-              <option value="Vorher">Vorher</option>
-              <option value="Nachher">Nachher</option>
-              <option value="Sonstiges">Sonstiges</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Status Filter</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="Alle">Alle</option>
-              <option value="Wartet">Wartet</option>
-              <option value="Genehmigt">Genehmigt</option>
-              <option value="Abgelehnt">Abgelehnt</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Datum Filter</label>
-            <input
-              type="date"
-              value={filterDatum}
-              onChange={(e) => setFilterDatum(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-
-          <button
-            onClick={() => {
-              setFilterTyp("Alle");
-              setFilterStatus("Alle");
-              setFilterDatum("");
-            }}
-            style={grayButtonStyle}
-          >
-            Filter löschen
+            + Fotos hinzufügen
           </button>
         </div>
       </section>
 
-      <section style={infoBoxStyle}>
-        <h2 style={sectionTitleStyle}>Foto Regel</h2>
-        <p style={infoTextStyle}>
-          Svaka slika može biti povezana sa prostorijom i LV pozicijom. Za
-          nedostatke koristi tip <strong>Mangel</strong>, za dokaz koristi{" "}
-          <strong>Nachweis</strong>, a za dokumentaciju napretka koristi{" "}
-          <strong>Fortschritt</strong>.
-        </p>
+      {errorText && <div className="errorBox">{errorText}</div>}
+
+      <section className="stats">
+        <div className="stat">
+          <span>Ukupno Fotos</span>
+          <strong>{filteredFotos.length}</strong>
+        </div>
+
+        <div className="stat">
+          <span>Räume mit Fotos</span>
+          <strong>
+            {
+              new Set(
+                filteredFotos
+                  .map((row) => String(getRoomId(row)))
+                  .filter((x) => x !== "")
+              ).size
+            }
+          </strong>
+        </div>
+
+        <div className="stat">
+          <span>Mängel</span>
+          <strong>
+            {
+              filteredFotos.filter(
+                (row) => String(getCategory(row)).toLowerCase() === "mangel"
+              ).length
+            }
+          </strong>
+        </div>
       </section>
 
-      {showForm && (
-        <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>
-            {editingId ? "Foto bearbeiten" : "Foto hochladen"}
-          </h2>
+      <section className="toolbar">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Traži slike, opis, Raum, kategoriju..."
+        />
 
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Datum *</label>
-              <input
-                type="date"
-                value={datum}
-                onChange={(e) => setDatum(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
+        <select
+          value={filterKategorie}
+          onChange={(e) => setFilterKategorie(e.target.value)}
+        >
+          <option value="Alle">Alle Kategorien</option>
+          {KATEGORIEN.map((k) => (
+            <option key={k} value={k}>
+              {k}
+            </option>
+          ))}
+        </select>
 
-            <div>
-              <label style={labelStyle}>Typ</label>
-              <select
-                value={typ}
-                onChange={(e) => setTyp(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="Fortschritt">Fortschritt</option>
-                <option value="Mangel">Mangel</option>
-                <option value="Nachweis">Nachweis</option>
-                <option value="Vorher">Vorher</option>
-                <option value="Nachher">Nachher</option>
-                <option value="Sonstiges">Sonstiges</option>
-              </select>
-            </div>
+        <select value={filterRaum} onChange={(e) => setFilterRaum(e.target.value)}>
+          <option value="">Alle Räume</option>
+          {raeume.map((room) => (
+            <option key={room.id} value={room.id}>
+              {getRoomName(room)}
+            </option>
+          ))}
+        </select>
+      </section>
 
-            <div>
-              <label style={labelStyle}>Status</label>
-              <select
-                value={freigabeStatus}
-                onChange={(e) => setFreigabeStatus(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="Wartet">Wartet</option>
-                <option value="Genehmigt">Genehmigt</option>
-                <option value="Abgelehnt">Abgelehnt</option>
-              </select>
-            </div>
-          </div>
+      {loading ? (
+        <div className="emptyBox">Učitavanje Fotos...</div>
+      ) : filteredFotos.length === 0 ? (
+        <div className="emptyBox">
+          <h2>Nema slika</h2>
+          <p>Dodaj prve slike za ovaj projekt.</p>
+        </div>
+      ) : (
+        <section className="grid">
+          {filteredFotos.map((row) => {
+            const imageUrl = getImageUrl(row);
 
-          <label style={labelStyle}>Titel *</label>
-          <input
-            value={titel}
-            onChange={(e) => setTitel(e.target.value)}
-            placeholder="z.B. Bad EG Abdichtung fertig"
-            style={inputStyle}
-          />
+            return (
+              <article key={row.id} className="card">
+                <div className="imageBox">
+                  {imageUrl ? (
+                    <img src={imageUrl} alt={getTitle(row) || "Foto"} />
+                  ) : (
+                    <div className="noImage">Keine Bild URL</div>
+                  )}
+                </div>
 
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Raum</label>
-              <select
-                value={selectedRaumId}
-                onChange={(e) => setSelectedRaumId(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">Ohne Raum</option>
-                {raeume.map((raum) => (
-                  <option key={raum.id} value={raum.id}>
-                    {raum.ebene ? `${raum.ebene} - ` : ""}
-                    {raum.raum_name}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <div className="cardBody">
+                  <div className="cardTop">
+                    <div>
+                      <h2>{getTitle(row) || getFileName(row) || "Foto"}</h2>
+                      <p>
+                        {getDate(row) || "-"}
+                        {findRoomName(getRoomId(row))
+                          ? ` · ${findRoomName(getRoomId(row))}`
+                          : ""}
+                      </p>
+                    </div>
 
-            <div>
-              <label style={labelStyle}>LV Position</label>
-              <select
-                value={selectedPositionId}
-                onChange={(e) => setSelectedPositionId(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">Ohne LV Position</option>
-                {positionen.map((pos) => (
-                  <option key={pos.id} value={pos.id}>
-                    {pos.position_nr} - {pos.kurztext}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+                    <span
+                      className={
+                        String(getStatus(row)).toLowerCase() === "fertig"
+                          ? "badge done"
+                          : "badge"
+                      }
+                    >
+                      {getStatus(row)}
+                    </span>
+                  </div>
 
-          <label style={labelStyle}>Beschreibung</label>
-          <textarea
-            value={beschreibung}
-            onChange={(e) => setBeschreibung(e.target.value)}
-            placeholder="Opis slike"
-            style={textareaStyle}
-          />
+                  <div className="meta">
+                    <span>{getCategory(row)}</span>
+                  </div>
 
-          <label style={labelStyle}>
-            Foto {editingId ? "(leer lassen wenn Bild gleich bleibt)" : "*"}
-          </label>
-          <input
-            key={fileInputKey}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            disabled={uploading}
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            style={fileInputStyle}
-          />
+                  {getDescription(row) && (
+                    <p className="description">{getDescription(row)}</p>
+                  )}
 
-          {file && (
-            <p style={selectedFileStyle}>
-              Odabrano: <strong>{file.name}</strong>
-            </p>
-          )}
+                  <div className="actions">
+                    {imageUrl && (
+                      <a href={imageUrl} target="_blank" rel="noreferrer">
+                        Öffnen
+                      </a>
+                    )}
 
-          <div style={formButtonRowStyle}>
-            <button
-              onClick={uploadFoto}
-              disabled={uploading}
-              style={{
-                ...saveButtonStyle,
-                opacity: uploading ? 0.5 : 1,
-                cursor: uploading ? "not-allowed" : "pointer",
-              }}
-            >
-              {uploading
-                ? "Speichern..."
-                : editingId
-                ? "Änderungen speichern"
-                : "Foto speichern"}
-            </button>
-
-            <button
-              onClick={() => {
-                clearForm();
-                setShowForm(false);
-              }}
-              disabled={uploading}
-              style={cancelButtonStyle}
-            >
-              Abbrechen
-            </button>
-          </div>
+                    <button onClick={() => startEdit(row)}>Bearbeiten</button>
+                    <button onClick={() => changeStatus(row, "Fertig")}>
+                      Fertig
+                    </button>
+                    <button className="delete" onClick={() => deleteFoto(row)}>
+                      Löschen
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
         </section>
       )}
 
-      <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Foto Galerie</h2>
+      {showForm && (
+        <div className="modalBg">
+          <div className="modal">
+            <div className="modalHead">
+              <h2>{editId ? "Foto bearbeiten" : "Fotos hinzufügen"}</h2>
 
-        {filteredFotos.length === 0 ? (
-          <p style={emptyStyle}>Keine Fotos gefunden.</p>
-        ) : (
-          <div style={photoGridStyle}>
-            {filteredFotos.map((foto) => {
-              const statusValue = foto.freigabe_status || "Wartet";
+              <button
+                onClick={() => {
+                  resetForm();
+                  setShowForm(false);
+                }}
+              >
+                ×
+              </button>
+            </div>
 
-              return (
-                <div key={foto.id} style={photoCardStyle}>
-                  <a href={foto.foto_url} target="_blank" rel="noopener noreferrer">
-                    <img
-                      src={foto.foto_url}
-                      alt={foto.titel || "Foto"}
-                      style={photoStyle}
-                    />
-                  </a>
+            <label>Datum</label>
+            <input
+              type="date"
+              value={form.datum}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, datum: e.target.value }))
+              }
+            />
 
-                  <div style={photoBodyStyle}>
-                    <div style={photoTopRowStyle}>
-                      <span style={getTypeBadgeStyle(foto.typ || "Fortschritt")}>
-                        {foto.typ || "Fortschritt"}
-                      </span>
+            {!editId && (
+              <>
+                <label>Fotos auswählen</label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  capture="environment"
+                  onChange={(e) => onFilesSelected(e.target.files)}
+                />
 
-                      <span style={getStatusBadgeStyle(statusValue)}>
-                        {statusValue}
-                      </span>
-                    </div>
+                {selectedFiles.length > 0 && (
+                  <div className="selectedFiles">
+                    {selectedFiles.map((file, index) => (
+                      <div key={`${file.name}-${file.size}-${index}`}>
+                        <span>
+                          {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </span>
 
-                    <h3 style={photoTitleStyle}>{foto.titel || "-"}</h3>
-
-                    <p style={photoMetaStyle}>
-                      Datum: <strong>{formatDate(foto.datum)}</strong>
-                    </p>
-
-                    <p style={photoMetaStyle}>
-                      Raum: <strong>{getRaumName(foto.raum_id)}</strong>
-                    </p>
-
-                    <p style={photoMetaStyle}>
-                      LV: <strong>{getPositionText(foto.lv_position_id)}</strong>
-                    </p>
-
-                    <p style={photoMetaStyle}>
-                      Erstellt von: <strong>{foto.created_by || "-"}</strong>
-                    </p>
-
-                    {isAdmin && (
-                      <p style={photoMetaStyle}>
-                        Zeit der Eingabe:{" "}
-                        <strong>{formatDateTime(foto.created_at)}</strong>
-                      </p>
-                    )}
-
-                    {foto.beschreibung && (
-                      <p style={photoDescriptionStyle}>{foto.beschreibung}</p>
-                    )}
-
-                    <div style={quickStatusGridStyle}>
-                      <button
-                        onClick={() => changeStatus(foto, "Genehmigt")}
-                        style={approveButtonStyle}
-                      >
-                        Genehmigen
-                      </button>
-
-                      <button
-                        onClick={() => changeStatus(foto, "Abgelehnt")}
-                        style={rejectButtonStyle}
-                      >
-                        Ablehnen
-                      </button>
-
-                      <button
-                        onClick={() => changeStatus(foto, "Wartet")}
-                        style={waitButtonStyle}
-                      >
-                        Wartet
-                      </button>
-                    </div>
-
-                    <div style={actionRowStyle}>
-                      <button onClick={() => editFoto(foto)} style={editButtonStyle}>
-                        Bearbeiten
-                      </button>
-
-                      <button
-                        onClick={() => deleteFoto(foto)}
-                        style={deleteButtonStyle}
-                      >
-                        Löschen
-                      </button>
-                    </div>
+                        <button onClick={() => removeSelectedFile(index)}>
+                          Entfernen
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              );
-            })}
+                )}
+              </>
+            )}
+
+            <label>Titel</label>
+            <input
+              value={form.titel}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, titel: e.target.value }))
+              }
+              placeholder="z.B. Bad EG Abdichtung"
+            />
+
+            <label>Kategorie</label>
+            <select
+              value={form.kategorie}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, kategorie: e.target.value }))
+              }
+            >
+              {KATEGORIEN.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+
+            <label>Raum / prostorija</label>
+            <select
+              value={form.raum_id}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, raum_id: e.target.value }))
+              }
+            >
+              <option value="">Ohne Raum</option>
+              {raeume.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {getRoomName(room)}
+                </option>
+              ))}
+            </select>
+
+            <label>Beschreibung / Notiz</label>
+            <textarea
+              value={form.beschreibung}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, beschreibung: e.target.value }))
+              }
+              placeholder="Opis slike ili napomena"
+            />
+
+            <label>Status</label>
+            <select
+              value={form.status}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, status: e.target.value }))
+              }
+            >
+              <option value="Offen">Offen</option>
+              <option value="Fertig">Fertig</option>
+            </select>
+
+            <div className="modalActions">
+              <button
+                className="cancel"
+                onClick={() => {
+                  resetForm();
+                  setShowForm(false);
+                }}
+              >
+                Abbrechen
+              </button>
+
+              <button className="save" onClick={saveFotos} disabled={saving}>
+                {saving ? "Speichern..." : "Speichern"}
+              </button>
+            </div>
           </div>
-        )}
-      </section>
+        </div>
+      )}
+
+      <style>{`
+        .page {
+          min-height: 100vh;
+          background: #050505;
+          color: white;
+          padding: 28px;
+          font-family: Arial, sans-serif;
+        }
+
+        .top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 20px;
+          margin-bottom: 22px;
+        }
+
+        .back {
+          display: inline-block;
+          color: white;
+          text-decoration: none;
+          background: #1f2937;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 11px 15px;
+          font-weight: 800;
+          margin-bottom: 18px;
+        }
+
+        .label {
+          color: #9ca3af;
+          margin: 0 0 8px;
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+        h1 {
+          margin: 0;
+          font-size: 44px;
+          line-height: 1;
+        }
+
+        .subtitle {
+          color: #cbd5e1;
+          margin: 12px 0 0;
+          font-size: 17px;
+          font-weight: 700;
+        }
+
+        .topButtons {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        button,
+        a,
+        input,
+        textarea,
+        select {
+          font-family: inherit;
+        }
+
+        button,
+        a {
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-size: 15px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .gray {
+          background: #374151;
+        }
+
+        .blue {
+          background: #2563eb;
+        }
+
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .stat {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+        }
+
+        .stat span {
+          display: block;
+          color: #9ca3af;
+          margin-bottom: 8px;
+          font-weight: 800;
+        }
+
+        .stat strong {
+          font-size: 34px;
+        }
+
+        .toolbar {
+          display: grid;
+          grid-template-columns: 1fr 210px 210px;
+          gap: 10px;
+          margin-bottom: 18px;
+        }
+
+        .toolbar input,
+        .toolbar select {
+          background: #111827;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 15px 16px;
+          font-size: 16px;
+          outline: none;
+        }
+
+        .errorBox {
+          background: #7f1d1d;
+          border: 1px solid #ef4444;
+          color: white;
+          padding: 16px;
+          border-radius: 14px;
+          margin-bottom: 18px;
+          font-weight: 800;
+        }
+
+        .emptyBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 30px;
+          text-align: center;
+          color: #cbd5e1;
+        }
+
+        .emptyBox h2 {
+          color: white;
+          margin-top: 0;
+        }
+
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          gap: 18px;
+        }
+
+        .card {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 22px;
+          overflow: hidden;
+        }
+
+        .imageBox {
+          background: #030712;
+          height: 250px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .imageBox img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .noImage {
+          color: #9ca3af;
+          font-weight: 800;
+        }
+
+        .cardBody {
+          padding: 18px;
+        }
+
+        .cardTop {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+
+        .card h2 {
+          margin: 0;
+          font-size: 22px;
+        }
+
+        .card p {
+          margin: 8px 0 0;
+          color: #cbd5e1;
+          line-height: 1.45;
+        }
+
+        .badge {
+          background: #064e3b;
+          color: #bbf7d0;
+          border: 1px solid #16a34a;
+          border-radius: 999px;
+          padding: 8px 12px;
+          font-size: 13px;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+
+        .badge.done {
+          background: #374151;
+          color: #e5e7eb;
+          border-color: #6b7280;
+        }
+
+        .meta {
+          margin-bottom: 12px;
+        }
+
+        .meta span {
+          display: inline-block;
+          background: #0b1220;
+          border: 1px solid #374151;
+          color: #d1d5db;
+          border-radius: 999px;
+          padding: 7px 11px;
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .description {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 12px;
+          white-space: pre-wrap;
+          margin-bottom: 12px !important;
+        }
+
+        .actions {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+          padding-top: 14px;
+          border-top: 1px solid #1f2937;
+        }
+
+        .actions button,
+        .actions a {
+          background: #374151;
+          color: white;
+          border: 0;
+          border-radius: 12px;
+          padding: 12px 8px;
+          font-weight: 900;
+          cursor: pointer;
+          text-decoration: none;
+          text-align: center;
+          font-size: 14px;
+        }
+
+        .actions .delete {
+          background: #dc2626;
+        }
+
+        .modalBg {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.78);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 16px;
+          z-index: 100;
+        }
+
+        .modal {
+          width: 100%;
+          max-width: 680px;
+          max-height: 92vh;
+          overflow: auto;
+          background: #111827;
+          border: 1px solid #374151;
+          border-radius: 22px;
+          padding: 22px;
+        }
+
+        .modalHead {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 18px;
+        }
+
+        .modalHead h2 {
+          margin: 0;
+          font-size: 28px;
+        }
+
+        .modalHead button {
+          width: 42px;
+          height: 42px;
+          border: 0;
+          border-radius: 12px;
+          background: #374151;
+          color: white;
+          font-size: 28px;
+          cursor: pointer;
+        }
+
+        label {
+          display: block;
+          color: #d1d5db;
+          font-weight: 800;
+          margin: 14px 0 7px;
+        }
+
+        .modal input,
+        .modal textarea,
+        .modal select {
+          width: 100%;
+          box-sizing: border-box;
+          background: #030712;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 14px;
+          font-size: 16px;
+          outline: none;
+        }
+
+        .modal textarea {
+          min-height: 95px;
+          resize: vertical;
+        }
+
+        .selectedFiles {
+          margin-top: 12px;
+          display: grid;
+          gap: 8px;
+        }
+
+        .selectedFiles div {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 12px;
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+          align-items: center;
+        }
+
+        .selectedFiles span {
+          color: #d1d5db;
+          font-size: 14px;
+          word-break: break-word;
+        }
+
+        .selectedFiles button {
+          background: #dc2626;
+          color: white;
+          border: 0;
+          border-radius: 12px;
+          padding: 10px 12px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .modalActions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 20px;
+        }
+
+        .modalActions button {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .cancel {
+          background: #374151;
+        }
+
+        .save {
+          background: #2563eb;
+        }
+
+        .save:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 900px) {
+          .toolbar {
+            grid-template-columns: 1fr;
+          }
+
+          .actions {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .page {
+            padding: 16px;
+          }
+
+          .top {
+            display: block;
+          }
+
+          h1 {
+            font-size: 36px;
+          }
+
+          .topButtons {
+            display: grid;
+            grid-template-columns: 1fr;
+            margin-top: 16px;
+          }
+
+          .stats,
+          .grid {
+            grid-template-columns: 1fr;
+          }
+
+          .imageBox {
+            height: 220px;
+          }
+
+          .actions {
+            grid-template-columns: 1fr;
+          }
+
+          .selectedFiles div {
+            display: grid;
+          }
+        }
+      `}</style>
     </main>
   );
 }
-
-const mainStyle: any = {
-  background: "#000",
-  minHeight: "100vh",
-  color: "white",
-  padding: "20px",
-};
-
-const topBarStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "12px",
-  marginBottom: "20px",
-  flexWrap: "wrap",
-};
-
-const topButtonWrapStyle: any = {
-  display: "flex",
-  gap: "10px",
-  flexWrap: "wrap",
-};
-
-const backStyle: any = {
-  color: "#3b82f6",
-  textDecoration: "none",
-  fontWeight: "bold",
-  fontSize: "16px",
-};
-
-const titleStyle: any = {
-  fontSize: "38px",
-  color: "#f97316",
-  margin: "0 0 10px 0",
-};
-
-const descriptionStyle: any = {
-  color: "#bbb",
-  fontSize: "16px",
-  marginBottom: "18px",
-};
-
-const loadingStyle: any = {
-  color: "#aaa",
-  fontSize: "18px",
-};
-
-const refreshButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const newButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const summaryGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))",
-  gap: "12px",
-  marginBottom: "20px",
-};
-
-const summaryCardStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "14px",
-};
-
-const summaryLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "13px",
-  marginBottom: "6px",
-};
-
-const summaryValueStyle: any = {
-  color: "#f97316",
-  fontSize: "22px",
-};
-
-const filterBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const filterGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "12px",
-  alignItems: "end",
-};
-
-const infoBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const infoTextStyle: any = {
-  color: "#ccc",
-  margin: 0,
-  lineHeight: "1.5",
-};
-
-const formBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const formTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const sectionTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const formGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "12px",
-};
-
-const labelStyle: any = {
-  display: "block",
-  color: "#ddd",
-  fontWeight: "bold",
-  marginBottom: "6px",
-  marginTop: "12px",
-};
-
-const inputStyle: any = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "10px",
-  border: "1px solid #333",
-  background: "#000",
-  color: "white",
-  fontSize: "15px",
-  boxSizing: "border-box",
-};
-
-const textareaStyle: any = {
-  ...inputStyle,
-  minHeight: "95px",
-  resize: "vertical",
-};
-
-const fileInputStyle: any = {
-  width: "100%",
-  padding: "14px",
-  borderRadius: "12px",
-  border: "1px solid #333",
-  background: "#000",
-  color: "white",
-  boxSizing: "border-box",
-  fontSize: "15px",
-};
-
-const selectedFileStyle: any = {
-  color: "#bbb",
-  fontSize: "13px",
-  margin: "8px 0 0 0",
-};
-
-const formButtonRowStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "12px",
-  marginTop: "18px",
-};
-
-const saveButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const cancelButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const grayButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const listBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const emptyStyle: any = {
-  color: "#aaa",
-  fontSize: "16px",
-};
-
-const photoGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-  gap: "16px",
-};
-
-const photoCardStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  overflow: "hidden",
-};
-
-const photoStyle: any = {
-  width: "100%",
-  height: "220px",
-  objectFit: "cover",
-  display: "block",
-  background: "#111",
-};
-
-const photoBodyStyle: any = {
-  padding: "14px",
-};
-
-const photoTopRowStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "10px",
-  marginBottom: "10px",
-  flexWrap: "wrap",
-};
-
-const photoTitleStyle: any = {
-  color: "#f97316",
-  margin: "0 0 10px 0",
-  fontSize: "18px",
-};
-
-const photoMetaStyle: any = {
-  color: "#ccc",
-  fontSize: "13px",
-  margin: "5px 0",
-};
-
-const photoDescriptionStyle: any = {
-  color: "#aaa",
-  fontSize: "13px",
-  lineHeight: "1.4",
-  marginTop: "10px",
-};
-
-const quickStatusGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr 1fr",
-  gap: "8px",
-  marginTop: "12px",
-};
-
-const actionRowStyle: any = {
-  display: "flex",
-  gap: "8px",
-  flexWrap: "wrap",
-  marginTop: "12px",
-};
-
-const editButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "8px 10px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const deleteButtonStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "8px 10px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const approveButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "8px",
-  fontWeight: "bold",
-  cursor: "pointer",
-  fontSize: "12px",
-};
-
-const rejectButtonStyle: any = {
-  ...approveButtonStyle,
-  background: "#7f1d1d",
-};
-
-const waitButtonStyle: any = {
-  ...approveButtonStyle,
-  background: "#ca8a04",
-};
-
-const okBadgeStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const warningBadgeStyle: any = {
-  background: "#ca8a04",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const waitBadgeStyle: any = {
-  background: "#ca8a04",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const dangerBadgeStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const blueBadgeStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const purpleBadgeStyle: any = {
-  background: "#7c3aed",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
