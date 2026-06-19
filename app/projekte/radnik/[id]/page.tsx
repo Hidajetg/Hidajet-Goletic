@@ -2,2292 +2,1221 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-const BUCKET = "projekt-fotos";
-
-const translations: any = {
-  de: {
-    back: "← Zurück zu Projekte",
-    project: "Projekt",
-    worker: "Mitarbeiter",
-    date: "Datum",
-    load: "Laden",
-    loading: "Wird geladen...",
-
-    normalHours: "Normal h",
-    regieHours: "Regie h",
-    waiting: "Wartet",
-    approved: "Genehmigt",
-    rejected: "Abgelehnt",
-
-    workTime: "Arbeitszeit",
-    performance: "Leistung",
-    regie: "Regie",
-    task: "Aufgabe",
-    photo: "Foto",
-
-    saveWorkTime: "Arbeitszeit speichern",
-    savePerformance: "Leistung speichern",
-    saveRegie: "Regie speichern",
-    saveTask: "Aufgabe speichern",
-    savePhoto: "Foto speichern",
-
-    workTimeTitle: "Arbeitszeit eintragen",
-    performanceTitle: "Leistung eintragen",
-    regieTitle: "Regie melden",
-    taskTitle: "Aufgabe / Mangel melden",
-    photoTitle: "Foto hochladen",
-
-    start: "Start",
-    end: "Ende",
-    pause: "Pause Minuten",
-    room: "Raum",
-    chooseRoom: "Raum wählen",
-    lvPosition: "LV Position",
-    withoutLv: "Ohne LV Position",
-    chooseLv: "LV Position wählen",
-    workType: "Arbeitsart",
-    note: "Notiz",
-    amount: "Menge",
-    description: "Beschreibung",
-    type: "Typ",
-    priority: "Priorität",
-    dueUntil: "Fällig bis",
-    title: "Titel",
-    file: "Foto",
-    withoutRoom: "Ohne Raum",
-
-    regiePhotos: "Regie Fotos",
-    regiePhotosHint:
-      "Hier Fotos als Nachweis für Regie-Arbeit hinzufügen. Mehrere Fotos sind möglich.",
-    selectedPhotos: "Ausgewählte Fotos",
-    photosOptional: "Fotos optional, aber bei Regie empfohlen.",
-
-    performanceHint:
-      "Wichtig: Leistung nur einmal pro Raum / LV Position eintragen, nicht jeder Mitarbeiter separat.",
-
-    myEntries: "Meine Einträge am",
-    noWorkTime: "Keine Arbeitszeit vorhanden.",
-    noPerformance: "Keine Leistung vorhanden.",
-    noRegie: "Keine Regie vorhanden.",
-    noPhotos: "Keine Fotos vorhanden.",
-    noTasks: "Keine Aufgaben vorhanden.",
-    adminNote: "Admin Notiz",
-    entryTime: "Eingetragen am",
-    deletePhoto: "Foto löschen",
-
-    fortschritt: "Fortschritt",
-    mangel: "Mangel",
-    vorher: "Vorher",
-    nachher: "Nachher",
-    sonstiges: "Sonstiges",
-    aufgabe: "Aufgabe",
-    info: "Info",
-
-    niedrig: "Niedrig",
-    normal: "Normal",
-    hoch: "Hoch",
-    dringend: "Dringend",
-
-    leistung: "Leistung",
-    vorbereitung: "Vorbereitung",
-    material: "Material",
-    reinigung: "Reinigung",
-
-    alertDateTime: "Datum, Start und Ende eingeben.",
-    alertRoom: "Raum auswählen.",
-    alertHours: "Stunden müssen größer als 0 sein.",
-    alertLv: "Datum, Raum und LV Position auswählen.",
-    alertAmount: "Menge muss größer als 0 sein.",
-    alertRegieDescription: "Beschreibung für Regie eingeben.",
-    alertTitle: "Titel eingeben.",
-    alertDate: "Datum auswählen.",
-    alertPhotoTitle: "Titel für Foto eingeben.",
-    alertPhotoFile: "Foto auswählen.",
-    confirmDeletePhoto: "Foto wirklich löschen?",
-  },
-  ba: {
-    back: "← Nazad na projekte",
-    project: "Projekt",
-    worker: "Radnik",
-    date: "Datum",
-    load: "Učitaj",
-    loading: "Učitava se...",
-
-    normalHours: "Normal h",
-    regieHours: "Regie h",
-    waiting: "Čeka",
-    approved: "Potvrđeno",
-    rejected: "Odbijeno",
-
-    workTime: "Radno vrijeme",
-    performance: "Učinak",
-    regie: "Regie",
-    task: "Zadatak",
-    photo: "Slika",
-
-    saveWorkTime: "Sačuvaj radno vrijeme",
-    savePerformance: "Sačuvaj učinak",
-    saveRegie: "Sačuvaj Regie",
-    saveTask: "Sačuvaj zadatak",
-    savePhoto: "Sačuvaj sliku",
-
-    workTimeTitle: "Unesi radno vrijeme",
-    performanceTitle: "Unesi učinak",
-    regieTitle: "Prijavi Regie",
-    taskTitle: "Prijavi zadatak / Mangel",
-    photoTitle: "Dodaj sliku",
-
-    start: "Početak",
-    end: "Kraj",
-    pause: "Pauza minute",
-    room: "Prostorija",
-    chooseRoom: "Odaberi prostoriju",
-    lvPosition: "LV pozicija",
-    withoutLv: "Bez LV pozicije",
-    chooseLv: "Odaberi LV poziciju",
-    workType: "Vrsta rada",
-    note: "Napomena",
-    amount: "Količina",
-    description: "Opis",
-    type: "Tip",
-    priority: "Prioritet",
-    dueUntil: "Rok do",
-    title: "Naslov",
-    file: "Slika",
-    withoutRoom: "Bez prostorije",
-
-    regiePhotos: "Regie slike",
-    regiePhotosHint:
-      "Ovdje dodaj slike kao dokaz za Regie rad. Možeš dodati više slika.",
-    selectedPhotos: "Odabrane slike",
-    photosOptional: "Slike nisu obavezne, ali su za Regie preporučene.",
-
-    performanceHint:
-      "Važno: učinak se unosi samo jednom po prostoriji / LV poziciji, ne svaki radnik posebno.",
-
-    myEntries: "Moji unosi za",
-    noWorkTime: "Nema radnog vremena.",
-    noPerformance: "Nema učinka.",
-    noRegie: "Nema Regie unosa.",
-    noPhotos: "Nema slika.",
-    noTasks: "Nema zadataka.",
-    adminNote: "Admin napomena",
-    entryTime: "Vrijeme unosa",
-    deletePhoto: "Obriši sliku",
-
-    fortschritt: "Napredak",
-    mangel: "Mangel",
-    vorher: "Prije",
-    nachher: "Poslije",
-    sonstiges: "Ostalo",
-    aufgabe: "Zadatak",
-    info: "Info",
-
-    niedrig: "Nisko",
-    normal: "Normalno",
-    hoch: "Visoko",
-    dringend: "Hitno",
-
-    leistung: "Učinak",
-    vorbereitung: "Priprema",
-    material: "Materijal",
-    reinigung: "Čišćenje",
-
-    alertDateTime: "Unesi datum, početak i kraj.",
-    alertRoom: "Odaberi prostoriju.",
-    alertHours: "Sati moraju biti veći od 0.",
-    alertLv: "Odaberi datum, prostoriju i LV poziciju.",
-    alertAmount: "Količina mora biti veća od 0.",
-    alertRegieDescription: "Unesi opis Regie rada.",
-    alertTitle: "Unesi naslov.",
-    alertDate: "Odaberi datum.",
-    alertPhotoTitle: "Unesi naslov slike.",
-    alertPhotoFile: "Odaberi sliku.",
-    confirmDeletePhoto: "Da li sigurno želiš obrisati sliku?",
-  },
-  uz: {
-    back: "← Loyihalarga qaytish",
-    project: "Loyiha",
-    worker: "Ishchi",
-    date: "Sana",
-    load: "Yuklash",
-    loading: "Yuklanmoqda...",
-
-    normalHours: "Oddiy soat",
-    regieHours: "Regie soat",
-    waiting: "Kutilmoqda",
-    approved: "Tasdiqlandi",
-    rejected: "Rad etildi",
-
-    workTime: "Ish vaqti",
-    performance: "Ish hajmi",
-    regie: "Regie",
-    task: "Vazifa",
-    photo: "Rasm",
-
-    saveWorkTime: "Ish vaqtini saqlash",
-    savePerformance: "Ish hajmini saqlash",
-    saveRegie: "Regie saqlash",
-    saveTask: "Vazifani saqlash",
-    savePhoto: "Rasmni saqlash",
-
-    workTimeTitle: "Ish vaqtini kiritish",
-    performanceTitle: "Ish hajmini kiritish",
-    regieTitle: "Regie yuborish",
-    taskTitle: "Vazifa / Mangel yuborish",
-    photoTitle: "Rasm yuklash",
-
-    start: "Boshlanish",
-    end: "Tugash",
-    pause: "Tanaffus minut",
-    room: "Xona",
-    chooseRoom: "Xonani tanlang",
-    lvPosition: "LV pozitsiya",
-    withoutLv: "LV pozitsiyasiz",
-    chooseLv: "LV pozitsiyani tanlang",
-    workType: "Ish turi",
-    note: "Eslatma",
-    amount: "Miqdor",
-    description: "Tavsif",
-    type: "Tur",
-    priority: "Muhimlik",
-    dueUntil: "Muddat",
-    title: "Sarlavha",
-    file: "Rasm",
-    withoutRoom: "Xonasiz",
-
-    regiePhotos: "Regie rasmlar",
-    regiePhotosHint:
-      "Regie ishiga dalil sifatida rasm qo‘shing. Bir nechta rasm qo‘shish mumkin.",
-    selectedPhotos: "Tanlangan rasmlar",
-    photosOptional: "Rasm majburiy emas, lekin Regie uchun tavsiya etiladi.",
-
-    performanceHint:
-      "Muhim: ish hajmi xona / LV pozitsiya bo‘yicha faqat bir marta kiritiladi, har bir ishchi alohida emas.",
-
-    myEntries: "Mening yozuvlarim",
-    noWorkTime: "Ish vaqti yo‘q.",
-    noPerformance: "Ish hajmi yo‘q.",
-    noRegie: "Regie yo‘q.",
-    noPhotos: "Rasm yo‘q.",
-    noTasks: "Vazifa yo‘q.",
-    adminNote: "Admin eslatmasi",
-    entryTime: "Kiritilgan vaqt",
-    deletePhoto: "Rasmni o‘chirish",
-
-    fortschritt: "Jarayon",
-    mangel: "Kamchilik",
-    vorher: "Oldin",
-    nachher: "Keyin",
-    sonstiges: "Boshqa",
-    aufgabe: "Vazifa",
-    info: "Info",
-
-    niedrig: "Past",
-    normal: "Normal",
-    hoch: "Yuqori",
-    dringend: "Shoshilinch",
-
-    leistung: "Ish hajmi",
-    vorbereitung: "Tayyorlash",
-    material: "Material",
-    reinigung: "Tozalash",
-
-    alertDateTime: "Sana, boshlanish va tugashni kiriting.",
-    alertRoom: "Xonani tanlang.",
-    alertHours: "Soat 0 dan katta bo‘lishi kerak.",
-    alertLv: "Sana, xona va LV pozitsiyani tanlang.",
-    alertAmount: "Miqdor 0 dan katta bo‘lishi kerak.",
-    alertRegieDescription: "Regie ishining tavsifini kiriting.",
-    alertTitle: "Sarlavha kiriting.",
-    alertDate: "Sana tanlang.",
-    alertPhotoTitle: "Rasm sarlavhasini kiriting.",
-    alertPhotoFile: "Rasm tanlang.",
-    confirmDeletePhoto: "Rasmni o‘chirishni xohlaysizmi?",
-  },
-  en: {
-    back: "← Back to projects",
-    project: "Project",
-    worker: "Worker",
-    date: "Date",
-    load: "Load",
-    loading: "Loading...",
-
-    normalHours: "Normal h",
-    regieHours: "Regie h",
-    waiting: "Waiting",
-    approved: "Approved",
-    rejected: "Rejected",
-
-    workTime: "Work time",
-    performance: "Performance",
-    regie: "Regie",
-    task: "Task",
-    photo: "Photo",
-
-    saveWorkTime: "Save work time",
-    savePerformance: "Save performance",
-    saveRegie: "Save Regie",
-    saveTask: "Save task",
-    savePhoto: "Save photo",
-
-    workTimeTitle: "Enter work time",
-    performanceTitle: "Enter performance",
-    regieTitle: "Report Regie",
-    taskTitle: "Report task / defect",
-    photoTitle: "Upload photo",
-
-    start: "Start",
-    end: "End",
-    pause: "Break minutes",
-    room: "Room",
-    chooseRoom: "Choose room",
-    lvPosition: "LV position",
-    withoutLv: "Without LV position",
-    chooseLv: "Choose LV position",
-    workType: "Work type",
-    note: "Note",
-    amount: "Amount",
-    description: "Description",
-    type: "Type",
-    priority: "Priority",
-    dueUntil: "Due until",
-    title: "Title",
-    file: "Photo",
-    withoutRoom: "Without room",
-
-    regiePhotos: "Regie photos",
-    regiePhotosHint:
-      "Add photos here as proof for Regie work. Multiple photos are possible.",
-    selectedPhotos: "Selected photos",
-    photosOptional: "Photos are optional, but recommended for Regie.",
-
-    performanceHint:
-      "Important: performance is entered only once per room / LV position, not separately by every worker.",
-
-    myEntries: "My entries on",
-    noWorkTime: "No work time available.",
-    noPerformance: "No performance available.",
-    noRegie: "No Regie available.",
-    noPhotos: "No photos available.",
-    noTasks: "No tasks available.",
-    adminNote: "Admin note",
-    entryTime: "Entry time",
-    deletePhoto: "Delete photo",
-
-    fortschritt: "Progress",
-    mangel: "Defect",
-    vorher: "Before",
-    nachher: "After",
-    sonstiges: "Other",
-    aufgabe: "Task",
-    info: "Info",
-
-    niedrig: "Low",
-    normal: "Normal",
-    hoch: "High",
-    dringend: "Urgent",
-
-    leistung: "Performance",
-    vorbereitung: "Preparation",
-    material: "Material",
-    reinigung: "Cleaning",
-
-    alertDateTime: "Enter date, start and end.",
-    alertRoom: "Choose room.",
-    alertHours: "Hours must be greater than 0.",
-    alertLv: "Choose date, room and LV position.",
-    alertAmount: "Amount must be greater than 0.",
-    alertRegieDescription: "Enter Regie work description.",
-    alertTitle: "Enter title.",
-    alertDate: "Choose date.",
-    alertPhotoTitle: "Enter photo title.",
-    alertPhotoFile: "Choose photo.",
-    confirmDeletePhoto: "Delete this photo?",
-  },
+type Projekt = {
+  id: number | string;
+  name?: string | null;
+  naziv?: string | null;
+  title?: string | null;
+  projekt?: string | null;
+  baustelle_name?: string | null;
+  ort?: string | null;
+  mjesto?: string | null;
+  location?: string | null;
+  adresse?: string | null;
+  [key: string]: any;
 };
 
-function getTodayLocalDate() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+type TableConfig = {
+  table: string;
+  column: string;
+};
 
-  return `${year}-${month}-${day}`;
-}
+const RADNICI = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
 
-export default function RadnikProjektDetailPage() {
+const GRUPPEN = [
+  "Keramika",
+  "Priprema podloge",
+  "Estrich",
+  "Hidroizolacija",
+  "Ljepilo",
+  "Schienen",
+  "Fuge",
+  "Silikoni",
+  "Terase",
+  "Dodaci",
+];
+
+const EINHEITEN = ["m²", "m", "Stk.", "kg", "Sack", "Eimer", "Pauschal"];
+
+export default function RadnikProjektMobilePage() {
   const params = useParams();
-  const router = useRouter();
 
   const projektId = String(params.id);
+  const projektIdValue = isNaN(Number(projektId))
+    ? projektId
+    : Number(projektId);
 
-  const [workerName, setWorkerName] = useState("");
-  const [userRole, setUserRole] = useState("");
-  const [lang, setLang] = useState("ba");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
 
-  const t = translations[lang] || translations.ba;
-  const isAdmin =
-    userRole === "admin" ||
-    ["Admin", "Hido", "Steffi"].includes(String(workerName || "").trim());
+  const [projekt, setProjekt] = useState<Projekt | null>(null);
+  const [arbeitszeiten, setArbeitszeiten] = useState<any[]>([]);
+  const [leistungen, setLeistungen] = useState<any[]>([]);
+  const [regieRows, setRegieRows] = useState<any[]>([]);
 
-  const [projekt, setProjekt] = useState<any>(null);
-  const [raeume, setRaeume] = useState<any[]>([]);
-  const [positionen, setPositionen] = useState<any[]>([]);
+  const [worker, setWorker] = useState("");
+  const [datum, setDatum] = useState(today());
 
-  const [datum, setDatum] = useState(getTodayLocalDate());
-  const [activeForm, setActiveForm] = useState("");
-
-  const [myArbeitszeiten, setMyArbeitszeiten] = useState<any[]>([]);
-  const [myLeistungen, setMyLeistungen] = useState<any[]>([]);
-  const [myRegie, setMyRegie] = useState<any[]>([]);
-  const [myRegieWorkers, setMyRegieWorkers] = useState<any[]>([]);
-  const [myAufgaben, setMyAufgaben] = useState<any[]>([]);
-  const [myFotos, setMyFotos] = useState<any[]>([]);
-
-  const [zeitStart, setZeitStart] = useState("");
-  const [zeitEnde, setZeitEnde] = useState("");
-  const [zeitPause, setZeitPause] = useState("0");
-  const [zeitRaumId, setZeitRaumId] = useState("");
-  const [zeitPositionId, setZeitPositionId] = useState("");
-  const [arbeitsart, setArbeitsart] = useState("Leistung");
+  const [startTime, setStartTime] = useState("08:00");
+  const [endTime, setEndTime] = useState("17:00");
+  const [pauseMinuten, setPauseMinuten] = useState("30");
   const [zeitNotiz, setZeitNotiz] = useState("");
 
-  const [leistungRaumId, setLeistungRaumId] = useState("");
-  const [leistungPositionId, setLeistungPositionId] = useState("");
+  const [leistungTitel, setLeistungTitel] = useState("");
   const [leistungMenge, setLeistungMenge] = useState("");
+  const [leistungEinheit, setLeistungEinheit] = useState("m²");
+  const [leistungGruppe, setLeistungGruppe] = useState("Keramika");
   const [leistungNotiz, setLeistungNotiz] = useState("");
 
-  const [regieStart, setRegieStart] = useState("");
-  const [regieEnde, setRegieEnde] = useState("");
-  const [regiePause, setRegiePause] = useState("0");
-  const [regieRaumId, setRegieRaumId] = useState("");
+  const [regieArbeit, setRegieArbeit] = useState("");
   const [regieBeschreibung, setRegieBeschreibung] = useState("");
-  const [regieFiles, setRegieFiles] = useState<File[]>([]);
+  const [regiePreis, setRegiePreis] = useState("");
 
-  const [aufgabeTyp, setAufgabeTyp] = useState("Aufgabe");
-  const [aufgabeTitel, setAufgabeTitel] = useState("");
-  const [aufgabeBeschreibung, setAufgabeBeschreibung] = useState("");
-  const [aufgabePrioritaet, setAufgabePrioritaet] = useState("Normal");
-  const [aufgabeRaumId, setAufgabeRaumId] = useState("");
-  const [aufgabePositionId, setAufgabePositionId] = useState("");
-  const [aufgabeFaellig, setAufgabeFaellig] = useState("");
-
-  const [fotoTyp, setFotoTyp] = useState("Fortschritt");
-  const [fotoTitel, setFotoTitel] = useState("");
-  const [fotoBeschreibung, setFotoBeschreibung] = useState("");
-  const [fotoRaumId, setFotoRaumId] = useState("");
-  const [fotoPositionId, setFotoPositionId] = useState("");
-  const [fotoFile, setFotoFile] = useState<File | null>(null);
-
-  const summary = useMemo(() => {
-    const normalHours = myArbeitszeiten.reduce(
-      (sum, z) => sum + Number(z.stunden || 0),
-      0
-    );
-
-    const regieHours = myRegieWorkers.reduce(
-      (sum, r) => sum + Number(r.stunden || 0),
-      0
-    );
-
-    const alleStatus = [
-      ...myArbeitszeiten.map((z) => normalizeStatus(z.freigabe_status)),
-      ...myLeistungen.map((l) => normalizeStatus(l.status)),
-      ...myRegie.map((r) => normalizeStatus(r.status)),
-      ...myFotos.map((f) => normalizeStatus(f.freigabe_status)),
-    ];
-
-    const wartet = alleStatus.filter((s) => s === "Wartet").length;
-    const genehmigt = alleStatus.filter((s) => s === "Genehmigt").length;
-    const abgelehnt = alleStatus.filter((s) => s === "Abgelehnt").length;
-
-    return {
-      normalHours,
-      regieHours,
-      totalHours: normalHours + regieHours,
-      leistungen: myLeistungen.length,
-      aufgaben: myAufgaben.length,
-      fotos: myFotos.length,
-      wartet,
-      genehmigt,
-      abgelehnt,
-    };
-  }, [
-    myArbeitszeiten,
-    myRegieWorkers,
-    myLeistungen,
-    myRegie,
-    myAufgaben,
-    myFotos,
-  ]);
+  const [message, setMessage] = useState("");
+  const [errorText, setErrorText] = useState("");
 
   useEffect(() => {
-    const name = localStorage.getItem("worker_name");
-    const savedRole =
-      localStorage.getItem("role") ||
-      localStorage.getItem("worker_role") ||
-      localStorage.getItem("user_role") ||
+    const savedWorker =
+      localStorage.getItem("workerName") ||
+      localStorage.getItem("radnik") ||
+      localStorage.getItem("userName") ||
       "";
-    const savedLang = localStorage.getItem("lang") || "ba";
 
-    if (!name) {
-      router.push("/login");
-      return;
+    if (savedWorker) {
+      setWorker(savedWorker);
     }
 
-    setWorkerName(name);
-    setUserRole(savedRole);
-    setLang(savedLang);
-    loadBaseData(name, datum);
-  }, [router, projektId]);
+    loadAll();
+  }, [projektId]);
 
-  async function loadBaseData(currentWorker: string, currentDate: string) {
+  function today() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function getProjektName() {
+    if (!projekt) return "Projekt";
+
+    return (
+      projekt.name ||
+      projekt.naziv ||
+      projekt.title ||
+      projekt.projekt ||
+      projekt.baustelle_name ||
+      `Projekt ${projekt.id}`
+    );
+  }
+
+  function getProjektOrt() {
+    if (!projekt) return "";
+
+    return projekt.ort || projekt.mjesto || projekt.location || projekt.adresse || "";
+  }
+
+  function toNumber(value: any) {
+    const n = Number(String(value || "0").replace(",", "."));
+    return isNaN(n) ? 0 : n;
+  }
+
+  function formatNumber(value: any) {
+    const n = toNumber(value);
+    return n.toFixed(2).replace(".", ",").replace(",00", "");
+  }
+
+  function formatHours(value: any) {
+    const n = toNumber(value);
+    return n.toFixed(2).replace(".", ",") + " h";
+  }
+
+  function getDate(row: any) {
+    return row.datum || row.date || row.tag || row.day || row.created_date || "";
+  }
+
+  function getWorker(row: any) {
+    return (
+      row.radnik ||
+      row.arbeiter ||
+      row.worker ||
+      row.worker_name ||
+      row.mitarbeiter ||
+      row.name ||
+      ""
+    );
+  }
+
+  function getStart(row: any) {
+    return row.start_time || row.start || row.von || row.beginn || "";
+  }
+
+  function getEnd(row: any) {
+    return row.end_time || row.end || row.bis || row.ende || "";
+  }
+
+  function getPause(row: any) {
+    return row.pause_minuten || row.pause_minutes || row.break_minutes || row.pause || 0;
+  }
+
+  function getStoredHours(row: any) {
+    return row.stunden || row.hours || row.total_hours || row.gesamt_stunden || "";
+  }
+
+  function getTitle(row: any) {
+    return row.titel || row.title || row.name || row.leistung || row.arbeit || row.work || "";
+  }
+
+  function getQuantity(row: any) {
+    return row.menge || row.quantity || row.kolicina || row.qty || "";
+  }
+
+  function getUnit(row: any) {
+    return row.einheit || row.unit || row.jedinica || "";
+  }
+
+  function getNote(row: any) {
+    return row.notiz || row.note || row.bemerkung || row.info || "";
+  }
+
+  function parseTimeToMinutes(value: string) {
+    if (!value || !value.includes(":")) return 0;
+
+    const [h, m] = value.split(":").map((x) => Number(x));
+    return h * 60 + m;
+  }
+
+  function calculateHours(start: string, end: string, pause: string | number) {
+    const s = parseTimeToMinutes(start);
+    let e = parseTimeToMinutes(end);
+    const p = Number(pause || 0);
+
+    if (!s || !e) return 0;
+
+    if (e < s) e += 24 * 60;
+
+    const total = e - s - p;
+    return Math.max(0, total / 60);
+  }
+
+  function getHours(row: any) {
+    const stored = toNumber(getStoredHours(row));
+
+    if (stored > 0) return stored;
+
+    return calculateHours(getStart(row), getEnd(row), getPause(row));
+  }
+
+  async function loadAll() {
     setLoading(true);
+    setErrorText("");
+    setMessage("");
 
-    const projektRes = await supabase
-      .from("projekte")
-      .select("*")
-      .eq("id", Number(projektId))
-      .single();
+    await loadProjekt();
 
-    if (projektRes.error) {
-      alert("Greška kod učitavanja projekta: " + projektRes.error.message);
-      setLoading(false);
-      return;
-    }
+    const arbeitszeitData = await loadRows([
+      { table: "arbeitszeiten", column: "projekt_id" },
+      { table: "arbeitszeiten", column: "project_id" },
+      { table: "arbeitszeiten", column: "baustelle_id" },
+      { table: "arbeitszeit", column: "projekt_id" },
+      { table: "arbeitszeit", column: "project_id" },
+      { table: "stunden", column: "projekt_id" },
+    ]);
 
-    setProjekt(projektRes.data);
+    const leistungData = await loadRows([
+      { table: "leistungen", column: "projekt_id" },
+      { table: "leistungen", column: "project_id" },
+      { table: "leistung", column: "projekt_id" },
+      { table: "leistung", column: "project_id" },
+      { table: "produktivitaet", column: "projekt_id" },
+      { table: "productivity", column: "project_id" },
+      { table: "projekt_leistung", column: "projekt_id" },
+    ]);
 
-    const raeumeRes = await supabase
-      .from("projekt_raeume")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("created_at", { ascending: true });
+    const regieData = await loadRows([
+      { table: "regie", column: "projekt_id" },
+      { table: "regie", column: "project_id" },
+      { table: "regiearbeiten", column: "projekt_id" },
+      { table: "projekt_regie", column: "projekt_id" },
+      { table: "zusatzarbeiten", column: "projekt_id" },
+      { table: "extra_work", column: "project_id" },
+    ]);
 
-    setRaeume(raeumeRes.data || []);
-
-    const positionenRes = await supabase
-      .from("projekt_lv_positionen")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .eq("aktiv", true)
-      .order("position_nr", { ascending: true });
-
-    setPositionen(positionenRes.data || []);
-
-    await loadDayData(currentWorker, currentDate);
+    setArbeitszeiten(arbeitszeitData);
+    setLeistungen(leistungData);
+    setRegieRows(regieData);
 
     setLoading(false);
   }
 
-  async function loadDayData(
-    currentWorker: string = workerName,
-    currentDate: string = datum
-  ) {
-    const arbeitszeitRes = await supabase
-      .from("projekt_arbeitszeiten")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .eq("worker_name", currentWorker)
-      .eq("datum", currentDate)
-      .order("start_time", { ascending: true });
+  async function loadProjekt() {
+    const tables = ["projekte", "baustellen"];
 
-    setMyArbeitszeiten(arbeitszeitRes.data || []);
-
-    const leistungRes = await supabase
-      .from("projekt_leistungen")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .eq("created_by", currentWorker)
-      .eq("datum", currentDate)
-      .order("created_at", { ascending: false });
-
-    setMyLeistungen(leistungRes.data || []);
-
-    const regieRes = await supabase
-      .from("projekt_regie")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .eq("datum", currentDate)
-      .order("start_time", { ascending: true });
-
-    const allRegie = regieRes.data || [];
-    const regieIds = allRegie.map((r) => r.id);
-
-    if (regieIds.length > 0) {
-      const workersRes = await supabase
-        .from("projekt_regie_workers")
+    for (const table of tables) {
+      const { data, error } = await supabase
+        .from(table)
         .select("*")
-        .in("regie_id", regieIds)
-        .eq("worker_name", currentWorker);
+        .eq("id", projektIdValue)
+        .maybeSingle();
 
-      const workerRows = workersRes.data || [];
-      const myIds = workerRows.map((w) => Number(w.regie_id));
-
-      setMyRegie(allRegie.filter((r) => myIds.includes(Number(r.id))));
-      setMyRegieWorkers(workerRows);
-    } else {
-      setMyRegie([]);
-      setMyRegieWorkers([]);
-    }
-
-    const aufgabenRes = await supabase
-      .from("projekt_aufgaben")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("created_at", { ascending: false });
-
-    const allAufgaben = aufgabenRes.data || [];
-
-    setMyAufgaben(
-      allAufgaben.filter((a) => {
-        return (
-          a.assigned_to === currentWorker ||
-          a.created_by === currentWorker ||
-          !a.assigned_to
-        );
-      })
-    );
-
-    const fotosRes = await supabase
-      .from("projekt_fotos")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .eq("created_by", currentWorker)
-      .eq("datum", currentDate)
-      .order("created_at", { ascending: false });
-
-    setMyFotos(fotosRes.data || []);
-  }
-
-  function changeLanguage(newLang: string) {
-    localStorage.setItem("lang", newLang);
-    setLang(newLang);
-  }
-
-  function normalizeStatus(value: string | null | undefined) {
-    if (!value) return "Wartet";
-    if (value === "Offen") return "Wartet";
-    if (value === "Erledigt") return "Genehmigt";
-    if (value === "Genehmigt") return "Genehmigt";
-    if (value === "Abgelehnt") return "Abgelehnt";
-
-    return "Wartet";
-  }
-
-  function statusText(value: string | null | undefined) {
-    const s = normalizeStatus(value);
-
-    if (s === "Genehmigt") return t.approved;
-    if (s === "Abgelehnt") return t.rejected;
-
-    return t.waiting;
-  }
-
-  function parseNumber(value: string) {
-    const num = parseFloat(String(value || "0").replace(",", "."));
-    return Number.isNaN(num) ? 0 : num;
-  }
-
-  function calculateHours(start: string, end: string, pauseMinutes: string) {
-    if (!start || !end) return 0;
-
-    const [sh, sm] = start.split(":").map(Number);
-    const [eh, em] = end.split(":").map(Number);
-
-    let startTotal = sh * 60 + sm;
-    let endTotal = eh * 60 + em;
-
-    if (endTotal <= startTotal) {
-      endTotal += 24 * 60;
-    }
-
-    const pause = parseNumber(pauseMinutes);
-    const minutes = Math.max(0, endTotal - startTotal - pause);
-
-    return Math.round((minutes / 60) * 100) / 100;
-  }
-
-  function formatNumber(value: any, digits = 2) {
-    const num = Number(value || 0);
-
-    return num.toLocaleString("de-AT", {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    });
-  }
-
-  function formatDate(value: string | null) {
-    if (!value) return "-";
-
-    const parts = String(value).split("-");
-    if (parts.length === 3) {
-      return `${parts[2]}.${parts[1]}.${parts[0]}`;
-    }
-
-    return value;
-  }
-
-  function formatDateTime(value: string | null | undefined) {
-    if (!value) return "-";
-
-    const d = new Date(value);
-
-    if (Number.isNaN(d.getTime())) {
-      return String(value);
-    }
-
-    return d.toLocaleString("de-AT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
-  function getRaum(id: number | string | null) {
-    if (!id) return null;
-    return raeume.find((r) => String(r.id) === String(id)) || null;
-  }
-
-  function getPosition(id: number | string | null) {
-    if (!id) return null;
-    return positionen.find((p) => String(p.id) === String(id)) || null;
-  }
-
-  function getRaumName(id: number | string | null) {
-    const raum = getRaum(id);
-    if (!raum) return "-";
-
-    return `${raum.ebene ? raum.ebene + " - " : ""}${raum.raum_name}`;
-  }
-
-  function getPositionText(id: number | string | null) {
-    const pos = getPosition(id);
-    if (!pos) return "-";
-
-    return `${pos.position_nr} - ${pos.kurztext}`;
-  }
-
-  function getRaumFaktor(id: number | string | null) {
-    const raum = getRaum(id);
-
-    return Number(raum?.faktor || 1);
-  }
-
-  function getPositionEinheit(id: number | string | null) {
-    const pos = getPosition(id);
-
-    return pos?.einheit || "";
-  }
-
-  function getSafeFileName(originalName: string) {
-    const ext = originalName.split(".").pop() || "jpg";
-    const cleanExt = ext.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "jpg";
-    const random = Math.random().toString(36).slice(2);
-
-    return `${Date.now()}-${random}.${cleanExt}`;
-  }
-
-  function clearZeitForm() {
-    setZeitStart("");
-    setZeitEnde("");
-    setZeitPause("0");
-    setZeitRaumId("");
-    setZeitPositionId("");
-    setArbeitsart("Leistung");
-    setZeitNotiz("");
-  }
-
-  function clearLeistungForm() {
-    setLeistungRaumId("");
-    setLeistungPositionId("");
-    setLeistungMenge("");
-    setLeistungNotiz("");
-  }
-
-  function clearRegieForm() {
-    setRegieStart("");
-    setRegieEnde("");
-    setRegiePause("0");
-    setRegieRaumId("");
-    setRegieBeschreibung("");
-    setRegieFiles([]);
-  }
-
-  function clearAufgabeForm() {
-    setAufgabeTyp("Aufgabe");
-    setAufgabeTitel("");
-    setAufgabeBeschreibung("");
-    setAufgabePrioritaet("Normal");
-    setAufgabeRaumId("");
-    setAufgabePositionId("");
-    setAufgabeFaellig("");
-  }
-
-  function clearFotoForm() {
-    setFotoTyp("Fortschritt");
-    setFotoTitel("");
-    setFotoBeschreibung("");
-    setFotoRaumId("");
-    setFotoPositionId("");
-    setFotoFile(null);
-  }
-
-  async function uploadRegieFotos(regieId: number) {
-    if (regieFiles.length === 0) return;
-
-    for (let i = 0; i < regieFiles.length; i++) {
-      const file = regieFiles[i];
-      const safeName = getSafeFileName(file.name);
-      const storagePath = `${projektId}/${workerName}/regie-${regieId}/${safeName}`;
-
-      const uploadRes = await supabase.storage
-        .from(BUCKET)
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadRes.error) {
-        alert("Greška kod upload Regie slike: " + uploadRes.error.message);
-        continue;
+      if (!error && data) {
+        setProjekt(data as Projekt);
+        return;
       }
-
-      const publicUrlRes = supabase.storage
-        .from(BUCKET)
-        .getPublicUrl(storagePath);
-
-      const fotoPayload = {
-        projekt_id: Number(projektId),
-        regie_id: regieId,
-        datum,
-        raum_id: regieRaumId ? Number(regieRaumId) : null,
-        lv_position_id: null,
-        titel: `Regie Foto ${i + 1}`,
-        beschreibung: regieBeschreibung.trim(),
-        typ: "Regie",
-        foto_url: publicUrlRes.data.publicUrl,
-        storage_path: storagePath,
-        freigabe_status: "Wartet",
-        admin_notiz: null,
-        created_by: workerName,
-      };
-
-      await supabase.from("projekt_fotos").insert(fotoPayload);
     }
+
+    setProjekt(null);
+  }
+
+  async function loadRows(configs: TableConfig[]) {
+    for (const config of configs) {
+      const { data, error } = await supabase
+        .from(config.table)
+        .select("*")
+        .eq(config.column, projektIdValue);
+
+      if (!error) {
+        return data || [];
+      }
+    }
+
+    return [];
+  }
+
+  async function insertFirstWorking(
+    configs: TableConfig[],
+    buildPayloads: (config: TableConfig) => any[]
+  ) {
+    let lastError: any = null;
+
+    for (const config of configs) {
+      const payloads = buildPayloads(config);
+
+      for (const payload of payloads) {
+        const { error } = await supabase.from(config.table).insert(payload as any);
+
+        if (!error) {
+          return true;
+        }
+
+        lastError = error;
+      }
+    }
+
+    throw new Error(lastError?.message || "Spremanje nije uspjelo.");
+  }
+
+  function saveWorkerName(value: string) {
+    setWorker(value);
+    localStorage.setItem("workerName", value);
+    localStorage.setItem("radnik", value);
+  }
+
+  const todayArbeitszeit = useMemo(() => {
+    return arbeitszeiten.filter((row) => {
+      return (
+        String(getDate(row)) === String(datum) &&
+        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase()
+      );
+    });
+  }, [arbeitszeiten, datum, worker]);
+
+  const todayLeistung = useMemo(() => {
+    return leistungen.filter((row) => {
+      return (
+        String(getDate(row)) === String(datum) &&
+        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase()
+      );
+    });
+  }, [leistungen, datum, worker]);
+
+  const todayRegie = useMemo(() => {
+    return regieRows.filter((row) => {
+      return (
+        String(getDate(row)) === String(datum) &&
+        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase()
+      );
+    });
+  }, [regieRows, datum, worker]);
+
+  const todayHours = useMemo(() => {
+    return todayArbeitszeit.reduce((sum, row) => sum + getHours(row), 0);
+  }, [todayArbeitszeit]);
+
+  function arbeitszeitDuplicate() {
+    return arbeitszeiten.some((row) => {
+      return (
+        String(getDate(row)) === String(datum) &&
+        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase() &&
+        String(getStart(row)) === String(startTime) &&
+        String(getEnd(row)) === String(endTime)
+      );
+    });
   }
 
   async function saveArbeitszeit() {
-    if (!datum || !zeitStart || !zeitEnde) {
-      alert(t.alertDateTime);
+    if (saving) return;
+
+    if (!worker.trim()) {
+      alert("Odaberi radnika.");
       return;
     }
 
-    if (!zeitRaumId) {
-      alert(t.alertRoom);
-      return;
-    }
-
-    const stunden = calculateHours(zeitStart, zeitEnde, zeitPause);
-
-    if (stunden <= 0) {
-      alert(t.alertHours);
+    if (arbeitszeitDuplicate()) {
+      alert("Ovaj unos vremena već postoji. Dupli unos nije dodan.");
       return;
     }
 
     setSaving(true);
+    setMessage("");
+    setErrorText("");
 
-    const payload = {
-      projekt_id: Number(projektId),
-      worker_name: workerName,
-      datum,
-      start_time: zeitStart,
-      end_time: zeitEnde,
-      pause_minutes: parseNumber(zeitPause),
-      stunden,
-      raum_id: Number(zeitRaumId),
-      lv_position_id: zeitPositionId ? Number(zeitPositionId) : null,
-      arbeitsart,
-      notiz: zeitNotiz.trim() || null,
-      freigabe_status: "Wartet",
-      admin_notiz: null,
-      created_by: workerName,
-    };
+    const hours = calculateHours(startTime, endTime, pauseMinuten);
 
-    const { error } = await supabase.from("projekt_arbeitszeiten").insert(payload);
+    try {
+      await insertFirstWorking(
+        [
+          { table: "arbeitszeiten", column: "projekt_id" },
+          { table: "arbeitszeiten", column: "project_id" },
+          { table: "arbeitszeiten", column: "baustelle_id" },
+          { table: "arbeitszeit", column: "projekt_id" },
+          { table: "arbeitszeit", column: "project_id" },
+          { table: "stunden", column: "projekt_id" },
+        ],
+        (config) => {
+          const base: any = {};
+          base[config.column] = projektIdValue;
 
-    if (error) {
-      alert("Greška kod spremanja Arbeitszeit: " + error.message);
-      setSaving(false);
-      return;
+          return [
+            {
+              ...base,
+              datum,
+              radnik: worker.trim(),
+              start_time: startTime,
+              end_time: endTime,
+              pause_minuten: Number(pauseMinuten || 0),
+              stunden: hours,
+              notiz: zeitNotiz.trim(),
+              status: "Wartet",
+            },
+            {
+              ...base,
+              date: datum,
+              worker: worker.trim(),
+              start: startTime,
+              end: endTime,
+              break_minutes: Number(pauseMinuten || 0),
+              hours,
+              note: zeitNotiz.trim(),
+              status: "Wartet",
+            },
+            {
+              ...base,
+              datum,
+              arbeiter: worker.trim(),
+              von: startTime,
+              bis: endTime,
+              pause: Number(pauseMinuten || 0),
+              stunden: hours,
+              bemerkung: zeitNotiz.trim(),
+            },
+            {
+              ...base,
+              datum,
+              name: worker.trim(),
+              stunden: hours,
+            },
+          ];
+        }
+      );
+
+      setMessage("Arbeitszeit je spremljen.");
+      setZeitNotiz("");
+      await loadAll();
+    } catch (err: any) {
+      setErrorText("Greška kod Arbeitszeit: " + (err?.message || ""));
     }
 
-    clearZeitForm();
-    setActiveForm("");
-    await loadDayData(workerName, datum);
     setSaving(false);
+  }
+
+  function leistungDuplicate() {
+    return leistungen.some((row) => {
+      return (
+        String(getDate(row)) === String(datum) &&
+        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase() &&
+        String(getTitle(row)).toLowerCase() === String(leistungTitel).toLowerCase() &&
+        toNumber(getQuantity(row)) === toNumber(leistungMenge)
+      );
+    });
   }
 
   async function saveLeistung() {
-    if (!datum || !leistungRaumId || !leistungPositionId) {
-      alert(t.alertLv);
+    if (saving) return;
+
+    if (!worker.trim()) {
+      alert("Odaberi radnika.");
       return;
     }
 
-    const menge = parseNumber(leistungMenge);
-
-    if (menge <= 0) {
-      alert(t.alertAmount);
+    if (!leistungTitel.trim()) {
+      alert("Upiši šta je urađeno.");
       return;
     }
 
-    const faktor = getRaumFaktor(leistungRaumId);
-    const einheit = getPositionEinheit(leistungPositionId);
+    if (!leistungMenge.trim()) {
+      alert("Upiši količinu.");
+      return;
+    }
+
+    if (leistungDuplicate()) {
+      alert("Ovaj Leistung unos već postoji. Dupli unos nije dodan.");
+      return;
+    }
 
     setSaving(true);
+    setMessage("");
+    setErrorText("");
 
-    const payload = {
-      projekt_id: Number(projektId),
-      datum,
-      raum_id: Number(leistungRaumId),
-      lv_position_id: Number(leistungPositionId),
-      menge_ist: menge,
-      einheit,
-      faktor,
-      wirksame_menge: menge * faktor,
-      status: "Offen",
-      admin_notiz: null,
-      notiz: leistungNotiz.trim() || null,
-      created_by: workerName,
-    };
+    try {
+      await insertFirstWorking(
+        [
+          { table: "leistungen", column: "projekt_id" },
+          { table: "leistungen", column: "project_id" },
+          { table: "leistung", column: "projekt_id" },
+          { table: "leistung", column: "project_id" },
+          { table: "produktivitaet", column: "projekt_id" },
+          { table: "productivity", column: "project_id" },
+          { table: "projekt_leistung", column: "projekt_id" },
+        ],
+        (config) => {
+          const base: any = {};
+          base[config.column] = projektIdValue;
 
-    const { error } = await supabase.from("projekt_leistungen").insert(payload);
+          const qty = toNumber(leistungMenge);
 
-    if (error) {
-      alert("Greška kod spremanja Leistung: " + error.message);
-      setSaving(false);
-      return;
+          return [
+            {
+              ...base,
+              datum,
+              radnik: worker.trim(),
+              titel: leistungTitel.trim(),
+              gruppe: leistungGruppe,
+              menge: qty,
+              einheit: leistungEinheit,
+              notiz: leistungNotiz.trim(),
+              status: "Wartet",
+            },
+            {
+              ...base,
+              date: datum,
+              worker: worker.trim(),
+              title: leistungTitel.trim(),
+              category: leistungGruppe,
+              quantity: qty,
+              unit: leistungEinheit,
+              note: leistungNotiz.trim(),
+              status: "Wartet",
+            },
+            {
+              ...base,
+              datum,
+              arbeiter: worker.trim(),
+              leistung: leistungTitel.trim(),
+              kategorie: leistungGruppe,
+              menge: qty,
+              einheit: leistungEinheit,
+              bemerkung: leistungNotiz.trim(),
+            },
+            {
+              ...base,
+              datum,
+              name: worker.trim(),
+              title: leistungTitel.trim(),
+              quantity: qty,
+              unit: leistungEinheit,
+            },
+          ];
+        }
+      );
+
+      setMessage("Leistung je spremljen.");
+      setLeistungTitel("");
+      setLeistungMenge("");
+      setLeistungNotiz("");
+      await loadAll();
+    } catch (err: any) {
+      setErrorText("Greška kod Leistung: " + (err?.message || ""));
     }
 
-    clearLeistungForm();
-    setActiveForm("");
-    await loadDayData(workerName, datum);
     setSaving(false);
+  }
+
+  function regieDuplicate() {
+    return regieRows.some((row) => {
+      return (
+        String(getDate(row)) === String(datum) &&
+        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase() &&
+        String(getTitle(row)).toLowerCase() === String(regieArbeit).toLowerCase()
+      );
+    });
   }
 
   async function saveRegie() {
-    if (!datum || !regieStart || !regieEnde || !regieRaumId) {
-      alert(t.alertDateTime);
+    if (saving) return;
+
+    if (!worker.trim()) {
+      alert("Odaberi radnika.");
       return;
     }
 
-    if (!regieBeschreibung.trim()) {
-      alert(t.alertRegieDescription);
+    if (!regieArbeit.trim()) {
+      alert("Upiši Regie dodatni rad.");
       return;
     }
 
-    const stunden = calculateHours(regieStart, regieEnde, regiePause);
-
-    if (stunden <= 0) {
-      alert(t.alertHours);
-      return;
-    }
-
-    setSaving(true);
-
-    const payload = {
-      projekt_id: Number(projektId),
-      raum_id: Number(regieRaumId),
-      datum,
-      start_time: regieStart,
-      end_time: regieEnde,
-      pause_minutes: parseNumber(regiePause),
-      stunden_pro_worker: stunden,
-      beschreibung: regieBeschreibung.trim(),
-      status: "Wartet",
-      admin_notiz: null,
-      auftraggeber: projekt?.auftraggeber || null,
-      bauleiter: projekt?.bauleiter || null,
-      created_by: workerName,
-    };
-
-    const regieRes = await supabase
-      .from("projekt_regie")
-      .insert(payload)
-      .select()
-      .single();
-
-    if (regieRes.error) {
-      alert("Greška kod spremanja Regie: " + regieRes.error.message);
-      setSaving(false);
-      return;
-    }
-
-    const { error: workerError } = await supabase
-      .from("projekt_regie_workers")
-      .insert({
-        regie_id: regieRes.data.id,
-        worker_name: workerName,
-        stunden,
-      });
-
-    if (workerError) {
-      alert("Regie je spremljen, ali radnik nije povezan: " + workerError.message);
-      setSaving(false);
-      return;
-    }
-
-    await uploadRegieFotos(regieRes.data.id);
-
-    clearRegieForm();
-    setActiveForm("");
-    await loadDayData(workerName, datum);
-    setSaving(false);
-  }
-
-  async function saveAufgabe() {
-    if (!aufgabeTitel.trim()) {
-      alert(t.alertTitle);
+    if (regieDuplicate()) {
+      alert("Ovaj Regie unos već postoji. Dupli unos nije dodan.");
       return;
     }
 
     setSaving(true);
+    setMessage("");
+    setErrorText("");
 
-    const payload = {
-      projekt_id: Number(projektId),
-      datum,
-      typ: aufgabeTyp,
-      titel: aufgabeTitel.trim(),
-      beschreibung: aufgabeBeschreibung.trim() || null,
-      prioritaet: aufgabePrioritaet,
-      status: "Offen",
-      admin_notiz: null,
-      assigned_to: workerName,
-      faellig_bis: aufgabeFaellig || null,
-      erledigt_am: null,
-      raum_id: aufgabeRaumId ? Number(aufgabeRaumId) : null,
-      lv_position_id: aufgabePositionId ? Number(aufgabePositionId) : null,
-      created_by: workerName,
-    };
+    const hours = calculateHours(startTime, endTime, pauseMinuten);
 
-    const { error } = await supabase.from("projekt_aufgaben").insert(payload);
+    try {
+      await insertFirstWorking(
+        [
+          { table: "regie", column: "projekt_id" },
+          { table: "regie", column: "project_id" },
+          { table: "regiearbeiten", column: "projekt_id" },
+          { table: "projekt_regie", column: "projekt_id" },
+          { table: "zusatzarbeiten", column: "projekt_id" },
+          { table: "extra_work", column: "project_id" },
+        ],
+        (config) => {
+          const base: any = {};
+          base[config.column] = projektIdValue;
 
-    if (error) {
-      alert("Greška kod spremanja Aufgabe: " + error.message);
-      setSaving(false);
-      return;
-    }
-
-    clearAufgabeForm();
-    setActiveForm("");
-    await loadDayData(workerName, datum);
-    setSaving(false);
-  }
-
-  async function saveFoto() {
-    if (!datum) {
-      alert(t.alertDate);
-      return;
-    }
-
-    if (!fotoTitel.trim()) {
-      alert(t.alertPhotoTitle);
-      return;
-    }
-
-    if (!fotoFile) {
-      alert(t.alertPhotoFile);
-      return;
-    }
-
-    setUploading(true);
-
-    const safeName = getSafeFileName(fotoFile.name);
-    const storagePath = `${projektId}/${workerName}/${safeName}`;
-
-    const uploadRes = await supabase.storage
-      .from(BUCKET)
-      .upload(storagePath, fotoFile, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (uploadRes.error) {
-      alert("Greška kod upload slike: " + uploadRes.error.message);
-      setUploading(false);
-      return;
-    }
-
-    const publicUrlRes = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-
-    const payload = {
-      projekt_id: Number(projektId),
-      datum,
-      raum_id: fotoRaumId ? Number(fotoRaumId) : null,
-      lv_position_id: fotoPositionId ? Number(fotoPositionId) : null,
-      regie_id: null,
-      titel: fotoTitel.trim(),
-      beschreibung: fotoBeschreibung.trim() || null,
-      typ: fotoTyp,
-      foto_url: publicUrlRes.data.publicUrl,
-      storage_path: storagePath,
-      freigabe_status: "Wartet",
-      admin_notiz: null,
-      created_by: workerName,
-    };
-
-    const { error } = await supabase.from("projekt_fotos").insert(payload);
-
-    if (error) {
-      alert("Greška kod spremanja slike: " + error.message);
-      setUploading(false);
-      return;
-    }
-
-    clearFotoForm();
-    setActiveForm("");
-    await loadDayData(workerName, datum);
-    setUploading(false);
-  }
-
-  async function deleteFoto(item: any) {
-    const ok = confirm(t.confirmDeletePhoto);
-
-    if (!ok) return;
-
-    if (item.storage_path) {
-      await supabase.storage.from(BUCKET).remove([item.storage_path]);
-    }
-
-    const { error } = await supabase
-      .from("projekt_fotos")
-      .delete()
-      .eq("id", item.id);
-
-    if (error) {
-      alert("Greška kod brisanja slike: " + error.message);
-      return;
-    }
-
-    await loadDayData(workerName, datum);
-  }
-
-  function StatusBadge({ status }: { status: string }) {
-    const s = normalizeStatus(status);
-
-    return (
-      <span
-        style={
-          s === "Genehmigt"
-            ? okBadgeStyle
-            : s === "Abgelehnt"
-            ? dangerBadgeStyle
-            : warningBadgeStyle
+          return [
+            {
+              ...base,
+              datum,
+              radnik: worker.trim(),
+              arbeit: regieArbeit.trim(),
+              beschreibung: regieBeschreibung.trim(),
+              start_time: startTime,
+              end_time: endTime,
+              pause_minuten: Number(pauseMinuten || 0),
+              stunden: hours,
+              preis: toNumber(regiePreis),
+              status: "Wartet",
+              freigabe_status: "Wartet",
+            },
+            {
+              ...base,
+              date: datum,
+              worker: worker.trim(),
+              title: regieArbeit.trim(),
+              description: regieBeschreibung.trim(),
+              start: startTime,
+              end: endTime,
+              break_minutes: Number(pauseMinuten || 0),
+              hours,
+              price: toNumber(regiePreis),
+              status: "Wartet",
+              approval_status: "Wartet",
+            },
+            {
+              ...base,
+              datum,
+              arbeiter: worker.trim(),
+              regiearbeit: regieArbeit.trim(),
+              arbeiten: regieBeschreibung.trim(),
+              stunden: hours,
+              betrag: toNumber(regiePreis),
+            },
+          ];
         }
-      >
-        {statusText(status)}
-      </span>
-    );
-  }
+      );
 
-  function AdminNotiz({ value }: { value: string | null }) {
-    if (!value) return null;
+      setMessage("Regie je spremljen.");
+      setRegieArbeit("");
+      setRegieBeschreibung("");
+      setRegiePreis("");
+      await loadAll();
+    } catch (err: any) {
+      setErrorText("Greška kod Regie: " + (err?.message || ""));
+    }
 
-    return (
-      <p style={adminNotizStyle}>
-        {t.adminNote}: <strong>{value}</strong>
-      </p>
-    );
-  }
-
-  function EntryTime({ value }: { value: string | null | undefined }) {
-    if (!isAdmin || !value) return null;
-
-    return (
-      <p style={entryTimeStyle}>
-        {t.entryTime}: <strong>{formatDateTime(value)}</strong>
-      </p>
-    );
-  }
-
-  if (loading) {
-    return (
-      <main style={mainStyle}>
-        <Link href="/projekte/radnik" style={backStyle}>
-          {t.back}
-        </Link>
-
-        <h1 style={titleStyle}>👷 {t.project}</h1>
-        <p style={loadingStyle}>{t.loading}</p>
-      </main>
-    );
+    setSaving(false);
   }
 
   return (
-    <main style={mainStyle}>
-      <Link href="/projekte/radnik" style={backStyle}>
-        {t.back}
-      </Link>
+    <main className="page">
+      <section className="top">
+        <div>
+          <p className="label">Radnik Mobile</p>
+          <h1>{getProjektName()}</h1>
+          <p className="subtitle">{getProjektOrt() || "Projekt"}</p>
+        </div>
 
-      <h1 style={titleStyle}>👷 {projekt?.project_name || t.project}</h1>
+        <Link className="back" href={`/projekte/${projektId}`}>
+          Admin
+        </Link>
+      </section>
 
-      <p style={descriptionStyle}>
-        {t.worker}: <strong>{workerName}</strong>
-      </p>
+      {message && <div className="successBox">{message}</div>}
+      {errorText && <div className="errorBox">{errorText}</div>}
 
-      <div style={languageBoxStyle}>
-        {["de", "ba", "uz", "en"].map((code) => (
-          <button
-            key={code}
-            onClick={() => changeLanguage(code)}
-            style={lang === code ? activeLangButtonStyle : langButtonStyle}
-          >
-            {code.toUpperCase()}
-          </button>
-        ))}
-      </div>
+      <section className="workerBox">
+        <label>Radnik</label>
+        <select value={worker} onChange={(e) => saveWorkerName(e.target.value)}>
+          <option value="">Odaberi ime</option>
+          {RADNICI.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
 
-      <section style={dateBoxStyle}>
-        <label style={labelStyle}>{t.date}</label>
-        <div style={dateRowStyle}>
-          <input
-            type="date"
-            value={datum}
-            onChange={(e) => setDatum(e.target.value)}
-            style={inputStyle}
-          />
+        <label>Datum</label>
+        <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} />
+      </section>
 
-          <button
-            onClick={() => loadDayData(workerName, datum)}
-            style={blueButtonStyle}
-          >
-            {t.load}
-          </button>
+      <section className="stats">
+        <div>
+          <span>Danas sati</span>
+          <strong>{formatHours(todayHours)}</strong>
+        </div>
+
+        <div>
+          <span>Leistung</span>
+          <strong>{todayLeistung.length}</strong>
+        </div>
+
+        <div>
+          <span>Regie</span>
+          <strong>{todayRegie.length}</strong>
         </div>
       </section>
 
-      <section style={summaryGridStyle}>
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>{t.normalHours}</span>
-          <strong style={summaryValueStyle}>
-            {formatNumber(summary.normalHours)} h
-          </strong>
-        </div>
+      <section className="card">
+        <h2>Arbeitszeit</h2>
+        <p className="hint">Standard je 08:00 - 17:00 sa 30 min pauze.</p>
 
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>{t.regieHours}</span>
-          <strong style={summaryValueStyle}>
-            {formatNumber(summary.regieHours)} h
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>{t.waiting}</span>
-          <strong style={{ ...summaryValueStyle, color: "#facc15" }}>
-            {summary.wartet}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>{t.rejected}</span>
-          <strong style={{ ...summaryValueStyle, color: "#ef4444" }}>
-            {summary.abgelehnt}
-          </strong>
-        </div>
-      </section>
-
-      <section style={buttonGridStyle}>
-        <button
-          onClick={() => setActiveForm(activeForm === "zeit" ? "" : "zeit")}
-          style={greenButtonStyle}
-        >
-          ⏱️ {t.workTime}
-        </button>
-
-        <button
-          onClick={() =>
-            setActiveForm(activeForm === "leistung" ? "" : "leistung")
-          }
-          style={blueButtonFullStyle}
-        >
-          ✅ {t.performance}
-        </button>
-
-        <button
-          onClick={() => setActiveForm(activeForm === "regie" ? "" : "regie")}
-          style={orangeButtonStyle}
-        >
-          🧾 {t.regie}
-        </button>
-
-        <button
-          onClick={() =>
-            setActiveForm(activeForm === "aufgabe" ? "" : "aufgabe")
-          }
-          style={purpleButtonStyle}
-        >
-          ⚠️ {t.task}
-        </button>
-
-        <button
-          onClick={() => setActiveForm(activeForm === "foto" ? "" : "foto")}
-          style={photoButtonStyle}
-        >
-          📸 {t.photo}
-        </button>
-      </section>
-
-      {activeForm === "zeit" && (
-        <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>{t.workTimeTitle}</h2>
-
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>{t.start}</label>
-              <input
-                type="time"
-                value={zeitStart}
-                onChange={(e) => setZeitStart(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>{t.end}</label>
-              <input
-                type="time"
-                value={zeitEnde}
-                onChange={(e) => setZeitEnde(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>{t.pause}</label>
-              <input
-                value={zeitPause}
-                onChange={(e) => setZeitPause(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <label style={labelStyle}>{t.room} *</label>
-          <select
-            value={zeitRaumId}
-            onChange={(e) => setZeitRaumId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">{t.chooseRoom}</option>
-            {raeume.map((raum) => (
-              <option key={raum.id} value={raum.id}>
-                {raum.ebene ? `${raum.ebene} - ` : ""}
-                {raum.raum_name}
-              </option>
-            ))}
-          </select>
-
-          <label style={labelStyle}>{t.lvPosition}</label>
-          <select
-            value={zeitPositionId}
-            onChange={(e) => setZeitPositionId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">{t.withoutLv}</option>
-            {positionen.map((pos) => (
-              <option key={pos.id} value={pos.id}>
-                {pos.position_nr} - {pos.kurztext}
-              </option>
-            ))}
-          </select>
-
-          <label style={labelStyle}>{t.workType}</label>
-          <select
-            value={arbeitsart}
-            onChange={(e) => setArbeitsart(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="Leistung">{t.leistung}</option>
-            <option value="Vorbereitung">{t.vorbereitung}</option>
-            <option value="Material">{t.material}</option>
-            <option value="Reinigung">{t.reinigung}</option>
-            <option value="Sonstiges">{t.sonstiges}</option>
-          </select>
-
-          <label style={labelStyle}>{t.note}</label>
-          <textarea
-            value={zeitNotiz}
-            onChange={(e) => setZeitNotiz(e.target.value)}
-            style={textareaStyle}
-          />
-
-          <button
-            onClick={saveArbeitszeit}
-            disabled={saving}
-            style={saveButtonStyle}
-          >
-            {saving ? "..." : t.saveWorkTime}
-          </button>
-        </section>
-      )}
-
-      {activeForm === "leistung" && (
-        <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>{t.performanceTitle}</h2>
-
-          <p style={hintStyle}>{t.performanceHint}</p>
-
-          <label style={labelStyle}>{t.room} *</label>
-          <select
-            value={leistungRaumId}
-            onChange={(e) => setLeistungRaumId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">{t.chooseRoom}</option>
-            {raeume.map((raum) => (
-              <option key={raum.id} value={raum.id}>
-                {raum.ebene ? `${raum.ebene} - ` : ""}
-                {raum.raum_name}
-              </option>
-            ))}
-          </select>
-
-          <label style={labelStyle}>{t.lvPosition} *</label>
-          <select
-            value={leistungPositionId}
-            onChange={(e) => setLeistungPositionId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">{t.chooseLv}</option>
-            {positionen.map((pos) => (
-              <option key={pos.id} value={pos.id}>
-                {pos.position_nr} - {pos.kurztext} | {pos.einheit}
-              </option>
-            ))}
-          </select>
-
-          <label style={labelStyle}>
-            {t.amount}{" "}
-            {leistungPositionId ? `(${getPositionEinheit(leistungPositionId)})` : ""}
-          </label>
-          <input
-            value={leistungMenge}
-            onChange={(e) => setLeistungMenge(e.target.value)}
-            placeholder="z.B. 12,5"
-            style={inputStyle}
-          />
-
-          <label style={labelStyle}>{t.note}</label>
-          <textarea
-            value={leistungNotiz}
-            onChange={(e) => setLeistungNotiz(e.target.value)}
-            style={textareaStyle}
-          />
-
-          <button
-            onClick={saveLeistung}
-            disabled={saving}
-            style={saveButtonStyle}
-          >
-            {saving ? "..." : t.savePerformance}
-          </button>
-        </section>
-      )}
-
-      {activeForm === "regie" && (
-        <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>{t.regieTitle}</h2>
-
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>{t.start}</label>
-              <input
-                type="time"
-                value={regieStart}
-                onChange={(e) => setRegieStart(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>{t.end}</label>
-              <input
-                type="time"
-                value={regieEnde}
-                onChange={(e) => setRegieEnde(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>{t.pause}</label>
-              <input
-                value={regiePause}
-                onChange={(e) => setRegiePause(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <label style={labelStyle}>{t.room} *</label>
-          <select
-            value={regieRaumId}
-            onChange={(e) => setRegieRaumId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">{t.chooseRoom}</option>
-            {raeume.map((raum) => (
-              <option key={raum.id} value={raum.id}>
-                {raum.ebene ? `${raum.ebene} - ` : ""}
-                {raum.raum_name}
-              </option>
-            ))}
-          </select>
-
-          <label style={labelStyle}>{t.description} *</label>
-          <textarea
-            value={regieBeschreibung}
-            onChange={(e) => setRegieBeschreibung(e.target.value)}
-            style={textareaStyle}
-          />
-
-          <div style={photoUploadBoxStyle}>
-            <label style={labelStyle}>{t.regiePhotos}</label>
-
-            <p style={photoHintStyle}>{t.regiePhotosHint}</p>
-
+        <div className="timeGrid">
+          <div>
+            <label>Von</label>
             <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              multiple
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                setRegieFiles(files);
-              }}
-              style={inputStyle}
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
             />
-
-            {regieFiles.length > 0 && (
-              <p style={selectedPhotoTextStyle}>
-                {t.selectedPhotos}: <strong>{regieFiles.length}</strong>
-              </p>
-            )}
-
-            {regieFiles.length === 0 && (
-              <p style={selectedPhotoTextStyle}>{t.photosOptional}</p>
-            )}
           </div>
 
-          <button onClick={saveRegie} disabled={saving} style={saveButtonStyle}>
-            {saving ? "..." : t.saveRegie}
-          </button>
-        </section>
-      )}
-
-      {activeForm === "aufgabe" && (
-        <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>{t.taskTitle}</h2>
-
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>{t.type}</label>
-              <select
-                value={aufgabeTyp}
-                onChange={(e) => setAufgabeTyp(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="Aufgabe">{t.aufgabe}</option>
-                <option value="Mangel">{t.mangel}</option>
-                <option value="Info">{t.info}</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={labelStyle}>{t.priority}</label>
-              <select
-                value={aufgabePrioritaet}
-                onChange={(e) => setAufgabePrioritaet(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="Niedrig">{t.niedrig}</option>
-                <option value="Normal">{t.normal}</option>
-                <option value="Hoch">{t.hoch}</option>
-                <option value="Dringend">{t.dringend}</option>
-              </select>
-            </div>
+          <div>
+            <label>Bis</label>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+            />
           </div>
 
-          <label style={labelStyle}>{t.title} *</label>
-          <input
-            value={aufgabeTitel}
-            onChange={(e) => setAufgabeTitel(e.target.value)}
-            style={inputStyle}
-          />
+          <div>
+            <label>Pause</label>
+            <input
+              type="number"
+              value={pauseMinuten}
+              onChange={(e) => setPauseMinuten(e.target.value)}
+            />
+          </div>
+        </div>
 
-          <label style={labelStyle}>{t.description}</label>
-          <textarea
-            value={aufgabeBeschreibung}
-            onChange={(e) => setAufgabeBeschreibung(e.target.value)}
-            style={textareaStyle}
-          />
+        <div className="preview">
+          Stunden:{" "}
+          <strong>
+            {formatHours(calculateHours(startTime, endTime, pauseMinuten))}
+          </strong>
+        </div>
 
-          <label style={labelStyle}>{t.room}</label>
-          <select
-            value={aufgabeRaumId}
-            onChange={(e) => setAufgabeRaumId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">{t.withoutRoom}</option>
-            {raeume.map((raum) => (
-              <option key={raum.id} value={raum.id}>
-                {raum.ebene ? `${raum.ebene} - ` : ""}
-                {raum.raum_name}
-              </option>
-            ))}
-          </select>
+        <label>Notiz</label>
+        <textarea
+          value={zeitNotiz}
+          onChange={(e) => setZeitNotiz(e.target.value)}
+          placeholder="Napomena za vrijeme"
+        />
 
-          <label style={labelStyle}>{t.lvPosition}</label>
-          <select
-            value={aufgabePositionId}
-            onChange={(e) => setAufgabePositionId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">{t.withoutLv}</option>
-            {positionen.map((pos) => (
-              <option key={pos.id} value={pos.id}>
-                {pos.position_nr} - {pos.kurztext}
-              </option>
-            ))}
-          </select>
+        <button className="saveBtn" onClick={saveArbeitszeit} disabled={saving}>
+          {saving ? "Speichern..." : "Arbeitszeit speichern"}
+        </button>
+      </section>
 
-          <label style={labelStyle}>{t.dueUntil}</label>
-          <input
-            type="date"
-            value={aufgabeFaellig}
-            onChange={(e) => setAufgabeFaellig(e.target.value)}
-            style={inputStyle}
-          />
+      <section className="card">
+        <h2>Leistung</h2>
 
-          <button
-            onClick={saveAufgabe}
-            disabled={saving}
-            style={saveButtonStyle}
-          >
-            {saving ? "..." : t.saveTask}
-          </button>
-        </section>
-      )}
+        <div className="quickGrid">
+          {[
+            "Fliesen verlegt",
+            "Abdichtung gemacht",
+            "Verfugt",
+            "Silikon gemacht",
+          ].map((text) => (
+            <button key={text} onClick={() => setLeistungTitel(text)}>
+              {text}
+            </button>
+          ))}
+        </div>
 
-      {activeForm === "foto" && (
-        <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>{t.photoTitle}</h2>
+        <label>Šta je urađeno?</label>
+        <input
+          value={leistungTitel}
+          onChange={(e) => setLeistungTitel(e.target.value)}
+          placeholder="z.B. Fliesen verlegt"
+        />
 
-          <label style={labelStyle}>{t.type}</label>
-          <select
-            value={fotoTyp}
-            onChange={(e) => setFotoTyp(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="Fortschritt">{t.fortschritt}</option>
-            <option value="Mangel">{t.mangel}</option>
-            <option value="Vorher">{t.vorher}</option>
-            <option value="Nachher">{t.nachher}</option>
-            <option value="Sonstiges">{t.sonstiges}</option>
-          </select>
+        <div className="threeGrid">
+          <div>
+            <label>Menge</label>
+            <input
+              value={leistungMenge}
+              onChange={(e) => setLeistungMenge(e.target.value)}
+              inputMode="decimal"
+              placeholder="25"
+            />
+          </div>
 
-          <label style={labelStyle}>{t.title} *</label>
-          <input
-            value={fotoTitel}
-            onChange={(e) => setFotoTitel(e.target.value)}
-            style={inputStyle}
-          />
+          <div>
+            <label>Einheit</label>
+            <select
+              value={leistungEinheit}
+              onChange={(e) => setLeistungEinheit(e.target.value)}
+            >
+              {EINHEITEN.map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <label style={labelStyle}>{t.description}</label>
-          <textarea
-            value={fotoBeschreibung}
-            onChange={(e) => setFotoBeschreibung(e.target.value)}
-            style={textareaStyle}
-          />
+          <div>
+            <label>Gruppe</label>
+            <select
+              value={leistungGruppe}
+              onChange={(e) => setLeistungGruppe(e.target.value)}
+            >
+              {GRUPPEN.map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-          <label style={labelStyle}>{t.room}</label>
-          <select
-            value={fotoRaumId}
-            onChange={(e) => setFotoRaumId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">{t.withoutRoom}</option>
-            {raeume.map((raum) => (
-              <option key={raum.id} value={raum.id}>
-                {raum.ebene ? `${raum.ebene} - ` : ""}
-                {raum.raum_name}
-              </option>
-            ))}
-          </select>
+        <label>Notiz</label>
+        <textarea
+          value={leistungNotiz}
+          onChange={(e) => setLeistungNotiz(e.target.value)}
+          placeholder="Napomena za Leistung"
+        />
 
-          <label style={labelStyle}>{t.lvPosition}</label>
-          <select
-            value={fotoPositionId}
-            onChange={(e) => setFotoPositionId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">{t.withoutLv}</option>
-            {positionen.map((pos) => (
-              <option key={pos.id} value={pos.id}>
-                {pos.position_nr} - {pos.kurztext}
-              </option>
-            ))}
-          </select>
+        <button className="saveBtn" onClick={saveLeistung} disabled={saving}>
+          {saving ? "Speichern..." : "Leistung speichern"}
+        </button>
+      </section>
 
-          <label style={labelStyle}>{t.file} *</label>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={(e) => setFotoFile(e.target.files?.[0] || null)}
-            style={inputStyle}
-          />
+      <section className="card">
+        <h2>Regie / dodatni rad</h2>
 
-          <button
-            onClick={saveFoto}
-            disabled={uploading}
-            style={{
-              ...saveButtonStyle,
-              opacity: uploading ? 0.5 : 1,
-            }}
-          >
-            {uploading ? "..." : t.savePhoto}
-          </button>
-        </section>
-      )}
+        <div className="quickGrid">
+          {["Zusatzarbeit", "Wartezeit", "Mangel beheben", "Transport"].map(
+            (text) => (
+              <button key={text} onClick={() => setRegieArbeit(text)}>
+                {text}
+              </button>
+            )
+          )}
+        </div>
 
-      <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>
-          {t.myEntries} {formatDate(datum)}
-        </h2>
+        <label>Regie Arbeit</label>
+        <input
+          value={regieArbeit}
+          onChange={(e) => setRegieArbeit(e.target.value)}
+          placeholder="z.B. Zusatzarbeit"
+        />
 
-        <h3 style={subTitleStyle}>{t.workTime}</h3>
+        <label>Beschreibung</label>
+        <textarea
+          value={regieBeschreibung}
+          onChange={(e) => setRegieBeschreibung(e.target.value)}
+          placeholder="Opis dodatnog rada"
+        />
 
-        {myArbeitszeiten.length === 0 ? (
-          <p style={emptyStyle}>{t.noWorkTime}</p>
+        <label>Betrag / Preis</label>
+        <input
+          value={regiePreis}
+          onChange={(e) => setRegiePreis(e.target.value)}
+          inputMode="decimal"
+          placeholder="z.B. 150"
+        />
+
+        <button className="saveBtn orange" onClick={saveRegie} disabled={saving}>
+          {saving ? "Speichern..." : "Regie speichern"}
+        </button>
+      </section>
+
+      <section className="photoBox">
+        <h2>Fotos</h2>
+        <p>Za slike otvori Foto modul projekta.</p>
+
+        <Link href={`/projekte/${projektId}/fotos`}>📸 Fotos öffnen</Link>
+      </section>
+
+      <section className="todayBox">
+        <h2>Današnji unosi</h2>
+
+        {loading ? (
+          <p>Učitavanje...</p>
+        ) : todayArbeitszeit.length === 0 &&
+          todayLeistung.length === 0 &&
+          todayRegie.length === 0 ? (
+          <p>Nema unosa za ovaj dan.</p>
         ) : (
-          myArbeitszeiten.map((z) => (
-            <div key={z.id} style={miniCardStyle}>
-              <div style={miniTopStyle}>
-                <strong>
-                  {String(z.start_time || "").slice(0, 5)} -{" "}
-                  {String(z.end_time || "").slice(0, 5)} |{" "}
-                  {formatNumber(z.stunden)} h
-                </strong>
-                <StatusBadge status={z.freigabe_status} />
+          <div className="todayList">
+            {todayArbeitszeit.map((row) => (
+              <div key={`zeit-${row.id}`}>
+                <b>Arbeitszeit</b>
+                <span>
+                  {getStart(row)} - {getEnd(row)} · {formatHours(getHours(row))}
+                </span>
+                {getNote(row) && <p>{getNote(row)}</p>}
               </div>
+            ))}
 
-              <p style={miniTextStyle}>
-                {t.room}: {getRaumName(z.raum_id)}
-              </p>
-              <p style={miniTextStyle}>
-                {t.lvPosition}: {getPositionText(z.lv_position_id)}
-              </p>
-              <p style={miniTextStyle}>
-                {t.workType}: {z.arbeitsart || "-"}
-              </p>
-              <EntryTime value={z.created_at} />
-              <AdminNotiz value={z.admin_notiz} />
-            </div>
-          ))
-        )}
-
-        <h3 style={subTitleStyle}>{t.performance}</h3>
-
-        {myLeistungen.length === 0 ? (
-          <p style={emptyStyle}>{t.noPerformance}</p>
-        ) : (
-          myLeistungen.map((l) => (
-            <div key={l.id} style={miniCardStyle}>
-              <div style={miniTopStyle}>
-                <strong>
-                  {formatNumber(l.menge_ist)} {l.einheit || ""}
-                </strong>
-                <StatusBadge status={l.status} />
+            {todayLeistung.map((row) => (
+              <div key={`leistung-${row.id}`}>
+                <b>Leistung</b>
+                <span>
+                  {getTitle(row)} · {formatNumber(getQuantity(row))} {getUnit(row)}
+                </span>
+                {getNote(row) && <p>{getNote(row)}</p>}
               </div>
+            ))}
 
-              <p style={miniTextStyle}>
-                {t.room}: {getRaumName(l.raum_id)}
-              </p>
-              <p style={miniTextStyle}>
-                {t.lvPosition}: {getPositionText(l.lv_position_id)}
-              </p>
-              <EntryTime value={l.created_at} />
-              <AdminNotiz value={l.admin_notiz} />
-            </div>
-          ))
-        )}
-
-        <h3 style={subTitleStyle}>{t.regie}</h3>
-
-        {myRegie.length === 0 ? (
-          <p style={emptyStyle}>{t.noRegie}</p>
-        ) : (
-          myRegie.map((r) => (
-            <div key={r.id} style={miniCardStyle}>
-              <div style={miniTopStyle}>
-                <strong>
-                  {String(r.start_time || "").slice(0, 5)} -{" "}
-                  {String(r.end_time || "").slice(0, 5)} |{" "}
-                  {formatNumber(r.stunden_pro_worker)} h
-                </strong>
-                <StatusBadge status={r.status} />
-              </div>
-
-              <p style={miniTextStyle}>
-                {t.room}: {getRaumName(r.raum_id)}
-              </p>
-              <p style={miniTextStyle}>{r.beschreibung}</p>
-              <EntryTime value={r.created_at} />
-              <AdminNotiz value={r.admin_notiz} />
-            </div>
-          ))
-        )}
-
-        <h3 style={subTitleStyle}>{t.photo}</h3>
-
-        {myFotos.length === 0 ? (
-          <p style={emptyStyle}>{t.noPhotos}</p>
-        ) : (
-          <div style={photoGridStyle}>
-            {myFotos.map((foto) => (
-              <div key={foto.id} style={photoCardStyle}>
-                <a href={foto.foto_url} target="_blank" rel="noopener noreferrer">
-                  <img
-                    src={foto.foto_url}
-                    alt={foto.titel || "Foto"}
-                    style={photoStyle}
-                  />
-                </a>
-
-                <div style={photoBodyStyle}>
-                  <div style={miniTopStyle}>
-                    <strong>{foto.titel || "-"}</strong>
-                    <StatusBadge status={foto.freigabe_status} />
-                  </div>
-
-                  <p style={miniTextStyle}>
-                    {t.type}: {foto.typ || "-"}
-                  </p>
-                  <p style={miniTextStyle}>
-                    {t.room}: {getRaumName(foto.raum_id)}
-                  </p>
-                  <EntryTime value={foto.created_at} />
-                  <AdminNotiz value={foto.admin_notiz} />
-
-                  <button
-                    onClick={() => deleteFoto(foto)}
-                    style={deleteFotoButtonStyle}
-                  >
-                    {t.deletePhoto}
-                  </button>
-                </div>
+            {todayRegie.map((row) => (
+              <div key={`regie-${row.id}`}>
+                <b>Regie</b>
+                <span>
+                  {getTitle(row)} · {formatHours(getHours(row))}
+                </span>
+                {getNote(row) && <p>{getNote(row)}</p>}
               </div>
             ))}
           </div>
-        )}
-
-        <h3 style={subTitleStyle}>{t.task}</h3>
-
-        {myAufgaben.length === 0 ? (
-          <p style={emptyStyle}>{t.noTasks}</p>
-        ) : (
-          myAufgaben.slice(0, 10).map((a) => (
-            <div key={a.id} style={miniCardStyle}>
-              <div style={miniTopStyle}>
-                <strong>
-                  {a.typ}: {a.titel}
-                </strong>
-                <StatusBadge status={a.status} />
-              </div>
-
-              <p style={miniTextStyle}>
-                {t.priority}: {a.prioritaet}
-              </p>
-              <p style={miniTextStyle}>
-                {t.room}: {getRaumName(a.raum_id)}
-              </p>
-              <EntryTime value={a.created_at} />
-              <AdminNotiz value={a.admin_notiz} />
-            </div>
-          ))
         )}
       </section>
+
+      <style>{`
+        .page {
+          min-height: 100vh;
+          background: #050505;
+          color: white;
+          padding: 16px;
+          font-family: Arial, sans-serif;
+        }
+
+        .top {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: flex-start;
+          margin-bottom: 16px;
+        }
+
+        .label {
+          color: #9ca3af;
+          margin: 0 0 6px;
+          font-weight: 900;
+          font-size: 13px;
+        }
+
+        h1 {
+          margin: 0;
+          font-size: 30px;
+          line-height: 1.05;
+        }
+
+        .subtitle {
+          margin: 8px 0 0;
+          color: #cbd5e1;
+          font-weight: 700;
+        }
+
+        .back {
+          background: #374151;
+          color: white;
+          text-decoration: none;
+          border-radius: 14px;
+          padding: 12px 14px;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+
+        button,
+        a,
+        input,
+        textarea,
+        select {
+          font-family: inherit;
+        }
+
+        button,
+        a {
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        label {
+          display: block;
+          color: #d1d5db;
+          font-weight: 900;
+          margin: 14px 0 7px;
+        }
+
+        input,
+        textarea,
+        select {
+          width: 100%;
+          box-sizing: border-box;
+          background: #030712;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 15px;
+          font-size: 17px;
+          outline: none;
+        }
+
+        textarea {
+          min-height: 88px;
+          resize: vertical;
+          line-height: 1.45;
+        }
+
+        .workerBox,
+        .card,
+        .photoBox,
+        .todayBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 20px;
+          padding: 16px;
+          margin-bottom: 16px;
+        }
+
+        .card h2,
+        .photoBox h2,
+        .todayBox h2 {
+          margin: 0 0 10px;
+          font-size: 24px;
+        }
+
+        .hint,
+        .photoBox p,
+        .todayBox p {
+          color: #cbd5e1;
+          margin: 0 0 12px;
+          line-height: 1.45;
+        }
+
+        .stats {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 10px;
+          margin-bottom: 16px;
+        }
+
+        .stats div {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 16px;
+          padding: 14px;
+        }
+
+        .stats span {
+          display: block;
+          color: #9ca3af;
+          font-size: 13px;
+          font-weight: 900;
+          margin-bottom: 6px;
+        }
+
+        .stats strong {
+          font-size: 22px;
+        }
+
+        .timeGrid,
+        .threeGrid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 0;
+        }
+
+        .quickGrid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+
+        .quickGrid button {
+          background: #1f2937;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 13px;
+          font-weight: 900;
+          font-size: 14px;
+        }
+
+        .preview {
+          margin-top: 14px;
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 14px;
+          color: #cbd5e1;
+          font-weight: 900;
+        }
+
+        .preview strong {
+          color: #bbf7d0;
+          font-size: 22px;
+        }
+
+        .saveBtn {
+          width: 100%;
+          margin-top: 14px;
+          background: #2563eb;
+          color: white;
+          border: 0;
+          border-radius: 16px;
+          padding: 17px;
+          font-size: 17px;
+          font-weight: 900;
+        }
+
+        .saveBtn.orange {
+          background: #ea580c;
+        }
+
+        .saveBtn:disabled {
+          opacity: 0.6;
+        }
+
+        .photoBox a {
+          display: block;
+          background: #15803d;
+          color: white;
+          text-decoration: none;
+          border-radius: 16px;
+          padding: 16px;
+          text-align: center;
+          font-size: 17px;
+          font-weight: 900;
+        }
+
+        .todayList {
+          display: grid;
+          gap: 10px;
+        }
+
+        .todayList div {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 13px;
+        }
+
+        .todayList b {
+          display: block;
+          color: #93c5fd;
+          margin-bottom: 6px;
+        }
+
+        .todayList span {
+          display: block;
+          color: white;
+          font-weight: 800;
+        }
+
+        .todayList p {
+          margin: 8px 0 0;
+          color: #cbd5e1;
+        }
+
+        .successBox {
+          background: #064e3b;
+          border: 1px solid #16a34a;
+          color: white;
+          padding: 14px;
+          border-radius: 14px;
+          margin-bottom: 16px;
+          font-weight: 900;
+        }
+
+        .errorBox {
+          background: #7f1d1d;
+          border: 1px solid #ef4444;
+          color: white;
+          padding: 14px;
+          border-radius: 14px;
+          margin-bottom: 16px;
+          font-weight: 900;
+        }
+
+        @media (min-width: 760px) {
+          .page {
+            padding: 28px;
+          }
+
+          .top {
+            max-width: 880px;
+            margin: 0 auto 18px;
+          }
+
+          .workerBox,
+          .card,
+          .photoBox,
+          .todayBox,
+          .stats {
+            max-width: 880px;
+            margin-left: auto;
+            margin-right: auto;
+          }
+
+          .timeGrid {
+            grid-template-columns: 1fr 1fr 130px;
+            gap: 12px;
+          }
+
+          .threeGrid {
+            grid-template-columns: 1fr 150px 1fr;
+            gap: 12px;
+          }
+
+          .quickGrid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
+      `}</style>
     </main>
   );
 }
-
-const mainStyle: any = {
-  background: "#000",
-  minHeight: "100vh",
-  color: "white",
-  padding: "18px",
-};
-
-const backStyle: any = {
-  color: "#3b82f6",
-  textDecoration: "none",
-  fontWeight: "bold",
-  fontSize: "16px",
-};
-
-const titleStyle: any = {
-  fontSize: "32px",
-  color: "#f97316",
-  margin: "18px 0 8px 0",
-};
-
-const descriptionStyle: any = {
-  color: "#bbb",
-  marginBottom: "12px",
-};
-
-const loadingStyle: any = {
-  color: "#aaa",
-};
-
-const languageBoxStyle: any = {
-  display: "flex",
-  gap: "8px",
-  marginBottom: "16px",
-  flexWrap: "wrap",
-};
-
-const langButtonStyle: any = {
-  background: "#111",
-  color: "white",
-  border: "1px solid #333",
-  borderRadius: "9px",
-  padding: "7px 13px",
-  fontSize: "13px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const activeLangButtonStyle: any = {
-  ...langButtonStyle,
-  background: "#f97316",
-  border: "1px solid #f97316",
-};
-
-const dateBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "16px",
-  marginBottom: "16px",
-};
-
-const dateRowStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr auto",
-  gap: "10px",
-};
-
-const labelStyle: any = {
-  display: "block",
-  color: "#ddd",
-  fontWeight: "bold",
-  marginBottom: "7px",
-  marginTop: "12px",
-};
-
-const inputStyle: any = {
-  width: "100%",
-  padding: "13px",
-  borderRadius: "10px",
-  border: "1px solid #333",
-  background: "#000",
-  color: "white",
-  fontSize: "16px",
-  boxSizing: "border-box",
-};
-
-const textareaStyle: any = {
-  ...inputStyle,
-  minHeight: "95px",
-  resize: "vertical",
-};
-
-const summaryGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, 1fr)",
-  gap: "10px",
-  marginBottom: "16px",
-};
-
-const summaryCardStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "13px",
-};
-
-const summaryLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "12px",
-  marginBottom: "5px",
-};
-
-const summaryValueStyle: any = {
-  color: "#f97316",
-  fontSize: "20px",
-};
-
-const buttonGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "10px",
-  marginBottom: "18px",
-};
-
-const greenButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  borderRadius: "14px",
-  padding: "15px 10px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const blueButtonFullStyle: any = {
-  ...greenButtonStyle,
-  background: "#2563eb",
-};
-
-const orangeButtonStyle: any = {
-  ...greenButtonStyle,
-  background: "#ca8a04",
-};
-
-const purpleButtonStyle: any = {
-  ...greenButtonStyle,
-  background: "#9333ea",
-};
-
-const photoButtonStyle: any = {
-  ...greenButtonStyle,
-  background: "#be123c",
-  gridColumn: "1 / -1",
-};
-
-const blueButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "10px",
-  padding: "0 16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const formBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "16px",
-  marginBottom: "18px",
-};
-
-const formTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-};
-
-const formGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-  gap: "10px",
-};
-
-const hintStyle: any = {
-  color: "#facc15",
-  background: "#1f1600",
-  border: "1px solid #ca8a04",
-  borderRadius: "10px",
-  padding: "10px",
-  fontSize: "13px",
-};
-
-const photoUploadBoxStyle: any = {
-  background: "#080808",
-  border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "12px",
-  marginTop: "14px",
-};
-
-const photoHintStyle: any = {
-  color: "#aaa",
-  fontSize: "13px",
-  lineHeight: "1.4",
-  marginTop: 0,
-};
-
-const selectedPhotoTextStyle: any = {
-  color: "#facc15",
-  fontSize: "13px",
-  marginBottom: 0,
-};
-
-const saveButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "14px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-  width: "100%",
-  marginTop: "16px",
-};
-
-const listBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "16px",
-  marginBottom: "20px",
-};
-
-const sectionTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-};
-
-const subTitleStyle: any = {
-  color: "#f97316",
-  fontSize: "17px",
-  marginTop: "18px",
-};
-
-const emptyStyle: any = {
-  color: "#aaa",
-  fontSize: "14px",
-};
-
-const miniCardStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "12px",
-  marginBottom: "10px",
-};
-
-const miniTopStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "8px",
-  flexWrap: "wrap",
-};
-
-const miniTextStyle: any = {
-  color: "#ccc",
-  fontSize: "13px",
-  margin: "5px 0",
-};
-
-const entryTimeStyle: any = {
-  color: "#93c5fd",
-  background: "#071525",
-  border: "1px solid #1d4ed8",
-  borderRadius: "10px",
-  padding: "8px",
-  fontSize: "13px",
-  marginTop: "8px",
-};
-
-const adminNotizStyle: any = {
-  color: "#facc15",
-  background: "#1f1600",
-  border: "1px solid #ca8a04",
-  borderRadius: "10px",
-  padding: "9px",
-  fontSize: "13px",
-  marginTop: "8px",
-};
-
-const photoGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr",
-  gap: "12px",
-};
-
-const photoCardStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  overflow: "hidden",
-};
-
-const photoStyle: any = {
-  width: "100%",
-  height: "220px",
-  objectFit: "cover",
-  display: "block",
-};
-
-const photoBodyStyle: any = {
-  padding: "12px",
-};
-
-const deleteFotoButtonStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  border: "none",
-  borderRadius: "10px",
-  padding: "10px",
-  fontWeight: "bold",
-  cursor: "pointer",
-  width: "100%",
-  marginTop: "10px",
-};
-
-const okBadgeStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const warningBadgeStyle: any = {
-  background: "#ca8a04",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const dangerBadgeStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
