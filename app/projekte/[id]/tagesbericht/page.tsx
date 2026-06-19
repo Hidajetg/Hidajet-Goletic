@@ -27,6 +27,7 @@ export default function ProjektTagesberichtPage() {
   const [loading, setLoading] = useState(true);
 
   const [datum, setDatum] = useState(getTodayLocalDate());
+  const [onlyApproved, setOnlyApproved] = useState(true);
 
   const [projekt, setProjekt] = useState<any>(null);
   const [raeume, setRaeume] = useState<any[]>([]);
@@ -40,19 +41,66 @@ export default function ProjektTagesberichtPage() {
   const [fotos, setFotos] = useState<any[]>([]);
   const [aufgaben, setAufgaben] = useState<any[]>([]);
 
+  const pendingInfo = useMemo(() => {
+    const waitingArbeitszeit = arbeitszeiten.filter(
+      (z) => z.datum === datum && !isArbeitszeitApproved(z)
+    ).length;
+
+    const waitingLeistung = leistungen.filter(
+      (l) => l.datum === datum && !isLeistungApproved(l)
+    ).length;
+
+    const waitingRegie = regie.filter(
+      (r) => r.datum === datum && !isRegieApproved(r)
+    ).length;
+
+    const waitingFotos = fotos.filter(
+      (f) => f.datum === datum && !isFotoApproved(f)
+    ).length;
+
+    const waitingAufgaben = aufgaben.filter(
+      (a) =>
+        (a.datum === datum || a.faellig_bis === datum || a.erledigt_am === datum) &&
+        a.status === "Offen"
+    ).length;
+
+    return {
+      arbeitszeit: waitingArbeitszeit,
+      leistung: waitingLeistung,
+      regie: waitingRegie,
+      fotos: waitingFotos,
+      aufgaben: waitingAufgaben,
+      total:
+        waitingArbeitszeit +
+        waitingLeistung +
+        waitingRegie +
+        waitingFotos +
+        waitingAufgaben,
+    };
+  }, [arbeitszeiten, leistungen, regie, fotos, aufgaben, datum]);
+
   const dayArbeitszeiten = useMemo(
-    () => arbeitszeiten.filter((z) => z.datum === datum),
-    [arbeitszeiten, datum]
+    () =>
+      arbeitszeiten.filter(
+        (z) => z.datum === datum && (!onlyApproved || isArbeitszeitApproved(z))
+      ),
+    [arbeitszeiten, datum, onlyApproved]
   );
 
   const dayLeistungen = useMemo(
-    () => leistungen.filter((l) => l.datum === datum),
-    [leistungen, datum]
+    () =>
+      leistungen.filter(
+        (l) => l.datum === datum && (!onlyApproved || isLeistungApproved(l))
+      ),
+    [leistungen, datum, onlyApproved]
   );
 
   const dayRegie = useMemo(
-    () => regie.filter((r) => r.datum === datum),
-    [regie, datum]
+    () =>
+      regie.filter(
+        (r) => r.datum === datum && (!onlyApproved || isRegieApproved(r))
+      ),
+    [regie, datum, onlyApproved]
   );
 
   const dayRegieWorkers = useMemo(() => {
@@ -67,19 +115,28 @@ export default function ProjektTagesberichtPage() {
   );
 
   const dayFotos = useMemo(
-    () => fotos.filter((f) => f.datum === datum),
-    [fotos, datum]
+    () =>
+      fotos.filter(
+        (f) => f.datum === datum && (!onlyApproved || isFotoApproved(f))
+      ),
+    [fotos, datum, onlyApproved]
   );
 
   const dayAufgaben = useMemo(
     () =>
-      aufgaben.filter(
-        (a) =>
-          a.datum === datum ||
-          a.faellig_bis === datum ||
-          a.erledigt_am === datum
-      ),
-    [aufgaben, datum]
+      aufgaben.filter((a) => {
+        const sameDay =
+          a.datum === datum || a.faellig_bis === datum || a.erledigt_am === datum;
+
+        if (!sameDay) return false;
+
+        if (onlyApproved) {
+          return a.status !== "Abgelehnt";
+        }
+
+        return true;
+      }),
+    [aufgaben, datum, onlyApproved]
   );
 
   const summary = useMemo(() => {
@@ -274,6 +331,22 @@ export default function ProjektTagesberichtPage() {
     setLoading(false);
   }
 
+  function isArbeitszeitApproved(item: any) {
+    return item.freigabe_status === "Genehmigt";
+  }
+
+  function isLeistungApproved(item: any) {
+    return item.status === "Genehmigt";
+  }
+
+  function isRegieApproved(item: any) {
+    return item.status === "Genehmigt";
+  }
+
+  function isFotoApproved(item: any) {
+    return item.freigabe_status === "Genehmigt";
+  }
+
   function getPosition(id: number | string | null) {
     if (!id) return null;
     return positionen.find((p) => String(p.id) === String(id)) || null;
@@ -345,6 +418,14 @@ export default function ProjektTagesberichtPage() {
     });
   }
 
+  function getStatusBadge(status: string) {
+    if (status === "Genehmigt" || status === "Erledigt") return okBadgeStyle;
+    if (status === "Abgelehnt") return dangerBadgeStyle;
+    if (status === "Offen") return warningBadgeStyle;
+
+    return grayBadgeStyle;
+  }
+
   if (loading) {
     return (
       <main style={mainStyle}>
@@ -404,9 +485,15 @@ export default function ProjektTagesberichtPage() {
           ← Zurück zum Projekt
         </Link>
 
-        <button onClick={() => window.print()} style={printButtonStyle}>
-          🖨️ Drucken / PDF
-        </button>
+        <div style={topButtonWrapStyle}>
+          <button onClick={loadData} style={refreshButtonStyle}>
+            Aktualisieren
+          </button>
+
+          <button onClick={() => window.print()} style={printButtonStyle}>
+            🖨️ Drucken / PDF
+          </button>
+        </div>
       </div>
 
       <h1 style={titleStyle}>📅 Tagesbericht</h1>
@@ -416,13 +503,40 @@ export default function ProjektTagesberichtPage() {
       </p>
 
       <section className="no-print" style={filterBoxStyle}>
-        <label style={labelStyle}>Datum auswählen</label>
-        <input
-          type="date"
-          value={datum}
-          onChange={(e) => setDatum(e.target.value)}
-          style={inputStyle}
-        />
+        <div style={filterGridStyle}>
+          <div>
+            <label style={labelStyle}>Datum auswählen</label>
+            <input
+              type="date"
+              value={datum}
+              onChange={(e) => setDatum(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          <label style={checkboxLineStyle}>
+            <input
+              type="checkbox"
+              checked={onlyApproved}
+              onChange={(e) => setOnlyApproved(e.target.checked)}
+              style={checkboxStyle}
+            />
+            Nur genehmigte Einträge im Tagesbericht rechnen
+          </label>
+        </div>
+
+        {onlyApproved && pendingInfo.total > 0 && (
+          <div style={warningBoxStyle}>
+            <strong>Hinweis:</strong> Es gibt noch {pendingInfo.total} nicht
+            genehmigte Einträge für diesen Tag. Diese werden nicht in Stunden,
+            Leistung, Regie und Fotos gerechnet.
+            <div style={warningSmallStyle}>
+              Arbeitszeit: {pendingInfo.arbeitszeit} · Leistung:{" "}
+              {pendingInfo.leistung} · Regie: {pendingInfo.regie} · Fotos:{" "}
+              {pendingInfo.fotos} · Aufgaben: {pendingInfo.aufgaben}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="print-box" style={infoBoxStyle}>
@@ -463,6 +577,13 @@ export default function ProjektTagesberichtPage() {
           <span style={summaryLabelStyle}>Regie Stunden</span>
           <strong style={summaryValueStyle}>
             {formatNumber(summary.regieHours)} h
+          </strong>
+        </div>
+
+        <div className="print-box" style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Gesamt Stunden</span>
+          <strong style={summaryValueStyle}>
+            {formatNumber(summary.gesamtHours)} h
           </strong>
         </div>
 
@@ -541,7 +662,7 @@ export default function ProjektTagesberichtPage() {
         <h2 style={sectionTitleStyle}>Arbeitszeit</h2>
 
         {dayArbeitszeiten.length === 0 ? (
-          <p style={emptyStyle}>Keine Arbeitszeit an diesem Tag.</p>
+          <p style={emptyStyle}>Keine genehmigte Arbeitszeit an diesem Tag.</p>
         ) : (
           <div style={tableWrapStyle}>
             <table className="print-table" style={wideTableStyle}>
@@ -553,6 +674,7 @@ export default function ProjektTagesberichtPage() {
                   <th style={thStyle}>Raum</th>
                   <th style={thStyle}>LV Position</th>
                   <th style={thStyle}>Art</th>
+                  <th style={thStyle}>Status</th>
                   <th style={thStyle}>Notiz</th>
                 </tr>
               </thead>
@@ -569,6 +691,7 @@ export default function ProjektTagesberichtPage() {
                     <td style={tdStyle}>{getRaumName(z.raum_id)}</td>
                     <td style={tdStyle}>{getPositionText(z.lv_position_id)}</td>
                     <td style={tdStyle}>{z.arbeitsart || "-"}</td>
+                    <td style={tdStyle}>{z.freigabe_status || "Wartet"}</td>
                     <td style={tdStyle}>{z.notiz || "-"}</td>
                   </tr>
                 ))}
@@ -582,7 +705,7 @@ export default function ProjektTagesberichtPage() {
         <h2 style={sectionTitleStyle}>Leistung</h2>
 
         {dayLeistungen.length === 0 ? (
-          <p style={emptyStyle}>Keine Leistung an diesem Tag.</p>
+          <p style={emptyStyle}>Keine genehmigte Leistung an diesem Tag.</p>
         ) : (
           <div style={tableWrapStyle}>
             <table className="print-table" style={wideTableStyle}>
@@ -622,7 +745,7 @@ export default function ProjektTagesberichtPage() {
         <h2 style={sectionTitleStyle}>Regie</h2>
 
         {dayRegie.length === 0 ? (
-          <p style={emptyStyle}>Keine Regie an diesem Tag.</p>
+          <p style={emptyStyle}>Keine genehmigte Regie an diesem Tag.</p>
         ) : (
           <div style={tableWrapStyle}>
             <table className="print-table" style={wideTableStyle}>
@@ -725,14 +848,12 @@ export default function ProjektTagesberichtPage() {
                     {a.typ}
                   </span>
 
-                  <span style={grayBadgeStyle}>{a.status}</span>
+                  <span style={getStatusBadge(a.status)}>{a.status}</span>
                 </div>
 
                 <h3 style={taskTitleStyle}>{a.titel}</h3>
 
-                {a.beschreibung && (
-                  <p style={taskTextStyle}>{a.beschreibung}</p>
-                )}
+                {a.beschreibung && <p style={taskTextStyle}>{a.beschreibung}</p>}
 
                 <p style={taskMetaStyle}>
                   Zuständig: <strong>{a.assigned_to || "-"}</strong>
@@ -755,7 +876,7 @@ export default function ProjektTagesberichtPage() {
         <h2 style={sectionTitleStyle}>Fotos</h2>
 
         {dayFotos.length === 0 ? (
-          <p style={emptyStyle}>Keine Fotos an diesem Tag.</p>
+          <p style={emptyStyle}>Keine genehmigten Fotos an diesem Tag.</p>
         ) : (
           <div style={photoGridStyle}>
             {dayFotos.map((foto) => (
@@ -771,9 +892,15 @@ export default function ProjektTagesberichtPage() {
                 <div style={photoBodyStyle}>
                   <span style={warningBadgeStyle}>{foto.typ || "Foto"}</span>
                   <h3 style={photoTitleStyle}>{foto.titel || "-"}</h3>
+
+                  <p style={taskMetaStyle}>
+                    Status: <strong>{foto.freigabe_status || "Wartet"}</strong>
+                  </p>
+
                   <p style={taskMetaStyle}>
                     Raum: <strong>{getRaumName(foto.raum_id)}</strong>
                   </p>
+
                   {foto.beschreibung && (
                     <p style={taskTextStyle}>{foto.beschreibung}</p>
                   )}
@@ -803,11 +930,27 @@ const topBarStyle: any = {
   flexWrap: "wrap",
 };
 
+const topButtonWrapStyle: any = {
+  display: "flex",
+  gap: "10px",
+  flexWrap: "wrap",
+};
+
 const backStyle: any = {
   color: "#3b82f6",
   textDecoration: "none",
   fontWeight: "bold",
   fontSize: "16px",
+};
+
+const refreshButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 16px",
+  fontWeight: "bold",
+  cursor: "pointer",
 };
 
 const printButtonStyle: any = {
@@ -845,6 +988,13 @@ const filterBoxStyle: any = {
   marginBottom: "20px",
 };
 
+const filterGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: "14px",
+  alignItems: "end",
+};
+
 const labelStyle: any = {
   display: "block",
   color: "#ddd",
@@ -861,6 +1011,40 @@ const inputStyle: any = {
   background: "#000",
   color: "white",
   fontSize: "15px",
+};
+
+const checkboxLineStyle: any = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  color: "#ddd",
+  fontWeight: "bold",
+  background: "#000",
+  border: "1px solid #333",
+  borderRadius: "12px",
+  padding: "12px",
+  cursor: "pointer",
+};
+
+const checkboxStyle: any = {
+  width: "18px",
+  height: "18px",
+};
+
+const warningBoxStyle: any = {
+  background: "#221a00",
+  border: "1px solid #ca8a04",
+  color: "#fde68a",
+  borderRadius: "12px",
+  padding: "12px",
+  marginTop: "14px",
+  lineHeight: "1.5",
+};
+
+const warningSmallStyle: any = {
+  color: "#facc15",
+  marginTop: "6px",
+  fontSize: "13px",
 };
 
 const infoBoxStyle: any = {
@@ -1060,6 +1244,16 @@ const okBadgeStyle: any = {
 
 const warningBadgeStyle: any = {
   background: "#ca8a04",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
+const dangerBadgeStyle: any = {
+  background: "#dc2626",
   color: "white",
   borderRadius: "999px",
   padding: "5px 9px",
