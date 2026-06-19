@@ -1,1549 +1,1306 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-const ADMINI = ["Hido", "Steffi", "Admin"];
+type Projekt = {
+  id: number | string;
+  name?: string | null;
+  naziv?: string | null;
+  title?: string | null;
+  projekt?: string | null;
+  baustelle_name?: string | null;
+  ort?: string | null;
+  mjesto?: string | null;
+  location?: string | null;
+  adresse?: string | null;
+  [key: string]: any;
+};
 
-function getTodayLocalDate() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+type TableConfig = {
+  table: string;
+  column: string;
+};
 
-  return `${year}-${month}-${day}`;
-}
+type MaterialForm = {
+  datum: string;
+  material_id: string;
+  naziv: string;
+  kolicina: string;
+  jedinica: string;
+  gruppe: string;
+  notiz: string;
+  status: string;
+};
+
+const GRUPPE = [
+  "Keramika",
+  "Priprema podloge",
+  "Estrich",
+  "Hidroizolacija",
+  "Ljepilo",
+  "Schienen",
+  "Fuge",
+  "Silikoni",
+  "Terase",
+  "Dodaci",
+];
+
+const EINHEITEN = [
+  "Stk.",
+  "m²",
+  "m",
+  "kg",
+  "Sack",
+  "Eimer",
+  "Karton",
+  "Tube",
+  "Liter",
+];
 
 export default function ProjektMaterialPage() {
   const params = useParams();
-  const router = useRouter();
-  const savingRef = useRef(false);
-
   const projektId = String(params.id);
+  const projektIdValue = isNaN(Number(projektId))
+    ? projektId
+    : Number(projektId);
 
-  const [workerName, setWorkerName] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [projekt, setProjekt] = useState<any>(null);
-  const [raeume, setRaeume] = useState<any[]>([]);
-  const [positionen, setPositionen] = useState<any[]>([]);
-  const [materialien, setMaterialien] = useState<any[]>([]);
-  const [bewegungen, setBewegungen] = useState<any[]>([]);
+  const [projekt, setProjekt] = useState<Projekt | null>(null);
+  const [materialRows, setMaterialRows] = useState<any[]>([]);
+  const [katalog, setKatalog] = useState<any[]>([]);
+  const [errorText, setErrorText] = useState("");
 
-  const [showMaterialForm, setShowMaterialForm] = useState(false);
-  const [showBewegungForm, setShowBewegungForm] = useState(false);
+  const [materialConfig, setMaterialConfig] = useState<TableConfig>({
+    table: "material_bewegungen",
+    column: "projekt_id",
+  });
 
-  const [editingMaterialId, setEditingMaterialId] = useState<number | null>(null);
-  const [editingBewegungId, setEditingBewegungId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const [filterGruppe, setFilterGruppe] = useState("Alle");
 
-  const [materialName, setMaterialName] = useState("");
-  const [gruppe, setGruppe] = useState("");
-  const [einheit, setEinheit] = useState("Stk.");
-  const [mengePlan, setMengePlan] = useState("");
-  const [mindestbestand, setMindestbestand] = useState("");
-  const [materialNotiz, setMaterialNotiz] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<number | string | null>(null);
 
-  const [bewegungDatum, setBewegungDatum] = useState(getTodayLocalDate());
-  const [bewegungMaterialId, setBewegungMaterialId] = useState("");
-  const [bewegungTyp, setBewegungTyp] = useState("Verbrauch");
-  const [bewegungMenge, setBewegungMenge] = useState("");
-  const [bewegungRaumId, setBewegungRaumId] = useState("");
-  const [bewegungPositionId, setBewegungPositionId] = useState("");
-  const [bewegungNotiz, setBewegungNotiz] = useState("");
-
-  const [filterMaterial, setFilterMaterial] = useState("Alle");
-  const [filterTyp, setFilterTyp] = useState("Alle");
-  const [filterDatum, setFilterDatum] = useState("");
-
-  const materialRows = useMemo(() => {
-    return materialien
-      .map((mat) => {
-        const entries = bewegungen.filter(
-          (b) => Number(b.material_id) === Number(mat.id)
-        );
-
-        const zugang = entries
-          .filter((b) => b.typ === "Zugang")
-          .reduce((sum, b) => sum + Number(b.menge || 0), 0);
-
-        const verbrauch = entries
-          .filter((b) => b.typ === "Verbrauch")
-          .reduce((sum, b) => sum + Number(b.menge || 0), 0);
-
-        const rueckgabe = entries
-          .filter((b) => b.typ === "Rückgabe")
-          .reduce((sum, b) => sum + Number(b.menge || 0), 0);
-
-        const plan = Number(mat.menge_plan || 0);
-        const mindest = Number(mat.mindestbestand || 0);
-        const rest = plan + zugang + rueckgabe - verbrauch;
-
-        return {
-          ...mat,
-          plan,
-          zugang,
-          verbrauch,
-          rueckgabe,
-          rest,
-          mindest,
-          warnung: mindest > 0 && rest <= mindest,
-        };
-      })
-      .sort((a, b) => String(a.material_name || "").localeCompare(String(b.material_name || "")));
-  }, [materialien, bewegungen]);
-
-  const filteredBewegungen = useMemo(() => {
-    return bewegungen
-      .filter((item) => {
-        if (filterMaterial !== "Alle" && String(item.material_id || "") !== filterMaterial)
-          return false;
-
-        if (filterTyp !== "Alle" && item.typ !== filterTyp) return false;
-
-        if (filterDatum && item.datum !== filterDatum) return false;
-
-        return true;
-      })
-      .sort((a, b) => {
-        const dateA = String(a.datum || "");
-        const dateB = String(b.datum || "");
-
-        if (dateA !== dateB) return dateB.localeCompare(dateA);
-
-        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-
-        return timeB - timeA;
-      });
-  }, [bewegungen, filterMaterial, filterTyp, filterDatum]);
-
-  const summary = useMemo(() => {
-    const plan = materialRows.reduce((sum, m) => sum + Number(m.plan || 0), 0);
-    const zugang = materialRows.reduce((sum, m) => sum + Number(m.zugang || 0), 0);
-    const verbrauch = materialRows.reduce(
-      (sum, m) => sum + Number(m.verbrauch || 0),
-      0
-    );
-    const rueckgabe = materialRows.reduce(
-      (sum, m) => sum + Number(m.rueckgabe || 0),
-      0
-    );
-    const rest = materialRows.reduce((sum, m) => sum + Number(m.rest || 0), 0);
-    const warnungen = materialRows.filter((m) => m.warnung).length;
-
-    return {
-      materialien: materialien.length,
-      bewegungen: bewegungen.length,
-      plan,
-      zugang,
-      verbrauch,
-      rueckgabe,
-      rest,
-      warnungen,
-    };
-  }, [materialRows, materialien, bewegungen]);
+  const [form, setForm] = useState<MaterialForm>({
+    datum: today(),
+    material_id: "",
+    naziv: "",
+    kolicina: "",
+    jedinica: "Stk.",
+    gruppe: "Keramika",
+    notiz: "",
+    status: "Offen",
+  });
 
   useEffect(() => {
-    const name = localStorage.getItem("worker_name");
+    loadAll();
+  }, [projektId]);
 
-    if (!name) {
-      router.push("/login");
-      return;
-    }
+  function today() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
 
-    const adminStatus = ADMINI.includes(name);
+  function getProjektName() {
+    if (!projekt) return "Projekt";
 
-    if (!adminStatus) {
-      router.push("/");
-      return;
-    }
+    return (
+      projekt.name ||
+      projekt.naziv ||
+      projekt.title ||
+      projekt.projekt ||
+      projekt.baustelle_name ||
+      `Projekt ${projekt.id}`
+    );
+  }
 
-    setWorkerName(name);
-    setIsAdmin(adminStatus);
-    loadData();
-  }, [router, projektId]);
+  function getProjektOrt() {
+    if (!projekt) return "";
+    return projekt.ort || projekt.mjesto || projekt.location || projekt.adresse || "";
+  }
 
-  async function loadData() {
+  function getDate(row: any) {
+    return row.datum || row.date || row.tag || row.day || row.created_date || "";
+  }
+
+  function getMaterialName(row: any) {
+    return (
+      row.naziv ||
+      row.name ||
+      row.material_name ||
+      row.material ||
+      row.title ||
+      row.bezeichnung ||
+      ""
+    );
+  }
+
+  function getQuantity(row: any) {
+    return row.kolicina || row.menge || row.quantity || row.qty || row.anzahl || "";
+  }
+
+  function getUnit(row: any) {
+    return row.jedinica || row.einheit || row.unit || "Stk.";
+  }
+
+  function getGroup(row: any) {
+    return row.gruppe || row.group_name || row.kategorie || row.category || row.typ || "Dodaci";
+  }
+
+  function getNote(row: any) {
+    return row.notiz || row.note || row.bemerkung || row.info || "";
+  }
+
+  function getStatus(row: any) {
+    return row.status || "Offen";
+  }
+
+  function getCatalogName(item: any) {
+    return item.naziv || item.name || item.material_name || item.title || "";
+  }
+
+  function getCatalogUnit(item: any) {
+    return item.jedinica || item.einheit || item.unit || "Stk.";
+  }
+
+  function getCatalogGroup(item: any) {
+    return item.gruppe || item.group_name || item.kategorie || item.category || "Dodaci";
+  }
+
+  function formatNumber(value: any) {
+    const n = Number(String(value || "0").replace(",", "."));
+
+    if (isNaN(n)) return "0";
+
+    return n.toFixed(2).replace(".", ",").replace(",00", "");
+  }
+
+  function resetForm() {
+    setEditId(null);
+    setForm({
+      datum: today(),
+      material_id: "",
+      naziv: "",
+      kolicina: "",
+      jedinica: "Stk.",
+      gruppe: "Keramika",
+      notiz: "",
+      status: "Offen",
+    });
+  }
+
+  async function loadAll() {
     setLoading(true);
+    setErrorText("");
 
-    const projektRes = await supabase
-      .from("projekte")
-      .select("*")
-      .eq("id", Number(projektId))
-      .single();
+    await loadProjekt();
+    await loadKatalog();
+    await loadMaterialRows();
 
-    if (projektRes.error) {
-      alert("Greška kod učitavanja projekta: " + projektRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    setProjekt(projektRes.data);
-
-    const raeumeRes = await supabase
-      .from("projekt_raeume")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("created_at", { ascending: true });
-
-    if (raeumeRes.error) {
-      alert("Greška kod učitavanja prostorija: " + raeumeRes.error.message);
-      setRaeume([]);
-      setLoading(false);
-      return;
-    }
-
-    setRaeume(raeumeRes.data || []);
-
-    const positionenRes = await supabase
-      .from("projekt_lv_positionen")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("position_nr", { ascending: true });
-
-    if (positionenRes.error) {
-      alert("Greška kod učitavanja LV pozicija: " + positionenRes.error.message);
-      setPositionen([]);
-      setLoading(false);
-      return;
-    }
-
-    setPositionen(positionenRes.data || []);
-
-    const materialRes = await supabase
-      .from("projekt_materialien")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("material_name", { ascending: true });
-
-    if (materialRes.error) {
-      alert("Greška kod učitavanja materijala: " + materialRes.error.message);
-      setMaterialien([]);
-      setLoading(false);
-      return;
-    }
-
-    setMaterialien(materialRes.data || []);
-
-    const bewegungRes = await supabase
-      .from("projekt_material_bewegungen")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("datum", { ascending: false })
-      .order("created_at", { ascending: false });
-
-    if (bewegungRes.error) {
-      alert("Greška kod učitavanja kretanja materijala: " + bewegungRes.error.message);
-      setBewegungen([]);
-      setLoading(false);
-      return;
-    }
-
-    setBewegungen(bewegungRes.data || []);
     setLoading(false);
   }
 
-  function clearMaterialForm() {
-    setEditingMaterialId(null);
-    setMaterialName("");
-    setGruppe("");
-    setEinheit("Stk.");
-    setMengePlan("");
-    setMindestbestand("");
-    setMaterialNotiz("");
-  }
+  async function loadProjekt() {
+    const tables = ["projekte", "baustellen"];
 
-  function clearBewegungForm() {
-    setEditingBewegungId(null);
-    setBewegungDatum(getTodayLocalDate());
-    setBewegungMaterialId("");
-    setBewegungTyp("Verbrauch");
-    setBewegungMenge("");
-    setBewegungRaumId("");
-    setBewegungPositionId("");
-    setBewegungNotiz("");
-  }
+    for (const table of tables) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq("id", projektIdValue)
+        .maybeSingle();
 
-  function parseNumber(value: any) {
-    const num = parseFloat(String(value || "0").replace(",", "."));
-    return Number.isNaN(num) ? 0 : num;
-  }
-
-  function formatNumber(value: any, digits = 2) {
-    const num = Number(value || 0);
-
-    return num.toLocaleString("de-AT", {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    });
-  }
-
-  function formatDate(value: string | null) {
-    if (!value) return "-";
-
-    const parts = String(value).slice(0, 10).split("-");
-    if (parts.length === 3) {
-      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+      if (!error && data) {
+        setProjekt(data as Projekt);
+        return;
+      }
     }
 
-    return value;
+    setProjekt(null);
   }
 
-  function formatDateTime(value: string | null) {
-    if (!value) return "-";
+  async function loadKatalog() {
+    const tables = ["materialien", "materijali", "materials", "katalog"];
 
-    const d = new Date(value);
+    for (const table of tables) {
+      const { data, error } = await supabase.from(table).select("*");
 
-    if (Number.isNaN(d.getTime())) {
-      return String(value);
+      if (!error) {
+        const sorted = [...(data || [])].sort((a: any, b: any) => {
+          return String(getCatalogName(a)).localeCompare(String(getCatalogName(b)));
+        });
+
+        setKatalog(sorted);
+        return;
+      }
     }
 
-    return d.toLocaleString("de-AT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    setKatalog([]);
+  }
+
+  async function loadMaterialRows() {
+    const configs: TableConfig[] = [
+      { table: "material_bewegungen", column: "projekt_id" },
+      { table: "material_bewegungen", column: "project_id" },
+      { table: "material_bewegungen", column: "baustelle_id" },
+      { table: "projekt_material", column: "projekt_id" },
+      { table: "projekt_material", column: "project_id" },
+      { table: "projekt_material", column: "baustelle_id" },
+      { table: "material", column: "projekt_id" },
+      { table: "material", column: "project_id" },
+      { table: "materialien_projekt", column: "projekt_id" },
+      { table: "materials_project", column: "project_id" },
+    ];
+
+    for (const config of configs) {
+      const { data, error } = await supabase
+        .from(config.table)
+        .select("*")
+        .eq(config.column, projektIdValue);
+
+      if (!error) {
+        const sorted = [...(data || [])].sort((a: any, b: any) => {
+          const da = String(getDate(a));
+          const db = String(getDate(b));
+
+          if (da === db) {
+            return String(getMaterialName(a)).localeCompare(
+              String(getMaterialName(b))
+            );
+          }
+
+          return db.localeCompare(da);
+        });
+
+        setMaterialConfig(config);
+        setMaterialRows(sorted);
+        return;
+      }
+    }
+
+    setMaterialRows([]);
+    setErrorText(
+      "Ne mogu učitati Material. Provjeri tabelu material_bewegungen i kolonu projekt_id."
+    );
+  }
+
+  const filteredRows = useMemo(() => {
+    return materialRows.filter((row) => {
+      const text = `
+        ${getDate(row)}
+        ${getMaterialName(row)}
+        ${getQuantity(row)}
+        ${getUnit(row)}
+        ${getGroup(row)}
+        ${getStatus(row)}
+        ${getNote(row)}
+      `.toLowerCase();
+
+      const searchOk = text.includes(search.toLowerCase());
+      const groupOk = filterGruppe === "Alle" || getGroup(row) === filterGruppe;
+
+      return searchOk && groupOk;
     });
+  }, [materialRows, search, filterGruppe]);
+
+  const summary = useMemo(() => {
+    const result: {
+      [key: string]: { name: string; unit: string; qty: number; group: string };
+    } = {};
+
+    filteredRows.forEach((row) => {
+      const name = getMaterialName(row) || "Ohne Name";
+      const unit = getUnit(row);
+      const group = getGroup(row);
+      const key = `${name}__${unit}`;
+      const qty = Number(String(getQuantity(row) || "0").replace(",", "."));
+
+      if (!result[key]) {
+        result[key] = {
+          name,
+          unit,
+          group,
+          qty: 0,
+        };
+      }
+
+      result[key].qty += isNaN(qty) ? 0 : qty;
+    });
+
+    return Object.values(result).sort((a, b) => a.name.localeCompare(b.name));
+  }, [filteredRows]);
+
+  function selectCatalogMaterial(materialId: string) {
+    const item = katalog.find((x) => String(x.id) === String(materialId));
+
+    if (!item) {
+      setForm((old) => ({ ...old, material_id: materialId }));
+      return;
+    }
+
+    setForm((old) => ({
+      ...old,
+      material_id: materialId,
+      naziv: getCatalogName(item),
+      jedinica: getCatalogUnit(item),
+      gruppe: getCatalogGroup(item),
+    }));
   }
 
-  function getMaterial(id: number | string | null) {
-    if (!id) return null;
-    return materialien.find((m) => String(m.id) === String(id)) || null;
-  }
+  function buildPayloads(values: MaterialForm) {
+    const base: any = {};
+    base[materialConfig.column] = projektIdValue;
 
-  function getMaterialRow(id: number | string | null) {
-    if (!id) return null;
-    return materialRows.find((m) => String(m.id) === String(id)) || null;
-  }
+    const materialValue =
+      values.material_id && !isNaN(Number(values.material_id))
+        ? Number(values.material_id)
+        : values.material_id;
 
-  function getMaterialName(id: number | string | null) {
-    const mat = getMaterial(id);
-    if (!mat) return "-";
+    const materialPayload = values.material_id
+      ? { material_id: materialValue }
+      : {};
 
-    return mat.material_name || "-";
-  }
+    const qty = Number(String(values.kolicina || "0").replace(",", "."));
 
-  function getMaterialEinheit(id: number | string | null) {
-    const mat = getMaterial(id);
-    if (!mat) return "";
-
-    return mat.einheit || "";
-  }
-
-  function getRaumName(id: number | string | null) {
-    if (!id) return "-";
-
-    const raum = raeume.find((r) => String(r.id) === String(id));
-    if (!raum) return "-";
-
-    return `${raum.ebene ? raum.ebene + " - " : ""}${raum.raum_name}`;
-  }
-
-  function getPositionText(id: number | string | null) {
-    if (!id) return "-";
-
-    const pos = positionen.find((p) => String(p.id) === String(id));
-    if (!pos) return "-";
-
-    return `${pos.position_nr} - ${pos.kurztext}`;
+    return [
+      {
+        ...base,
+        ...materialPayload,
+        datum: values.datum,
+        naziv: values.naziv.trim(),
+        kolicina: isNaN(qty) ? 0 : qty,
+        jedinica: values.jedinica,
+        gruppe: values.gruppe,
+        notiz: values.notiz.trim(),
+        status: values.status,
+      },
+      {
+        ...base,
+        ...materialPayload,
+        date: values.datum,
+        name: values.naziv.trim(),
+        quantity: isNaN(qty) ? 0 : qty,
+        unit: values.jedinica,
+        category: values.gruppe,
+        note: values.notiz.trim(),
+        status: values.status,
+      },
+      {
+        ...base,
+        datum: values.datum,
+        material: values.naziv.trim(),
+        menge: isNaN(qty) ? 0 : qty,
+        einheit: values.jedinica,
+        kategorie: values.gruppe,
+        bemerkung: values.notiz.trim(),
+        status: values.status,
+      },
+      {
+        ...base,
+        naziv: values.naziv.trim(),
+        kolicina: isNaN(qty) ? 0 : qty,
+        jedinica: values.jedinica,
+      },
+      {
+        ...base,
+        name: values.naziv.trim(),
+        quantity: isNaN(qty) ? 0 : qty,
+        unit: values.jedinica,
+      },
+    ];
   }
 
   async function saveMaterial() {
-    if (savingRef.current) return;
-
-    if (!materialName.trim()) {
-      alert("Unesi naziv materijala.");
+    if (!form.naziv.trim()) {
+      alert("Upiši ili odaberi material.");
       return;
     }
 
-    const plan = parseNumber(mengePlan);
-    const mindest = parseNumber(mindestbestand);
+    if (!form.kolicina.trim()) {
+      alert("Upiši količinu.");
+      return;
+    }
 
-    savingRef.current = true;
     setSaving(true);
+    let lastError: any = null;
 
-    const payload: any = {
-      projekt_id: Number(projektId),
-      material_name: materialName.trim(),
-      gruppe: gruppe.trim() || null,
-      einheit: einheit.trim() || "Stk.",
-      menge_plan: plan,
-      mindestbestand: mindest,
-      notiz: materialNotiz.trim() || null,
-    };
+    for (const payload of buildPayloads(form)) {
+      const query = editId
+        ? supabase
+            .from(materialConfig.table)
+            .update(payload as any)
+            .eq("id", editId)
+        : supabase.from(materialConfig.table).insert(payload as any);
 
-    if (editingMaterialId) {
-      const { error } = await supabase
-        .from("projekt_materialien")
-        .update(payload)
-        .eq("id", editingMaterialId);
+      const { error } = await query;
 
-      if (error) {
-        alert("Greška kod izmjene materijala: " + error.message);
-        savingRef.current = false;
+      if (!error) {
+        resetForm();
+        setShowForm(false);
         setSaving(false);
+        await loadMaterialRows();
         return;
       }
-    } else {
-      payload.created_by = workerName;
 
-      const { error } = await supabase.from("projekt_materialien").insert(payload);
-
-      if (error) {
-        alert("Greška kod dodavanja materijala: " + error.message);
-        savingRef.current = false;
-        setSaving(false);
-        return;
-      }
+      lastError = error;
     }
 
-    clearMaterialForm();
-    setShowMaterialForm(false);
-    await loadData();
-
-    savingRef.current = false;
     setSaving(false);
+    alert("Greška kod spremanja materijala: " + (lastError?.message || ""));
   }
 
-  function editMaterial(item: any) {
-    setEditingMaterialId(item.id);
-    setMaterialName(item.material_name || "");
-    setGruppe(item.gruppe || "");
-    setEinheit(item.einheit || "Stk.");
-    setMengePlan(String(item.menge_plan || ""));
-    setMindestbestand(String(item.mindestbestand || ""));
-    setMaterialNotiz(item.notiz || "");
-    setShowMaterialForm(true);
-    setShowBewegungForm(false);
+  function quickAddMaterial(name: string, unit: string, group: string) {
+    setForm((old) => ({
+      ...old,
+      naziv: name,
+      jedinica: unit,
+      gruppe: group,
+    }));
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setShowForm(true);
   }
 
-  async function deleteMaterial(item: any) {
-    const related = bewegungen.filter(
-      (b) => Number(b.material_id) === Number(item.id)
-    );
+  function startEdit(row: any) {
+    setEditId(row.id);
 
-    if (related.length > 0) {
-      alert(
-        "Ovaj materijal ima kretanja. Prvo obriši kretanja materijala pa onda materijal."
-      );
+    setForm({
+      datum: String(getDate(row) || today()),
+      material_id: String(row.material_id || ""),
+      naziv: String(getMaterialName(row) || ""),
+      kolicina: String(getQuantity(row) || ""),
+      jedinica: String(getUnit(row) || "Stk."),
+      gruppe: String(getGroup(row) || "Dodaci"),
+      notiz: String(getNote(row) || ""),
+      status: String(getStatus(row) || "Offen"),
+    });
+
+    setShowForm(true);
+  }
+
+  async function changeStatus(row: any, newStatus: string) {
+    const { error } = await supabase
+      .from(materialConfig.table)
+      .update({ status: newStatus } as any)
+      .eq("id", row.id);
+
+    if (error) {
+      alert("Greška kod statusa: " + error.message);
       return;
     }
 
-    const ok = confirm("Da li sigurno želiš obrisati ovaj materijal?");
+    await loadMaterialRows();
+  }
+
+  async function deleteMaterial(row: any) {
+    const ok = confirm(`Da li želiš obrisati material: ${getMaterialName(row)}?`);
 
     if (!ok) return;
 
     const { error } = await supabase
-      .from("projekt_materialien")
+      .from(materialConfig.table)
       .delete()
-      .eq("id", item.id);
+      .eq("id", row.id);
 
     if (error) {
-      alert("Greška kod brisanja materijala: " + error.message);
+      alert("Greška kod brisanja: " + error.message);
       return;
     }
 
-    loadData();
-  }
-
-  async function saveBewegung() {
-    if (savingRef.current) return;
-
-    if (!bewegungDatum) {
-      alert("Odaberi datum.");
-      return;
-    }
-
-    if (!bewegungMaterialId) {
-      alert("Odaberi materijal.");
-      return;
-    }
-
-    const menge = parseNumber(bewegungMenge);
-
-    if (!menge || menge <= 0) {
-      alert("Unesi ispravnu količinu.");
-      return;
-    }
-
-    savingRef.current = true;
-    setSaving(true);
-
-    const payload: any = {
-      projekt_id: Number(projektId),
-      material_id: Number(bewegungMaterialId),
-      datum: bewegungDatum,
-      typ: bewegungTyp,
-      menge,
-      raum_id: bewegungRaumId ? Number(bewegungRaumId) : null,
-      lv_position_id: bewegungPositionId ? Number(bewegungPositionId) : null,
-      notiz: bewegungNotiz.trim() || null,
-    };
-
-    if (editingBewegungId) {
-      const { error } = await supabase
-        .from("projekt_material_bewegungen")
-        .update(payload)
-        .eq("id", editingBewegungId);
-
-      if (error) {
-        alert("Greška kod izmjene kretanja: " + error.message);
-        savingRef.current = false;
-        setSaving(false);
-        return;
-      }
-    } else {
-      payload.created_by = workerName;
-
-      const { error } = await supabase
-        .from("projekt_material_bewegungen")
-        .insert(payload);
-
-      if (error) {
-        alert("Greška kod dodavanja kretanja: " + error.message);
-        savingRef.current = false;
-        setSaving(false);
-        return;
-      }
-    }
-
-    clearBewegungForm();
-    setShowBewegungForm(false);
-    await loadData();
-
-    savingRef.current = false;
-    setSaving(false);
-  }
-
-  function editBewegung(item: any) {
-    setEditingBewegungId(item.id);
-    setBewegungDatum(item.datum || getTodayLocalDate());
-    setBewegungMaterialId(item.material_id ? String(item.material_id) : "");
-    setBewegungTyp(item.typ || "Verbrauch");
-    setBewegungMenge(String(item.menge || ""));
-    setBewegungRaumId(item.raum_id ? String(item.raum_id) : "");
-    setBewegungPositionId(item.lv_position_id ? String(item.lv_position_id) : "");
-    setBewegungNotiz(item.notiz || "");
-    setShowBewegungForm(true);
-    setShowMaterialForm(false);
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  async function deleteBewegung(item: any) {
-    const ok = confirm("Da li sigurno želiš obrisati ovo kretanje materijala?");
-
-    if (!ok) return;
-
-    const { error } = await supabase
-      .from("projekt_material_bewegungen")
-      .delete()
-      .eq("id", item.id);
-
-    if (error) {
-      alert("Greška kod brisanja kretanja: " + error.message);
-      return;
-    }
-
-    loadData();
-  }
-
-  function getTypStyle(typ: string) {
-    if (typ === "Zugang") return okBadgeStyle;
-    if (typ === "Rückgabe") return blueBadgeStyle;
-    if (typ === "Korrektur") return grayBadgeStyle;
-
-    return warningBadgeStyle;
-  }
-
-  if (loading) {
-    return (
-      <main style={mainStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
-
-        <h1 style={titleStyle}>🧱 Material</h1>
-        <p style={loadingStyle}>Wird geladen...</p>
-      </main>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <main style={mainStyle}>
-        <h1 style={titleStyle}>Kein Zugriff</h1>
-      </main>
-    );
+    await loadMaterialRows();
   }
 
   return (
-    <main style={mainStyle}>
-      <div style={topBarStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
+    <main className="page">
+      <section className="top">
+        <div>
+          <Link className="back" href={`/projekte/${projektId}`}>
+            ← Zurück zu Projekt
+          </Link>
 
-        <div style={topButtonWrapStyle}>
-          <button onClick={loadData} style={refreshButtonStyle}>
+          <p className="label">Projekt Material</p>
+          <h1>Materialverbrauch</h1>
+          <p className="subtitle">
+            {getProjektName()}
+            {getProjektOrt() ? ` · ${getProjektOrt()}` : ""}
+          </p>
+        </div>
+
+        <div className="topButtons">
+          <button className="btn gray" onClick={loadAll}>
             Aktualisieren
           </button>
 
           <button
+            className="btn blue"
             onClick={() => {
-              clearMaterialForm();
-              setShowMaterialForm(!showMaterialForm);
-              setShowBewegungForm(false);
-            }}
-            disabled={saving}
-            style={newButtonStyle}
-          >
-            {showMaterialForm ? "Material schließen" : "+ Material"}
-          </button>
-
-          <button
-            onClick={() => {
-              clearBewegungForm();
-              setShowBewegungForm(!showBewegungForm);
-              setShowMaterialForm(false);
-            }}
-            disabled={saving}
-            style={orangeButtonStyle}
-          >
-            {showBewegungForm ? "Bewegung schließen" : "+ Bewegung"}
-          </button>
-        </div>
-      </div>
-
-      <h1 style={titleStyle}>🧱 Material</h1>
-
-      <p style={descriptionStyle}>
-        Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
-        <strong>{workerName}</strong>
-      </p>
-
-      <section style={summaryGridStyle}>
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Materialien</span>
-          <strong style={summaryValueStyle}>{summary.materialien}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Bewegungen</span>
-          <strong style={summaryValueStyle}>{summary.bewegungen}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Plan Menge</span>
-          <strong style={summaryValueStyle}>{formatNumber(summary.plan)}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Zugang</span>
-          <strong style={{ ...summaryValueStyle, color: "#22c55e" }}>
-            {formatNumber(summary.zugang)}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Verbrauch</span>
-          <strong style={{ ...summaryValueStyle, color: "#f97316" }}>
-            {formatNumber(summary.verbrauch)}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Rückgabe</span>
-          <strong style={{ ...summaryValueStyle, color: "#3b82f6" }}>
-            {formatNumber(summary.rueckgabe)}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Rest</span>
-          <strong style={summaryValueStyle}>{formatNumber(summary.rest)}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Warnungen</span>
-          <strong
-            style={{
-              ...summaryValueStyle,
-              color: summary.warnungen > 0 ? "#ef4444" : "#22c55e",
+              resetForm();
+              setShowForm(true);
             }}
           >
-            {summary.warnungen}
-          </strong>
-        </div>
-      </section>
-
-      <section style={infoBoxStyle}>
-        <h2 style={sectionTitleStyle}>Material Regel</h2>
-        <p style={infoTextStyle}>
-          Material ima planiranu količinu. Kretanja su Zugang, Verbrauch, Rückgabe
-          ili Korrektur. Rest se računa automatski: Plan + Zugang + Rückgabe -
-          Verbrauch.
-        </p>
-      </section>
-
-      {showMaterialForm && (
-        <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>
-            {editingMaterialId ? "Material bearbeiten" : "Material anlegen"}
-          </h2>
-
-          <label style={labelStyle}>Material Name *</label>
-          <input
-            value={materialName}
-            onChange={(e) => setMaterialName(e.target.value)}
-            placeholder="z.B. Fliesenkleber S1"
-            style={inputStyle}
-          />
-
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Gruppe</label>
-              <input
-                value={gruppe}
-                onChange={(e) => setGruppe(e.target.value)}
-                placeholder="z.B. Kleber, Fuge, Silikon"
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Einheit</label>
-              <input
-                value={einheit}
-                onChange={(e) => setEinheit(e.target.value)}
-                placeholder="Stk. / kg / Sack / m²"
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Plan Menge</label>
-              <input
-                type="number"
-                step="0.01"
-                value={mengePlan}
-                onChange={(e) => setMengePlan(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Mindestbestand</label>
-              <input
-                type="number"
-                step="0.01"
-                value={mindestbestand}
-                onChange={(e) => setMindestbestand(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <label style={labelStyle}>Notiz</label>
-          <textarea
-            value={materialNotiz}
-            onChange={(e) => setMaterialNotiz(e.target.value)}
-            placeholder="Napomena za materijal..."
-            style={textareaStyle}
-          />
-
-          <div style={formButtonRowStyle}>
-            <button
-              onClick={saveMaterial}
-              disabled={saving}
-              style={{
-                ...saveButtonStyle,
-                opacity: saving ? 0.5 : 1,
-                cursor: saving ? "not-allowed" : "pointer",
-              }}
-            >
-              {saving
-                ? "Speichern..."
-                : editingMaterialId
-                ? "Änderungen speichern"
-                : "Material speichern"}
-            </button>
-
-            <button
-              onClick={() => {
-                clearMaterialForm();
-                setShowMaterialForm(false);
-              }}
-              disabled={saving}
-              style={cancelButtonStyle}
-            >
-              Abbrechen
-            </button>
-          </div>
-        </section>
-      )}
-
-      {showBewegungForm && (
-        <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>
-            {editingBewegungId ? "Bewegung bearbeiten" : "Material Bewegung"}
-          </h2>
-
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Datum *</label>
-              <input
-                type="date"
-                value={bewegungDatum}
-                onChange={(e) => setBewegungDatum(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Typ</label>
-              <select
-                value={bewegungTyp}
-                onChange={(e) => setBewegungTyp(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="Zugang">Zugang</option>
-                <option value="Verbrauch">Verbrauch</option>
-                <option value="Rückgabe">Rückgabe</option>
-                <option value="Korrektur">Korrektur</option>
-              </select>
-            </div>
-          </div>
-
-          <label style={labelStyle}>Material *</label>
-          <select
-            value={bewegungMaterialId}
-            onChange={(e) => setBewegungMaterialId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">Material auswählen</option>
-            {materialRows.map((mat) => (
-              <option key={mat.id} value={mat.id}>
-                {mat.material_name} · Rest {formatNumber(mat.rest)} {mat.einheit || ""}
-              </option>
-            ))}
-          </select>
-
-          {bewegungMaterialId && (
-            <div style={previewBoxStyle}>
-              <strong>Aktueller Rest:</strong>{" "}
-              {formatNumber(getMaterialRow(bewegungMaterialId)?.rest || 0)}{" "}
-              {getMaterialEinheit(bewegungMaterialId)}
-            </div>
-          )}
-
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Menge *</label>
-              <input
-                type="number"
-                step="0.01"
-                value={bewegungMenge}
-                onChange={(e) => setBewegungMenge(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Raum</label>
-              <select
-                value={bewegungRaumId}
-                onChange={(e) => setBewegungRaumId(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">Ohne Raum</option>
-                {raeume.map((raum) => (
-                  <option key={raum.id} value={raum.id}>
-                    {raum.ebene ? `${raum.ebene} - ` : ""}
-                    {raum.raum_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <label style={labelStyle}>LV Position</label>
-          <select
-            value={bewegungPositionId}
-            onChange={(e) => setBewegungPositionId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">Ohne LV Position</option>
-            {positionen.map((pos) => (
-              <option key={pos.id} value={pos.id}>
-                {pos.position_nr} - {pos.kurztext}
-              </option>
-            ))}
-          </select>
-
-          <label style={labelStyle}>Notiz</label>
-          <textarea
-            value={bewegungNotiz}
-            onChange={(e) => setBewegungNotiz(e.target.value)}
-            placeholder="Napomena za kretanje materijala..."
-            style={textareaStyle}
-          />
-
-          <div style={formButtonRowStyle}>
-            <button
-              onClick={saveBewegung}
-              disabled={saving}
-              style={{
-                ...saveButtonStyle,
-                opacity: saving ? 0.5 : 1,
-                cursor: saving ? "not-allowed" : "pointer",
-              }}
-            >
-              {saving
-                ? "Speichern..."
-                : editingBewegungId
-                ? "Änderungen speichern"
-                : "Bewegung speichern"}
-            </button>
-
-            <button
-              onClick={() => {
-                clearBewegungForm();
-                setShowBewegungForm(false);
-              }}
-              disabled={saving}
-              style={cancelButtonStyle}
-            >
-              Abbrechen
-            </button>
-          </div>
-        </section>
-      )}
-
-      <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Material Übersicht</h2>
-
-        {materialRows.length === 0 ? (
-          <p style={emptyStyle}>Kein Material vorhanden.</p>
-        ) : (
-          <div style={tableWrapStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Material</th>
-                  <th style={thStyle}>Gruppe</th>
-                  <th style={thStyle}>EH</th>
-                  <th style={thRightStyle}>Plan</th>
-                  <th style={thRightStyle}>Zugang</th>
-                  <th style={thRightStyle}>Verbrauch</th>
-                  <th style={thRightStyle}>Rückgabe</th>
-                  <th style={thRightStyle}>Rest</th>
-                  <th style={thRightStyle}>Mindest</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Aktion</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {materialRows.map((mat) => (
-                  <tr key={mat.id}>
-                    <td style={tdStyle}>
-                      <strong>{mat.material_name}</strong>
-                      {mat.notiz && <div style={miniTextStyle}>{mat.notiz}</div>}
-                    </td>
-                    <td style={tdStyle}>{mat.gruppe || "-"}</td>
-                    <td style={tdStyle}>{mat.einheit || "-"}</td>
-                    <td style={tdRightStyle}>{formatNumber(mat.plan)}</td>
-                    <td style={tdRightStyle}>{formatNumber(mat.zugang)}</td>
-                    <td style={tdRightStyle}>{formatNumber(mat.verbrauch)}</td>
-                    <td style={tdRightStyle}>{formatNumber(mat.rueckgabe)}</td>
-                    <td style={tdRightStyle}>
-                      <strong>{formatNumber(mat.rest)}</strong>
-                    </td>
-                    <td style={tdRightStyle}>{formatNumber(mat.mindest)}</td>
-                    <td style={tdStyle}>
-                      {mat.warnung ? (
-                        <span style={dangerBadgeStyle}>Niedrig</span>
-                      ) : (
-                        <span style={okBadgeStyle}>OK</span>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={actionRowStyle}>
-                        <button onClick={() => editMaterial(mat)} style={editButtonStyle}>
-                          Bearbeiten
-                        </button>
-                        <button
-                          onClick={() => deleteMaterial(mat)}
-                          style={deleteButtonStyle}
-                        >
-                          Löschen
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section style={filterBoxStyle}>
-        <h2 style={sectionTitleStyle}>Bewegungen Filter</h2>
-
-        <div style={filterGridStyle}>
-          <div>
-            <label style={labelStyle}>Material Filter</label>
-            <select
-              value={filterMaterial}
-              onChange={(e) => setFilterMaterial(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="Alle">Alle Materialien</option>
-              {materialien.map((mat) => (
-                <option key={mat.id} value={mat.id}>
-                  {mat.material_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Typ Filter</label>
-            <select
-              value={filterTyp}
-              onChange={(e) => setFilterTyp(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="Alle">Alle</option>
-              <option value="Zugang">Zugang</option>
-              <option value="Verbrauch">Verbrauch</option>
-              <option value="Rückgabe">Rückgabe</option>
-              <option value="Korrektur">Korrektur</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Datum Filter</label>
-            <input
-              type="date"
-              value={filterDatum}
-              onChange={(e) => setFilterDatum(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-
-          <button
-            onClick={() => {
-              setFilterMaterial("Alle");
-              setFilterTyp("Alle");
-              setFilterDatum("");
-            }}
-            style={grayButtonStyle}
-          >
-            Filter löschen
+            + Material hinzufügen
           </button>
         </div>
       </section>
 
-      <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Material Bewegungen</h2>
+      {errorText && <div className="errorBox">{errorText}</div>}
 
-        {filteredBewegungen.length === 0 ? (
-          <p style={emptyStyle}>Keine Bewegungen gefunden.</p>
-        ) : (
-          <div style={bewegungGridStyle}>
-            {filteredBewegungen.map((item) => (
-              <div key={item.id} style={bewegungCardStyle}>
-                <div style={cardTopStyle}>
-                  <span style={getTypStyle(item.typ)}>{item.typ || "-"}</span>
-                  <strong style={dateTextStyle}>{formatDate(item.datum)}</strong>
-                </div>
+      <section className="stats">
+        <div className="stat">
+          <span>Ukupno unosa</span>
+          <strong>{filteredRows.length}</strong>
+        </div>
 
-                <h3 style={cardTitleStyle}>{getMaterialName(item.material_id)}</h3>
+        <div className="stat">
+          <span>Različit material</span>
+          <strong>{summary.length}</strong>
+        </div>
 
-                <div style={detailGridStyle}>
-                  <div>
-                    <span style={smallLabelStyle}>Menge</span>
-                    <strong>
-                      {formatNumber(item.menge)} {getMaterialEinheit(item.material_id)}
-                    </strong>
-                  </div>
+        <div className="stat">
+          <span>Gruppen</span>
+          <strong>{new Set(filteredRows.map((row) => getGroup(row))).size}</strong>
+        </div>
+      </section>
 
-                  <div>
-                    <span style={smallLabelStyle}>Raum</span>
-                    <strong>{getRaumName(item.raum_id)}</strong>
-                  </div>
+      <section className="toolbar">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Traži material, grupu, količinu, napomenu..."
+        />
 
-                  <div>
-                    <span style={smallLabelStyle}>LV Position</span>
-                    <strong>{getPositionText(item.lv_position_id)}</strong>
-                  </div>
+        <select
+          value={filterGruppe}
+          onChange={(e) => setFilterGruppe(e.target.value)}
+        >
+          <option value="Alle">Alle Gruppen</option>
+          {GRUPPE.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
+      </section>
 
-                  <div>
-                    <span style={smallLabelStyle}>Erstellt von</span>
-                    <strong>{item.created_by || "-"}</strong>
-                  </div>
-                </div>
+      <section className="quickAdd">
+        <h2>Brzi unos materijala</h2>
 
-                {isAdmin && (
-                  <p style={metaTextStyle}>
-                    Zeit der Eingabe:{" "}
-                    <strong>{formatDateTime(item.created_at)}</strong>
-                  </p>
-                )}
+        <div className="quickGrid">
+          {[
+            { name: "Flexkleber", unit: "Sack", group: "Ljepilo" },
+            { name: "Fugenmasse", unit: "kg", group: "Fuge" },
+            { name: "Silikon", unit: "Tube", group: "Silikoni" },
+            { name: "Dichtband", unit: "m", group: "Hidroizolacija" },
+            { name: "Grundierung", unit: "Eimer", group: "Priprema podloge" },
+            { name: "Schiene", unit: "m", group: "Schienen" },
+            { name: "Fliesen", unit: "m²", group: "Keramika" },
+            { name: "Estrich", unit: "Sack", group: "Estrich" },
+          ].map((item) => (
+            <button
+              key={`${item.name}-${item.group}`}
+              onClick={() => quickAddMaterial(item.name, item.unit, item.group)}
+            >
+              + {item.name}
+            </button>
+          ))}
+        </div>
+      </section>
 
-                {item.notiz && <p style={noteTextStyle}>{item.notiz}</p>}
+      {summary.length > 0 && (
+        <section className="summaryBox">
+          <h2>Sažetak potrošnje po projektu</h2>
 
-                <div style={actionRowStyle}>
-                  <button onClick={() => editBewegung(item)} style={editButtonStyle}>
-                    Bearbeiten
-                  </button>
-
-                  <button
-                    onClick={() => deleteBewegung(item)}
-                    style={deleteButtonStyle}
-                  >
-                    Löschen
-                  </button>
-                </div>
+          <div className="summaryGrid">
+            {summary.map((item) => (
+              <div key={`${item.name}-${item.unit}`}>
+                <span>{item.group}</span>
+                <strong>{item.name}</strong>
+                <p>
+                  {formatNumber(item.qty)} {item.unit}
+                </p>
               </div>
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      )}
+
+      {loading ? (
+        <div className="emptyBox">Učitavanje Material...</div>
+      ) : filteredRows.length === 0 ? (
+        <div className="emptyBox">
+          <h2>Nema materijala</h2>
+          <p>Dodaj prvi material za ovaj projekt.</p>
+        </div>
+      ) : (
+        <section className="grid">
+          {filteredRows.map((row) => (
+            <article key={row.id} className="card">
+              <div className="cardTop">
+                <div>
+                  <h2>{getMaterialName(row) || "Material"}</h2>
+                  <p>{getDate(row) || "-"}</p>
+                </div>
+
+                <span
+                  className={
+                    String(getStatus(row)).toLowerCase() === "fertig"
+                      ? "badge done"
+                      : "badge"
+                  }
+                >
+                  {getStatus(row)}
+                </span>
+              </div>
+
+              <div className="amount">
+                <span>Količina</span>
+                <strong>
+                  {formatNumber(getQuantity(row))} {getUnit(row)}
+                </strong>
+              </div>
+
+              <div className="meta">
+                <span>{getGroup(row)}</span>
+              </div>
+
+              {getNote(row) && <p className="note">{getNote(row)}</p>}
+
+              <div className="actions">
+                <button onClick={() => startEdit(row)}>Bearbeiten</button>
+                <button onClick={() => changeStatus(row, "Fertig")}>Fertig</button>
+                <button onClick={() => changeStatus(row, "Offen")}>Offen</button>
+                <button className="delete" onClick={() => deleteMaterial(row)}>
+                  Löschen
+                </button>
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
+
+      {showForm && (
+        <div className="modalBg">
+          <div className="modal">
+            <div className="modalHead">
+              <h2>{editId ? "Material bearbeiten" : "Material hinzufügen"}</h2>
+
+              <button
+                onClick={() => {
+                  resetForm();
+                  setShowForm(false);
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <label>Datum</label>
+            <input
+              type="date"
+              value={form.datum}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, datum: e.target.value }))
+              }
+            />
+
+            {katalog.length > 0 && (
+              <>
+                <label>Aus Katalog wählen</label>
+                <select
+                  value={form.material_id}
+                  onChange={(e) => selectCatalogMaterial(e.target.value)}
+                >
+                  <option value="">Material aus Katalog wählen</option>
+                  {katalog.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {getCatalogName(item)} · {getCatalogUnit(item)}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+
+            <label>Material Name *</label>
+            <input
+              value={form.naziv}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, naziv: e.target.value }))
+              }
+              placeholder="z.B. Flexkleber"
+            />
+
+            <div className="twoGrid">
+              <div>
+                <label>Količina *</label>
+                <input
+                  value={form.kolicina}
+                  onChange={(e) =>
+                    setForm((old) => ({ ...old, kolicina: e.target.value }))
+                  }
+                  placeholder="z.B. 12"
+                  inputMode="decimal"
+                />
+              </div>
+
+              <div>
+                <label>Einheit</label>
+                <select
+                  value={form.jedinica}
+                  onChange={(e) =>
+                    setForm((old) => ({ ...old, jedinica: e.target.value }))
+                  }
+                >
+                  {EINHEITEN.map((e) => (
+                    <option key={e} value={e}>
+                      {e}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <label>Gruppe</label>
+            <select
+              value={form.gruppe}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, gruppe: e.target.value }))
+              }
+            >
+              {GRUPPE.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+
+            <label>Status</label>
+            <select
+              value={form.status}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, status: e.target.value }))
+              }
+            >
+              <option value="Offen">Offen</option>
+              <option value="Fertig">Fertig</option>
+            </select>
+
+            <label>Notiz</label>
+            <textarea
+              value={form.notiz}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, notiz: e.target.value }))
+              }
+              placeholder="Napomena za material"
+            />
+
+            <div className="modalActions">
+              <button
+                className="cancel"
+                onClick={() => {
+                  resetForm();
+                  setShowForm(false);
+                }}
+              >
+                Abbrechen
+              </button>
+
+              <button className="save" onClick={saveMaterial} disabled={saving}>
+                {saving ? "Speichern..." : "Speichern"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .page {
+          min-height: 100vh;
+          background: #050505;
+          color: white;
+          padding: 28px;
+          font-family: Arial, sans-serif;
+        }
+
+        .top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 20px;
+          margin-bottom: 22px;
+        }
+
+        .back {
+          display: inline-block;
+          color: white;
+          text-decoration: none;
+          background: #1f2937;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 11px 15px;
+          font-weight: 800;
+          margin-bottom: 18px;
+        }
+
+        .label {
+          color: #9ca3af;
+          margin: 0 0 8px;
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+        h1 {
+          margin: 0;
+          font-size: 44px;
+          line-height: 1;
+        }
+
+        .subtitle {
+          color: #cbd5e1;
+          margin: 12px 0 0;
+          font-size: 17px;
+          font-weight: 700;
+        }
+
+        .topButtons {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        button,
+        a,
+        input,
+        textarea,
+        select {
+          font-family: inherit;
+        }
+
+        button,
+        a {
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-size: 15px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .gray {
+          background: #374151;
+        }
+
+        .blue {
+          background: #2563eb;
+        }
+
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .stat {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+        }
+
+        .stat span {
+          display: block;
+          color: #9ca3af;
+          margin-bottom: 8px;
+          font-weight: 800;
+        }
+
+        .stat strong {
+          font-size: 34px;
+        }
+
+        .toolbar {
+          display: grid;
+          grid-template-columns: 1fr 230px;
+          gap: 10px;
+          margin-bottom: 18px;
+        }
+
+        .toolbar input,
+        .toolbar select {
+          background: #111827;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 15px 16px;
+          font-size: 16px;
+          outline: none;
+        }
+
+        .quickAdd,
+        .summaryBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+          margin-bottom: 18px;
+        }
+
+        .quickAdd h2,
+        .summaryBox h2 {
+          margin: 0 0 12px;
+          font-size: 22px;
+        }
+
+        .quickGrid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 10px;
+        }
+
+        .quickGrid button {
+          background: #1f2937;
+          border: 1px solid #374151;
+          color: white;
+          border-radius: 14px;
+          padding: 13px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .summaryGrid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 10px;
+        }
+
+        .summaryGrid div {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 14px;
+        }
+
+        .summaryGrid span {
+          display: block;
+          color: #9ca3af;
+          font-weight: 800;
+          font-size: 13px;
+          margin-bottom: 6px;
+        }
+
+        .summaryGrid strong {
+          display: block;
+          color: white;
+          font-size: 17px;
+        }
+
+        .summaryGrid p {
+          margin: 8px 0 0;
+          color: #bbf7d0;
+          font-weight: 900;
+          font-size: 20px;
+        }
+
+        .errorBox {
+          background: #7f1d1d;
+          border: 1px solid #ef4444;
+          color: white;
+          padding: 16px;
+          border-radius: 14px;
+          margin-bottom: 18px;
+          font-weight: 800;
+        }
+
+        .emptyBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 30px;
+          text-align: center;
+          color: #cbd5e1;
+        }
+
+        .emptyBox h2 {
+          color: white;
+          margin-top: 0;
+        }
+
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          gap: 18px;
+        }
+
+        .card {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 22px;
+          padding: 20px;
+        }
+
+        .cardTop {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        .card h2 {
+          margin: 0;
+          font-size: 23px;
+        }
+
+        .card p {
+          margin: 8px 0 0;
+          color: #cbd5e1;
+          line-height: 1.45;
+        }
+
+        .badge {
+          background: #064e3b;
+          color: #bbf7d0;
+          border: 1px solid #16a34a;
+          border-radius: 999px;
+          padding: 8px 12px;
+          font-size: 13px;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+
+        .badge.done {
+          background: #374151;
+          color: #e5e7eb;
+          border-color: #6b7280;
+        }
+
+        .amount {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 14px;
+          margin-bottom: 12px;
+        }
+
+        .amount span {
+          display: block;
+          color: #9ca3af;
+          font-weight: 800;
+          margin-bottom: 6px;
+        }
+
+        .amount strong {
+          font-size: 30px;
+          color: #bbf7d0;
+        }
+
+        .meta {
+          margin-bottom: 12px;
+        }
+
+        .meta span {
+          display: inline-block;
+          background: #0b1220;
+          border: 1px solid #374151;
+          color: #d1d5db;
+          border-radius: 999px;
+          padding: 7px 11px;
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .note {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 12px;
+          white-space: pre-wrap;
+          margin-bottom: 12px !important;
+        }
+
+        .actions {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+          padding-top: 14px;
+          border-top: 1px solid #1f2937;
+        }
+
+        .actions button {
+          background: #374151;
+          color: white;
+          border: 0;
+          border-radius: 12px;
+          padding: 12px 8px;
+          font-weight: 900;
+          cursor: pointer;
+          font-size: 14px;
+        }
+
+        .actions .delete {
+          background: #dc2626;
+        }
+
+        .modalBg {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.78);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 16px;
+          z-index: 100;
+        }
+
+        .modal {
+          width: 100%;
+          max-width: 680px;
+          max-height: 92vh;
+          overflow: auto;
+          background: #111827;
+          border: 1px solid #374151;
+          border-radius: 22px;
+          padding: 22px;
+        }
+
+        .modalHead {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 18px;
+        }
+
+        .modalHead h2 {
+          margin: 0;
+          font-size: 28px;
+        }
+
+        .modalHead button {
+          width: 42px;
+          height: 42px;
+          border: 0;
+          border-radius: 12px;
+          background: #374151;
+          color: white;
+          font-size: 28px;
+          cursor: pointer;
+        }
+
+        label {
+          display: block;
+          color: #d1d5db;
+          font-weight: 800;
+          margin: 14px 0 7px;
+        }
+
+        .modal input,
+        .modal textarea,
+        .modal select {
+          width: 100%;
+          box-sizing: border-box;
+          background: #030712;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 14px;
+          font-size: 16px;
+          outline: none;
+        }
+
+        .modal textarea {
+          min-height: 95px;
+          resize: vertical;
+        }
+
+        .twoGrid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+
+        .modalActions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 20px;
+        }
+
+        .modalActions button {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .cancel {
+          background: #374151;
+        }
+
+        .save {
+          background: #2563eb;
+        }
+
+        .save:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 900px) {
+          .toolbar,
+          .quickGrid {
+            grid-template-columns: 1fr;
+          }
+
+          .actions {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .page {
+            padding: 16px;
+          }
+
+          .top {
+            display: block;
+          }
+
+          h1 {
+            font-size: 36px;
+          }
+
+          .topButtons {
+            display: grid;
+            grid-template-columns: 1fr;
+            margin-top: 16px;
+          }
+
+          .stats,
+          .grid,
+          .twoGrid {
+            grid-template-columns: 1fr;
+          }
+
+          .actions {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </main>
   );
 }
-
-const mainStyle: any = {
-  background: "#000",
-  minHeight: "100vh",
-  color: "white",
-  padding: "20px",
-};
-
-const topBarStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "12px",
-  marginBottom: "20px",
-  flexWrap: "wrap",
-};
-
-const topButtonWrapStyle: any = {
-  display: "flex",
-  gap: "10px",
-  flexWrap: "wrap",
-};
-
-const backStyle: any = {
-  color: "#3b82f6",
-  textDecoration: "none",
-  fontWeight: "bold",
-  fontSize: "16px",
-};
-
-const titleStyle: any = {
-  fontSize: "38px",
-  color: "#f97316",
-  margin: "0 0 10px 0",
-};
-
-const descriptionStyle: any = {
-  color: "#bbb",
-  fontSize: "16px",
-  marginBottom: "18px",
-};
-
-const loadingStyle: any = {
-  color: "#aaa",
-  fontSize: "18px",
-};
-
-const refreshButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const newButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const orangeButtonStyle: any = {
-  ...newButtonStyle,
-  background: "#f97316",
-};
-
-const summaryGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-  gap: "12px",
-  marginBottom: "20px",
-};
-
-const summaryCardStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "14px",
-};
-
-const summaryLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "13px",
-  marginBottom: "6px",
-};
-
-const summaryValueStyle: any = {
-  color: "#f97316",
-  fontSize: "22px",
-};
-
-const infoBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const infoTextStyle: any = {
-  color: "#ccc",
-  margin: 0,
-  lineHeight: "1.5",
-};
-
-const formBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const formTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const sectionTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const formGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-  gap: "12px",
-};
-
-const labelStyle: any = {
-  display: "block",
-  color: "#ddd",
-  fontWeight: "bold",
-  marginBottom: "6px",
-  marginTop: "12px",
-};
-
-const inputStyle: any = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "10px",
-  border: "1px solid #333",
-  background: "#000",
-  color: "white",
-  fontSize: "15px",
-  boxSizing: "border-box",
-};
-
-const textareaStyle: any = {
-  ...inputStyle,
-  minHeight: "100px",
-  resize: "vertical",
-};
-
-const previewBoxStyle: any = {
-  marginTop: "12px",
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "12px",
-  color: "#ddd",
-};
-
-const formButtonRowStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "12px",
-  marginTop: "18px",
-};
-
-const saveButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const cancelButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const listBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const filterBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const filterGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "12px",
-  alignItems: "end",
-};
-
-const grayButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const emptyStyle: any = {
-  color: "#aaa",
-  fontSize: "16px",
-};
-
-const tableWrapStyle: any = {
-  overflowX: "auto",
-};
-
-const tableStyle: any = {
-  width: "100%",
-  borderCollapse: "collapse",
-  minWidth: "1150px",
-};
-
-const thStyle: any = {
-  borderBottom: "1px solid #333",
-  color: "#f97316",
-  padding: "10px",
-  textAlign: "left",
-  fontSize: "13px",
-  whiteSpace: "nowrap",
-};
-
-const thRightStyle: any = {
-  ...thStyle,
-  textAlign: "right",
-};
-
-const tdStyle: any = {
-  borderBottom: "1px solid #222",
-  color: "#ddd",
-  padding: "10px",
-  fontSize: "13px",
-  verticalAlign: "top",
-};
-
-const tdRightStyle: any = {
-  ...tdStyle,
-  textAlign: "right",
-  whiteSpace: "nowrap",
-};
-
-const miniTextStyle: any = {
-  color: "#999",
-  fontSize: "12px",
-  marginTop: "4px",
-};
-
-const actionRowStyle: any = {
-  display: "flex",
-  gap: "8px",
-  flexWrap: "wrap",
-};
-
-const editButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "7px 9px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const deleteButtonStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "7px 9px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const bewegungGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-  gap: "14px",
-};
-
-const bewegungCardStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "14px",
-};
-
-const cardTopStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "10px",
-  flexWrap: "wrap",
-};
-
-const dateTextStyle: any = {
-  color: "#ccc",
-  fontSize: "13px",
-};
-
-const cardTitleStyle: any = {
-  color: "#f97316",
-  margin: "12px 0 10px 0",
-  fontSize: "18px",
-};
-
-const detailGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "10px",
-  background: "#080808",
-  border: "1px solid #222",
-  borderRadius: "12px",
-  padding: "10px",
-};
-
-const smallLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "12px",
-  marginBottom: "4px",
-};
-
-const metaTextStyle: any = {
-  color: "#aaa",
-  fontSize: "13px",
-  margin: "8px 0",
-};
-
-const noteTextStyle: any = {
-  color: "#ccc",
-  fontSize: "13px",
-  lineHeight: "1.4",
-  background: "#080808",
-  border: "1px solid #222",
-  borderRadius: "10px",
-  padding: "10px",
-};
-
-const okBadgeStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const warningBadgeStyle: any = {
-  background: "#ca8a04",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const dangerBadgeStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const blueBadgeStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const grayBadgeStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
