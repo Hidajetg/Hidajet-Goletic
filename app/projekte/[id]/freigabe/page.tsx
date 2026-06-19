@@ -2,1134 +2,934 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-const ADMINI = ["Hido", "Steffi", "Admin"];
-const STATUSI = ["Wartet", "Genehmigt", "Abgelehnt"];
+type Projekt = {
+  id: number | string;
+  name?: string | null;
+  naziv?: string | null;
+  title?: string | null;
+  projekt?: string | null;
+  baustelle_name?: string | null;
+  ort?: string | null;
+  mjesto?: string | null;
+  location?: string | null;
+  adresse?: string | null;
+  [key: string]: any;
+};
 
-function getTodayLocalDate() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+type TableConfig = {
+  table: string;
+  column: string;
+};
 
-  return `${year}-${month}-${day}`;
-}
+type FreigabeRow = {
+  id: number | string;
+  typ: "Arbeitszeit" | "Fotos" | "Tagesbericht" | "Aufgaben" | "Positionen" | "Material";
+  table: string;
+  original: any;
+  datum: string;
+  titel: string;
+  untertitel: string;
+  beschreibung: string;
+  status: string;
+};
+
+const STATUS_FILTER = ["Alle", "Wartet", "Freigegeben", "Abgelehnt", "Fertig"];
 
 export default function ProjektFreigabePage() {
   const params = useParams();
-  const router = useRouter();
-
   const projektId = String(params.id);
+  const projektIdValue = isNaN(Number(projektId))
+    ? projektId
+    : Number(projektId);
 
-  const [workerName, setWorkerName] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [projekt, setProjekt] = useState<Projekt | null>(null);
+  const [rows, setRows] = useState<FreigabeRow[]>([]);
+  const [errorText, setErrorText] = useState("");
 
-  const [projekt, setProjekt] = useState<any>(null);
-  const [raeume, setRaeume] = useState<any[]>([]);
-  const [positionen, setPositionen] = useState<any[]>([]);
-
-  const [arbeitszeiten, setArbeitszeiten] = useState<any[]>([]);
-  const [leistungen, setLeistungen] = useState<any[]>([]);
-  const [regie, setRegie] = useState<any[]>([]);
-  const [regieWorkers, setRegieWorkers] = useState<any[]>([]);
-  const [fotos, setFotos] = useState<any[]>([]);
-  const [aufgaben, setAufgaben] = useState<any[]>([]);
-
-  const [activeTab, setActiveTab] = useState("Wartet");
-  const [selectedDate, setSelectedDate] = useState("");
-  const [adminNotiz, setAdminNotiz] = useState<{ [key: string]: string }>({});
-
-  const summary = useMemo(() => {
-    const allItems = getAllItems();
-
-    const wartet = allItems.filter((i) => i.status === "Wartet").length;
-    const genehmigt = allItems.filter((i) => i.status === "Genehmigt").length;
-    const abgelehnt = allItems.filter((i) => i.status === "Abgelehnt").length;
-
-    return {
-      total: allItems.length,
-      wartet,
-      genehmigt,
-      abgelehnt,
-      arbeitszeiten: arbeitszeiten.length,
-      leistungen: leistungen.length,
-      regie: regie.length,
-      fotos: fotos.length,
-      aufgaben: aufgaben.length,
-    };
-  }, [arbeitszeiten, leistungen, regie, fotos, aufgaben]);
-
-  const filteredItems = useMemo(() => {
-    let items = getAllItems();
-
-    if (activeTab !== "Alle") {
-      items = items.filter((item) => item.status === activeTab);
-    }
-
-    if (selectedDate) {
-      items = items.filter((item) => item.datum === selectedDate);
-    }
-
-    return items.sort((a, b) => {
-      const dateA = String(a.datum || "");
-      const dateB = String(b.datum || "");
-
-      if (dateA !== dateB) return dateB.localeCompare(dateA);
-
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-
-      if (timeA !== timeB) return timeB - timeA;
-
-      return b.sortId - a.sortId;
-    });
-  }, [
-    activeTab,
-    selectedDate,
-    arbeitszeiten,
-    leistungen,
-    regie,
-    fotos,
-    aufgaben,
-    regieWorkers,
-    raeume,
-    positionen,
-  ]);
+  const [search, setSearch] = useState("");
+  const [filterTyp, setFilterTyp] = useState("Alle");
+  const [filterStatus, setFilterStatus] = useState("Wartet");
 
   useEffect(() => {
-    const name = localStorage.getItem("worker_name");
+    loadAll();
+  }, [projektId]);
 
-    if (!name) {
-      router.push("/login");
-      return;
+  function getProjektName() {
+    if (!projekt) return "Projekt";
+
+    return (
+      projekt.name ||
+      projekt.naziv ||
+      projekt.title ||
+      projekt.projekt ||
+      projekt.baustelle_name ||
+      `Projekt ${projekt.id}`
+    );
+  }
+
+  function getProjektOrt() {
+    if (!projekt) return "";
+    return projekt.ort || projekt.mjesto || projekt.location || projekt.adresse || "";
+  }
+
+  function getDate(row: any) {
+    return row.datum || row.date || row.tag || row.day || row.created_date || "";
+  }
+
+  function getStatus(row: any) {
+    const raw =
+      row.freigabe_status ||
+      row.approval_status ||
+      row.status ||
+      row.approved ||
+      "";
+
+    if (raw === true) return "Freigegeben";
+    if (raw === false) return "Wartet";
+
+    const s = String(raw || "").toLowerCase();
+
+    if (
+      s.includes("freigegeben") ||
+      s.includes("approved") ||
+      s.includes("odobreno")
+    ) {
+      return "Freigegeben";
     }
 
-    const adminStatus = ADMINI.includes(name);
-
-    if (!adminStatus) {
-      router.push("/");
-      return;
+    if (
+      s.includes("abgelehnt") ||
+      s.includes("rejected") ||
+      s.includes("odbijeno")
+    ) {
+      return "Abgelehnt";
     }
 
-    setWorkerName(name);
-    setIsAdmin(adminStatus);
-    loadData();
-  }, [router, projektId]);
+    if (s.includes("fertig")) {
+      return "Fertig";
+    }
 
-  async function loadData() {
+    return "Wartet";
+  }
+
+  function isWaiting(status: string) {
+    return status === "Wartet";
+  }
+
+  function getWorker(row: any) {
+    return (
+      row.radnik ||
+      row.arbeiter ||
+      row.worker ||
+      row.worker_name ||
+      row.mitarbeiter ||
+      row.name ||
+      ""
+    );
+  }
+
+  function getStart(row: any) {
+    return row.start_time || row.start || row.von || row.beginn || "";
+  }
+
+  function getEnd(row: any) {
+    return row.end_time || row.end || row.bis || row.ende || "";
+  }
+
+  function getHours(row: any) {
+    return row.stunden || row.hours || row.total_hours || row.gesamt_stunden || "";
+  }
+
+  function getTitle(row: any) {
+    return row.titel || row.title || row.name || row.naziv || row.bezeichnung || "";
+  }
+
+  function getDescription(row: any) {
+    return (
+      row.beschreibung ||
+      row.description ||
+      row.notiz ||
+      row.note ||
+      row.info ||
+      row.bemerkung ||
+      ""
+    );
+  }
+
+  function getImageUrl(row: any) {
+    return (
+      row.url ||
+      row.image_url ||
+      row.foto_url ||
+      row.photo_url ||
+      row.bild_url ||
+      row.public_url ||
+      ""
+    );
+  }
+
+  function getMaterialName(row: any) {
+    return row.naziv || row.name || row.material_name || row.material || "";
+  }
+
+  function getQuantity(row: any) {
+    return row.kolicina || row.menge || row.quantity || row.qty || "";
+  }
+
+  function getUnit(row: any) {
+    return row.jedinica || row.einheit || row.unit || "";
+  }
+
+  async function loadAll() {
     setLoading(true);
+    setErrorText("");
 
-    const projektRes = await supabase
-      .from("projekte")
-      .select("*")
-      .eq("id", Number(projektId))
-      .single();
+    await loadProjekt();
 
-    if (projektRes.error) {
-      alert("Greška kod učitavanja projekta: " + projektRes.error.message);
-      setLoading(false);
-      return;
-    }
+    const allRows: FreigabeRow[] = [];
 
-    setProjekt(projektRes.data);
+    const arbeitszeitRows = await loadRows([
+      { table: "arbeitszeiten", column: "projekt_id" },
+      { table: "arbeitszeiten", column: "project_id" },
+      { table: "arbeitszeiten", column: "baustelle_id" },
+      { table: "arbeitszeit", column: "projekt_id" },
+      { table: "arbeitszeit", column: "project_id" },
+      { table: "stunden", column: "projekt_id" },
+    ]);
 
-    const raeumeRes = await supabase
-      .from("projekt_raeume")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("created_at", { ascending: true });
+    arbeitszeitRows.forEach((row) => {
+      allRows.push({
+        id: row.id,
+        typ: "Arbeitszeit",
+        table: row.__table,
+        original: row,
+        datum: getDate(row),
+        titel: getWorker(row) || "Arbeitszeit",
+        untertitel: `${getStart(row) || "-"} - ${getEnd(row) || "-"} ${
+          getHours(row) ? `· ${getHours(row)} h` : ""
+        }`,
+        beschreibung: getDescription(row),
+        status: getStatus(row),
+      });
+    });
 
-    setRaeume(raeumeRes.data || []);
+    const fotoRows = await loadRows([
+      { table: "fotos", column: "projekt_id" },
+      { table: "fotos", column: "project_id" },
+      { table: "fotos", column: "baustelle_id" },
+      { table: "photos", column: "projekt_id" },
+      { table: "photos", column: "project_id" },
+      { table: "bilder", column: "projekt_id" },
+    ]);
 
-    const positionenRes = await supabase
-      .from("projekt_lv_positionen")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("position_nr", { ascending: true });
+    fotoRows.forEach((row) => {
+      allRows.push({
+        id: row.id,
+        typ: "Fotos",
+        table: row.__table,
+        original: row,
+        datum: getDate(row),
+        titel: getTitle(row) || "Foto",
+        untertitel: row.kategorie || row.category || row.typ || "Foto",
+        beschreibung: getDescription(row),
+        status: getStatus(row),
+      });
+    });
 
-    setPositionen(positionenRes.data || []);
+    const tagesberichtRows = await loadRows([
+      { table: "tagesberichte", column: "projekt_id" },
+      { table: "tagesberichte", column: "project_id" },
+      { table: "tagesberichte", column: "baustelle_id" },
+      { table: "tagesbericht", column: "projekt_id" },
+      { table: "regieberichte", column: "projekt_id" },
+      { table: "regiebericht", column: "projekt_id" },
+    ]);
 
-    const arbeitszeitRes = await supabase
-      .from("projekt_arbeitszeiten")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("datum", { ascending: false })
-      .order("created_at", { ascending: false });
+    tagesberichtRows.forEach((row) => {
+      allRows.push({
+        id: row.id,
+        typ: "Tagesbericht",
+        table: row.__table,
+        original: row,
+        datum: getDate(row),
+        titel: getTitle(row) || `Tagesbericht ${getDate(row)}`,
+        untertitel: row.arbeiter || row.workers || row.radnici || "",
+        beschreibung:
+          row.leistung ||
+          row.arbeiten ||
+          row.work_done ||
+          getDescription(row),
+        status: getStatus(row),
+      });
+    });
 
-    setArbeitszeiten(arbeitszeitRes.data || []);
+    const aufgabenRows = await loadRows([
+      { table: "aufgaben", column: "projekt_id" },
+      { table: "aufgaben", column: "project_id" },
+      { table: "aufgaben", column: "baustelle_id" },
+      { table: "tasks", column: "projekt_id" },
+      { table: "tasks", column: "project_id" },
+      { table: "projekt_aufgaben", column: "projekt_id" },
+    ]);
 
-    const leistungRes = await supabase
-      .from("projekt_leistungen")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("datum", { ascending: false })
-      .order("created_at", { ascending: false });
+    aufgabenRows.forEach((row) => {
+      allRows.push({
+        id: row.id,
+        typ: "Aufgaben",
+        table: row.__table,
+        original: row,
+        datum: getDate(row),
+        titel: getTitle(row) || row.aufgabe || row.task || "Aufgabe",
+        untertitel:
+          row.zugewiesen_an ||
+          row.assigned_to ||
+          row.radnik ||
+          row.worker ||
+          "",
+        beschreibung: getDescription(row),
+        status: getStatus(row),
+      });
+    });
 
-    setLeistungen(leistungRes.data || []);
+    const positionRows = await loadRows([
+      { table: "positionen", column: "projekt_id" },
+      { table: "positionen", column: "project_id" },
+      { table: "projekt_positionen", column: "projekt_id" },
+      { table: "lv_positionen", column: "projekt_id" },
+      { table: "positions", column: "project_id" },
+    ]);
 
-    const regieRes = await supabase
-      .from("projekt_regie")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("datum", { ascending: false })
-      .order("created_at", { ascending: false });
+    positionRows.forEach((row) => {
+      allRows.push({
+        id: row.id,
+        typ: "Positionen",
+        table: row.__table,
+        original: row,
+        datum: getDate(row),
+        titel: getTitle(row) || "Position",
+        untertitel: row.gruppe || row.category || row.kategorie || "",
+        beschreibung: getDescription(row),
+        status: getStatus(row),
+      });
+    });
 
-    const regieData = regieRes.data || [];
-    setRegie(regieData);
+    const materialRows = await loadRows([
+      { table: "material_bewegungen", column: "projekt_id" },
+      { table: "material_bewegungen", column: "project_id" },
+      { table: "projekt_material", column: "projekt_id" },
+      { table: "material", column: "projekt_id" },
+      { table: "materialien_projekt", column: "projekt_id" },
+    ]);
 
-    const regieIds = regieData.map((r) => r.id);
+    materialRows.forEach((row) => {
+      allRows.push({
+        id: row.id,
+        typ: "Material",
+        table: row.__table,
+        original: row,
+        datum: getDate(row),
+        titel: getMaterialName(row) || "Material",
+        untertitel: `${getQuantity(row) || ""} ${getUnit(row) || ""}`.trim(),
+        beschreibung: getDescription(row),
+        status: getStatus(row),
+      });
+    });
 
-    if (regieIds.length > 0) {
-      const workersRes = await supabase
-        .from("projekt_regie_workers")
-        .select("*")
-        .in("regie_id", regieIds);
+    const sorted = allRows.sort((a, b) => {
+      if (isWaiting(a.status) && !isWaiting(b.status)) return -1;
+      if (!isWaiting(a.status) && isWaiting(b.status)) return 1;
 
-      setRegieWorkers(workersRes.data || []);
-    } else {
-      setRegieWorkers([]);
-    }
+      return String(b.datum).localeCompare(String(a.datum));
+    });
 
-    const fotosRes = await supabase
-      .from("projekt_fotos")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("datum", { ascending: false })
-      .order("created_at", { ascending: false });
-
-    setFotos(fotosRes.data || []);
-
-    const aufgabenRes = await supabase
-      .from("projekt_aufgaben")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("created_at", { ascending: false });
-
-    setAufgaben(aufgabenRes.data || []);
-
+    setRows(sorted);
     setLoading(false);
   }
 
-  function getAllItems() {
-    const a = arbeitszeiten.map((item) => ({
-      sortId: Number(item.id),
-      id: item.id,
-      table: "projekt_arbeitszeiten",
-      type: "Arbeitszeit",
-      datum: item.datum,
-      title: `${item.worker_name} · ${String(item.start_time || "").slice(0, 5)}-${String(
-        item.end_time || ""
-      ).slice(0, 5)} · ${formatNumber(item.stunden)} h`,
-      status: item.freigabe_status || "Wartet",
-      createdBy: item.created_by || item.worker_name || "-",
-      createdAt: item.created_at || null,
-      adminNotiz: item.admin_notiz || "",
-      raw: item,
-    }));
+  async function loadProjekt() {
+    const tables = ["projekte", "baustellen"];
 
-    const l = leistungen.map((item) => ({
-      sortId: Number(item.id),
-      id: item.id,
-      table: "projekt_leistungen",
-      type: "Leistung",
-      datum: item.datum,
-      title: `${formatNumber(item.menge_ist)} ${item.einheit || ""} · ${getPositionText(
-        item.lv_position_id
-      )}`,
-      status: item.status || "Wartet",
-      createdBy: item.created_by || "-",
-      createdAt: item.created_at || null,
-      adminNotiz: item.admin_notiz || "",
-      raw: item,
-    }));
+    for (const table of tables) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq("id", projektIdValue)
+        .maybeSingle();
 
-    const r = regie.map((item) => ({
-      sortId: Number(item.id),
-      id: item.id,
-      table: "projekt_regie",
-      type: "Regie",
-      datum: item.datum,
-      title: `${String(item.start_time || "").slice(0, 5)}-${String(
-        item.end_time || ""
-      ).slice(0, 5)} · ${formatNumber(item.stunden_pro_worker)} h / Arbeiter`,
-      status: normalizeRegieStatus(item.status),
-      createdBy: item.created_by || "-",
-      createdAt: item.created_at || null,
-      adminNotiz: item.admin_notiz || "",
-      raw: item,
-    }));
-
-    const f = fotos.map((item) => ({
-      sortId: Number(item.id),
-      id: item.id,
-      table: "projekt_fotos",
-      type: "Foto",
-      datum: item.datum,
-      title: item.titel || "Foto",
-      status: item.freigabe_status || "Wartet",
-      createdBy: item.created_by || "-",
-      createdAt: item.created_at || null,
-      adminNotiz: item.admin_notiz || "",
-      raw: item,
-    }));
-
-    const g = aufgaben.map((item) => ({
-      sortId: Number(item.id),
-      id: item.id,
-      table: "projekt_aufgaben",
-      type: item.typ || "Aufgabe",
-      datum: item.datum,
-      title: item.titel || "-",
-      status: normalizeAufgabeStatus(item.status),
-      createdBy: item.created_by || "-",
-      createdAt: item.created_at || null,
-      adminNotiz: item.admin_notiz || "",
-      raw: item,
-    }));
-
-    return [...a, ...l, ...r, ...f, ...g];
-  }
-
-  function normalizeRegieStatus(status: string) {
-    if (status === "Genehmigt") return "Genehmigt";
-    if (status === "Abgelehnt") return "Abgelehnt";
-    return "Wartet";
-  }
-
-  function normalizeAufgabeStatus(status: string) {
-    if (status === "Erledigt") return "Genehmigt";
-    if (status === "Abgelehnt") return "Abgelehnt";
-    return "Wartet";
-  }
-
-  function statusToDbValue(table: string, status: string) {
-    if (table === "projekt_aufgaben") {
-      if (status === "Genehmigt") return "Erledigt";
-      if (status === "Abgelehnt") return "Abgelehnt";
-      return "Offen";
+      if (!error && data) {
+        setProjekt(data as Projekt);
+        return;
+      }
     }
 
-    if (table === "projekt_regie") {
-      if (status === "Genehmigt") return "Genehmigt";
-      if (status === "Abgelehnt") return "Abgelehnt";
-      return "Wartet";
-    }
-
-    if (table === "projekt_leistungen") {
-      if (status === "Genehmigt") return "Genehmigt";
-      if (status === "Abgelehnt") return "Abgelehnt";
-      return "Offen";
-    }
-
-    return status;
+    setProjekt(null);
   }
 
-  function getStatusField(table: string) {
-    if (table === "projekt_arbeitszeiten") return "freigabe_status";
-    if (table === "projekt_fotos") return "freigabe_status";
-    return "status";
+  async function loadRows(configs: TableConfig[]) {
+    for (const config of configs) {
+      const { data, error } = await supabase
+        .from(config.table)
+        .select("*")
+        .eq(config.column, projektIdValue);
+
+      if (!error) {
+        return (data || []).map((row: any) => ({
+          ...row,
+          __table: config.table,
+        }));
+      }
+    }
+
+    return [];
   }
 
-  async function changeStatus(item: any, newStatus: string) {
-    const statusField = getStatusField(item.table);
-    const dbValue = statusToDbValue(item.table, newStatus);
-    const noteKey = `${item.table}-${item.id}`;
-    const noteValue =
-      adminNotiz[noteKey] !== undefined ? adminNotiz[noteKey] : item.adminNotiz;
+  const filtered = useMemo(() => {
+    return rows.filter((row) => {
+      const text = `
+        ${row.typ}
+        ${row.datum}
+        ${row.titel}
+        ${row.untertitel}
+        ${row.beschreibung}
+        ${row.status}
+      `.toLowerCase();
 
-    const payload: any = {
-      [statusField]: dbValue,
-      admin_notiz: noteValue || null,
+      const searchOk = text.includes(search.toLowerCase());
+      const typOk = filterTyp === "Alle" || row.typ === filterTyp;
+      const statusOk = filterStatus === "Alle" || row.status === filterStatus;
+
+      return searchOk && typOk && statusOk;
+    });
+  }, [rows, search, filterTyp, filterStatus]);
+
+  const counts = useMemo(() => {
+    return {
+      wartet: rows.filter((row) => row.status === "Wartet").length,
+      freigegeben: rows.filter((row) => row.status === "Freigegeben").length,
+      abgelehnt: rows.filter((row) => row.status === "Abgelehnt").length,
     };
+  }, [rows]);
 
-    if (item.table === "projekt_aufgaben") {
-      payload.erledigt_am = newStatus === "Genehmigt" ? getTodayLocalDate() : null;
-    }
+  async function updateFreigabe(row: FreigabeRow, status: string) {
+    const payloads: any[] = [
+      {
+        freigabe_status: status,
+        status,
+      },
+      {
+        approval_status: status,
+        status,
+      },
+      {
+        status,
+      },
+      {
+        approved: status === "Freigegeben",
+      },
+    ];
 
-    const { error } = await supabase
-      .from(item.table)
-      .update(payload)
-      .eq("id", item.id);
+    let lastError: any = null;
 
-    if (error) {
-      alert("Greška kod promjene statusa: " + error.message);
-      return;
-    }
+    for (const payload of payloads) {
+      const { error } = await supabase
+        .from(row.table)
+        .update(payload as any)
+        .eq("id", row.id);
 
-    await loadData();
-  }
-
-  async function deleteItem(item: any) {
-    const ok = confirm("Da li sigurno želiš obrisati ovaj unos?");
-
-    if (!ok) return;
-
-    if (item.table === "projekt_fotos" && item.raw.storage_path) {
-      await supabase.storage.from("projekt-fotos").remove([item.raw.storage_path]);
-    }
-
-    const { error } = await supabase.from(item.table).delete().eq("id", item.id);
-
-    if (error) {
-      alert("Greška kod brisanja: " + error.message);
-      return;
-    }
-
-    await loadData();
-  }
-
-  function approveAllWaiting() {
-    const waitingItems = filteredItems.filter((item) => item.status === "Wartet");
-
-    if (waitingItems.length === 0) {
-      alert("Nema unosa sa statusom Wartet.");
-      return;
-    }
-
-    const ok = confirm(
-      "Potvrditi sve trenutno prikazane unose sa statusom Wartet? Broj: " +
-        waitingItems.length
-    );
-
-    if (!ok) return;
-
-    runApproveAll(waitingItems);
-  }
-
-  async function runApproveAll(items: any[]) {
-    for (const item of items) {
-      const statusField = getStatusField(item.table);
-      const dbValue = statusToDbValue(item.table, "Genehmigt");
-
-      const payload: any = {
-        [statusField]: dbValue,
-      };
-
-      if (item.table === "projekt_aufgaben") {
-        payload.erledigt_am = getTodayLocalDate();
+      if (!error) {
+        await loadAll();
+        return;
       }
 
-      await supabase.from(item.table).update(payload).eq("id", item.id);
+      lastError = error;
     }
 
-    await loadData();
-    alert("Potvrđeno: " + items.length + " unosa.");
+    alert("Greška kod Freigabe: " + (lastError?.message || ""));
   }
 
-  function setNote(item: any, value: string) {
-    const key = `${item.table}-${item.id}`;
+  async function approveAllWaiting() {
+    const waiting = filtered.filter((row) => row.status === "Wartet");
 
-    setAdminNotiz((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  }
-
-  function getNote(item: any) {
-    const key = `${item.table}-${item.id}`;
-
-    if (adminNotiz[key] !== undefined) return adminNotiz[key];
-
-    return item.adminNotiz || "";
-  }
-
-  function getRaum(id: number | string | null) {
-    if (!id) return null;
-    return raeume.find((r) => String(r.id) === String(id)) || null;
-  }
-
-  function getPosition(id: number | string | null) {
-    if (!id) return null;
-    return positionen.find((p) => String(p.id) === String(id)) || null;
-  }
-
-  function getRaumName(id: number | string | null) {
-    const raum = getRaum(id);
-    if (!raum) return "-";
-
-    return `${raum.ebene ? raum.ebene + " - " : ""}${raum.raum_name}`;
-  }
-
-  function getPositionText(id: number | string | null) {
-    const pos = getPosition(id);
-    if (!pos) return "-";
-
-    return `${pos.position_nr} - ${pos.kurztext}`;
-  }
-
-  function getWorkersForRegie(regieId: number) {
-    return regieWorkers
-      .filter((w) => Number(w.regie_id) === Number(regieId))
-      .map((w) => `${w.worker_name} (${formatNumber(w.stunden)} h)`)
-      .join(", ");
-  }
-
-  function formatDate(value: string | null) {
-    if (!value) return "-";
-
-    const parts = String(value).split("-");
-    if (parts.length === 3) {
-      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    if (waiting.length === 0) {
+      alert("Nema unosa koji čekaju odobrenje.");
+      return;
     }
 
-    return value;
-  }
+    const ok = confirm(`Odobriti sve prikazane unose? (${waiting.length})`);
 
-  function formatDateTime(value: string | null) {
-    if (!value) return "-";
+    if (!ok) return;
 
-    const d = new Date(value);
-
-    if (Number.isNaN(d.getTime())) {
-      return String(value);
+    for (const row of waiting) {
+      await supabase
+        .from(row.table)
+        .update({
+          freigabe_status: "Freigegeben",
+          status: "Freigegeben",
+        } as any)
+        .eq("id", row.id);
     }
 
-    return d.toLocaleString("de-AT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
-  function formatNumber(value: any, digits = 2) {
-    const num = Number(value || 0);
-
-    return num.toLocaleString("de-AT", {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    });
-  }
-
-  function getTypeBadgeStyle(type: string) {
-    if (type === "Arbeitszeit") return blueBadgeStyle;
-    if (type === "Leistung") return okBadgeStyle;
-    if (type === "Regie") return warningBadgeStyle;
-    if (type === "Foto") return photoBadgeStyle;
-    if (type === "Mangel") return dangerBadgeStyle;
-
-    return grayBadgeStyle;
-  }
-
-  function getStatusBadgeStyle(status: string) {
-    if (status === "Genehmigt") return okBadgeStyle;
-    if (status === "Abgelehnt") return dangerBadgeStyle;
-
-    return warningBadgeStyle;
-  }
-
-  function getEditLink(item: any) {
-    if (item.table === "projekt_arbeitszeiten") {
-      return `/projekte/${projektId}/arbeitszeit`;
-    }
-
-    if (item.table === "projekt_leistungen") {
-      return `/projekte/${projektId}/leistung`;
-    }
-
-    if (item.table === "projekt_regie") {
-      return `/projekte/${projektId}/regie`;
-    }
-
-    if (item.table === "projekt_fotos") {
-      return `/projekte/${projektId}/fotos`;
-    }
-
-    if (item.table === "projekt_aufgaben") {
-      return `/projekte/${projektId}/aufgaben`;
-    }
-
-    return `/projekte/${projektId}`;
-  }
-
-  function renderDetails(item: any) {
-    const raw = item.raw;
-
-    if (item.table === "projekt_arbeitszeiten") {
-      return (
-        <>
-          <p style={detailTextStyle}>Radnik: {raw.worker_name || "-"}</p>
-          <p style={detailTextStyle}>Raum: {getRaumName(raw.raum_id)}</p>
-          <p style={detailTextStyle}>LV: {getPositionText(raw.lv_position_id)}</p>
-          <p style={detailTextStyle}>Art: {raw.arbeitsart || "-"}</p>
-          <p style={detailTextStyle}>Notiz: {raw.notiz || "-"}</p>
-        </>
-      );
-    }
-
-    if (item.table === "projekt_leistungen") {
-      return (
-        <>
-          <p style={detailTextStyle}>Raum: {getRaumName(raw.raum_id)}</p>
-          <p style={detailTextStyle}>LV: {getPositionText(raw.lv_position_id)}</p>
-          <p style={detailTextStyle}>
-            Menge: {formatNumber(raw.menge_ist)} {raw.einheit || ""}
-          </p>
-          <p style={detailTextStyle}>Faktor: {formatNumber(raw.faktor)}</p>
-          <p style={detailTextStyle}>Notiz: {raw.notiz || "-"}</p>
-        </>
-      );
-    }
-
-    if (item.table === "projekt_regie") {
-      return (
-        <>
-          <p style={detailTextStyle}>Raum: {getRaumName(raw.raum_id)}</p>
-          <p style={detailTextStyle}>Arbeiter: {getWorkersForRegie(raw.id) || "-"}</p>
-          <p style={detailTextStyle}>Beschreibung: {raw.beschreibung || "-"}</p>
-        </>
-      );
-    }
-
-    if (item.table === "projekt_fotos") {
-      return (
-        <>
-          <p style={detailTextStyle}>Typ: {raw.typ || "-"}</p>
-          <p style={detailTextStyle}>Raum: {getRaumName(raw.raum_id)}</p>
-          <p style={detailTextStyle}>LV: {getPositionText(raw.lv_position_id)}</p>
-          <p style={detailTextStyle}>Beschreibung: {raw.beschreibung || "-"}</p>
-
-          {raw.foto_url && (
-            <a href={raw.foto_url} target="_blank" rel="noopener noreferrer">
-              <img src={raw.foto_url} alt={raw.titel || "Foto"} style={photoStyle} />
-            </a>
-          )}
-        </>
-      );
-    }
-
-    if (item.table === "projekt_aufgaben") {
-      return (
-        <>
-          <p style={detailTextStyle}>Priorität: {raw.prioritaet || "-"}</p>
-          <p style={detailTextStyle}>Zuständig: {raw.assigned_to || "-"}</p>
-          <p style={detailTextStyle}>Fällig bis: {formatDate(raw.faellig_bis)}</p>
-          <p style={detailTextStyle}>Raum: {getRaumName(raw.raum_id)}</p>
-          <p style={detailTextStyle}>Beschreibung: {raw.beschreibung || "-"}</p>
-        </>
-      );
-    }
-
-    return null;
-  }
-
-  if (loading) {
-    return (
-      <main style={mainStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
-
-        <h1 style={titleStyle}>🟢 Freigabe / Kontrolle</h1>
-        <p style={loadingStyle}>Wird geladen...</p>
-      </main>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <main style={mainStyle}>
-        <h1 style={titleStyle}>Kein Zugriff</h1>
-      </main>
-    );
+    await loadAll();
   }
 
   return (
-    <main style={mainStyle}>
-      <div style={topBarStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
+    <main className="page">
+      <section className="top">
+        <div>
+          <Link className="back" href={`/projekte/${projektId}`}>
+            ← Zurück zu Projekt
+          </Link>
 
-        <button onClick={loadData} style={refreshButtonStyle}>
-          Aktualisieren
-        </button>
-      </div>
-
-      <h1 style={titleStyle}>🟢 Freigabe / Kontrolle</h1>
-
-      <p style={descriptionStyle}>
-        Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
-        <strong>{workerName}</strong>
-      </p>
-
-      <section style={summaryGridStyle}>
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Alle Einträge</span>
-          <strong style={summaryValueStyle}>{summary.total}</strong>
+          <p className="label">Projekt Freigabe</p>
+          <h1>Freigabe</h1>
+          <p className="subtitle">
+            {getProjektName()}
+            {getProjektOrt() ? ` · ${getProjektOrt()}` : ""}
+          </p>
         </div>
 
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Wartet</span>
-          <strong style={{ ...summaryValueStyle, color: "#facc15" }}>
-            {summary.wartet}
-          </strong>
-        </div>
+        <div className="topButtons">
+          <button className="btn gray" onClick={loadAll}>
+            Aktualisieren
+          </button>
 
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Genehmigt</span>
-          <strong style={{ ...summaryValueStyle, color: "#22c55e" }}>
-            {summary.genehmigt}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Abgelehnt</span>
-          <strong style={{ ...summaryValueStyle, color: "#ef4444" }}>
-            {summary.abgelehnt}
-          </strong>
+          <button className="btn green" onClick={approveAllWaiting}>
+            Alle sichtbaren freigeben
+          </button>
         </div>
       </section>
 
-      <section style={filterBoxStyle}>
-        <div style={tabRowStyle}>
-          {["Wartet", "Genehmigt", "Abgelehnt", "Alle"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                ...tabButtonStyle,
-                background: activeTab === tab ? "#f97316" : "#111",
-              }}
-            >
-              {tab}
-            </button>
+      {errorText && <div className="errorBox">{errorText}</div>}
+
+      <section className="stats">
+        <div className="stat">
+          <span>Wartet</span>
+          <strong>{counts.wartet}</strong>
+        </div>
+
+        <div className="stat">
+          <span>Freigegeben</span>
+          <strong>{counts.freigegeben}</strong>
+        </div>
+
+        <div className="stat dangerStat">
+          <span>Abgelehnt</span>
+          <strong>{counts.abgelehnt}</strong>
+        </div>
+      </section>
+
+      <section className="toolbar">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Traži Freigabe, radnika, datum, opis..."
+        />
+
+        <select value={filterTyp} onChange={(e) => setFilterTyp(e.target.value)}>
+          <option value="Alle">Alle Typen</option>
+          <option value="Arbeitszeit">Arbeitszeit</option>
+          <option value="Fotos">Fotos</option>
+          <option value="Tagesbericht">Tagesbericht</option>
+          <option value="Aufgaben">Aufgaben</option>
+          <option value="Positionen">Positionen</option>
+          <option value="Material">Material</option>
+        </select>
+
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+        >
+          {STATUS_FILTER.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
           ))}
-        </div>
-
-        <div style={filterGridStyle}>
-          <div>
-            <label style={labelStyle}>Datum Filter</label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-
-          <div style={filterButtonWrapStyle}>
-            <button onClick={() => setSelectedDate("")} style={grayButtonStyle}>
-              Datum löschen
-            </button>
-
-            <button onClick={approveAllWaiting} style={approveAllButtonStyle}>
-              Alle Wartet bestätigen
-            </button>
-          </div>
-        </div>
+        </select>
       </section>
 
-      <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Einträge</h2>
+      {loading ? (
+        <div className="emptyBox">Učitavanje Freigabe...</div>
+      ) : filtered.length === 0 ? (
+        <div className="emptyBox">
+          <h2>Nema unosa</h2>
+          <p>Nema unosa za ovaj filter.</p>
+        </div>
+      ) : (
+        <section className="grid">
+          {filtered.map((row) => {
+            const imageUrl = getImageUrl(row.original);
 
-        {filteredItems.length === 0 ? (
-          <p style={emptyStyle}>Keine Einträge gefunden.</p>
-        ) : (
-          <div style={entryGridStyle}>
-            {filteredItems.map((item) => (
-              <div key={`${item.table}-${item.id}`} style={entryCardStyle}>
-                <div style={cardTopStyle}>
-                  <span style={getTypeBadgeStyle(item.type)}>{item.type}</span>
-                  <span style={getStatusBadgeStyle(item.status)}>{item.status}</span>
+            return (
+              <article key={`${row.typ}-${row.table}-${row.id}`} className="card">
+                <div className="cardTop">
+                  <div>
+                    <p className="type">{row.typ}</p>
+                    <h2>{row.titel || row.typ}</h2>
+                    <p>
+                      {row.datum || "-"}
+                      {row.untertitel ? ` · ${row.untertitel}` : ""}
+                    </p>
+                  </div>
+
+                  <span
+                    className={
+                      row.status === "Freigegeben"
+                        ? "badge approved"
+                        : row.status === "Abgelehnt"
+                        ? "badge rejected"
+                        : "badge"
+                    }
+                  >
+                    {row.status}
+                  </span>
                 </div>
 
-                <h3 style={entryTitleStyle}>{item.title}</h3>
-
-                <p style={metaTextStyle}>
-                  Datum: <strong>{formatDate(item.datum)}</strong>
-                </p>
-
-                <p style={metaTextStyle}>
-                  Erstellt von: <strong>{item.createdBy}</strong>
-                </p>
-
-                {isAdmin && (
-                  <p style={metaTextStyle}>
-                    Zeit der Eingabe: <strong>{formatDateTime(item.createdAt)}</strong>
-                  </p>
+                {imageUrl && (
+                  <a className="imageLink" href={imageUrl} target="_blank" rel="noreferrer">
+                    <img src={imageUrl} alt={row.titel || "Foto"} />
+                  </a>
                 )}
 
-                <div style={detailBoxStyle}>{renderDetails(item)}</div>
+                {row.beschreibung && (
+                  <p className="description">{row.beschreibung}</p>
+                )}
 
-                <label style={labelStyle}>Admin Notiz</label>
-                <textarea
-                  value={getNote(item)}
-                  onChange={(e) => setNote(item, e.target.value)}
-                  placeholder="Napomena admina..."
-                  style={textareaStyle}
-                />
-
-                <div style={actionGridStyle}>
+                <div className="actions">
                   <button
-                    onClick={() => changeStatus(item, "Genehmigt")}
-                    style={approveButtonStyle}
+                    className="approve"
+                    onClick={() => updateFreigabe(row, "Freigegeben")}
                   >
-                    Genehmigen
+                    Freigeben
                   </button>
 
                   <button
-                    onClick={() => changeStatus(item, "Abgelehnt")}
-                    style={rejectButtonStyle}
+                    className="reject"
+                    onClick={() => updateFreigabe(row, "Abgelehnt")}
                   >
                     Ablehnen
                   </button>
 
-                  <button
-                    onClick={() => changeStatus(item, "Wartet")}
-                    style={waitButtonStyle}
-                  >
-                    Wartet
-                  </button>
-
-                  <Link href={getEditLink(item)} style={editLinkStyle}>
-                    Öffnen
-                  </Link>
-
-                  <button onClick={() => deleteItem(item)} style={deleteButtonStyle}>
-                    Löschen
+                  <button onClick={() => updateFreigabe(row, "Wartet")}>
+                    Zurück
                   </button>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+              </article>
+            );
+          })}
+        </section>
+      )}
+
+      <style>{`
+        .page {
+          min-height: 100vh;
+          background: #050505;
+          color: white;
+          padding: 28px;
+          font-family: Arial, sans-serif;
+        }
+
+        .top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 20px;
+          margin-bottom: 22px;
+        }
+
+        .back {
+          display: inline-block;
+          color: white;
+          text-decoration: none;
+          background: #1f2937;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 11px 15px;
+          font-weight: 800;
+          margin-bottom: 18px;
+        }
+
+        .label {
+          color: #9ca3af;
+          margin: 0 0 8px;
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+        h1 {
+          margin: 0;
+          font-size: 44px;
+          line-height: 1;
+        }
+
+        .subtitle {
+          color: #cbd5e1;
+          margin: 12px 0 0;
+          font-size: 17px;
+          font-weight: 700;
+        }
+
+        .topButtons {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        button,
+        a,
+        input,
+        select {
+          font-family: inherit;
+        }
+
+        button,
+        a {
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-size: 15px;
+          font-weight: 900;
+          cursor: pointer;
+          text-decoration: none;
+        }
+
+        .gray {
+          background: #374151;
+        }
+
+        .green {
+          background: #15803d;
+        }
+
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .stat {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+        }
+
+        .stat span {
+          display: block;
+          color: #9ca3af;
+          margin-bottom: 8px;
+          font-weight: 800;
+        }
+
+        .stat strong {
+          font-size: 34px;
+        }
+
+        .dangerStat strong {
+          color: #fca5a5;
+        }
+
+        .toolbar {
+          display: grid;
+          grid-template-columns: 1fr 200px 180px;
+          gap: 10px;
+          margin-bottom: 18px;
+        }
+
+        .toolbar input,
+        .toolbar select {
+          background: #111827;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 15px 16px;
+          font-size: 16px;
+          outline: none;
+        }
+
+        .errorBox {
+          background: #7f1d1d;
+          border: 1px solid #ef4444;
+          color: white;
+          padding: 16px;
+          border-radius: 14px;
+          margin-bottom: 18px;
+          font-weight: 800;
+        }
+
+        .emptyBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 30px;
+          text-align: center;
+          color: #cbd5e1;
+        }
+
+        .emptyBox h2 {
+          color: white;
+          margin-top: 0;
+        }
+
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+          gap: 18px;
+        }
+
+        .card {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 22px;
+          padding: 20px;
+        }
+
+        .cardTop {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        .type {
+          color: #93c5fd !important;
+          font-weight: 900;
+          margin: 0 0 6px !important;
+          font-size: 13px;
+        }
+
+        .card h2 {
+          margin: 0;
+          font-size: 23px;
+        }
+
+        .card p {
+          margin: 8px 0 0;
+          color: #cbd5e1;
+          line-height: 1.45;
+        }
+
+        .badge {
+          background: #78350f;
+          color: #fed7aa;
+          border: 1px solid #f97316;
+          border-radius: 999px;
+          padding: 8px 12px;
+          font-size: 13px;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+
+        .badge.approved {
+          background: #064e3b;
+          color: #bbf7d0;
+          border-color: #16a34a;
+        }
+
+        .badge.rejected {
+          background: #7f1d1d;
+          color: #fecaca;
+          border-color: #ef4444;
+        }
+
+        .imageLink {
+          display: block;
+          height: 220px;
+          background: #030712;
+          border-radius: 16px;
+          overflow: hidden;
+          margin-bottom: 12px;
+        }
+
+        .imageLink img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .description {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 12px;
+          white-space: pre-wrap;
+          margin-bottom: 12px !important;
+        }
+
+        .actions {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 8px;
+          padding-top: 14px;
+          border-top: 1px solid #1f2937;
+        }
+
+        .actions button {
+          background: #374151;
+          color: white;
+          border: 0;
+          border-radius: 12px;
+          padding: 12px 8px;
+          font-weight: 900;
+          cursor: pointer;
+          font-size: 14px;
+        }
+
+        .actions .approve {
+          background: #15803d;
+        }
+
+        .actions .reject {
+          background: #dc2626;
+        }
+
+        @media (max-width: 900px) {
+          .toolbar {
+            grid-template-columns: 1fr;
+          }
+
+          .actions {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .page {
+            padding: 16px;
+          }
+
+          .top {
+            display: block;
+          }
+
+          h1 {
+            font-size: 36px;
+          }
+
+          .topButtons {
+            display: grid;
+            grid-template-columns: 1fr;
+            margin-top: 16px;
+          }
+
+          .stats,
+          .grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </main>
   );
 }
-
-const mainStyle: any = {
-  background: "#000",
-  minHeight: "100vh",
-  color: "white",
-  padding: "20px",
-};
-
-const topBarStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "12px",
-  marginBottom: "20px",
-  flexWrap: "wrap",
-};
-
-const backStyle: any = {
-  color: "#3b82f6",
-  textDecoration: "none",
-  fontWeight: "bold",
-  fontSize: "16px",
-};
-
-const refreshButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "10px 14px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const titleStyle: any = {
-  fontSize: "38px",
-  color: "#f97316",
-  margin: "0 0 10px 0",
-};
-
-const descriptionStyle: any = {
-  color: "#bbb",
-  fontSize: "16px",
-  marginBottom: "18px",
-};
-
-const loadingStyle: any = {
-  color: "#aaa",
-  fontSize: "18px",
-};
-
-const summaryGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-  gap: "12px",
-  marginBottom: "20px",
-};
-
-const summaryCardStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "14px",
-};
-
-const summaryLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "13px",
-  marginBottom: "6px",
-};
-
-const summaryValueStyle: any = {
-  color: "#f97316",
-  fontSize: "22px",
-};
-
-const filterBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "16px",
-  marginBottom: "20px",
-};
-
-const tabRowStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-  gap: "8px",
-  marginBottom: "14px",
-};
-
-const tabButtonStyle: any = {
-  color: "white",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "11px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const filterGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "12px",
-  alignItems: "end",
-};
-
-const filterButtonWrapStyle: any = {
-  display: "flex",
-  gap: "10px",
-  flexWrap: "wrap",
-};
-
-const labelStyle: any = {
-  display: "block",
-  color: "#ddd",
-  fontWeight: "bold",
-  marginBottom: "6px",
-  marginTop: "10px",
-};
-
-const inputStyle: any = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "10px",
-  border: "1px solid #333",
-  background: "#000",
-  color: "white",
-  fontSize: "15px",
-  boxSizing: "border-box",
-};
-
-const textareaStyle: any = {
-  ...inputStyle,
-  minHeight: "80px",
-  resize: "vertical",
-};
-
-const grayButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const approveAllButtonStyle: any = {
-  ...grayButtonStyle,
-  background: "#16a34a",
-};
-
-const listBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const sectionTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const emptyStyle: any = {
-  color: "#aaa",
-  fontSize: "16px",
-};
-
-const entryGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-  gap: "14px",
-};
-
-const entryCardStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "14px",
-};
-
-const cardTopStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "8px",
-  flexWrap: "wrap",
-  marginBottom: "10px",
-};
-
-const entryTitleStyle: any = {
-  color: "#f97316",
-  fontSize: "18px",
-  margin: "8px 0 10px 0",
-  lineHeight: "1.3",
-};
-
-const metaTextStyle: any = {
-  color: "#ccc",
-  fontSize: "13px",
-  margin: "5px 0",
-};
-
-const detailBoxStyle: any = {
-  background: "#080808",
-  border: "1px solid #222",
-  borderRadius: "12px",
-  padding: "10px",
-  marginTop: "10px",
-};
-
-const detailTextStyle: any = {
-  color: "#aaa",
-  fontSize: "13px",
-  margin: "5px 0",
-};
-
-const photoStyle: any = {
-  width: "100%",
-  height: "190px",
-  objectFit: "cover",
-  borderRadius: "10px",
-  marginTop: "10px",
-};
-
-const actionGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "8px",
-  marginTop: "12px",
-};
-
-const approveButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  borderRadius: "10px",
-  padding: "10px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const rejectButtonStyle: any = {
-  ...approveButtonStyle,
-  background: "#dc2626",
-};
-
-const waitButtonStyle: any = {
-  ...approveButtonStyle,
-  background: "#ca8a04",
-};
-
-const deleteButtonStyle: any = {
-  ...approveButtonStyle,
-  background: "#7f1d1d",
-  gridColumn: "1 / -1",
-};
-
-const editLinkStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  borderRadius: "10px",
-  padding: "10px",
-  fontWeight: "bold",
-  textAlign: "center",
-  textDecoration: "none",
-};
-
-const okBadgeStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const warningBadgeStyle: any = {
-  background: "#ca8a04",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const dangerBadgeStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const blueBadgeStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const photoBadgeStyle: any = {
-  background: "#be123c",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const grayBadgeStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
