@@ -1,1092 +1,859 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-const ADMINI = ["Hido", "Steffi", "Admin"];
+type Projekt = {
+  id: number | string;
+  name?: string | null;
+  naziv?: string | null;
+  title?: string | null;
+  projekt?: string | null;
+  baustelle_name?: string | null;
+  ort?: string | null;
+  mjesto?: string | null;
+  location?: string | null;
+  adresse?: string | null;
+  auftraggeber?: string | null;
+  bauleiter?: string | null;
+  status?: string | null;
+  google_location?: string | null;
+  google_maps?: string | null;
+  google_maps_url?: string | null;
+  info?: string | null;
+  startdatum?: string | null;
+  enddatum?: string | null;
+  created_at?: string | null;
+  [key: string]: any;
+};
 
-function getTodayLocalDate() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+type ProjektConfig = {
+  table: string;
+};
 
-  return `${year}-${month}-${day}`;
-}
+type ProjektForm = {
+  name: string;
+  ort: string;
+  adresse: string;
+  auftraggeber: string;
+  bauleiter: string;
+  status: string;
+  google_location: string;
+  info: string;
+  startdatum: string;
+  enddatum: string;
+};
+
+const STATUS_LISTE = ["Aktiv", "Pausiert", "Fertig", "Archiv"];
 
 export default function ProjektEinstellungenPage() {
   const params = useParams();
   const router = useRouter();
-  const savingRef = useRef(false);
 
   const projektId = String(params.id);
+  const projektIdValue = isNaN(Number(projektId))
+    ? projektId
+    : Number(projektId);
 
-  const [workerName, setWorkerName] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [projekt, setProjekt] = useState<any>(null);
+  const [projekt, setProjekt] = useState<Projekt | null>(null);
+  const [projektConfig, setProjektConfig] = useState<ProjektConfig>({
+    table: "projekte",
+  });
 
-  const [projectName, setProjectName] = useState("");
-  const [auftraggeber, setAuftraggeber] = useState("");
-  const [bauleiter, setBauleiter] = useState("");
-  const [adresse, setAdresse] = useState("");
-  const [ort, setOrt] = useState("");
-  const [googleLocation, setGoogleLocation] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [status, setStatus] = useState("Aktiv");
+  const [errorText, setErrorText] = useState("");
+  const [successText, setSuccessText] = useState("");
 
-  const [raeumeCount, setRaeumeCount] = useState(0);
-  const [positionenCount, setPositionenCount] = useState(0);
-  const [arbeitszeitCount, setArbeitszeitCount] = useState(0);
-  const [leistungCount, setLeistungCount] = useState(0);
-  const [regieCount, setRegieCount] = useState(0);
-  const [fotosCount, setFotosCount] = useState(0);
-  const [aufgabenCount, setAufgabenCount] = useState(0);
-  const [materialCount, setMaterialCount] = useState(0);
-
-  const statusStyle = useMemo(() => {
-    if (status === "Aktiv") return okBadgeStyle;
-    if (status === "Pausiert") return warningBadgeStyle;
-    if (status === "Abgeschlossen") return blueBadgeStyle;
-    if (status === "Archiviert") return grayBadgeStyle;
-
-    return grayBadgeStyle;
-  }, [status]);
+  const [form, setForm] = useState<ProjektForm>({
+    name: "",
+    ort: "",
+    adresse: "",
+    auftraggeber: "",
+    bauleiter: "",
+    status: "Aktiv",
+    google_location: "",
+    info: "",
+    startdatum: "",
+    enddatum: "",
+  });
 
   useEffect(() => {
-    const name = localStorage.getItem("worker_name");
-
-    if (!name) {
-      router.push("/login");
-      return;
-    }
-
-    const adminStatus = ADMINI.includes(name);
-
-    if (!adminStatus) {
-      router.push("/");
-      return;
-    }
-
-    setWorkerName(name);
-    setIsAdmin(adminStatus);
     loadProjekt();
-  }, [router, projektId]);
+  }, [projektId]);
 
-  async function loadProjekt() {
-    setLoading(true);
+  function getProjektName() {
+    if (!projekt) return "Projekt";
 
-    const { data, error } = await supabase
-      .from("projekte")
-      .select("*")
-      .eq("id", Number(projektId))
-      .single();
-
-    if (error) {
-      alert("Greška kod učitavanja projekta: " + error.message);
-      setProjekt(null);
-      setLoading(false);
-      return;
-    }
-
-    setProjekt(data);
-
-    setProjectName(data?.project_name || "");
-    setAuftraggeber(data?.auftraggeber || "");
-    setBauleiter(data?.bauleiter || "");
-    setAdresse(data?.adresse || "");
-    setOrt(data?.ort || data?.plz_ort || "");
-    setGoogleLocation(data?.google_location || "");
-    setStartDate(data?.start_date || "");
-    setEndDate(data?.end_date || "");
-    setStatus(data?.status || "Aktiv");
-
-    await loadCounts();
-
-    setLoading(false);
+    return (
+      projekt.name ||
+      projekt.naziv ||
+      projekt.title ||
+      projekt.projekt ||
+      projekt.baustelle_name ||
+      `Projekt ${projekt.id}`
+    );
   }
 
-  async function loadCounts() {
-    const raeumeRes = await supabase
-      .from("projekt_raeume")
-      .select("id", { count: "exact", head: true })
-      .eq("projekt_id", Number(projektId));
-
-    setRaeumeCount(raeumeRes.count || 0);
-
-    const positionenRes = await supabase
-      .from("projekt_lv_positionen")
-      .select("id", { count: "exact", head: true })
-      .eq("projekt_id", Number(projektId));
-
-    setPositionenCount(positionenRes.count || 0);
-
-    const arbeitszeitRes = await supabase
-      .from("projekt_arbeitszeiten")
-      .select("id", { count: "exact", head: true })
-      .eq("projekt_id", Number(projektId));
-
-    setArbeitszeitCount(arbeitszeitRes.count || 0);
-
-    const leistungRes = await supabase
-      .from("projekt_leistungen")
-      .select("id", { count: "exact", head: true })
-      .eq("projekt_id", Number(projektId));
-
-    setLeistungCount(leistungRes.count || 0);
-
-    const regieRes = await supabase
-      .from("projekt_regie")
-      .select("id", { count: "exact", head: true })
-      .eq("projekt_id", Number(projektId));
-
-    setRegieCount(regieRes.count || 0);
-
-    const fotosRes = await supabase
-      .from("projekt_fotos")
-      .select("id", { count: "exact", head: true })
-      .eq("projekt_id", Number(projektId));
-
-    setFotosCount(fotosRes.count || 0);
-
-    const aufgabenRes = await supabase
-      .from("projekt_aufgaben")
-      .select("id", { count: "exact", head: true })
-      .eq("projekt_id", Number(projektId));
-
-    setAufgabenCount(aufgabenRes.count || 0);
-
-    const materialRes = await supabase
-      .from("projekt_material_bewegungen")
-      .select("id", { count: "exact", head: true })
-      .eq("projekt_id", Number(projektId));
-
-    setMaterialCount(materialRes.count || 0);
+  function getProjektOrt() {
+    if (!projekt) return "";
+    return projekt.ort || projekt.mjesto || projekt.location || projekt.adresse || "";
   }
 
-  function formatDate(value: string | null) {
-    if (!value) return "-";
+  function getGoogleLocation(row: Projekt | null) {
+    if (!row) return "";
 
-    const parts = String(value).slice(0, 10).split("-");
-
-    if (parts.length === 3) {
-      return `${parts[2]}.${parts[1]}.${parts[0]}`;
-    }
-
-    return value;
+    return (
+      row.google_location ||
+      row.google_maps ||
+      row.google_maps_url ||
+      row.maps_url ||
+      row.location_url ||
+      ""
+    );
   }
 
-  function formatDateTime(value: string | null) {
-    if (!value) return "-";
+  function getInfo(row: Projekt | null) {
+    if (!row) return "";
+    return row.info || row.beschreibung || row.description || row.notiz || row.note || "";
+  }
 
-    const d = new Date(value);
-
-    if (Number.isNaN(d.getTime())) {
-      return String(value);
-    }
-
-    return d.toLocaleString("de-AT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+  function fillForm(row: Projekt) {
+    setForm({
+      name:
+        row.name ||
+        row.naziv ||
+        row.title ||
+        row.projekt ||
+        row.baustelle_name ||
+        "",
+      ort: row.ort || row.mjesto || row.location || "",
+      adresse: row.adresse || row.address || "",
+      auftraggeber: row.auftraggeber || row.kunde || row.client || "",
+      bauleiter: row.bauleiter || row.site_manager || row.leiter || "",
+      status: row.status || "Aktiv",
+      google_location: getGoogleLocation(row),
+      info: getInfo(row),
+      startdatum: row.startdatum || row.start_date || "",
+      enddatum: row.enddatum || row.end_date || "",
     });
   }
 
-  function makeMapsLink() {
-    const value = googleLocation.trim();
+  async function loadProjekt() {
+    setLoading(true);
+    setErrorText("");
+    setSuccessText("");
 
-    if (!value) {
-      const address = `${adresse} ${ort}`.trim();
+    const tables = ["projekte", "baustellen"];
 
-      if (!address) return "";
+    for (const table of tables) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq("id", projektIdValue)
+        .maybeSingle();
 
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-        address
-      )}`;
+      if (!error && data) {
+        setProjekt(data as Projekt);
+        setProjektConfig({ table });
+        fillForm(data as Projekt);
+        setLoading(false);
+        return;
+      }
     }
 
-    if (value.startsWith("http://") || value.startsWith("https://")) {
-      return value;
-    }
+    setProjekt(null);
+    setErrorText("Projekt nije pronađen.");
+    setLoading(false);
+  }
 
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      value
-    )}`;
+  function buildPayloads() {
+    return [
+      {
+        name: form.name.trim(),
+        ort: form.ort.trim(),
+        adresse: form.adresse.trim(),
+        auftraggeber: form.auftraggeber.trim(),
+        bauleiter: form.bauleiter.trim(),
+        status: form.status,
+        google_location: form.google_location.trim(),
+        info: form.info.trim(),
+        startdatum: form.startdatum || null,
+        enddatum: form.enddatum || null,
+      },
+      {
+        naziv: form.name.trim(),
+        mjesto: form.ort.trim(),
+        adresse: form.adresse.trim(),
+        auftraggeber: form.auftraggeber.trim(),
+        bauleiter: form.bauleiter.trim(),
+        status: form.status,
+        google_maps: form.google_location.trim(),
+        info: form.info.trim(),
+        startdatum: form.startdatum || null,
+        enddatum: form.enddatum || null,
+      },
+      {
+        title: form.name.trim(),
+        location: form.ort.trim(),
+        address: form.adresse.trim(),
+        client: form.auftraggeber.trim(),
+        site_manager: form.bauleiter.trim(),
+        status: form.status,
+        google_maps_url: form.google_location.trim(),
+        description: form.info.trim(),
+        start_date: form.startdatum || null,
+        end_date: form.enddatum || null,
+      },
+      {
+        baustelle_name: form.name.trim(),
+        ort: form.ort.trim(),
+        adresse: form.adresse.trim(),
+        auftraggeber: form.auftraggeber.trim(),
+        bauleiter: form.bauleiter.trim(),
+        status: form.status,
+      },
+      {
+        name: form.name.trim(),
+        status: form.status,
+      },
+    ];
   }
 
   async function saveProjekt() {
-    if (savingRef.current) return;
-
-    if (!projectName.trim()) {
-      alert("Unesi naziv projekta.");
+    if (!form.name.trim()) {
+      alert("Upiši naziv projekta.");
       return;
     }
 
-    if (startDate && endDate && endDate < startDate) {
-      alert("Kraj projekta ne može biti prije početka.");
-      return;
-    }
-
-    savingRef.current = true;
     setSaving(true);
+    setErrorText("");
+    setSuccessText("");
 
-    const payload: any = {
-      project_name: projectName.trim(),
-      auftraggeber: auftraggeber.trim() || null,
-      bauleiter: bauleiter.trim() || null,
-      adresse: adresse.trim() || null,
-      ort: ort.trim() || null,
-      google_location: googleLocation.trim() || null,
-      start_date: startDate || null,
-      end_date: endDate || null,
-      status: status || "Aktiv",
-    };
+    let lastError: any = null;
 
-    const { error } = await supabase
-      .from("projekte")
-      .update(payload)
-      .eq("id", Number(projektId));
+    for (const payload of buildPayloads()) {
+      const { error } = await supabase
+        .from(projektConfig.table)
+        .update(payload as any)
+        .eq("id", projektIdValue);
 
-    if (error) {
-      alert("Greška kod spremanja projekta: " + error.message);
-      savingRef.current = false;
-      setSaving(false);
-      return;
+      if (!error) {
+        setSaving(false);
+        setSuccessText("Projekt je uspješno sačuvan.");
+        await loadProjekt();
+        return;
+      }
+
+      lastError = error;
     }
 
-    await loadProjekt();
-
-    savingRef.current = false;
     setSaving(false);
-
-    alert("Projekt je spremljen.");
+    setErrorText("Greška kod spremanja: " + (lastError?.message || ""));
   }
 
-  async function quickStatus(newStatus: string) {
-    const ok = confirm("Promijeniti status projekta na: " + newStatus + "?");
+  async function changeStatus(newStatus: string) {
+    const ok = confirm(`Status projekta promijeniti na: ${newStatus}?`);
 
     if (!ok) return;
 
-    const { error } = await supabase
-      .from("projekte")
-      .update({ status: newStatus })
-      .eq("id", Number(projektId));
+    setSaving(true);
+    let lastError: any = null;
 
-    if (error) {
-      alert("Greška kod promjene statusa: " + error.message);
-      return;
+    const payloads = [
+      { status: newStatus },
+      { status: newStatus, abgeschlossen: newStatus === "Fertig" },
+      { status: newStatus, archived: newStatus === "Archiv" },
+    ];
+
+    for (const payload of payloads) {
+      const { error } = await supabase
+        .from(projektConfig.table)
+        .update(payload as any)
+        .eq("id", projektIdValue);
+
+      if (!error) {
+        setSaving(false);
+        await loadProjekt();
+        setSuccessText(`Status promijenjen na ${newStatus}.`);
+        return;
+      }
+
+      lastError = error;
     }
 
-    setStatus(newStatus);
-    await loadProjekt();
+    setSaving(false);
+    setErrorText("Greška kod statusa: " + (lastError?.message || ""));
   }
 
   async function deleteProjekt() {
     const first = confirm(
-      "PAŽNJA: Ovo briše projekt. Ako baza ima povezane unose, brisanje može biti blokirano. Nastaviti?"
+      "Da li stvarno želiš obrisati ovaj projekt? Ovo se ne može vratiti."
     );
 
     if (!first) return;
 
     const second = confirm(
-      "Još jednom potvrdi: stvarno želiš trajno obrisati ovaj projekt?"
+      `Potvrdi još jednom brisanje projekta: ${getProjektName()}`
     );
 
     if (!second) return;
 
     const { error } = await supabase
-      .from("projekte")
+      .from(projektConfig.table)
       .delete()
-      .eq("id", Number(projektId));
+      .eq("id", projektIdValue);
 
     if (error) {
-      alert(
-        "Projekt nije obrisan. Najčešći razlog je da projekt ima povezane unose.\n\n" +
-          error.message
-      );
+      alert("Greška kod brisanja projekta: " + error.message);
       return;
     }
 
-    alert("Projekt je obrisan.");
     router.push("/projekte");
   }
 
-  function resetForm() {
-    if (!projekt) return;
+  function openGoogleLocation() {
+    const value = form.google_location.trim();
 
-    setProjectName(projekt.project_name || "");
-    setAuftraggeber(projekt.auftraggeber || "");
-    setBauleiter(projekt.bauleiter || "");
-    setAdresse(projekt.adresse || "");
-    setOrt(projekt.ort || projekt.plz_ort || "");
-    setGoogleLocation(projekt.google_location || "");
-    setStartDate(projekt.start_date || "");
-    setEndDate(projekt.end_date || "");
-    setStatus(projekt.status || "Aktiv");
+    if (!value) {
+      alert("Google lokacija nije upisana.");
+      return;
+    }
+
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      window.open(value, "_blank");
+      return;
+    }
+
+    const query = encodeURIComponent(value);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
   }
 
-  if (loading) {
-    return (
-      <main style={mainStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
+  function copyProjectInfo() {
+    const text = `
+Projekt: ${form.name}
+Ort: ${form.ort}
+Adresse: ${form.adresse}
+Auftraggeber: ${form.auftraggeber}
+Bauleiter: ${form.bauleiter}
+Status: ${form.status}
+Google Location: ${form.google_location}
+Info:
+${form.info}
+`.trim();
 
-        <h1 style={titleStyle}>⚙️ Einstellungen</h1>
-        <p style={loadingStyle}>Wird geladen...</p>
-      </main>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <main style={mainStyle}>
-        <h1 style={titleStyle}>Kein Zugriff</h1>
-      </main>
-    );
-  }
-
-  if (!projekt) {
-    return (
-      <main style={mainStyle}>
-        <Link href="/projekte" style={backStyle}>
-          ← Zurück zu Projekte
-        </Link>
-
-        <h1 style={titleStyle}>Projekt nicht gefunden</h1>
-      </main>
-    );
+    navigator.clipboard.writeText(text);
+    alert("Projekt informacije kopirane.");
   }
 
   return (
-    <main style={mainStyle}>
-      <div style={topBarStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
+    <main className="page">
+      <section className="top">
+        <div>
+          <Link className="back" href={`/projekte/${projektId}`}>
+            ← Zurück zu Projekt
+          </Link>
 
-        <div style={topButtonWrapStyle}>
-          <button onClick={loadProjekt} style={refreshButtonStyle}>
+          <p className="label">Projekt Einstellungen</p>
+          <h1>Einstellungen</h1>
+          <p className="subtitle">
+            {loading ? "Učitavanje..." : getProjektName()}
+            {getProjektOrt() ? ` · ${getProjektOrt()}` : ""}
+          </p>
+        </div>
+
+        <div className="topButtons">
+          <button className="btn gray" onClick={loadProjekt}>
             Aktualisieren
           </button>
 
-          <Link href={`/projekte/${projektId}/bericht`} style={blueLinkStyle}>
-            Bericht
-          </Link>
-
-          <Link href={`/projekte/${projektId}/tagesbericht`} style={greenLinkStyle}>
-            Tagesbericht
-          </Link>
-        </div>
-      </div>
-
-      <div style={headerRowStyle}>
-        <div>
-          <h1 style={titleStyle}>⚙️ Einstellungen</h1>
-
-          <p style={descriptionStyle}>
-            Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
-            <strong>{workerName}</strong>
-          </p>
-        </div>
-
-        <span style={statusStyle}>{status || "Aktiv"}</span>
-      </div>
-
-      <section style={summaryGridStyle}>
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Räume</span>
-          <strong style={summaryValueStyle}>{raeumeCount}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>LV Positionen</span>
-          <strong style={summaryValueStyle}>{positionenCount}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Arbeitszeit</span>
-          <strong style={summaryValueStyle}>{arbeitszeitCount}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Leistung</span>
-          <strong style={summaryValueStyle}>{leistungCount}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Regie</span>
-          <strong style={summaryValueStyle}>{regieCount}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Fotos</span>
-          <strong style={summaryValueStyle}>{fotosCount}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Aufgaben</span>
-          <strong style={summaryValueStyle}>{aufgabenCount}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Material</span>
-          <strong style={summaryValueStyle}>{materialCount}</strong>
+          <button className="btn blue" onClick={saveProjekt} disabled={saving}>
+            {saving ? "Speichern..." : "Speichern"}
+          </button>
         </div>
       </section>
 
-      <section style={infoBoxStyle}>
-        <h2 style={sectionTitleStyle}>Projektdaten Regel</h2>
-        <p style={infoTextStyle}>
-          Ovi podaci se prenose u Dashboard, Tagesbericht, Regiebericht i Bericht /
-          Druck. Zato ovdje treba biti tačan Auftraggeber, Bauleiter, adresa i
-          Google Standort.
-        </p>
-      </section>
+      {errorText && <div className="errorBox">{errorText}</div>}
+      {successText && <div className="successBox">{successText}</div>}
 
-      <section style={formBoxStyle}>
-        <h2 style={formTitleStyle}>Projekt Stammdaten</h2>
+      {loading ? (
+        <div className="emptyBox">Učitavanje Einstellungen...</div>
+      ) : (
+        <>
+          <section className="stats">
+            <div className="stat">
+              <span>Status</span>
+              <strong>{form.status}</strong>
+            </div>
 
-        <label style={labelStyle}>Projektname *</label>
-        <input
-          value={projectName}
-          onChange={(e) => setProjectName(e.target.value)}
-          placeholder="Naziv projekta / Baustelle"
-          style={inputStyle}
-        />
+            <div className="stat">
+              <span>Auftraggeber</span>
+              <strong>{form.auftraggeber || "-"}</strong>
+            </div>
 
-        <div style={formGridStyle}>
-          <div>
-            <label style={labelStyle}>Auftraggeber</label>
+            <div className="stat">
+              <span>Bauleiter</span>
+              <strong>{form.bauleiter || "-"}</strong>
+            </div>
+          </section>
+
+          <section className="formBox">
+            <h2>Grunddaten</h2>
+
+            <label>Projekt Name *</label>
             <input
-              value={auftraggeber}
-              onChange={(e) => setAuftraggeber(e.target.value)}
-              placeholder="Ime firme ili osobe"
-              style={inputStyle}
+              value={form.name}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, name: e.target.value }))
+              }
+              placeholder="Projekt Name"
             />
-          </div>
 
-          <div>
-            <label style={labelStyle}>Bauleiter / Vertreter</label>
+            <div className="twoGrid">
+              <div>
+                <label>Ort</label>
+                <input
+                  value={form.ort}
+                  onChange={(e) =>
+                    setForm((old) => ({ ...old, ort: e.target.value }))
+                  }
+                  placeholder="Ort / mjesto"
+                />
+              </div>
+
+              <div>
+                <label>Status</label>
+                <select
+                  value={form.status}
+                  onChange={(e) =>
+                    setForm((old) => ({ ...old, status: e.target.value }))
+                  }
+                >
+                  {STATUS_LISTE.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <label>Adresse</label>
             <input
-              value={bauleiter}
-              onChange={(e) => setBauleiter(e.target.value)}
-              placeholder="Ime Bauleitera"
-              style={inputStyle}
+              value={form.adresse}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, adresse: e.target.value }))
+              }
+              placeholder="Straße, Hausnummer..."
             />
-          </div>
-        </div>
 
-        <label style={labelStyle}>Adresse</label>
-        <input
-          value={adresse}
-          onChange={(e) => setAdresse(e.target.value)}
-          placeholder="Ulica i broj"
-          style={inputStyle}
-        />
+            <div className="twoGrid">
+              <div>
+                <label>Startdatum</label>
+                <input
+                  type="date"
+                  value={form.startdatum}
+                  onChange={(e) =>
+                    setForm((old) => ({ ...old, startdatum: e.target.value }))
+                  }
+                />
+              </div>
 
-        <div style={formGridStyle}>
-          <div>
-            <label style={labelStyle}>PLZ / Ort</label>
+              <div>
+                <label>Enddatum</label>
+                <input
+                  type="date"
+                  value={form.enddatum}
+                  onChange={(e) =>
+                    setForm((old) => ({ ...old, enddatum: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="formBox">
+            <h2>Auftraggeber / Bauleiter</h2>
+            <p className="hint">
+              Ovdje upišeš jednom. Ove informacije se koriste u Bericht,
+              Auswertung i ostalim prikazima projekta.
+            </p>
+
+            <div className="twoGrid">
+              <div>
+                <label>Auftraggeber</label>
+                <input
+                  value={form.auftraggeber}
+                  onChange={(e) =>
+                    setForm((old) => ({
+                      ...old,
+                      auftraggeber: e.target.value,
+                    }))
+                  }
+                  placeholder="Auftraggeber / Kunde"
+                />
+              </div>
+
+              <div>
+                <label>Bauleiter</label>
+                <input
+                  value={form.bauleiter}
+                  onChange={(e) =>
+                    setForm((old) => ({
+                      ...old,
+                      bauleiter: e.target.value,
+                    }))
+                  }
+                  placeholder="Bauleiter"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="formBox">
+            <h2>Google Location</h2>
+
+            <label>Google Standort / Maps Link</label>
             <input
-              value={ort}
-              onChange={(e) => setOrt(e.target.value)}
-              placeholder="npr. 1010 Wien"
-              style={inputStyle}
+              value={form.google_location}
+              onChange={(e) =>
+                setForm((old) => ({
+                  ...old,
+                  google_location: e.target.value,
+                }))
+              }
+              placeholder="Google Maps link ili adresa"
             />
-          </div>
 
-          <div>
-            <label style={labelStyle}>Status</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="Aktiv">Aktiv</option>
-              <option value="Pausiert">Pausiert</option>
-              <option value="Abgeschlossen">Abgeschlossen</option>
-              <option value="Archiviert">Archiviert</option>
-            </select>
-          </div>
-        </div>
+            <div className="miniActions">
+              <button onClick={openGoogleLocation}>📍 Google öffnen</button>
+              <button onClick={copyProjectInfo}>Projekt Info kopieren</button>
+            </div>
+          </section>
 
-        <label style={labelStyle}>Google Standort</label>
-        <input
-          value={googleLocation}
-          onChange={(e) => setGoogleLocation(e.target.value)}
-          placeholder="Google Maps link ili adresa"
-          style={inputStyle}
-        />
+          <section className="formBox">
+            <h2>Baustelle Info</h2>
 
-        <div style={formGridStyle}>
-          <div>
-            <label style={labelStyle}>Startdatum</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={inputStyle}
+            <label>Info za projekt</label>
+            <textarea
+              value={form.info}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, info: e.target.value }))
+              }
+              placeholder="Važne informacije za ovu Baustelle..."
             />
-          </div>
+          </section>
 
-          <div>
-            <label style={labelStyle}>Enddatum</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-        </div>
+          <section className="dangerBox">
+            <h2>Admin Bereich</h2>
+            <p>
+              Ovdje možeš završiti, arhivirati ili obrisati projekt. Brisanje je
+              trajno.
+            </p>
 
-        <div style={previewBoxStyle}>
-          <h3 style={previewTitleStyle}>Vorschau für Bericht</h3>
+            <div className="dangerActions">
+              <button onClick={() => changeStatus("Fertig")}>
+                Projekt abschließen
+              </button>
 
-          <p style={previewTextStyle}>
-            <strong>Projekt:</strong> {projectName || "-"}
-          </p>
+              <button onClick={() => changeStatus("Archiv")}>
+                Projekt archivieren
+              </button>
 
-          <p style={previewTextStyle}>
-            <strong>Auftraggeber:</strong> {auftraggeber || "-"}
-          </p>
+              <button className="delete" onClick={deleteProjekt}>
+                Projekt löschen
+              </button>
+            </div>
+          </section>
+        </>
+      )}
 
-          <p style={previewTextStyle}>
-            <strong>Bauleiter / Vertreter:</strong> {bauleiter || "-"}
-          </p>
+      <style>{`
+        .page {
+          min-height: 100vh;
+          background: #050505;
+          color: white;
+          padding: 28px;
+          font-family: Arial, sans-serif;
+        }
 
-          <p style={previewTextStyle}>
-            <strong>Adresse:</strong> {adresse || "-"} {ort || ""}
-          </p>
+        .top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 20px;
+          margin-bottom: 22px;
+        }
 
-          <p style={previewTextStyle}>
-            <strong>Zeitraum:</strong> {formatDate(startDate)} -{" "}
-            {formatDate(endDate)}
-          </p>
-        </div>
+        .back {
+          display: inline-block;
+          color: white;
+          text-decoration: none;
+          background: #1f2937;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 11px 15px;
+          font-weight: 800;
+          margin-bottom: 18px;
+        }
 
-        <div style={formButtonRowStyle}>
-          <button
-            onClick={saveProjekt}
-            disabled={saving}
-            style={{
-              ...saveButtonStyle,
-              opacity: saving ? 0.5 : 1,
-              cursor: saving ? "not-allowed" : "pointer",
-            }}
-          >
-            {saving ? "Speichern..." : "Projekt speichern"}
-          </button>
+        .label {
+          color: #9ca3af;
+          margin: 0 0 8px;
+          font-size: 14px;
+          font-weight: 800;
+        }
 
-          <button onClick={resetForm} disabled={saving} style={cancelButtonStyle}>
-            Zurücksetzen
-          </button>
-        </div>
-      </section>
+        h1 {
+          margin: 0;
+          font-size: 44px;
+          line-height: 1;
+        }
 
-      <section style={boxStyle}>
-        <h2 style={sectionTitleStyle}>Schnellstatus</h2>
+        .subtitle {
+          color: #cbd5e1;
+          margin: 12px 0 0;
+          font-size: 17px;
+          font-weight: 700;
+        }
 
-        <div style={statusGridStyle}>
-          <button onClick={() => quickStatus("Aktiv")} style={statusActiveButtonStyle}>
-            Aktiv
-          </button>
+        .topButtons {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
 
-          <button
-            onClick={() => quickStatus("Pausiert")}
-            style={statusPauseButtonStyle}
-          >
-            Pausiert
-          </button>
+        button,
+        a,
+        input,
+        textarea,
+        select {
+          font-family: inherit;
+        }
 
-          <button
-            onClick={() => quickStatus("Abgeschlossen")}
-            style={statusDoneButtonStyle}
-          >
-            Abgeschlossen
-          </button>
+        button,
+        a {
+          -webkit-tap-highlight-color: transparent;
+        }
 
-          <button
-            onClick={() => quickStatus("Archiviert")}
-            style={statusArchiveButtonStyle}
-          >
-            Archiviert
-          </button>
-        </div>
-      </section>
+        .btn {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-size: 15px;
+          font-weight: 900;
+          cursor: pointer;
+          text-decoration: none;
+        }
 
-      <section style={boxStyle}>
-        <h2 style={sectionTitleStyle}>Schnellzugriff</h2>
+        .btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
 
-        <div style={moduleGridStyle}>
-          <Link href={`/projekte/${projektId}/raeume`} style={moduleLinkStyle}>
-            Räume
-          </Link>
+        .gray {
+          background: #374151;
+        }
 
-          <Link href={`/projekte/${projektId}/positionen`} style={moduleLinkStyle}>
-            LV Positionen
-          </Link>
+        .blue {
+          background: #2563eb;
+        }
 
-          <Link href={`/projekte/${projektId}/arbeitszeit`} style={moduleLinkStyle}>
-            Arbeitszeit
-          </Link>
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+          margin-bottom: 18px;
+        }
 
-          <Link href={`/projekte/${projektId}/leistung`} style={moduleLinkStyle}>
-            Leistung
-          </Link>
+        .stat {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+        }
 
-          <Link href={`/projekte/${projektId}/material`} style={moduleLinkStyle}>
-            Material
-          </Link>
+        .stat span {
+          display: block;
+          color: #9ca3af;
+          margin-bottom: 8px;
+          font-weight: 800;
+        }
 
-          <Link href={`/projekte/${projektId}/fotos`} style={moduleLinkStyle}>
-            Fotos
-          </Link>
+        .stat strong {
+          font-size: 24px;
+          line-height: 1.25;
+        }
 
-          <Link href={`/projekte/${projektId}/aufgaben`} style={moduleLinkStyle}>
-            Aufgaben
-          </Link>
+        .formBox,
+        .dangerBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 20px;
+          margin-bottom: 18px;
+        }
 
-          <Link href={`/projekte/${projektId}/freigabe`} style={moduleLinkStyle}>
-            Freigabe
-          </Link>
-        </div>
-      </section>
+        .formBox h2,
+        .dangerBox h2 {
+          margin: 0 0 14px;
+          font-size: 24px;
+        }
 
-      <section style={boxStyle}>
-        <h2 style={sectionTitleStyle}>Google Standort</h2>
+        .hint {
+          color: #cbd5e1;
+          margin: -6px 0 16px;
+          line-height: 1.5;
+        }
 
-        <p style={infoTextStyle}>
-          Ako nema Google linka, aplikacija će pokušati otvoriti mapu preko adrese.
-        </p>
+        label {
+          display: block;
+          color: #d1d5db;
+          font-weight: 800;
+          margin: 14px 0 7px;
+        }
 
-        <div style={formButtonRowStyle}>
-          <a
-            href={makeMapsLink() || "#"}
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              ...mapsButtonStyle,
-              pointerEvents: makeMapsLink() ? "auto" : "none",
-              opacity: makeMapsLink() ? 1 : 0.5,
-            }}
-          >
-            Google Maps öffnen
-          </a>
+        input,
+        textarea,
+        select {
+          width: 100%;
+          box-sizing: border-box;
+          background: #030712;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 14px;
+          font-size: 16px;
+          outline: none;
+        }
 
-          <button
-            onClick={() => setGoogleLocation(`${adresse} ${ort}`.trim())}
-            style={grayButtonStyle}
-          >
-            Adresse als Standort
-          </button>
-        </div>
-      </section>
+        textarea {
+          min-height: 150px;
+          resize: vertical;
+          line-height: 1.5;
+        }
 
-      <section style={dangerBoxStyle}>
-        <h2 style={dangerTitleStyle}>Gefahrenbereich</h2>
+        .twoGrid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
 
-        <p style={dangerTextStyle}>
-          Projekt löschen koristi se samo ako je projekt pogrešno napravljen. Ako
-          projekt već ima povezane podatke, baza može blokirati brisanje.
-        </p>
+        .miniActions {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin-top: 14px;
+        }
 
-        <button onClick={deleteProjekt} style={deleteButtonStyle}>
-          Projekt löschen
-        </button>
-      </section>
+        .miniActions button {
+          background: #374151;
+          color: white;
+          border: 0;
+          border-radius: 14px;
+          padding: 13px 16px;
+          font-weight: 900;
+          cursor: pointer;
+        }
 
-      <section style={metaBoxStyle}>
-        <p style={metaTextStyle}>
-          Projekt ID: <strong>{projektId}</strong>
-        </p>
+        .dangerBox {
+          border-color: #7f1d1d;
+        }
 
-        <p style={metaTextStyle}>
-          Erstellt: <strong>{formatDateTime(projekt.created_at)}</strong>
-        </p>
+        .dangerBox p {
+          color: #fecaca;
+          line-height: 1.5;
+          margin: 0 0 14px;
+        }
 
-        <p style={metaTextStyle}>
-          Heute: <strong>{formatDate(getTodayLocalDate())}</strong>
-        </p>
-      </section>
+        .dangerActions {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 10px;
+        }
+
+        .dangerActions button {
+          background: #374151;
+          color: white;
+          border: 0;
+          border-radius: 14px;
+          padding: 14px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .dangerActions .delete {
+          background: #dc2626;
+        }
+
+        .errorBox {
+          background: #7f1d1d;
+          border: 1px solid #ef4444;
+          color: white;
+          padding: 16px;
+          border-radius: 14px;
+          margin-bottom: 18px;
+          font-weight: 800;
+        }
+
+        .successBox {
+          background: #064e3b;
+          border: 1px solid #16a34a;
+          color: white;
+          padding: 16px;
+          border-radius: 14px;
+          margin-bottom: 18px;
+          font-weight: 800;
+        }
+
+        .emptyBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 30px;
+          text-align: center;
+          color: #cbd5e1;
+          font-weight: 800;
+        }
+
+        @media (max-width: 900px) {
+          .top {
+            display: block;
+          }
+
+          .topButtons {
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: 1fr;
+          }
+
+          .stats,
+          .twoGrid,
+          .dangerActions {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .page {
+            padding: 16px;
+          }
+
+          h1 {
+            font-size: 36px;
+          }
+
+          .formBox,
+          .dangerBox {
+            padding: 16px;
+          }
+        }
+      `}</style>
     </main>
   );
 }
-
-const mainStyle: any = {
-  background: "#000",
-  minHeight: "100vh",
-  color: "white",
-  padding: "20px",
-};
-
-const topBarStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "12px",
-  marginBottom: "20px",
-  flexWrap: "wrap",
-};
-
-const topButtonWrapStyle: any = {
-  display: "flex",
-  gap: "10px",
-  flexWrap: "wrap",
-};
-
-const headerRowStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: "16px",
-  flexWrap: "wrap",
-};
-
-const backStyle: any = {
-  color: "#3b82f6",
-  textDecoration: "none",
-  fontWeight: "bold",
-  fontSize: "16px",
-};
-
-const titleStyle: any = {
-  fontSize: "38px",
-  color: "#f97316",
-  margin: "0 0 10px 0",
-};
-
-const descriptionStyle: any = {
-  color: "#bbb",
-  fontSize: "16px",
-  marginBottom: "18px",
-};
-
-const loadingStyle: any = {
-  color: "#aaa",
-  fontSize: "18px",
-};
-
-const refreshButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const blueLinkStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  textDecoration: "none",
-};
-
-const greenLinkStyle: any = {
-  ...blueLinkStyle,
-  background: "#16a34a",
-};
-
-const summaryGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))",
-  gap: "12px",
-  marginBottom: "20px",
-};
-
-const summaryCardStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "14px",
-};
-
-const summaryLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "13px",
-  marginBottom: "6px",
-};
-
-const summaryValueStyle: any = {
-  color: "#f97316",
-  fontSize: "22px",
-};
-
-const infoBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const infoTextStyle: any = {
-  color: "#ccc",
-  margin: 0,
-  lineHeight: "1.5",
-};
-
-const formBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const boxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const formTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const sectionTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const formGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-  gap: "12px",
-};
-
-const labelStyle: any = {
-  display: "block",
-  color: "#ddd",
-  fontWeight: "bold",
-  marginBottom: "6px",
-  marginTop: "12px",
-};
-
-const inputStyle: any = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "10px",
-  border: "1px solid #333",
-  background: "#000",
-  color: "white",
-  fontSize: "15px",
-  boxSizing: "border-box",
-};
-
-const previewBoxStyle: any = {
-  marginTop: "14px",
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "14px",
-  color: "#ddd",
-};
-
-const previewTitleStyle: any = {
-  color: "#f97316",
-  margin: "0 0 10px 0",
-};
-
-const previewTextStyle: any = {
-  color: "#ddd",
-  margin: "6px 0",
-};
-
-const formButtonRowStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "12px",
-  marginTop: "18px",
-};
-
-const saveButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const cancelButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const grayButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const mapsButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  borderRadius: "12px",
-  padding: "13px",
-  textDecoration: "none",
-  textAlign: "center",
-  fontWeight: "bold",
-};
-
-const statusGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-  gap: "12px",
-};
-
-const statusActiveButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const statusPauseButtonStyle: any = {
-  ...statusActiveButtonStyle,
-  background: "#ca8a04",
-};
-
-const statusDoneButtonStyle: any = {
-  ...statusActiveButtonStyle,
-  background: "#2563eb",
-};
-
-const statusArchiveButtonStyle: any = {
-  ...statusActiveButtonStyle,
-  background: "#4b5563",
-};
-
-const moduleGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-  gap: "12px",
-};
-
-const moduleLinkStyle: any = {
-  background: "#000",
-  color: "white",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "14px",
-  textAlign: "center",
-  textDecoration: "none",
-  fontWeight: "bold",
-};
-
-const dangerBoxStyle: any = {
-  background: "#120000",
-  border: "1px solid #7f1d1d",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const dangerTitleStyle: any = {
-  color: "#ef4444",
-  marginTop: 0,
-};
-
-const dangerTextStyle: any = {
-  color: "#fca5a5",
-  lineHeight: "1.5",
-};
-
-const deleteButtonStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px 18px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const metaBoxStyle: any = {
-  background: "#080808",
-  border: "1px solid #222",
-  borderRadius: "14px",
-  padding: "14px",
-};
-
-const metaTextStyle: any = {
-  color: "#aaa",
-  fontSize: "13px",
-  margin: "4px 0",
-};
-
-const okBadgeStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  borderRadius: "999px",
-  padding: "8px 12px",
-  fontWeight: "bold",
-  fontSize: "13px",
-  whiteSpace: "nowrap",
-};
-
-const warningBadgeStyle: any = {
-  background: "#ca8a04",
-  color: "white",
-  borderRadius: "999px",
-  padding: "8px 12px",
-  fontWeight: "bold",
-  fontSize: "13px",
-  whiteSpace: "nowrap",
-};
-
-const blueBadgeStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  borderRadius: "999px",
-  padding: "8px 12px",
-  fontWeight: "bold",
-  fontSize: "13px",
-  whiteSpace: "nowrap",
-};
-
-const grayBadgeStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  borderRadius: "999px",
-  padding: "8px 12px",
-  fontWeight: "bold",
-  fontSize: "13px",
-  whiteSpace: "nowrap",
-};
