@@ -20,6 +20,7 @@ type Projekt = {
   bauleiter?: string | null;
   google_location?: string | null;
   google_maps?: string | null;
+  google_maps_url?: string | null;
   info?: string | null;
   created_at?: string | null;
   [key: string]: any;
@@ -30,9 +31,11 @@ type Filter = "aktiv" | "fertig" | "alle";
 export default function ProjektePage() {
   const [projekte, setProjekte] = useState<Projekt[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [tableName, setTableName] = useState<"projekte" | "baustellen">(
     "projekte"
   );
+
   const [errorText, setErrorText] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("aktiv");
@@ -69,7 +72,18 @@ export default function ProjektePage() {
   }
 
   function getGoogleLink(p: Projekt) {
-    return p.google_location || p.google_maps || "";
+    const value =
+      p.google_location || p.google_maps || p.google_maps_url || "";
+
+    if (!value) return "";
+
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      return value;
+    }
+
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      value
+    )}`;
   }
 
   function isFertig(p: Projekt) {
@@ -79,6 +93,7 @@ export default function ProjektePage() {
       s.includes("fertig") ||
       s.includes("abgeschlossen") ||
       s.includes("closed") ||
+      s.includes("archiv") ||
       s.includes("zavrs") ||
       s.includes("završen") ||
       s.includes("zavrsen")
@@ -111,6 +126,7 @@ export default function ProjektePage() {
     setErrorText(
       "Ne mogu učitati projekte. Provjeri da li u Supabase postoji tabela projekte ili baustellen."
     );
+
     setProjekte([]);
     setLoading(false);
   }
@@ -156,25 +172,28 @@ export default function ProjektePage() {
         status: "aktiv",
       },
       {
-        name: projektName,
-        ort: form.ort.trim(),
-        auftraggeber: form.auftraggeber.trim(),
-        bauleiter: form.bauleiter.trim(),
-        status: "aktiv",
-      },
-      {
-        name: projektName,
-        ort: form.ort.trim(),
-        status: "aktiv",
-      },
-      {
-        name: projektName,
-        location: form.ort.trim(),
-        status: "aktiv",
-      },
-      {
         naziv: projektName,
         mjesto: form.ort.trim(),
+        adresse: form.adresse.trim(),
+        auftraggeber: form.auftraggeber.trim(),
+        bauleiter: form.bauleiter.trim(),
+        google_maps: form.google_location.trim(),
+        info: form.info.trim(),
+        status: "aktiv",
+      },
+      {
+        title: projektName,
+        location: form.ort.trim(),
+        adresse: form.adresse.trim(),
+        auftraggeber: form.auftraggeber.trim(),
+        bauleiter: form.bauleiter.trim(),
+        google_maps_url: form.google_location.trim(),
+        info: form.info.trim(),
+        status: "aktiv",
+      },
+      {
+        name: projektName,
+        ort: form.ort.trim(),
         status: "aktiv",
       },
       {
@@ -240,6 +259,12 @@ export default function ProjektePage() {
 
     if (!ok) return;
 
+    const second = confirm(
+      `Potvrdi još jednom brisanje projekta: ${getName(p)}`
+    );
+
+    if (!second) return;
+
     const { error } = await supabase.from(tableName).delete().eq("id", p.id);
 
     if (error) {
@@ -254,6 +279,10 @@ export default function ProjektePage() {
     <main className="page">
       <section className="header">
         <div>
+          <Link className="dashboardBack" href="/">
+            ← Zurück zum App Dashboard
+          </Link>
+
           <p className="label">Dashboard</p>
           <h1>Projekte</h1>
           <p className="subtitle">
@@ -262,6 +291,10 @@ export default function ProjektePage() {
         </div>
 
         <div className="headerButtons">
+          <Link className="btn dark" href="/">
+            App Dashboard
+          </Link>
+
           <button className="btn gray" onClick={loadProjekte}>
             Aktualisieren
           </button>
@@ -360,7 +393,7 @@ export default function ProjektePage() {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Google Standort öffnen
+                  📍 Google Standort öffnen
                 </a>
               )}
 
@@ -378,8 +411,15 @@ export default function ProjektePage() {
                 <Link href={`/projekte/${p.id}/material`}>Material</Link>
                 <Link href={`/projekte/${p.id}/aufgaben`}>Aufgaben</Link>
                 <Link href={`/projekte/${p.id}/positionen`}>Positionen</Link>
+                <Link href={`/projekte/${p.id}/leistung`}>Leistung</Link>
+                <Link href={`/projekte/${p.id}/regie`}>Regie</Link>
+                <Link href={`/projekte/${p.id}/freigabe`}>Freigabe</Link>
                 <Link href={`/projekte/${p.id}/auswertung`}>Auswertung</Link>
                 <Link href={`/projekte/${p.id}/bericht`}>Bericht</Link>
+                <Link href={`/projekte/${p.id}/import`}>Import</Link>
+                <Link className="workerLink" href={`/projekte/${p.id}/radnik`}>
+                  Radnik App
+                </Link>
                 <Link href={`/projekte/${p.id}/einstellungen`}>
                   Einstellungen
                 </Link>
@@ -464,7 +504,7 @@ export default function ProjektePage() {
                   google_location: e.target.value,
                 }))
               }
-              placeholder="Google Maps Link"
+              placeholder="Google Maps Link ili adresa"
             />
 
             <label>Info</label>
@@ -506,6 +546,18 @@ export default function ProjektePage() {
           margin-bottom: 22px;
         }
 
+        .dashboardBack {
+          display: inline-block;
+          color: white;
+          text-decoration: none;
+          background: #1f2937;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 12px 16px;
+          font-weight: 900;
+          margin-bottom: 18px;
+        }
+
         .label {
           color: #9ca3af;
           margin: 0 0 8px;
@@ -523,6 +575,7 @@ export default function ProjektePage() {
           color: #cbd5e1;
           margin: 12px 0 0;
           max-width: 720px;
+          font-weight: 700;
         }
 
         .headerButtons {
@@ -550,8 +603,17 @@ export default function ProjektePage() {
           padding: 14px 18px;
           color: white;
           font-size: 15px;
-          font-weight: 800;
+          font-weight: 900;
           cursor: pointer;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .dark {
+          background: #111827;
+          border: 1px solid #374151;
         }
 
         .gray {
@@ -615,7 +677,7 @@ export default function ProjektePage() {
           border: 1px solid #374151;
           border-radius: 14px;
           padding: 12px 16px;
-          font-weight: 800;
+          font-weight: 900;
           cursor: pointer;
         }
 
@@ -631,7 +693,7 @@ export default function ProjektePage() {
           padding: 16px;
           border-radius: 14px;
           margin-bottom: 18px;
-          font-weight: 700;
+          font-weight: 800;
         }
 
         .emptyBox {
@@ -709,6 +771,7 @@ export default function ProjektePage() {
           margin: 5px 0;
           color: #d1d5db;
           font-size: 14px;
+          font-weight: 800;
         }
 
         .info {
@@ -719,6 +782,7 @@ export default function ProjektePage() {
           color: #d1d5db;
           margin-bottom: 12px;
           line-height: 1.4;
+          white-space: pre-wrap;
         }
 
         .mapButton {
@@ -759,7 +823,19 @@ export default function ProjektePage() {
           text-align: center;
           border-radius: 14px;
           padding: 13px 10px;
-          font-weight: 800;
+          font-weight: 900;
+        }
+
+        .modules a:hover,
+        .dashboardBack:hover,
+        .openButton:hover,
+        .mapButton:hover {
+          opacity: 0.9;
+        }
+
+        .modules .workerLink {
+          background: #15803d;
+          border-color: #16a34a;
         }
 
         .adminActions {
@@ -853,6 +929,7 @@ export default function ProjektePage() {
         .modal textarea {
           min-height: 90px;
           resize: vertical;
+          line-height: 1.45;
         }
 
         .modalActions {
@@ -884,26 +961,14 @@ export default function ProjektePage() {
           cursor: not-allowed;
         }
 
-        @media (max-width: 760px) {
-          .page {
-            padding: 16px;
-          }
-
+        @media (max-width: 900px) {
           .header {
             display: block;
-          }
-
-          h1 {
-            font-size: 36px;
           }
 
           .headerButtons {
             margin-top: 16px;
             display: grid;
-            grid-template-columns: 1fr;
-          }
-
-          .stats {
             grid-template-columns: 1fr;
           }
 
@@ -920,6 +985,20 @@ export default function ProjektePage() {
           .filterButtons {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
+          }
+        }
+
+        @media (max-width: 760px) {
+          .page {
+            padding: 16px;
+          }
+
+          h1 {
+            font-size: 36px;
+          }
+
+          .stats {
+            grid-template-columns: 1fr;
           }
 
           .grid {
