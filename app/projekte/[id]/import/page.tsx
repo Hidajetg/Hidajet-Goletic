@@ -2,868 +2,1149 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-const ADMINI = ["Hido", "Steffi", "Admin"];
+type Projekt = {
+  id: number | string;
+  name?: string | null;
+  naziv?: string | null;
+  title?: string | null;
+  projekt?: string | null;
+  baustelle_name?: string | null;
+  ort?: string | null;
+  mjesto?: string | null;
+  location?: string | null;
+  adresse?: string | null;
+  [key: string]: any;
+};
 
-type ImportPosition = {
-  selected: boolean;
-  position_nr: string;
-  kurztext: string;
-  langtext: string;
-  gruppe: string;
-  menge_soll: number;
-  einheit: string;
-  einheitspreis: number;
-  positionspreis: number;
-  typ: string;
-  minuten_pro_einheit: number;
-  duplicate?: boolean;
+type TableConfig = {
+  table: string;
+  column: string;
+};
+
+type ImportType = "positionen" | "material" | "raeume";
+
+type PreviewRow = {
+  rowNumber: number;
+  data: any;
+  error: string;
+};
+
+const IMPORT_TYPES = [
+  {
+    value: "positionen",
+    title: "Positionen / LV",
+    description: "Uvoz LV pozicija po projektu",
+  },
+  {
+    value: "material",
+    title: "Materialverbrauch",
+    description: "Uvoz potrošnje materijala po projektu",
+  },
+  {
+    value: "raeume",
+    title: "Räume",
+    description: "Uvoz prostorija za projekt",
+  },
+];
+
+const TEMPLATES: Record<ImportType, string> = {
+  positionen:
+    "nummer;titel;beschreibung;gruppe;menge_soll;menge_ist;einheit;einzelpreis;status\n01.01;Fliesen verlegen;Boden und Wand;Keramika;120;80;m²;45;Offen\n01.02;Abdichtung ausführen;Bad und Dusche;Hidroizolacija;60;40;m²;18;In Arbeit",
+  material:
+    "datum;naziv;kolicina;jedinica;gruppe;notiz;status\n2026-06-19;Flexkleber;12;Sack;Ljepilo;Projekt Verbrauch;Offen\n2026-06-19;Silikon;8;Tube;Silikoni;Bad und Küche;Offen",
+  raeume:
+    "name;etage;bereich;status;beschreibung\nBad EG;EG;Haus A;Offen;Hauptbad\nKüche;EG;Haus A;Offen;Küche Fliesen",
 };
 
 export default function ProjektImportPage() {
   const params = useParams();
-  const router = useRouter();
-
   const projektId = String(params.id);
+  const projektIdValue = isNaN(Number(projektId))
+    ? projektId
+    : Number(projektId);
 
-  const [workerName, setWorkerName] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  const [projekt, setProjekt] = useState<any>(null);
-  const [existingPositionen, setExistingPositionen] = useState<any[]>([]);
-
-  const [fileName, setFileName] = useState("");
-  const [xmlText, setXmlText] = useState("");
-  const [preview, setPreview] = useState<ImportPosition[]>([]);
-  const [replaceExisting, setReplaceExisting] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  const summary = useMemo(() => {
-    const selected = preview.filter((p) => p.selected).length;
-    const duplicates = preview.filter((p) => p.duplicate).length;
-    const totalValue = preview
-      .filter((p) => p.selected)
-      .reduce((sum, p) => sum + Number(p.positionspreis || 0), 0);
-
-    return {
-      total: preview.length,
-      selected,
-      duplicates,
-      totalValue,
-    };
-  }, [preview]);
+  const [projekt, setProjekt] = useState<Projekt | null>(null);
+  const [importType, setImportType] = useState<ImportType>("positionen");
+  const [csvText, setCsvText] = useState(TEMPLATES.positionen);
+  const [delimiter, setDelimiter] = useState<";" | "," | "\t">(";");
+  const [errorText, setErrorText] = useState("");
+  const [resultText, setResultText] = useState("");
 
   useEffect(() => {
-    const name = localStorage.getItem("worker_name");
+    loadProjekt();
+  }, [projektId]);
 
-    if (!name) {
-      router.push("/login");
-      return;
-    }
+  useEffect(() => {
+    setCsvText(TEMPLATES[importType]);
+    setResultText("");
+    setErrorText("");
+  }, [importType]);
 
-    const adminStatus = ADMINI.includes(name);
+  function getProjektName() {
+    if (!projekt) return "Projekt";
 
-    if (!adminStatus) {
-      router.push("/");
-      return;
-    }
+    return (
+      projekt.name ||
+      projekt.naziv ||
+      projekt.title ||
+      projekt.projekt ||
+      projekt.baustelle_name ||
+      `Projekt ${projekt.id}`
+    );
+  }
 
-    setWorkerName(name);
-    setIsAdmin(adminStatus);
-    loadData();
-  }, [router, projektId]);
+  function getProjektOrt() {
+    if (!projekt) return "";
+    return projekt.ort || projekt.mjesto || projekt.location || projekt.adresse || "";
+  }
 
-  async function loadData() {
+  async function loadProjekt() {
     setLoading(true);
 
-    const projektRes = await supabase
-      .from("projekte")
-      .select("*")
-      .eq("id", Number(projektId))
-      .single();
+    const tables = ["projekte", "baustellen"];
 
-    if (projektRes.error) {
-      alert("Greška kod učitavanja projekta: " + projektRes.error.message);
-      setLoading(false);
-      return;
+    for (const table of tables) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq("id", projektIdValue)
+        .maybeSingle();
+
+      if (!error && data) {
+        setProjekt(data as Projekt);
+        setLoading(false);
+        return;
+      }
     }
 
-    setProjekt(projektRes.data);
-
-    const posRes = await supabase
-      .from("projekt_lv_positionen")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("position_nr", { ascending: true });
-
-    if (posRes.error) {
-      alert("Greška kod učitavanja postojećih LV pozicija: " + posRes.error.message);
-      setExistingPositionen([]);
-      setLoading(false);
-      return;
-    }
-
-    setExistingPositionen(posRes.data || []);
+    setProjekt(null);
     setLoading(false);
   }
 
-  function parseNumber(value: string | null | undefined) {
-    if (!value) return 0;
-
-    const cleaned = String(value)
-      .replace(/\s/g, "")
-      .replace("€", "")
-      .replace(",", ".");
-
-    const num = parseFloat(cleaned);
-
-    return Number.isNaN(num) ? 0 : num;
+  function normalizeKey(key: string) {
+    return String(key || "")
+      .trim()
+      .toLowerCase()
+      .replaceAll("ä", "ae")
+      .replaceAll("ö", "oe")
+      .replaceAll("ü", "ue")
+      .replaceAll("ß", "ss")
+      .replaceAll(" ", "_")
+      .replaceAll("-", "_")
+      .replaceAll(".", "")
+      .replaceAll("/", "_");
   }
 
-  function formatNumber(value: any, digits = 2) {
-    const num = Number(value || 0);
+  function mapKey(key: string) {
+    const k = normalizeKey(key);
 
-    return num.toLocaleString("de-AT", {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    });
+    const aliases: Record<string, string> = {
+      nr: "nummer",
+      number: "nummer",
+      position_nr: "nummer",
+      pos_nr: "nummer",
+      bezeichnung: "titel",
+      title: "titel",
+      name: "name",
+      position: "titel",
+      text: "beschreibung",
+      description: "beschreibung",
+      desc: "beschreibung",
+      category: "gruppe",
+      kategorie: "gruppe",
+      group: "gruppe",
+      group_name: "gruppe",
+      soll: "menge_soll",
+      menge: "menge_soll",
+      quantity_planned: "menge_soll",
+      planned: "menge_soll",
+      ist: "menge_ist",
+      quantity_done: "menge_ist",
+      done: "menge_ist",
+      unit: "einheit",
+      einheit: "einheit",
+      jedinica: "einheit",
+      price: "einzelpreis",
+      preis: "einzelpreis",
+      unit_price: "einzelpreis",
+      datum: "datum",
+      date: "datum",
+      material: "naziv",
+      material_name: "naziv",
+      naziv: "naziv",
+      kolicina: "kolicina",
+      quantity: "kolicina",
+      qty: "kolicina",
+      amount: "kolicina",
+      notiz: "notiz",
+      note: "notiz",
+      bemerkung: "notiz",
+      info: "notiz",
+      raum: "name",
+      raum_name: "name",
+      room: "name",
+      etage: "etage",
+      floor: "etage",
+      bereich: "bereich",
+      zone: "bereich",
+      status: "status",
+    };
+
+    return aliases[k] || k;
   }
 
-  function formatEuro(value: any) {
-    const num = Number(value || 0);
+  function parseCsv(text: string, delimiterValue: string) {
+    const rows: string[][] = [];
+    let row: string[] = [];
+    let cell = "";
+    let inQuotes = false;
 
-    return num.toLocaleString("de-AT", {
-      style: "currency",
-      currency: "EUR",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const next = text[i + 1];
 
-  function directChildren(el: Element, name: string) {
-    return Array.from(el.children).filter((child) => child.localName === name);
-  }
-
-  function directChild(el: Element | null, name: string) {
-    if (!el) return null;
-    return directChildren(el, name)[0] || null;
-  }
-
-  function firstDescendantText(el: Element | null, name: string) {
-    if (!el) return "";
-
-    const found = Array.from(el.getElementsByTagNameNS("*", name))[0];
-
-    return found?.textContent?.trim() || "";
-  }
-
-  function directText(el: Element | null) {
-    if (!el) return "";
-    return el.textContent?.trim() || "";
-  }
-
-  function guessMinutes(kurztext: string, einheit: string) {
-    const text = kurztext.toLowerCase();
-    const eh = String(einheit || "").toLowerCase();
-
-    if (text.includes("silikon")) return eh.includes("m") ? 3 : 5;
-    if (text.includes("fuge") || text.includes("verfug")) return 5;
-    if (text.includes("schiene") || text.includes("abschlussprofil")) return 4;
-    if (text.includes("mosaik")) return 35;
-    if (text.includes("wandbelag") || text.includes("wandfliese")) return 25;
-    if (text.includes("bodenbelag") || text.includes("bodenfliese")) return 20;
-    if (text.includes("abdicht") || text.includes("dichtband")) return 12;
-    if (text.includes("grundier") || text.includes("voranstrich")) return 6;
-    if (text.includes("ausgleich") || text.includes("spachtel")) return 10;
-    if (text.includes("sockel")) return 8;
-    if (text.includes("regie")) return 0;
-
-    if (eh.includes("m²")) return 18;
-    if (eh === "m") return 5;
-    if (eh.includes("stk")) return 6;
-
-    return 0;
-  }
-
-  function getPositionTyp(posEig: Element | null) {
-    const pzzv = directChild(posEig, "pzzv");
-    if (!pzzv) return "Normal";
-
-    const names = Array.from(pzzv.children).map((child) => child.localName);
-
-    if (names.includes("eventualposition")) return "Eventual";
-    if (names.includes("wahlposition")) return "Wahl";
-    if (names.includes("alternativposition")) return "Alternativ";
-    if (names.includes("normalposition")) return "Normal";
-
-    return "Normal";
-  }
-
-  function markDuplicates(items: ImportPosition[]) {
-    const existing = new Set(
-      existingPositionen.map((p) => String(p.position_nr || "").trim())
-    );
-
-    return items.map((item) => ({
-      ...item,
-      duplicate: existing.has(item.position_nr),
-      selected: existing.has(item.position_nr) ? false : item.selected,
-    }));
-  }
-
-  function parseOnlvXml(text: string) {
-    if (!text.trim()) {
-      alert("Prvo izaberi ONLV fajl ili zalijepi XML tekst.");
-      return;
-    }
-
-    const parser = new DOMParser();
-    const xml = parser.parseFromString(text, "text/xml");
-
-    const parserError = xml.getElementsByTagName("parsererror")[0];
-
-    if (parserError) {
-      alert("XML nije ispravan. Provjeri ONLV fajl.");
-      return;
-    }
-
-    const items: ImportPosition[] = [];
-    const lgs = Array.from(xml.getElementsByTagNameNS("*", "lg"));
-
-    lgs.forEach((lg) => {
-      const lgNr = lg.getAttribute("nr") || "";
-      const lgEig = directChild(lg, "lg-eigenschaften");
-      const lgTitle = firstDescendantText(lgEig, "ueberschrift");
-
-      const ulgs = directChildren(directChild(lg, "ulg-liste") || lg, "ulg");
-
-      ulgs.forEach((ulg) => {
-        const ulgNr = ulg.getAttribute("nr") || "";
-        const ulgEig = directChild(ulg, "ulg-eigenschaften");
-        const ulgTitle = firstDescendantText(ulgEig, "ueberschrift");
-
-        const positionen = directChild(ulg, "positionen");
-        if (!positionen) return;
-
-        const grundtexte = directChildren(positionen, "grundtextnr");
-
-        grundtexte.forEach((grund) => {
-          const grundNr = grund.getAttribute("nr") || "";
-          const grundTextElement = directChild(directChild(grund, "grundtext"), "langtext");
-          const grundLangtext = directText(grundTextElement);
-
-          const folgepositionen = directChildren(grund, "folgeposition");
-
-          folgepositionen.forEach((folge) => {
-            const ftnr = folge.getAttribute("ftnr") || "";
-            const posEig = directChild(folge, "pos-eigenschaften");
-
-            if (!posEig) return;
-
-            const kurztext = firstDescendantText(posEig, "stichwort");
-            const folgeLangtext = firstDescendantText(posEig, "langtext");
-            const einheit = firstDescendantText(posEig, "einheit");
-            const menge = parseNumber(firstDescendantText(posEig, "lvmenge"));
-            const preis = directChild(posEig, "preis");
-            const einheitspreis = parseNumber(firstDescendantText(preis, "gesamt"));
-            const positionspreis = parseNumber(firstDescendantText(posEig, "pospreis"));
-
-            if (!kurztext) return;
-
-            const positionNr = `${lgNr}.${ulgNr}.${grundNr}${ftnr}`;
-            const typ = getPositionTyp(posEig);
-
-            items.push({
-              selected: menge > 0,
-              position_nr: positionNr,
-              kurztext,
-              langtext: [grundLangtext, folgeLangtext].filter(Boolean).join("\n\n"),
-              gruppe: `${lgNr}.${ulgNr} ${ulgTitle || lgTitle || ""}`.trim(),
-              menge_soll: menge,
-              einheit,
-              einheitspreis,
-              positionspreis,
-              typ,
-              minuten_pro_einheit: guessMinutes(kurztext, einheit),
-            });
-          });
-        });
-      });
-    });
-
-    const uniqueMap = new Map<string, ImportPosition>();
-
-    items.forEach((item) => {
-      if (!uniqueMap.has(item.position_nr)) {
-        uniqueMap.set(item.position_nr, item);
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          cell += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
       }
-    });
 
-    const uniqueItems = Array.from(uniqueMap.values()).sort((a, b) =>
-      a.position_nr.localeCompare(b.position_nr, "de", { numeric: true })
-    );
+      if (char === delimiterValue && !inQuotes) {
+        row.push(cell.trim());
+        cell = "";
+        continue;
+      }
 
-    const withDuplicates = markDuplicates(uniqueItems);
+      if ((char === "\n" || char === "\r") && !inQuotes) {
+        if (char === "\r" && next === "\n") {
+          i++;
+        }
 
-    setPreview(withDuplicates);
+        row.push(cell.trim());
 
-    if (withDuplicates.length === 0) {
-      alert("Nisam pronašao LV pozicije u ONLV fajlu.");
+        const hasContent = row.some((x) => String(x).trim() !== "");
+        if (hasContent) rows.push(row);
+
+        row = [];
+        cell = "";
+        continue;
+      }
+
+      cell += char;
     }
+
+    row.push(cell.trim());
+
+    const hasContent = row.some((x) => String(x).trim() !== "");
+    if (hasContent) rows.push(row);
+
+    return rows;
   }
 
-  async function handleFile(file: File | null) {
+  function autoDetectDelimiter(text: string) {
+    const firstLine = text.split(/\r?\n/)[0] || "";
+    const semicolon = (firstLine.match(/;/g) || []).length;
+    const comma = (firstLine.match(/,/g) || []).length;
+    const tab = (firstLine.match(/\t/g) || []).length;
+
+    if (tab > semicolon && tab > comma) return "\t";
+    if (comma > semicolon) return ",";
+    return ";";
+  }
+
+  const previewRows = useMemo<PreviewRow[]>(() => {
+    if (!csvText.trim()) return [];
+
+    const detected = autoDetectDelimiter(csvText);
+    const selectedDelimiter = delimiter || detected;
+
+    const parsed = parseCsv(csvText, selectedDelimiter);
+
+    if (parsed.length < 2) return [];
+
+    const headers = parsed[0].map((h) => mapKey(h));
+
+    return parsed.slice(1).map((cells, index) => {
+      const data: any = {};
+
+      headers.forEach((header, i) => {
+        data[header] = cells[i] || "";
+      });
+
+      let error = "";
+
+      if (importType === "positionen" && !data.titel) {
+        error = "Nedostaje titel / bezeichnung.";
+      }
+
+      if (importType === "material" && !data.naziv) {
+        error = "Nedostaje naziv / material.";
+      }
+
+      if (importType === "material" && !data.kolicina) {
+        error = "Nedostaje kolicina / menge.";
+      }
+
+      if (importType === "raeume" && !data.name) {
+        error = "Nedostaje name / raum_name.";
+      }
+
+      return {
+        rowNumber: index + 2,
+        data,
+        error,
+      };
+    });
+  }, [csvText, delimiter, importType]);
+
+  const validRows = useMemo(() => {
+    return previewRows.filter((row) => !row.error);
+  }, [previewRows]);
+
+  async function handleFile(file: File | undefined) {
     if (!file) return;
 
-    setFileName(file.name);
-
     const text = await file.text();
-    setXmlText(text);
-    parseOnlvXml(text);
+    const detected = autoDetectDelimiter(text);
+
+    setDelimiter(detected as ";" | "," | "\t");
+    setCsvText(text);
+    setResultText("");
+    setErrorText("");
   }
 
-  function toggleSelected(positionNr: string) {
-    setPreview((prev) =>
-      prev.map((item) =>
-        item.position_nr === positionNr
-          ? { ...item, selected: !item.selected }
-          : item
-      )
-    );
+  function downloadTemplate() {
+    const blob = new Blob([TEMPLATES[importType]], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = `template-${importType}.csv`;
+    a.click();
+
+    URL.revokeObjectURL(url);
   }
 
-  function selectAll(value: boolean) {
-    setPreview((prev) =>
-      prev.map((item) => ({
-        ...item,
-        selected: value && !item.duplicate,
-      }))
-    );
+  async function resolveConfig(type: ImportType): Promise<TableConfig | null> {
+    const configs: Record<ImportType, TableConfig[]> = {
+      positionen: [
+        { table: "positionen", column: "projekt_id" },
+        { table: "positionen", column: "project_id" },
+        { table: "positionen", column: "baustelle_id" },
+        { table: "projekt_positionen", column: "projekt_id" },
+        { table: "projekt_positionen", column: "project_id" },
+        { table: "lv_positionen", column: "projekt_id" },
+        { table: "positions", column: "project_id" },
+      ],
+      material: [
+        { table: "material_bewegungen", column: "projekt_id" },
+        { table: "material_bewegungen", column: "project_id" },
+        { table: "material_bewegungen", column: "baustelle_id" },
+        { table: "projekt_material", column: "projekt_id" },
+        { table: "projekt_material", column: "project_id" },
+        { table: "material", column: "projekt_id" },
+        { table: "materialien_projekt", column: "projekt_id" },
+      ],
+      raeume: [
+        { table: "projekt_raeume", column: "projekt_id" },
+        { table: "raeume", column: "projekt_id" },
+        { table: "raeume", column: "project_id" },
+        { table: "prostorije", column: "projekt_id" },
+        { table: "prostorije", column: "project_id" },
+        { table: "rooms", column: "project_id" },
+        { table: "raeume", column: "baustelle_id" },
+        { table: "prostorije", column: "baustelle_id" },
+      ],
+    };
+
+    for (const config of configs[type]) {
+      const { error } = await supabase
+        .from(config.table)
+        .select("*")
+        .eq(config.column, projektIdValue)
+        .limit(1);
+
+      if (!error) return config;
+    }
+
+    return null;
   }
 
-  async function importPositions() {
-    const selected = preview.filter((item) => item.selected);
+  async function loadExisting(config: TableConfig) {
+    const { data, error } = await supabase
+      .from(config.table)
+      .select("*")
+      .eq(config.column, projektIdValue);
 
-    if (selected.length === 0) {
-      alert("Nema odabranih pozicija za import.");
+    if (error) return [];
+    return data || [];
+  }
+
+  function toNumber(value: any) {
+    const n = Number(String(value || "0").replace(",", "."));
+    return isNaN(n) ? 0 : n;
+  }
+
+  function isDuplicate(type: ImportType, row: any, existing: any[]) {
+    if (type === "positionen") {
+      const nummer = String(row.nummer || "").trim().toLowerCase();
+      const titel = String(row.titel || "").trim().toLowerCase();
+
+      return existing.some((x) => {
+        const xNummer = String(
+          x.nummer || x.position_nr || x.pos_nr || x.number || x.nr || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        const xTitle = String(
+          x.titel || x.title || x.name || x.position || x.bezeichnung || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        if (nummer && xNummer && nummer === xNummer) return true;
+        if (titel && xTitle && titel === xTitle) return true;
+
+        return false;
+      });
+    }
+
+    if (type === "material") {
+      const name = String(row.naziv || "").trim().toLowerCase();
+      const datum = String(row.datum || "").trim();
+      const qty = toNumber(row.kolicina);
+
+      return existing.some((x) => {
+        const xName = String(
+          x.naziv || x.name || x.material_name || x.material || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        const xDatum = String(x.datum || x.date || "").trim();
+        const xQty = toNumber(x.kolicina || x.menge || x.quantity || x.qty);
+
+        return name === xName && datum === xDatum && qty === xQty;
+      });
+    }
+
+    if (type === "raeume") {
+      const name = String(row.name || "").trim().toLowerCase();
+
+      return existing.some((x) => {
+        const xName = String(
+          x.name || x.raum_name || x.naziv || x.title || x.prostorija || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        return name === xName;
+      });
+    }
+
+    return false;
+  }
+
+  function buildPayloads(type: ImportType, row: any, config: TableConfig) {
+    const base: any = {};
+    base[config.column] = projektIdValue;
+
+    if (type === "positionen") {
+      const soll = toNumber(row.menge_soll);
+      const ist = toNumber(row.menge_ist);
+      const price = toNumber(row.einzelpreis);
+
+      return [
+        {
+          ...base,
+          datum: row.datum || null,
+          nummer: row.nummer || "",
+          titel: row.titel || "",
+          beschreibung: row.beschreibung || "",
+          gruppe: row.gruppe || "Keramika",
+          menge_soll: soll,
+          menge_ist: ist,
+          einheit: row.einheit || "m²",
+          einzelpreis: price,
+          gesamtpreis: soll * price,
+          fertig_wert: ist * price,
+          status: row.status || "Offen",
+        },
+        {
+          ...base,
+          date: row.datum || null,
+          position_nr: row.nummer || "",
+          title: row.titel || "",
+          description: row.beschreibung || "",
+          category: row.gruppe || "Keramika",
+          quantity_planned: soll,
+          quantity_done: ist,
+          unit: row.einheit || "m²",
+          unit_price: price,
+          status: row.status || "Offen",
+        },
+        {
+          ...base,
+          nummer: row.nummer || "",
+          name: row.titel || "",
+          menge: soll,
+          einheit: row.einheit || "m²",
+          status: row.status || "Offen",
+        },
+        {
+          ...base,
+          title: row.titel || "",
+          quantity: soll,
+          unit: row.einheit || "m²",
+        },
+      ];
+    }
+
+    if (type === "material") {
+      return [
+        {
+          ...base,
+          datum: row.datum || null,
+          naziv: row.naziv || "",
+          kolicina: toNumber(row.kolicina),
+          jedinica: row.jedinica || row.einheit || "Stk.",
+          gruppe: row.gruppe || "Dodaci",
+          notiz: row.notiz || "",
+          status: row.status || "Offen",
+        },
+        {
+          ...base,
+          date: row.datum || null,
+          name: row.naziv || "",
+          quantity: toNumber(row.kolicina),
+          unit: row.jedinica || row.einheit || "Stk.",
+          category: row.gruppe || "Dodaci",
+          note: row.notiz || "",
+          status: row.status || "Offen",
+        },
+        {
+          ...base,
+          material: row.naziv || "",
+          menge: toNumber(row.kolicina),
+          einheit: row.jedinica || row.einheit || "Stk.",
+        },
+        {
+          ...base,
+          name: row.naziv || "",
+          quantity: toNumber(row.kolicina),
+          unit: row.jedinica || row.einheit || "Stk.",
+        },
+      ];
+    }
+
+    return [
+      {
+        ...base,
+        name: row.name || "",
+        etage: row.etage || "",
+        bereich: row.bereich || "",
+        status: row.status || "Offen",
+        beschreibung: row.beschreibung || "",
+      },
+      {
+        ...base,
+        raum_name: row.name || "",
+        etage: row.etage || "",
+        bereich: row.bereich || "",
+        status: row.status || "Offen",
+        beschreibung: row.beschreibung || "",
+      },
+      {
+        ...base,
+        naziv: row.name || "",
+        status: row.status || "Offen",
+        info: row.beschreibung || "",
+      },
+      {
+        ...base,
+        name: row.name || "",
+      },
+    ];
+  }
+
+  async function startImport() {
+    setErrorText("");
+    setResultText("");
+
+    if (validRows.length === 0) {
+      setErrorText("Nema ispravnih redova za import.");
       return;
     }
 
-    const ok = confirm(
-      replaceExisting
-        ? "Ovo će obrisati sve postojeće LV pozicije za ovaj projekt i importovati nove. Nastaviti?"
-        : "Importovati odabrane LV pozicije?"
-    );
+    const ok = confirm(`Importovati ${validRows.length} redova?`);
 
     if (!ok) return;
 
     setImporting(true);
 
-    if (replaceExisting) {
-      const deleteRes = await supabase
-        .from("projekt_lv_positionen")
-        .delete()
-        .eq("projekt_id", Number(projektId));
+    const config = await resolveConfig(importType);
 
-      if (deleteRes.error) {
-        alert("Greška kod brisanja starih LV pozicija: " + deleteRes.error.message);
-        setImporting(false);
-        return;
+    if (!config) {
+      setImporting(false);
+      setErrorText(
+        "Ne mogu pronaći odgovarajuću tabelu u Supabase za ovaj import."
+      );
+      return;
+    }
+
+    const existing = await loadExisting(config);
+
+    let added = 0;
+    let skipped = 0;
+    let failed = 0;
+    let lastError = "";
+
+    for (const preview of validRows) {
+      if (isDuplicate(importType, preview.data, existing)) {
+        skipped++;
+        continue;
+      }
+
+      let inserted = false;
+
+      for (const payload of buildPayloads(importType, preview.data, config)) {
+        const { data, error } = await supabase
+          .from(config.table)
+          .insert(payload as any)
+          .select("*")
+          .maybeSingle();
+
+        if (!error) {
+          added++;
+          inserted = true;
+
+          if (data) {
+            existing.push(data);
+          }
+
+          break;
+        }
+
+        lastError = error.message;
+      }
+
+      if (!inserted) {
+        failed++;
       }
     }
 
-    const existing = new Set(
-      existingPositionen.map((p) => String(p.position_nr || "").trim())
-    );
-
-    const payload = selected
-      .filter((item) => replaceExisting || !existing.has(item.position_nr))
-      .map((item) => ({
-        projekt_id: Number(projektId),
-        position_nr: item.position_nr,
-        kurztext: item.kurztext,
-        langtext: item.langtext || null,
-        gruppe: item.gruppe || null,
-        menge_soll: item.menge_soll || 0,
-        einheit: item.einheit || null,
-        einheitspreis: item.einheitspreis || 0,
-        positionspreis: item.positionspreis || 0,
-        typ: item.typ || "Normal",
-        minuten_pro_einheit: item.minuten_pro_einheit || 0,
-        aktiv: true,
-        created_by: workerName,
-      }));
-
-    if (payload.length === 0) {
-      alert("Sve odabrane pozicije već postoje.");
-      setImporting(false);
-      return;
-    }
-
-    const { error } = await supabase.from("projekt_lv_positionen").insert(payload);
-
-    if (error) {
-      alert("Greška kod importa LV pozicija: " + error.message);
-      setImporting(false);
-      return;
-    }
-
-    await loadData();
-
-    setPreview((prev) =>
-      prev.map((item) => ({
-        ...item,
-        selected: false,
-        duplicate: true,
-      }))
-    );
-
     setImporting(false);
-    alert("Import završen: " + payload.length + " LV pozicija.");
-  }
 
-  if (loading) {
-    return (
-      <main style={mainStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
-
-        <h1 style={titleStyle}>📥 LV Import</h1>
-        <p style={loadingStyle}>Wird geladen...</p>
-      </main>
+    setResultText(
+      `Import završen. Dodano: ${added}. Preskočeno duplo: ${skipped}. Greška: ${failed}.`
     );
-  }
 
-  if (!isAdmin) {
-    return (
-      <main style={mainStyle}>
-        <h1 style={titleStyle}>Kein Zugriff</h1>
-      </main>
-    );
+    if (failed > 0 && lastError) {
+      setErrorText("Zadnja greška: " + lastError);
+    }
   }
 
   return (
-    <main style={mainStyle}>
-      <div style={topBarStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
+    <main className="page">
+      <section className="top">
+        <div>
+          <Link className="back" href={`/projekte/${projektId}`}>
+            ← Zurück zu Projekt
+          </Link>
 
-        <Link href={`/projekte/${projektId}/positionen`} style={blueLinkStyle}>
-          📋 LV Positionen öffnen
-        </Link>
-      </div>
-
-      <h1 style={titleStyle}>📥 LV Import</h1>
-
-      <p style={descriptionStyle}>
-        Projekt: <strong>{projekt?.project_name || "-"}</strong>
-      </p>
-
-      <section style={summaryGridStyle}>
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Bestehende LV Positionen</span>
-          <strong style={summaryValueStyle}>{existingPositionen.length}</strong>
+          <p className="label">Projekt Import</p>
+          <h1>Import</h1>
+          <p className="subtitle">
+            {loading ? "Učitavanje..." : getProjektName()}
+            {getProjektOrt() ? ` · ${getProjektOrt()}` : ""}
+          </p>
         </div>
 
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Gefunden im ONLV</span>
-          <strong style={summaryValueStyle}>{summary.total}</strong>
-        </div>
+        <div className="topButtons">
+          <button className="btn gray" onClick={downloadTemplate}>
+            Template herunterladen
+          </button>
 
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Ausgewählt</span>
-          <strong style={summaryValueStyle}>{summary.selected}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Import Wert</span>
-          <strong style={summaryValueStyle}>{formatEuro(summary.totalValue)}</strong>
+          <button className="btn green" onClick={startImport} disabled={importing}>
+            {importing ? "Import läuft..." : "Import starten"}
+          </button>
         </div>
       </section>
 
-      <section style={infoBoxStyle}>
-        <h2 style={sectionTitleStyle}>ONLV Import</h2>
+      {errorText && <div className="errorBox">{errorText}</div>}
+      {resultText && <div className="successBox">{resultText}</div>}
 
-        <p style={infoTextStyle}>
-          Izaberi <strong>.onlv</strong> fajl. Aplikacija čita ÖNORM XML i
-          priprema LV pozicije. Duple pozicije se automatski ne označavaju za
-          import.
-        </p>
+      <section className="typeGrid">
+        {IMPORT_TYPES.map((item) => (
+          <button
+            key={item.value}
+            className={importType === item.value ? "typeCard active" : "typeCard"}
+            onClick={() => setImportType(item.value as ImportType)}
+          >
+            <strong>{item.title}</strong>
+            <span>{item.description}</span>
+          </button>
+        ))}
+      </section>
 
-        <label style={labelStyle}>ONLV Datei auswählen</label>
-        <input
-          type="file"
-          accept=".onlv,.xml,text/xml"
-          onChange={(e) => handleFile(e.target.files?.[0] || null)}
-          style={fileInputStyle}
-        />
+      <section className="importBox">
+        <div className="importHeader">
+          <div>
+            <h2>CSV Daten</h2>
+            <p>
+              Možeš zalijepiti CSV tekst ili učitati CSV fajl. Prvi red mora biti
+              header.
+            </p>
+          </div>
 
-        {fileName && <p style={smallTextStyle}>Datei: {fileName}</p>}
+          <div className="importControls">
+            <select
+              value={delimiter}
+              onChange={(e) => setDelimiter(e.target.value as ";" | "," | "\t")}
+            >
+              <option value=";">Semikolon ;</option>
+              <option value=",">Komma ,</option>
+              <option value={"\t"}>Tab</option>
+            </select>
 
-        <label style={labelStyle}>Oder XML / ONLV Text einfügen</label>
+            <label className="fileBtn">
+              CSV Datei
+              <input
+                type="file"
+                accept=".csv,text/csv,text/plain"
+                onChange={(e) => handleFile(e.target.files?.[0])}
+              />
+            </label>
+          </div>
+        </div>
+
         <textarea
-          value={xmlText}
-          onChange={(e) => setXmlText(e.target.value)}
-          placeholder="ONLV XML tekst možeš zalijepiti ovdje..."
-          style={textareaStyle}
-        />
-
-        <div style={buttonRowStyle}>
-          <button onClick={() => parseOnlvXml(xmlText)} style={blueButtonStyle}>
-            Vorschau erstellen
-          </button>
-
-          <button onClick={() => selectAll(true)} style={grayButtonStyle}>
-            Sve nove označi
-          </button>
-
-          <button onClick={() => selectAll(false)} style={grayButtonStyle}>
-            Sve odznači
-          </button>
-        </div>
-
-        <label style={checkboxRowStyle}>
-          <input
-            type="checkbox"
-            checked={replaceExisting}
-            onChange={(e) => setReplaceExisting(e.target.checked)}
-          />
-          <span>
-            Obriši postojeće LV pozicije i napravi novi import
-          </span>
-        </label>
-
-        <button
-          onClick={importPositions}
-          disabled={importing || summary.selected === 0}
-          style={{
-            ...importButtonStyle,
-            opacity: importing || summary.selected === 0 ? 0.5 : 1,
+          value={csvText}
+          onChange={(e) => {
+            setCsvText(e.target.value);
+            setResultText("");
+            setErrorText("");
           }}
-        >
-          {importing ? "Import läuft..." : "Ausgewählte Positionen importieren"}
-        </button>
+          spellCheck={false}
+        />
       </section>
 
-      <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Import Vorschau</h2>
+      <section className="stats">
+        <div className="stat">
+          <span>Redovi ukupno</span>
+          <strong>{previewRows.length}</strong>
+        </div>
 
-        {preview.length === 0 ? (
-          <p style={emptyStyle}>Još nema podataka za pregled.</p>
+        <div className="stat">
+          <span>Ispravno</span>
+          <strong>{validRows.length}</strong>
+        </div>
+
+        <div className="stat dangerStat">
+          <span>Greške</span>
+          <strong>{previewRows.filter((row) => row.error).length}</strong>
+        </div>
+      </section>
+
+      <section className="previewBox">
+        <h2>Preview</h2>
+
+        {previewRows.length === 0 ? (
+          <div className="emptyBox">
+            Nema podataka za preview. Provjeri CSV tekst.
+          </div>
         ) : (
-          <div style={tableWrapStyle}>
-            <table style={tableStyle}>
+          <div className="tableWrap">
+            <table>
               <thead>
                 <tr>
-                  <th style={thStyle}>Import</th>
-                  <th style={thStyle}>Position</th>
-                  <th style={thStyle}>Kurztext</th>
-                  <th style={thStyle}>Gruppe</th>
-                  <th style={thStyle}>Menge</th>
-                  <th style={thStyle}>EH</th>
-                  <th style={thStyle}>EP</th>
-                  <th style={thStyle}>Preis</th>
-                  <th style={thStyle}>Typ</th>
-                  <th style={thStyle}>Min/EH</th>
-                  <th style={thStyle}>Status</th>
+                  <th>Red</th>
+                  <th>Status</th>
+                  {Object.keys(previewRows[0]?.data || {}).map((key) => (
+                    <th key={key}>{key}</th>
+                  ))}
                 </tr>
               </thead>
 
               <tbody>
-                {preview.map((item) => (
-                  <tr key={item.position_nr}>
-                    <td style={tdStyle}>
-                      <input
-                        type="checkbox"
-                        checked={item.selected}
-                        disabled={item.duplicate && !replaceExisting}
-                        onChange={() => toggleSelected(item.position_nr)}
-                      />
-                    </td>
-
-                    <td style={tdStyle}>
-                      <strong>{item.position_nr}</strong>
-                    </td>
-
-                    <td style={tdStyle}>{item.kurztext}</td>
-
-                    <td style={tdStyle}>{item.gruppe || "-"}</td>
-
-                    <td style={tdRightStyle}>
-                      {formatNumber(item.menge_soll)}
-                    </td>
-
-                    <td style={tdStyle}>{item.einheit || "-"}</td>
-
-                    <td style={tdRightStyle}>{formatEuro(item.einheitspreis)}</td>
-
-                    <td style={tdRightStyle}>
-                      <strong>{formatEuro(item.positionspreis)}</strong>
-                    </td>
-
-                    <td style={tdStyle}>{item.typ}</td>
-
-                    <td style={tdRightStyle}>
-                      {formatNumber(item.minuten_pro_einheit, 0)}
-                    </td>
-
-                    <td style={tdStyle}>
-                      <span style={item.duplicate ? warningBadgeStyle : okBadgeStyle}>
-                        {item.duplicate ? "Schon vorhanden" : "Neu"}
-                      </span>
-                    </td>
+                {previewRows.slice(0, 80).map((row) => (
+                  <tr key={row.rowNumber} className={row.error ? "badRow" : ""}>
+                    <td>{row.rowNumber}</td>
+                    <td>{row.error || "OK"}</td>
+                    {Object.keys(previewRows[0]?.data || {}).map((key) => (
+                      <td key={key}>{String(row.data[key] || "")}</td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
+
+        {previewRows.length > 80 && (
+          <p className="hint">Preview prikazuje prvih 80 redova.</p>
+        )}
       </section>
+
+      <style>{`
+        .page {
+          min-height: 100vh;
+          background: #050505;
+          color: white;
+          padding: 28px;
+          font-family: Arial, sans-serif;
+        }
+
+        .top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 20px;
+          margin-bottom: 22px;
+        }
+
+        .back {
+          display: inline-block;
+          color: white;
+          text-decoration: none;
+          background: #1f2937;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 11px 15px;
+          font-weight: 800;
+          margin-bottom: 18px;
+        }
+
+        .label {
+          color: #9ca3af;
+          margin: 0 0 8px;
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+        h1 {
+          margin: 0;
+          font-size: 44px;
+          line-height: 1;
+        }
+
+        .subtitle {
+          color: #cbd5e1;
+          margin: 12px 0 0;
+          font-size: 17px;
+          font-weight: 700;
+        }
+
+        .topButtons {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        button,
+        a,
+        input,
+        textarea,
+        select {
+          font-family: inherit;
+        }
+
+        button,
+        a {
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-size: 15px;
+          font-weight: 900;
+          cursor: pointer;
+          text-decoration: none;
+        }
+
+        .btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .gray {
+          background: #374151;
+        }
+
+        .green {
+          background: #15803d;
+        }
+
+        .typeGrid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .typeCard {
+          text-align: left;
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+          color: white;
+          cursor: pointer;
+        }
+
+        .typeCard.active {
+          border-color: #2563eb;
+          background: #172554;
+        }
+
+        .typeCard strong {
+          display: block;
+          font-size: 20px;
+          margin-bottom: 8px;
+        }
+
+        .typeCard span {
+          color: #cbd5e1;
+          line-height: 1.4;
+        }
+
+        .importBox,
+        .previewBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+          margin-bottom: 18px;
+        }
+
+        .importHeader {
+          display: flex;
+          justify-content: space-between;
+          gap: 14px;
+          align-items: flex-start;
+          margin-bottom: 14px;
+        }
+
+        .importHeader h2,
+        .previewBox h2 {
+          margin: 0 0 8px;
+          font-size: 24px;
+        }
+
+        .importHeader p {
+          margin: 0;
+          color: #cbd5e1;
+        }
+
+        .importControls {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        .importControls select {
+          background: #030712;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 13px;
+          font-size: 15px;
+          outline: none;
+        }
+
+        .fileBtn {
+          background: #374151;
+          color: white;
+          border-radius: 14px;
+          padding: 13px 16px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .fileBtn input {
+          display: none;
+        }
+
+        textarea {
+          width: 100%;
+          min-height: 260px;
+          box-sizing: border-box;
+          background: #030712;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 14px;
+          font-size: 15px;
+          line-height: 1.5;
+          resize: vertical;
+          outline: none;
+          font-family: Consolas, Monaco, monospace;
+        }
+
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .stat {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+        }
+
+        .stat span {
+          display: block;
+          color: #9ca3af;
+          margin-bottom: 8px;
+          font-weight: 800;
+        }
+
+        .stat strong {
+          font-size: 34px;
+        }
+
+        .dangerStat strong {
+          color: #fca5a5;
+        }
+
+        .errorBox {
+          background: #7f1d1d;
+          border: 1px solid #ef4444;
+          color: white;
+          padding: 16px;
+          border-radius: 14px;
+          margin-bottom: 18px;
+          font-weight: 800;
+        }
+
+        .successBox {
+          background: #064e3b;
+          border: 1px solid #16a34a;
+          color: white;
+          padding: 16px;
+          border-radius: 14px;
+          margin-bottom: 18px;
+          font-weight: 800;
+        }
+
+        .emptyBox {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 20px;
+          color: #cbd5e1;
+          text-align: center;
+        }
+
+        .tableWrap {
+          overflow: auto;
+          border-radius: 14px;
+          border: 1px solid #1f2937;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          min-width: 900px;
+        }
+
+        th,
+        td {
+          border-bottom: 1px solid #1f2937;
+          padding: 12px;
+          text-align: left;
+          vertical-align: top;
+          font-size: 14px;
+        }
+
+        th {
+          background: #0b1220;
+          color: #9ca3af;
+          font-weight: 900;
+          position: sticky;
+          top: 0;
+        }
+
+        td {
+          color: #e5e7eb;
+        }
+
+        .badRow td {
+          background: rgba(127, 29, 29, 0.35);
+        }
+
+        .hint {
+          color: #9ca3af;
+          margin: 12px 0 0;
+        }
+
+        @media (max-width: 900px) {
+          .top {
+            display: block;
+          }
+
+          .topButtons {
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: 1fr;
+          }
+
+          .typeGrid,
+          .stats {
+            grid-template-columns: 1fr;
+          }
+
+          .importHeader {
+            display: block;
+          }
+
+          .importControls {
+            display: grid;
+            grid-template-columns: 1fr;
+            margin-top: 14px;
+          }
+
+          .fileBtn {
+            text-align: center;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .page {
+            padding: 16px;
+          }
+
+          h1 {
+            font-size: 36px;
+          }
+
+          textarea {
+            min-height: 220px;
+          }
+        }
+      `}</style>
     </main>
   );
 }
-
-const mainStyle: any = {
-  background: "#000",
-  minHeight: "100vh",
-  color: "white",
-  padding: "20px",
-};
-
-const topBarStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "12px",
-  marginBottom: "20px",
-  flexWrap: "wrap",
-};
-
-const backStyle: any = {
-  color: "#3b82f6",
-  textDecoration: "none",
-  fontWeight: "bold",
-  fontSize: "16px",
-};
-
-const blueLinkStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  textDecoration: "none",
-  borderRadius: "12px",
-  padding: "10px 14px",
-  fontWeight: "bold",
-};
-
-const titleStyle: any = {
-  fontSize: "38px",
-  color: "#f97316",
-  margin: "0 0 10px 0",
-};
-
-const descriptionStyle: any = {
-  color: "#bbb",
-  fontSize: "16px",
-  marginBottom: "18px",
-};
-
-const loadingStyle: any = {
-  color: "#aaa",
-  fontSize: "18px",
-};
-
-const summaryGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: "12px",
-  marginBottom: "20px",
-};
-
-const summaryCardStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "14px",
-};
-
-const summaryLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "13px",
-  marginBottom: "6px",
-};
-
-const summaryValueStyle: any = {
-  color: "#f97316",
-  fontSize: "22px",
-};
-
-const infoBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const listBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const sectionTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const infoTextStyle: any = {
-  color: "#ccc",
-  margin: 0,
-  lineHeight: "1.5",
-};
-
-const labelStyle: any = {
-  display: "block",
-  color: "#ddd",
-  fontWeight: "bold",
-  marginBottom: "6px",
-  marginTop: "14px",
-};
-
-const fileInputStyle: any = {
-  width: "100%",
-  background: "#000",
-  color: "white",
-  border: "1px solid #333",
-  borderRadius: "10px",
-  padding: "12px",
-  boxSizing: "border-box",
-};
-
-const textareaStyle: any = {
-  width: "100%",
-  minHeight: "120px",
-  padding: "12px",
-  borderRadius: "10px",
-  border: "1px solid #333",
-  background: "#000",
-  color: "white",
-  fontSize: "14px",
-  boxSizing: "border-box",
-  resize: "vertical",
-};
-
-const buttonRowStyle: any = {
-  display: "flex",
-  gap: "10px",
-  flexWrap: "wrap",
-  marginTop: "14px",
-};
-
-const blueButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const grayButtonStyle: any = {
-  ...blueButtonStyle,
-  background: "#4b5563",
-};
-
-const importButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "14px 18px",
-  fontWeight: "bold",
-  fontSize: "16px",
-  cursor: "pointer",
-  marginTop: "16px",
-  width: "100%",
-};
-
-const checkboxRowStyle: any = {
-  display: "flex",
-  gap: "10px",
-  alignItems: "center",
-  color: "#ddd",
-  marginTop: "14px",
-};
-
-const smallTextStyle: any = {
-  color: "#aaa",
-  fontSize: "13px",
-};
-
-const emptyStyle: any = {
-  color: "#aaa",
-  fontSize: "16px",
-};
-
-const tableWrapStyle: any = {
-  overflowX: "auto",
-};
-
-const tableStyle: any = {
-  width: "100%",
-  borderCollapse: "collapse",
-  minWidth: "1250px",
-};
-
-const thStyle: any = {
-  borderBottom: "1px solid #333",
-  color: "#f97316",
-  padding: "10px",
-  textAlign: "left",
-  fontSize: "13px",
-  whiteSpace: "nowrap",
-};
-
-const tdStyle: any = {
-  borderBottom: "1px solid #222",
-  color: "#ddd",
-  padding: "10px",
-  fontSize: "13px",
-  verticalAlign: "top",
-};
-
-const tdRightStyle: any = {
-  ...tdStyle,
-  textAlign: "right",
-  whiteSpace: "nowrap",
-};
-
-const okBadgeStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const warningBadgeStyle: any = {
-  background: "#ca8a04",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
