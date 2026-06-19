@@ -7,7 +7,90 @@ import { supabase } from "../../../lib/supabase";
 
 const ADMINI = ["Hido", "Steffi", "Admin"];
 
-export default function ProjektRaeumePage() {
+const STANDARD_POSITIONEN = [
+  {
+    position_nr: "01",
+    kurztext: "Keramika",
+    einheit: "m²",
+    menge_soll: 0,
+    minuten_pro_einheit: 60,
+    positionspreis: 0,
+  },
+  {
+    position_nr: "02",
+    kurztext: "Priprema podloge",
+    einheit: "m²",
+    menge_soll: 0,
+    minuten_pro_einheit: 15,
+    positionspreis: 0,
+  },
+  {
+    position_nr: "03",
+    kurztext: "Estrich",
+    einheit: "m²",
+    menge_soll: 0,
+    minuten_pro_einheit: 30,
+    positionspreis: 0,
+  },
+  {
+    position_nr: "04",
+    kurztext: "Hidroizolacija",
+    einheit: "m²",
+    menge_soll: 0,
+    minuten_pro_einheit: 20,
+    positionspreis: 0,
+  },
+  {
+    position_nr: "05",
+    kurztext: "Ljepilo",
+    einheit: "Sack",
+    menge_soll: 0,
+    minuten_pro_einheit: 0,
+    positionspreis: 0,
+  },
+  {
+    position_nr: "06",
+    kurztext: "Schienen",
+    einheit: "lfm",
+    menge_soll: 0,
+    minuten_pro_einheit: 10,
+    positionspreis: 0,
+  },
+  {
+    position_nr: "07",
+    kurztext: "Fuge",
+    einheit: "m²",
+    menge_soll: 0,
+    minuten_pro_einheit: 12,
+    positionspreis: 0,
+  },
+  {
+    position_nr: "08",
+    kurztext: "Silikoni",
+    einheit: "lfm",
+    menge_soll: 0,
+    minuten_pro_einheit: 8,
+    positionspreis: 0,
+  },
+  {
+    position_nr: "09",
+    kurztext: "Terase",
+    einheit: "m²",
+    menge_soll: 0,
+    minuten_pro_einheit: 75,
+    positionspreis: 0,
+  },
+  {
+    position_nr: "10",
+    kurztext: "Dodaci",
+    einheit: "Stk.",
+    menge_soll: 0,
+    minuten_pro_einheit: 0,
+    positionspreis: 0,
+  },
+];
+
+export default function ProjektPositionenPage() {
   const params = useParams();
   const router = useRouter();
   const savingRef = useRef(false);
@@ -20,11 +103,10 @@ export default function ProjektRaeumePage() {
   const [saving, setSaving] = useState(false);
 
   const [projekt, setProjekt] = useState<any>(null);
-  const [raeume, setRaeume] = useState<any[]>([]);
+  const [positionen, setPositionen] = useState<any[]>([]);
 
   const [arbeitszeiten, setArbeitszeiten] = useState<any[]>([]);
   const [leistungen, setLeistungen] = useState<any[]>([]);
-  const [regie, setRegie] = useState<any[]>([]);
   const [fotos, setFotos] = useState<any[]>([]);
   const [aufgaben, setAufgaben] = useState<any[]>([]);
   const [materialBewegungen, setMaterialBewegungen] = useState<any[]>([]);
@@ -32,91 +114,147 @@ export default function ProjektRaeumePage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  const [raumName, setRaumName] = useState("");
-  const [ebene, setEbene] = useState("");
+  const [positionNr, setPositionNr] = useState("");
+  const [kurztext, setKurztext] = useState("");
+  const [einheit, setEinheit] = useState("m²");
+  const [mengeSoll, setMengeSoll] = useState("");
+  const [minutenProEinheit, setMinutenProEinheit] = useState("");
+  const [positionspreis, setPositionspreis] = useState("");
+  const [aktiv, setAktiv] = useState(true);
 
-  const [filterEbene, setFilterEbene] = useState("Alle");
   const [searchText, setSearchText] = useState("");
+  const [filterStatus, setFilterStatus] = useState("Alle");
 
-  const ebenen = useMemo(() => {
-    const values = raeume
-      .map((r) => r.ebene)
-      .filter(Boolean)
-      .map((v) => String(v));
+  const positionRows = useMemo(() => {
+    return positionen
+      .map((pos) => {
+        const usage = getPositionUsage(pos.id);
 
-    return Array.from(new Set(values)).sort();
-  }, [raeume]);
+        const mengeSollNum = Number(pos.menge_soll || 0);
+        const minuten = Number(pos.minuten_pro_einheit || 0);
+        const preis = Number(pos.positionspreis || 0);
 
-  const raumRows = useMemo(() => {
-    return raeume
-      .map((raum) => {
-        const usage = getRaumUsage(raum.id);
+        const planStunden = (mengeSollNum * minuten) / 60;
+        const planWert = mengeSollNum * preis;
+
+        const leistungListe = leistungen.filter(
+          (x) => Number(x.lv_position_id) === Number(pos.id)
+        );
+
+        const istMenge = leistungListe.reduce(
+          (sum, x) => sum + Number(x.menge_ist || 0) * Number(x.faktor || 1),
+          0
+        );
+
+        const genehmigtMenge = leistungListe
+          .filter((x) => x.status === "Genehmigt")
+          .reduce(
+            (sum, x) => sum + Number(x.menge_ist || 0) * Number(x.faktor || 1),
+            0
+          );
+
+        const arbeitszeitStunden = arbeitszeiten
+          .filter((x) => Number(x.lv_position_id) === Number(pos.id))
+          .reduce((sum, x) => sum + Number(x.stunden || 0), 0);
+
+        const genehmigteStunden = arbeitszeiten
+          .filter(
+            (x) =>
+              Number(x.lv_position_id) === Number(pos.id) &&
+              x.freigabe_status === "Genehmigt"
+          )
+          .reduce((sum, x) => sum + Number(x.stunden || 0), 0);
+
+        const restMenge = mengeSollNum - genehmigtMenge;
+        const fortschritt =
+          mengeSollNum > 0 ? Math.min((genehmigtMenge / mengeSollNum) * 100, 999) : 0;
 
         return {
-          ...raum,
+          ...pos,
+          aktivStatus: pos.aktiv !== false,
           usage,
+          mengeSollNum,
+          minuten,
+          preis,
+          planStunden,
+          planWert,
+          istMenge,
+          genehmigtMenge,
+          restMenge,
+          arbeitszeitStunden,
+          genehmigteStunden,
+          fortschritt,
         };
       })
-      .filter((raum) => {
-        if (filterEbene !== "Alle" && String(raum.ebene || "") !== filterEbene) {
-          return false;
-        }
+      .filter((row) => {
+        if (filterStatus === "Aktiv" && !row.aktivStatus) return false;
+        if (filterStatus === "Inaktiv" && row.aktivStatus) return false;
 
         if (searchText.trim()) {
-          const text = `${raum.raum_name || ""} ${raum.ebene || ""}`.toLowerCase();
+          const text = `${row.position_nr || ""} ${row.kurztext || ""} ${
+            row.einheit || ""
+          }`.toLowerCase();
+
           return text.includes(searchText.trim().toLowerCase());
         }
 
         return true;
       })
       .sort((a, b) => {
-        const ebeneA = String(a.ebene || "");
-        const ebeneB = String(b.ebene || "");
-
-        if (ebeneA !== ebeneB) return ebeneA.localeCompare(ebeneB);
-
-        return String(a.raum_name || "").localeCompare(String(b.raum_name || ""));
+        return String(a.position_nr || "").localeCompare(String(b.position_nr || ""), "de", {
+          numeric: true,
+        });
       });
   }, [
-    raeume,
+    positionen,
     arbeitszeiten,
     leistungen,
-    regie,
     fotos,
     aufgaben,
     materialBewegungen,
-    filterEbene,
     searchText,
+    filterStatus,
   ]);
 
   const summary = useMemo(() => {
-    const benutzteRaeume = raeume.filter((raum) => getRaumUsage(raum.id).total > 0)
+    const activeRows = positionen.filter((p) => p.aktiv !== false);
+    const inactiveRows = positionen.filter((p) => p.aktiv === false);
+
+    const totalPlanStunden = positionen.reduce((sum, p) => {
+      return (
+        sum +
+        (Number(p.menge_soll || 0) * Number(p.minuten_pro_einheit || 0)) / 60
+      );
+    }, 0);
+
+    const totalPlanWert = positionen.reduce((sum, p) => {
+      return sum + Number(p.menge_soll || 0) * Number(p.positionspreis || 0);
+    }, 0);
+
+    const totalLeistungMenge = leistungen
+      .filter((l) => l.status === "Genehmigt")
+      .reduce((sum, l) => {
+        return sum + Number(l.menge_ist || 0) * Number(l.faktor || 1);
+      }, 0);
+
+    const totalArbeitszeit = arbeitszeiten
+      .filter((a) => a.freigabe_status === "Genehmigt")
+      .reduce((sum, a) => sum + Number(a.stunden || 0), 0);
+
+    const usedPositions = positionen.filter((p) => getPositionUsage(p.id).total > 0)
       .length;
 
-    const freieRaeume = raeume.length - benutzteRaeume;
-
     return {
-      total: raeume.length,
-      ebenen: ebenen.length,
-      benutzteRaeume,
-      freieRaeume,
-      arbeitszeiten: arbeitszeiten.length,
-      leistungen: leistungen.length,
-      regie: regie.length,
-      fotos: fotos.length,
-      aufgaben: aufgaben.length,
-      material: materialBewegungen.length,
+      total: positionen.length,
+      active: activeRows.length,
+      inactive: inactiveRows.length,
+      totalPlanStunden,
+      totalPlanWert,
+      totalLeistungMenge,
+      totalArbeitszeit,
+      usedPositions,
     };
-  }, [
-    raeume,
-    ebenen,
-    arbeitszeiten,
-    leistungen,
-    regie,
-    fotos,
-    aufgaben,
-    materialBewegungen,
-  ]);
+  }, [positionen, arbeitszeiten, leistungen, fotos, aufgaben, materialBewegungen]);
 
   useEffect(() => {
     const name = localStorage.getItem("worker_name");
@@ -155,20 +293,20 @@ export default function ProjektRaeumePage() {
 
     setProjekt(projektRes.data);
 
-    const raeumeRes = await supabase
-      .from("projekt_raeume")
+    const positionenRes = await supabase
+      .from("projekt_lv_positionen")
       .select("*")
       .eq("projekt_id", Number(projektId))
-      .order("created_at", { ascending: true });
+      .order("position_nr", { ascending: true });
 
-    if (raeumeRes.error) {
-      alert("Greška kod učitavanja prostorija: " + raeumeRes.error.message);
-      setRaeume([]);
+    if (positionenRes.error) {
+      alert("Greška kod učitavanja LV pozicija: " + positionenRes.error.message);
+      setPositionen([]);
       setLoading(false);
       return;
     }
 
-    setRaeume(raeumeRes.data || []);
+    setPositionen(positionenRes.data || []);
 
     const arbeitszeitRes = await supabase
       .from("projekt_arbeitszeiten")
@@ -183,13 +321,6 @@ export default function ProjektRaeumePage() {
       .eq("projekt_id", Number(projektId));
 
     setLeistungen(leistungRes.data || []);
-
-    const regieRes = await supabase
-      .from("projekt_regie")
-      .select("*")
-      .eq("projekt_id", Number(projektId));
-
-    setRegie(regieRes.data || []);
 
     const fotosRes = await supabase
       .from("projekt_fotos")
@@ -217,8 +348,36 @@ export default function ProjektRaeumePage() {
 
   function clearForm() {
     setEditingId(null);
-    setRaumName("");
-    setEbene("");
+    setPositionNr("");
+    setKurztext("");
+    setEinheit("m²");
+    setMengeSoll("");
+    setMinutenProEinheit("");
+    setPositionspreis("");
+    setAktiv(true);
+  }
+
+  function parseNumber(value: any) {
+    const num = parseFloat(String(value || "0").replace(",", "."));
+    return Number.isNaN(num) ? 0 : num;
+  }
+
+  function formatNumber(value: any, digits = 2) {
+    const num = Number(value || 0);
+
+    return num.toLocaleString("de-AT", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
+  }
+
+  function formatMoney(value: any) {
+    const num = Number(value || 0);
+
+    return num.toLocaleString("de-AT", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   }
 
   function formatDateTime(value: string | null) {
@@ -239,53 +398,66 @@ export default function ProjektRaeumePage() {
     });
   }
 
-  function getRaumUsage(raumId: number | string) {
+  function getPositionUsage(positionId: number | string) {
     const arbeitszeitCount = arbeitszeiten.filter(
-      (x) => Number(x.raum_id) === Number(raumId)
+      (x) => Number(x.lv_position_id) === Number(positionId)
     ).length;
 
     const leistungCount = leistungen.filter(
-      (x) => Number(x.raum_id) === Number(raumId)
-    ).length;
-
-    const regieCount = regie.filter(
-      (x) => Number(x.raum_id) === Number(raumId)
+      (x) => Number(x.lv_position_id) === Number(positionId)
     ).length;
 
     const fotosCount = fotos.filter(
-      (x) => Number(x.raum_id) === Number(raumId)
+      (x) => Number(x.lv_position_id) === Number(positionId)
     ).length;
 
     const aufgabenCount = aufgaben.filter(
-      (x) => Number(x.raum_id) === Number(raumId)
+      (x) => Number(x.lv_position_id) === Number(positionId)
     ).length;
 
     const materialCount = materialBewegungen.filter(
-      (x) => Number(x.raum_id) === Number(raumId)
+      (x) => Number(x.lv_position_id) === Number(positionId)
     ).length;
 
     return {
       arbeitszeitCount,
       leistungCount,
-      regieCount,
       fotosCount,
       aufgabenCount,
       materialCount,
       total:
-        arbeitszeitCount +
-        leistungCount +
-        regieCount +
-        fotosCount +
-        aufgabenCount +
-        materialCount,
+        arbeitszeitCount + leistungCount + fotosCount + aufgabenCount + materialCount,
     };
   }
 
-  async function saveRaum() {
+  function checkDuplicatePosition() {
+    return positionen.find((pos) => {
+      if (editingId && Number(pos.id) === Number(editingId)) return false;
+
+      return (
+        String(pos.position_nr || "").trim().toLowerCase() ===
+        positionNr.trim().toLowerCase()
+      );
+    });
+  }
+
+  async function savePosition() {
     if (savingRef.current) return;
 
-    if (!raumName.trim()) {
-      alert("Unesi naziv prostorije.");
+    if (!positionNr.trim()) {
+      alert("Unesi broj pozicije.");
+      return;
+    }
+
+    if (!kurztext.trim()) {
+      alert("Unesi naziv rada / Kurztext.");
+      return;
+    }
+
+    const duplicate = checkDuplicatePosition();
+
+    if (duplicate) {
+      alert("Ovaj broj pozicije već postoji.");
       return;
     }
 
@@ -294,27 +466,32 @@ export default function ProjektRaeumePage() {
 
     const payload: any = {
       projekt_id: Number(projektId),
-      raum_name: raumName.trim(),
-      ebene: ebene.trim() || null,
+      position_nr: positionNr.trim(),
+      kurztext: kurztext.trim(),
+      einheit: einheit.trim() || "m²",
+      menge_soll: parseNumber(mengeSoll),
+      minuten_pro_einheit: parseNumber(minutenProEinheit),
+      positionspreis: parseNumber(positionspreis),
+      aktiv,
     };
 
     if (editingId) {
       const { error } = await supabase
-        .from("projekt_raeume")
+        .from("projekt_lv_positionen")
         .update(payload)
         .eq("id", editingId);
 
       if (error) {
-        alert("Greška kod izmjene prostorije: " + error.message);
+        alert("Greška kod izmjene LV pozicije: " + error.message);
         savingRef.current = false;
         setSaving(false);
         return;
       }
     } else {
-      const { error } = await supabase.from("projekt_raeume").insert(payload);
+      const { error } = await supabase.from("projekt_lv_positionen").insert(payload);
 
       if (error) {
-        alert("Greška kod dodavanja prostorije: " + error.message);
+        alert("Greška kod dodavanja LV pozicije: " + error.message);
         savingRef.current = false;
         setSaving(false);
         return;
@@ -329,24 +506,29 @@ export default function ProjektRaeumePage() {
     setSaving(false);
   }
 
-  function editRaum(raum: any) {
-    setEditingId(raum.id);
-    setRaumName(raum.raum_name || "");
-    setEbene(raum.ebene || "");
+  function editPosition(pos: any) {
+    setEditingId(pos.id);
+    setPositionNr(pos.position_nr || "");
+    setKurztext(pos.kurztext || "");
+    setEinheit(pos.einheit || "m²");
+    setMengeSoll(String(pos.menge_soll || ""));
+    setMinutenProEinheit(String(pos.minuten_pro_einheit || ""));
+    setPositionspreis(String(pos.positionspreis || ""));
+    setAktiv(pos.aktiv !== false);
     setShowForm(true);
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function deleteRaum(raum: any) {
-    const usage = getRaumUsage(raum.id);
+  async function deletePosition(pos: any) {
+    const usage = getPositionUsage(pos.id);
 
     if (usage.total > 0) {
       alert(
-        "Ova prostorija se već koristi i ne može se obrisati dok ne obrišeš povezane unose.\n\n" +
+        "Ova LV pozicija se već koristi i ne može se obrisati.\n\n" +
+          "Možeš je postaviti kao INAKTIV.\n\n" +
           `Arbeitszeit: ${usage.arbeitszeitCount}\n` +
           `Leistung: ${usage.leistungCount}\n` +
-          `Regie: ${usage.regieCount}\n` +
           `Fotos: ${usage.fotosCount}\n` +
           `Aufgaben: ${usage.aufgabenCount}\n` +
           `Material: ${usage.materialCount}`
@@ -354,21 +536,84 @@ export default function ProjektRaeumePage() {
       return;
     }
 
-    const ok = confirm("Da li sigurno želiš obrisati ovu prostoriju?");
+    const ok = confirm("Da li sigurno želiš obrisati ovu LV poziciju?");
 
     if (!ok) return;
 
     const { error } = await supabase
-      .from("projekt_raeume")
+      .from("projekt_lv_positionen")
       .delete()
-      .eq("id", raum.id);
+      .eq("id", pos.id);
 
     if (error) {
-      alert("Greška kod brisanja prostorije: " + error.message);
+      alert("Greška kod brisanja LV pozicije: " + error.message);
       return;
     }
 
     await loadData();
+  }
+
+  async function toggleAktiv(pos: any) {
+    const { error } = await supabase
+      .from("projekt_lv_positionen")
+      .update({ aktiv: pos.aktiv === false })
+      .eq("id", pos.id);
+
+    if (error) {
+      alert("Greška kod promjene statusa: " + error.message);
+      return;
+    }
+
+    await loadData();
+  }
+
+  async function addStandardPositionen() {
+    if (savingRef.current) return;
+
+    const ok = confirm(
+      "Dodati standardne LV pozicije?\n\nDupli brojevi pozicija se neće dodati."
+    );
+
+    if (!ok) return;
+
+    const existingNumbers = positionen.map((p) =>
+      String(p.position_nr || "").trim().toLowerCase()
+    );
+
+    const rowsToInsert = STANDARD_POSITIONEN.filter((item) => {
+      return !existingNumbers.includes(String(item.position_nr).trim().toLowerCase());
+    }).map((item) => ({
+      projekt_id: Number(projektId),
+      position_nr: item.position_nr,
+      kurztext: item.kurztext,
+      einheit: item.einheit,
+      menge_soll: item.menge_soll,
+      minuten_pro_einheit: item.minuten_pro_einheit,
+      positionspreis: item.positionspreis,
+      aktiv: true,
+    }));
+
+    if (rowsToInsert.length === 0) {
+      alert("Sve standardne pozicije već postoje.");
+      return;
+    }
+
+    savingRef.current = true;
+    setSaving(true);
+
+    const { error } = await supabase.from("projekt_lv_positionen").insert(rowsToInsert);
+
+    if (error) {
+      alert("Greška kod dodavanja standardnih pozicija: " + error.message);
+      savingRef.current = false;
+      setSaving(false);
+      return;
+    }
+
+    await loadData();
+
+    savingRef.current = false;
+    setSaving(false);
   }
 
   if (loading) {
@@ -378,7 +623,7 @@ export default function ProjektRaeumePage() {
           ← Zurück zum Projekt
         </Link>
 
-        <h1 style={titleStyle}>🏠 Räume</h1>
+        <h1 style={titleStyle}>📋 LV Positionen</h1>
         <p style={loadingStyle}>Wird geladen...</p>
       </main>
     );
@@ -404,6 +649,10 @@ export default function ProjektRaeumePage() {
             Aktualisieren
           </button>
 
+          <button onClick={addStandardPositionen} disabled={saving} style={purpleButtonStyle}>
+            Standard LV
+          </button>
+
           <button
             onClick={() => {
               clearForm();
@@ -412,12 +661,12 @@ export default function ProjektRaeumePage() {
             disabled={saving}
             style={newButtonStyle}
           >
-            {showForm ? "Schließen" : "+ Raum"}
+            {showForm ? "Schließen" : "+ LV Position"}
           </button>
         </div>
       </div>
 
-      <h1 style={titleStyle}>🏠 Räume</h1>
+      <h1 style={titleStyle}>📋 LV Positionen</h1>
 
       <p style={descriptionStyle}>
         Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
@@ -426,90 +675,94 @@ export default function ProjektRaeumePage() {
 
       <section style={summaryGridStyle}>
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Räume gesamt</span>
+          <span style={summaryLabelStyle}>Positionen</span>
           <strong style={summaryValueStyle}>{summary.total}</strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Ebenen</span>
-          <strong style={summaryValueStyle}>{summary.ebenen}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Benutzte Räume</span>
-          <strong style={{ ...summaryValueStyle, color: "#facc15" }}>
-            {summary.benutzteRaeume}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Freie Räume</span>
+          <span style={summaryLabelStyle}>Aktiv</span>
           <strong style={{ ...summaryValueStyle, color: "#22c55e" }}>
-            {summary.freieRaeume}
+            {summary.active}
           </strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Arbeitszeit</span>
-          <strong style={summaryValueStyle}>{summary.arbeitszeiten}</strong>
+          <span style={summaryLabelStyle}>Inaktiv</span>
+          <strong style={{ ...summaryValueStyle, color: "#ef4444" }}>
+            {summary.inactive}
+          </strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Leistung</span>
-          <strong style={summaryValueStyle}>{summary.leistungen}</strong>
+          <span style={summaryLabelStyle}>Benutzt</span>
+          <strong style={summaryValueStyle}>{summary.usedPositions}</strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Fotos</span>
-          <strong style={summaryValueStyle}>{summary.fotos}</strong>
+          <span style={summaryLabelStyle}>Plan Stunden</span>
+          <strong style={summaryValueStyle}>
+            {formatNumber(summary.totalPlanStunden)} h
+          </strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Aufgaben</span>
-          <strong style={summaryValueStyle}>{summary.aufgaben}</strong>
+          <span style={summaryLabelStyle}>LV Wert</span>
+          <strong style={summaryValueStyle}>{formatMoney(summary.totalPlanWert)} €</strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Genehmigte Leistung</span>
+          <strong style={summaryValueStyle}>
+            {formatNumber(summary.totalLeistungMenge)}
+          </strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Genehmigte Stunden</span>
+          <strong style={summaryValueStyle}>
+            {formatNumber(summary.totalArbeitszeit)} h
+          </strong>
         </div>
       </section>
 
       <section style={infoBoxStyle}>
-        <h2 style={sectionTitleStyle}>Räume Regel</h2>
+        <h2 style={sectionTitleStyle}>LV Regel</h2>
         <p style={infoTextStyle}>
-          Räume su osnova za Arbeitszeit, Leistung, Regie, Fotos, Aufgaben i
-          Material. Prostorija se ne može obrisati ako već ima povezane unose.
+          LV pozicije se koriste u Arbeitszeit, Leistung, Fotos, Aufgaben i
+          Material. Pozicija koja se već koristi ne briše se, nego se postavlja kao
+          inaktiv.
         </p>
       </section>
 
       <section style={filterBoxStyle}>
         <div style={filterGridStyle}>
           <div>
-            <label style={labelStyle}>Traži Raum</label>
+            <label style={labelStyle}>Traži poziciju</label>
             <input
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              placeholder="npr. Bad, WC, Küche..."
+              placeholder="Broj, naziv, jedinica..."
               style={inputStyle}
             />
           </div>
 
           <div>
-            <label style={labelStyle}>Ebene Filter</label>
+            <label style={labelStyle}>Status Filter</label>
             <select
-              value={filterEbene}
-              onChange={(e) => setFilterEbene(e.target.value)}
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
               style={inputStyle}
             >
-              <option value="Alle">Alle Ebenen</option>
-              {ebenen.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
+              <option value="Alle">Alle</option>
+              <option value="Aktiv">Aktiv</option>
+              <option value="Inaktiv">Inaktiv</option>
             </select>
           </div>
 
           <button
             onClick={() => {
               setSearchText("");
-              setFilterEbene("Alle");
+              setFilterStatus("Alle");
             }}
             style={grayButtonStyle}
           >
@@ -521,34 +774,104 @@ export default function ProjektRaeumePage() {
       {showForm && (
         <section style={formBoxStyle}>
           <h2 style={formTitleStyle}>
-            {editingId ? "Raum bearbeiten" : "Raum anlegen"}
+            {editingId ? "LV Position bearbeiten" : "LV Position anlegen"}
           </h2>
 
-          <label style={labelStyle}>Raum Name *</label>
+          <div style={formGridStyle}>
+            <div>
+              <label style={labelStyle}>Position Nr. *</label>
+              <input
+                value={positionNr}
+                onChange={(e) => setPositionNr(e.target.value)}
+                placeholder="z.B. 01"
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Einheit</label>
+              <input
+                value={einheit}
+                onChange={(e) => setEinheit(e.target.value)}
+                placeholder="m² / lfm / Stk. / Sack"
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Aktiv</label>
+              <select
+                value={aktiv ? "Ja" : "Nein"}
+                onChange={(e) => setAktiv(e.target.value === "Ja")}
+                style={inputStyle}
+              >
+                <option value="Ja">Ja</option>
+                <option value="Nein">Nein</option>
+              </select>
+            </div>
+          </div>
+
+          <label style={labelStyle}>Kurztext / Arbeit *</label>
           <input
-            value={raumName}
-            onChange={(e) => setRaumName(e.target.value)}
-            placeholder="z.B. Bad EG, WC OG, Küche"
+            value={kurztext}
+            onChange={(e) => setKurztext(e.target.value)}
+            placeholder="z.B. Keramika, Fuge, Silikon..."
             style={inputStyle}
           />
 
-          <label style={labelStyle}>Ebene / Geschoss</label>
-          <input
-            value={ebene}
-            onChange={(e) => setEbene(e.target.value)}
-            placeholder="EG, OG, DG, KG"
-            style={inputStyle}
-          />
+          <div style={formGridStyle}>
+            <div>
+              <label style={labelStyle}>Menge Soll</label>
+              <input
+                type="number"
+                step="0.01"
+                value={mengeSoll}
+                onChange={(e) => setMengeSoll(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Minuten pro Einheit</label>
+              <input
+                type="number"
+                step="0.01"
+                value={minutenProEinheit}
+                onChange={(e) => setMinutenProEinheit(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Positionspreis €</label>
+              <input
+                type="number"
+                step="0.01"
+                value={positionspreis}
+                onChange={(e) => setPositionspreis(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
 
           <div style={previewBoxStyle}>
-            <strong>Pregled:</strong>{" "}
-            {ebene ? `${ebene} - ` : ""}
-            {raumName || "-"}
+            <strong>Pregled:</strong> {positionNr || "-"} · {kurztext || "-"} · Menge{" "}
+            {formatNumber(parseNumber(mengeSoll))} {einheit || ""} · Plan{" "}
+            <strong>
+              {formatNumber(
+                (parseNumber(mengeSoll) * parseNumber(minutenProEinheit)) / 60
+              )}{" "}
+              h
+            </strong>{" "}
+            · Wert{" "}
+            <strong>
+              {formatMoney(parseNumber(mengeSoll) * parseNumber(positionspreis))} €
+            </strong>
           </div>
 
           <div style={formButtonRowStyle}>
             <button
-              onClick={saveRaum}
+              onClick={savePosition}
               disabled={saving}
               style={{
                 ...saveButtonStyle,
@@ -560,7 +883,7 @@ export default function ProjektRaeumePage() {
                 ? "Speichern..."
                 : editingId
                 ? "Änderungen speichern"
-                : "Raum speichern"}
+                : "Position speichern"}
             </button>
 
             <button
@@ -578,109 +901,93 @@ export default function ProjektRaeumePage() {
       )}
 
       <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Räume Liste</h2>
+        <h2 style={sectionTitleStyle}>LV Positionen Liste</h2>
 
-        {raumRows.length === 0 ? (
-          <p style={emptyStyle}>Keine Räume gefunden.</p>
+        {positionRows.length === 0 ? (
+          <p style={emptyStyle}>Keine LV Positionen gefunden.</p>
         ) : (
-          <div style={raumGridStyle}>
-            {raumRows.map((raum) => (
-              <div key={raum.id} style={raumCardStyle}>
-                <div style={cardTopStyle}>
-                  <span style={raumBadgeStyle}>Raum</span>
+          <div style={tableWrapStyle}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Nr.</th>
+                  <th style={thStyle}>Kurztext</th>
+                  <th style={thStyle}>EH</th>
+                  <th style={thRightStyle}>Menge Soll</th>
+                  <th style={thRightStyle}>Min/EH</th>
+                  <th style={thRightStyle}>Plan h</th>
+                  <th style={thRightStyle}>Preis</th>
+                  <th style={thRightStyle}>Wert</th>
+                  <th style={thRightStyle}>Ist</th>
+                  <th style={thRightStyle}>Fortschritt</th>
+                  <th style={thRightStyle}>Nutzung</th>
+                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>Aktion</th>
+                </tr>
+              </thead>
 
-                  {raum.usage.total > 0 ? (
-                    <span style={warningBadgeStyle}>Benutzt</span>
-                  ) : (
-                    <span style={okBadgeStyle}>Frei</span>
-                  )}
-                </div>
+              <tbody>
+                {positionRows.map((pos) => (
+                  <tr key={pos.id}>
+                    <td style={tdStyle}>
+                      <strong>{pos.position_nr}</strong>
+                    </td>
 
-                <h3 style={raumTitleStyle}>
-                  {raum.ebene ? `${raum.ebene} - ` : ""}
-                  {raum.raum_name}
-                </h3>
+                    <td style={tdStyle}>
+                      <strong>{pos.kurztext}</strong>
+                      {isAdmin && (
+                        <div style={miniTextStyle}>
+                          Zeit der Eingabe: {formatDateTime(pos.created_at)}
+                        </div>
+                      )}
+                    </td>
 
-                <div style={detailGridStyle}>
-                  <div>
-                    <span style={smallLabelStyle}>Ebene</span>
-                    <strong>{raum.ebene || "-"}</strong>
-                  </div>
+                    <td style={tdStyle}>{pos.einheit || "-"}</td>
+                    <td style={tdRightStyle}>{formatNumber(pos.mengeSollNum)}</td>
+                    <td style={tdRightStyle}>{formatNumber(pos.minuten)}</td>
+                    <td style={tdRightStyle}>{formatNumber(pos.planStunden)} h</td>
+                    <td style={tdRightStyle}>{formatMoney(pos.preis)} €</td>
+                    <td style={tdRightStyle}>{formatMoney(pos.planWert)} €</td>
+                    <td style={tdRightStyle}>{formatNumber(pos.genehmigtMenge)}</td>
+                    <td style={tdRightStyle}>{formatNumber(pos.fortschritt)}%</td>
+                    <td style={tdRightStyle}>
+                      {pos.usage.total > 0 ? (
+                        <span style={warningBadgeStyle}>{pos.usage.total}</span>
+                      ) : (
+                        <span style={okBadgeStyle}>frei</span>
+                      )}
+                    </td>
 
-                  <div>
-                    <span style={smallLabelStyle}>Nutzung gesamt</span>
-                    <strong>{raum.usage.total}</strong>
-                  </div>
+                    <td style={tdStyle}>
+                      {pos.aktivStatus ? (
+                        <span style={okBadgeStyle}>Aktiv</span>
+                      ) : (
+                        <span style={dangerBadgeStyle}>Inaktiv</span>
+                      )}
+                    </td>
 
-                  <div>
-                    <span style={smallLabelStyle}>Arbeitszeit</span>
-                    <strong>{raum.usage.arbeitszeitCount}</strong>
-                  </div>
+                    <td style={tdStyle}>
+                      <div style={actionRowStyle}>
+                        <button onClick={() => editPosition(pos)} style={editButtonStyle}>
+                          Bearbeiten
+                        </button>
 
-                  <div>
-                    <span style={smallLabelStyle}>Leistung</span>
-                    <strong>{raum.usage.leistungCount}</strong>
-                  </div>
+                        <button onClick={() => toggleAktiv(pos)} style={statusButtonStyle}>
+                          {pos.aktivStatus ? "Inaktiv" : "Aktiv"}
+                        </button>
 
-                  <div>
-                    <span style={smallLabelStyle}>Regie</span>
-                    <strong>{raum.usage.regieCount}</strong>
-                  </div>
-
-                  <div>
-                    <span style={smallLabelStyle}>Fotos</span>
-                    <strong>{raum.usage.fotosCount}</strong>
-                  </div>
-
-                  <div>
-                    <span style={smallLabelStyle}>Aufgaben</span>
-                    <strong>{raum.usage.aufgabenCount}</strong>
-                  </div>
-
-                  <div>
-                    <span style={smallLabelStyle}>Material</span>
-                    <strong>{raum.usage.materialCount}</strong>
-                  </div>
-                </div>
-
-                {isAdmin && (
-                  <p style={metaTextStyle}>
-                    Zeit der Eingabe:{" "}
-                    <strong>{formatDateTime(raum.created_at)}</strong>
-                  </p>
-                )}
-
-                <div style={linkGridStyle}>
-                  <Link
-                    href={`/projekte/${projektId}/arbeitszeit`}
-                    style={blueLinkStyle}
-                  >
-                    Arbeitszeit
-                  </Link>
-
-                  <Link
-                    href={`/projekte/${projektId}/leistung`}
-                    style={greenLinkStyle}
-                  >
-                    Leistung
-                  </Link>
-
-                  <Link href={`/projekte/${projektId}/fotos`} style={orangeLinkStyle}>
-                    Fotos
-                  </Link>
-                </div>
-
-                <div style={actionRowStyle}>
-                  <button onClick={() => editRaum(raum)} style={editButtonStyle}>
-                    Bearbeiten
-                  </button>
-
-                  <button onClick={() => deleteRaum(raum)} style={deleteButtonStyle}>
-                    Löschen
-                  </button>
-                </div>
-              </div>
-            ))}
+                        <button
+                          onClick={() => deletePosition(pos)}
+                          style={deleteButtonStyle}
+                        >
+                          Löschen
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
@@ -747,6 +1054,17 @@ const refreshButtonStyle: any = {
 
 const newButtonStyle: any = {
   background: "#16a34a",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 18px",
+  fontSize: "15px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const purpleButtonStyle: any = {
+  background: "#7c3aed",
   color: "white",
   border: "none",
   borderRadius: "12px",
@@ -831,6 +1149,12 @@ const sectionTitleStyle: any = {
   marginBottom: "14px",
 };
 
+const formGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+  gap: "12px",
+};
+
 const labelStyle: any = {
   display: "block",
   color: "#ddd",
@@ -912,89 +1236,54 @@ const emptyStyle: any = {
   fontSize: "16px",
 };
 
-const raumGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-  gap: "14px",
+const tableWrapStyle: any = {
+  overflowX: "auto",
 };
 
-const raumCardStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "14px",
+const tableStyle: any = {
+  width: "100%",
+  borderCollapse: "collapse",
+  minWidth: "1450px",
 };
 
-const cardTopStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "10px",
-  flexWrap: "wrap",
-};
-
-const raumTitleStyle: any = {
+const thStyle: any = {
+  borderBottom: "1px solid #333",
   color: "#f97316",
-  margin: "12px 0 10px 0",
-  fontSize: "19px",
-  lineHeight: "1.35",
-};
-
-const detailGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "10px",
-  background: "#080808",
-  border: "1px solid #222",
-  borderRadius: "12px",
   padding: "10px",
-};
-
-const smallLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "12px",
-  marginBottom: "4px",
-};
-
-const metaTextStyle: any = {
-  color: "#aaa",
+  textAlign: "left",
   fontSize: "13px",
-  margin: "8px 0",
+  whiteSpace: "nowrap",
 };
 
-const linkGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr 1fr",
-  gap: "8px",
-  marginTop: "12px",
+const thRightStyle: any = {
+  ...thStyle,
+  textAlign: "right",
 };
 
-const blueLinkStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  borderRadius: "8px",
-  padding: "8px",
-  textAlign: "center",
-  textDecoration: "none",
-  fontWeight: "bold",
+const tdStyle: any = {
+  borderBottom: "1px solid #222",
+  color: "#ddd",
+  padding: "10px",
+  fontSize: "13px",
+  verticalAlign: "top",
+};
+
+const tdRightStyle: any = {
+  ...tdStyle,
+  textAlign: "right",
+  whiteSpace: "nowrap",
+};
+
+const miniTextStyle: any = {
+  color: "#999",
   fontSize: "12px",
-};
-
-const greenLinkStyle: any = {
-  ...blueLinkStyle,
-  background: "#16a34a",
-};
-
-const orangeLinkStyle: any = {
-  ...blueLinkStyle,
-  background: "#f97316",
+  marginTop: "4px",
 };
 
 const actionRowStyle: any = {
   display: "flex",
   gap: "8px",
   flexWrap: "wrap",
-  marginTop: "12px",
 };
 
 const editButtonStyle: any = {
@@ -1002,7 +1291,17 @@ const editButtonStyle: any = {
   color: "white",
   border: "none",
   borderRadius: "8px",
-  padding: "8px 10px",
+  padding: "7px 9px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const statusButtonStyle: any = {
+  background: "#ca8a04",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  padding: "7px 9px",
   fontWeight: "bold",
   cursor: "pointer",
 };
@@ -1012,19 +1311,9 @@ const deleteButtonStyle: any = {
   color: "white",
   border: "none",
   borderRadius: "8px",
-  padding: "8px 10px",
+  padding: "7px 9px",
   fontWeight: "bold",
   cursor: "pointer",
-};
-
-const raumBadgeStyle: any = {
-  background: "#7c3aed",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
 };
 
 const okBadgeStyle: any = {
@@ -1039,6 +1328,16 @@ const okBadgeStyle: any = {
 
 const warningBadgeStyle: any = {
   background: "#ca8a04",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
+const dangerBadgeStyle: any = {
+  background: "#dc2626",
   color: "white",
   borderRadius: "999px",
   padding: "5px 9px",
