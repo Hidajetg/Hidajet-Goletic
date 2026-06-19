@@ -2,1279 +2,1235 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-const ADMINI = ["Hido", "Steffi", "Admin"];
-const RADNICI = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun", "Hido", "Steffi"];
+type Projekt = {
+  id: number | string;
+  name?: string | null;
+  naziv?: string | null;
+  title?: string | null;
+  projekt?: string | null;
+  baustelle_name?: string | null;
+  ort?: string | null;
+  mjesto?: string | null;
+  location?: string | null;
+  adresse?: string | null;
+  [key: string]: any;
+};
 
-function getTodayLocalDate() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+type TableConfig = {
+  table: string;
+  column: string;
+};
 
-  return `${year}-${month}-${day}`;
-}
+type AufgabeForm = {
+  datum: string;
+  titel: string;
+  beschreibung: string;
+  zugewiesen_an: string;
+  faellig_am: string;
+  prioritaet: string;
+  status: string;
+};
+
+const RADNICI = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
+
+const STATUS_LISTE = ["Offen", "In Arbeit", "Fertig"];
+
+const PRIORITAETEN = ["Normal", "Hoch", "Sehr hoch"];
 
 export default function ProjektAufgabenPage() {
   const params = useParams();
-  const router = useRouter();
-
   const projektId = String(params.id);
+  const projektIdValue = isNaN(Number(projektId))
+    ? projektId
+    : Number(projektId);
 
-  const [workerName, setWorkerName] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const [projekt, setProjekt] = useState<any>(null);
-  const [raeume, setRaeume] = useState<any[]>([]);
-  const [positionen, setPositionen] = useState<any[]>([]);
+  const [projekt, setProjekt] = useState<Projekt | null>(null);
   const [aufgaben, setAufgaben] = useState<any[]>([]);
+  const [errorText, setErrorText] = useState("");
 
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [aufgabenConfig, setAufgabenConfig] = useState<TableConfig>({
+    table: "aufgaben",
+    column: "projekt_id",
+  });
 
-  const [datum, setDatum] = useState(getTodayLocalDate());
-  const [typ, setTyp] = useState("Aufgabe");
-  const [titel, setTitel] = useState("");
-  const [beschreibung, setBeschreibung] = useState("");
-  const [prioritaet, setPrioritaet] = useState("Normal");
-  const [status, setStatus] = useState("Offen");
-  const [assignedTo, setAssignedTo] = useState("");
-  const [faelligBis, setFaelligBis] = useState("");
-  const [selectedRaumId, setSelectedRaumId] = useState("");
-  const [selectedPositionId, setSelectedPositionId] = useState("");
-
+  const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("Alle");
-  const [filterTyp, setFilterTyp] = useState("Alle");
   const [filterRadnik, setFilterRadnik] = useState("Alle");
 
-  const summary = useMemo(() => {
-    const offen = aufgaben.filter((a) => a.status === "Offen").length;
-    const inArbeit = aufgaben.filter((a) => a.status === "In Arbeit").length;
-    const erledigt = aufgaben.filter((a) => a.status === "Erledigt").length;
-    const abgelehnt = aufgaben.filter((a) => a.status === "Abgelehnt").length;
-    const mangel = aufgaben.filter((a) => a.typ === "Mangel").length;
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<number | string | null>(null);
 
-    const today = getTodayLocalDate();
-
-    const ueberfaellig = aufgaben.filter((a) => {
-      if (!a.faellig_bis) return false;
-      if (a.status === "Erledigt") return false;
-      if (a.status === "Abgelehnt") return false;
-
-      return String(a.faellig_bis) < today;
-    }).length;
-
-    return {
-      total: aufgaben.length,
-      offen,
-      inArbeit,
-      erledigt,
-      abgelehnt,
-      mangel,
-      ueberfaellig,
-    };
-  }, [aufgaben]);
-
-  const filteredAufgaben = useMemo(() => {
-    return aufgaben
-      .filter((item) => {
-        if (filterStatus !== "Alle" && item.status !== filterStatus) return false;
-        if (filterTyp !== "Alle" && item.typ !== filterTyp) return false;
-        if (filterRadnik !== "Alle" && item.assigned_to !== filterRadnik) return false;
-
-        return true;
-      })
-      .sort((a, b) => {
-        const overdueA = isOverdue(a) ? 1 : 0;
-        const overdueB = isOverdue(b) ? 1 : 0;
-
-        if (overdueA !== overdueB) return overdueB - overdueA;
-
-        const priorityOrder: any = {
-          Dringend: 1,
-          Hoch: 2,
-          Normal: 3,
-          Niedrig: 4,
-        };
-
-        const statusOrder: any = {
-          Offen: 1,
-          "In Arbeit": 2,
-          Erledigt: 3,
-          Abgelehnt: 4,
-        };
-
-        const pa = priorityOrder[a.prioritaet || "Normal"] || 9;
-        const pb = priorityOrder[b.prioritaet || "Normal"] || 9;
-
-        if (pa !== pb) return pa - pb;
-
-        const sa = statusOrder[a.status || "Offen"] || 9;
-        const sb = statusOrder[b.status || "Offen"] || 9;
-
-        if (sa !== sb) return sa - sb;
-
-        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-
-        return dateB - dateA;
-      });
-  }, [aufgaben, filterStatus, filterTyp, filterRadnik]);
+  const [form, setForm] = useState<AufgabeForm>({
+    datum: today(),
+    titel: "",
+    beschreibung: "",
+    zugewiesen_an: "",
+    faellig_am: "",
+    prioritaet: "Normal",
+    status: "Offen",
+  });
 
   useEffect(() => {
-    const name = localStorage.getItem("worker_name");
+    loadAll();
+  }, [projektId]);
 
-    if (!name) {
-      router.push("/login");
-      return;
-    }
-
-    const adminStatus = ADMINI.includes(name);
-
-    if (!adminStatus) {
-      router.push("/");
-      return;
-    }
-
-    setWorkerName(name);
-    setIsAdmin(adminStatus);
-    loadData();
-  }, [router, projektId]);
-
-  async function loadData() {
-    setLoading(true);
-
-    const projektRes = await supabase
-      .from("projekte")
-      .select("*")
-      .eq("id", Number(projektId))
-      .single();
-
-    if (projektRes.error) {
-      alert("Greška kod učitavanja projekta: " + projektRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    setProjekt(projektRes.data);
-
-    const raeumeRes = await supabase
-      .from("projekt_raeume")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("created_at", { ascending: true });
-
-    if (raeumeRes.error) {
-      alert("Greška kod učitavanja prostorija: " + raeumeRes.error.message);
-      setRaeume([]);
-      setLoading(false);
-      return;
-    }
-
-    setRaeume(raeumeRes.data || []);
-
-    const positionenRes = await supabase
-      .from("projekt_lv_positionen")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .eq("aktiv", true)
-      .order("position_nr", { ascending: true });
-
-    if (positionenRes.error) {
-      alert("Greška kod učitavanja LV pozicija: " + positionenRes.error.message);
-      setPositionen([]);
-      setLoading(false);
-      return;
-    }
-
-    setPositionen(positionenRes.data || []);
-
-    const aufgabenRes = await supabase
-      .from("projekt_aufgaben")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("created_at", { ascending: false });
-
-    if (aufgabenRes.error) {
-      alert("Greška kod učitavanja zadataka: " + aufgabenRes.error.message);
-      setAufgaben([]);
-      setLoading(false);
-      return;
-    }
-
-    setAufgaben(aufgabenRes.data || []);
-    setLoading(false);
+  function today() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
   }
 
-  function clearForm() {
-    setEditingId(null);
-    setDatum(getTodayLocalDate());
-    setTyp("Aufgabe");
-    setTitel("");
-    setBeschreibung("");
-    setPrioritaet("Normal");
-    setStatus("Offen");
-    setAssignedTo("");
-    setFaelligBis("");
-    setSelectedRaumId("");
-    setSelectedPositionId("");
+  function getProjektName() {
+    if (!projekt) return "Projekt";
+
+    return (
+      projekt.name ||
+      projekt.naziv ||
+      projekt.title ||
+      projekt.projekt ||
+      projekt.baustelle_name ||
+      `Projekt ${projekt.id}`
+    );
   }
 
-  function formatDate(value: string | null) {
-    if (!value) return "-";
-
-    const parts = String(value).slice(0, 10).split("-");
-    if (parts.length === 3) {
-      return `${parts[2]}.${parts[1]}.${parts[0]}`;
-    }
-
-    return value;
+  function getProjektOrt() {
+    if (!projekt) return "";
+    return projekt.ort || projekt.mjesto || projekt.location || projekt.adresse || "";
   }
 
-  function formatDateTime(value: string | null) {
-    if (!value) return "-";
+  function getDate(row: any) {
+    return row.datum || row.date || row.created_date || row.tag || "";
+  }
 
-    const d = new Date(value);
+  function getTitle(row: any) {
+    return row.titel || row.title || row.name || row.aufgabe || row.task || "";
+  }
 
-    if (Number.isNaN(d.getTime())) {
-      return String(value);
-    }
+  function getDescription(row: any) {
+    return (
+      row.beschreibung ||
+      row.description ||
+      row.notiz ||
+      row.note ||
+      row.info ||
+      ""
+    );
+  }
 
-    return d.toLocaleString("de-AT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+  function getAssigned(row: any) {
+    return (
+      row.zugewiesen_an ||
+      row.assigned_to ||
+      row.radnik ||
+      row.worker ||
+      row.arbeiter ||
+      row.mitarbeiter ||
+      ""
+    );
+  }
+
+  function getDueDate(row: any) {
+    return row.faellig_am || row.due_date || row.deadline || row.bis_datum || "";
+  }
+
+  function getPriority(row: any) {
+    return row.prioritaet || row.priority || "Normal";
+  }
+
+  function getStatus(row: any) {
+    return row.status || "Offen";
+  }
+
+  function resetForm() {
+    setEditId(null);
+    setForm({
+      datum: today(),
+      titel: "",
+      beschreibung: "",
+      zugewiesen_an: "",
+      faellig_am: "",
+      prioritaet: "Normal",
+      status: "Offen",
     });
   }
 
-  function isOverdue(item: any) {
-    if (!item.faellig_bis) return false;
-    if (item.status === "Erledigt") return false;
-    if (item.status === "Abgelehnt") return false;
+  async function loadAll() {
+    setLoading(true);
+    setErrorText("");
 
-    return String(item.faellig_bis) < getTodayLocalDate();
+    await loadProjekt();
+    await loadAufgaben();
+
+    setLoading(false);
   }
 
-  function getRaumName(id: number | string | null) {
-    if (!id) return "-";
+  async function loadProjekt() {
+    const tables = ["projekte", "baustellen"];
 
-    const raum = raeume.find((r) => Number(r.id) === Number(id));
+    for (const table of tables) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq("id", projektIdValue)
+        .maybeSingle();
 
-    if (!raum) return "-";
+      if (!error && data) {
+        setProjekt(data as Projekt);
+        return;
+      }
+    }
 
-    return `${raum.ebene ? raum.ebene + " - " : ""}${raum.raum_name}`;
+    setProjekt(null);
   }
 
-  function getPositionText(id: number | string | null) {
-    if (!id) return "-";
+  async function loadAufgaben() {
+    const configs: TableConfig[] = [
+      { table: "aufgaben", column: "projekt_id" },
+      { table: "aufgaben", column: "project_id" },
+      { table: "aufgaben", column: "baustelle_id" },
+      { table: "tasks", column: "projekt_id" },
+      { table: "tasks", column: "project_id" },
+      { table: "tasks", column: "baustelle_id" },
+      { table: "projekt_aufgaben", column: "projekt_id" },
+      { table: "projekt_aufgaben", column: "project_id" },
+      { table: "projekt_aufgaben", column: "baustelle_id" },
+    ];
 
-    const pos = positionen.find((p) => Number(p.id) === Number(id));
+    for (const config of configs) {
+      const { data, error } = await supabase
+        .from(config.table)
+        .select("*")
+        .eq(config.column, projektIdValue);
 
-    if (!pos) return "-";
+      if (!error) {
+        const sorted = [...(data || [])].sort((a: any, b: any) => {
+          const statusA = String(getStatus(a)).toLowerCase();
+          const statusB = String(getStatus(b)).toLowerCase();
 
-    return `${pos.position_nr} - ${pos.kurztext}`;
+          if (statusA === "fertig" && statusB !== "fertig") return 1;
+          if (statusA !== "fertig" && statusB === "fertig") return -1;
+
+          const dueA = String(getDueDate(a) || "9999-12-31");
+          const dueB = String(getDueDate(b) || "9999-12-31");
+
+          if (dueA === dueB) {
+            return String(getDate(b)).localeCompare(String(getDate(a)));
+          }
+
+          return dueA.localeCompare(dueB);
+        });
+
+        setAufgabenConfig(config);
+        setAufgaben(sorted);
+        return;
+      }
+    }
+
+    setAufgaben([]);
+    setErrorText(
+      "Ne mogu učitati Aufgaben. Provjeri tabelu aufgaben i kolonu projekt_id."
+    );
+  }
+
+  const filtered = useMemo(() => {
+    return aufgaben.filter((row) => {
+      const text = `
+        ${getDate(row)}
+        ${getTitle(row)}
+        ${getDescription(row)}
+        ${getAssigned(row)}
+        ${getDueDate(row)}
+        ${getPriority(row)}
+        ${getStatus(row)}
+      `.toLowerCase();
+
+      const searchOk = text.includes(search.toLowerCase());
+      const statusOk = filterStatus === "Alle" || getStatus(row) === filterStatus;
+      const workerOk = filterRadnik === "Alle" || getAssigned(row) === filterRadnik;
+
+      return searchOk && statusOk && workerOk;
+    });
+  }, [aufgaben, search, filterStatus, filterRadnik]);
+
+  const offenCount = useMemo(() => {
+    return filtered.filter((row) => {
+      return String(getStatus(row)).toLowerCase() !== "fertig";
+    }).length;
+  }, [filtered]);
+
+  const fertigCount = useMemo(() => {
+    return filtered.filter((row) => {
+      return String(getStatus(row)).toLowerCase() === "fertig";
+    }).length;
+  }, [filtered]);
+
+  const overdueCount = useMemo(() => {
+    const now = today();
+
+    return filtered.filter((row) => {
+      const due = getDueDate(row);
+      const status = String(getStatus(row)).toLowerCase();
+
+      return due && due < now && status !== "fertig";
+    }).length;
+  }, [filtered]);
+
+  function isDuplicate(values: AufgabeForm) {
+    return aufgaben.some((row) => {
+      if (editId && String(row.id) === String(editId)) return false;
+
+      return (
+        String(getTitle(row)).trim().toLowerCase() ===
+          values.titel.trim().toLowerCase() &&
+        String(getAssigned(row)).trim().toLowerCase() ===
+          values.zugewiesen_an.trim().toLowerCase()
+      );
+    });
+  }
+
+  function buildPayloads(values: AufgabeForm) {
+    const base: any = {};
+    base[aufgabenConfig.column] = projektIdValue;
+
+    return [
+      {
+        ...base,
+        datum: values.datum,
+        titel: values.titel.trim(),
+        beschreibung: values.beschreibung.trim(),
+        zugewiesen_an: values.zugewiesen_an.trim(),
+        faellig_am: values.faellig_am || null,
+        prioritaet: values.prioritaet,
+        status: values.status,
+      },
+      {
+        ...base,
+        date: values.datum,
+        title: values.titel.trim(),
+        description: values.beschreibung.trim(),
+        assigned_to: values.zugewiesen_an.trim(),
+        due_date: values.faellig_am || null,
+        priority: values.prioritaet,
+        status: values.status,
+      },
+      {
+        ...base,
+        datum: values.datum,
+        aufgabe: values.titel.trim(),
+        notiz: values.beschreibung.trim(),
+        radnik: values.zugewiesen_an.trim(),
+        deadline: values.faellig_am || null,
+        prioritaet: values.prioritaet,
+        status: values.status,
+      },
+      {
+        ...base,
+        name: values.titel.trim(),
+        info: values.beschreibung.trim(),
+        worker: values.zugewiesen_an.trim(),
+        status: values.status,
+      },
+      {
+        ...base,
+        title: values.titel.trim(),
+        status: values.status,
+      },
+    ];
   }
 
   async function saveAufgabe() {
-    if (!titel.trim()) {
-      alert("Unesi naslov.");
+    if (!form.titel.trim()) {
+      alert("Upiši naziv zadatka.");
       return;
     }
 
-    const erledigtAm = status === "Erledigt" ? getTodayLocalDate() : null;
-
-    const payload: any = {
-      projekt_id: Number(projektId),
-      datum,
-      typ,
-      titel: titel.trim(),
-      beschreibung: beschreibung.trim() || null,
-      prioritaet,
-      status,
-      assigned_to: assignedTo || null,
-      faellig_bis: faelligBis || null,
-      erledigt_am: erledigtAm,
-      raum_id: selectedRaumId ? Number(selectedRaumId) : null,
-      lv_position_id: selectedPositionId ? Number(selectedPositionId) : null,
-    };
-
-    if (editingId) {
-      const { error } = await supabase
-        .from("projekt_aufgaben")
-        .update(payload)
-        .eq("id", editingId);
-
-      if (error) {
-        alert("Greška kod izmjene zadatka: " + error.message);
-        return;
-      }
-    } else {
-      payload.created_by = workerName;
-
-      const { error } = await supabase.from("projekt_aufgaben").insert(payload);
-
-      if (error) {
-        alert("Greška kod dodavanja zadatka: " + error.message);
-        return;
-      }
+    if (isDuplicate(form) && !editId) {
+      alert("Ovaj zadatak već postoji za istog radnika.");
+      return;
     }
 
-    clearForm();
-    setShowForm(false);
-    loadData();
+    setSaving(true);
+    let lastError: any = null;
+
+    for (const payload of buildPayloads(form)) {
+      const query = editId
+        ? supabase
+            .from(aufgabenConfig.table)
+            .update(payload as any)
+            .eq("id", editId)
+        : supabase.from(aufgabenConfig.table).insert(payload as any);
+
+      const { error } = await query;
+
+      if (!error) {
+        resetForm();
+        setShowForm(false);
+        setSaving(false);
+        await loadAufgaben();
+        return;
+      }
+
+      lastError = error;
+    }
+
+    setSaving(false);
+    alert("Greška kod spremanja Aufgabe: " + (lastError?.message || ""));
   }
 
-  function editAufgabe(item: any) {
-    setEditingId(item.id);
-    setDatum(item.datum || getTodayLocalDate());
-    setTyp(item.typ || "Aufgabe");
-    setTitel(item.titel || "");
-    setBeschreibung(item.beschreibung || "");
-    setPrioritaet(item.prioritaet || "Normal");
-    setStatus(item.status || "Offen");
-    setAssignedTo(item.assigned_to || "");
-    setFaelligBis(item.faellig_bis || "");
-    setSelectedRaumId(item.raum_id ? String(item.raum_id) : "");
-    setSelectedPositionId(item.lv_position_id ? String(item.lv_position_id) : "");
+  function quickAufgabe(title: string, worker: string) {
+    setEditId(null);
+    setForm({
+      datum: today(),
+      titel: title,
+      beschreibung: "",
+      zugewiesen_an: worker,
+      faellig_am: "",
+      prioritaet: "Normal",
+      status: "Offen",
+    });
     setShowForm(true);
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function deleteAufgabe(id: number) {
-    const ok = confirm("Da li sigurno želiš obrisati ovaj zadatak?");
+  function startEdit(row: any) {
+    setEditId(row.id);
+
+    setForm({
+      datum: String(getDate(row) || today()),
+      titel: String(getTitle(row) || ""),
+      beschreibung: String(getDescription(row) || ""),
+      zugewiesen_an: String(getAssigned(row) || ""),
+      faellig_am: String(getDueDate(row) || ""),
+      prioritaet: String(getPriority(row) || "Normal"),
+      status: String(getStatus(row) || "Offen"),
+    });
+
+    setShowForm(true);
+  }
+
+  async function changeStatus(row: any, newStatus: string) {
+    const payloads: any[] = [
+      { status: newStatus },
+      { status: newStatus, erledigt: newStatus === "Fertig" },
+      { status: newStatus, done: newStatus === "Fertig" },
+    ];
+
+    let lastError: any = null;
+
+    for (const payload of payloads) {
+      const { error } = await supabase
+        .from(aufgabenConfig.table)
+        .update(payload as any)
+        .eq("id", row.id);
+
+      if (!error) {
+        await loadAufgaben();
+        return;
+      }
+
+      lastError = error;
+    }
+
+    alert("Greška kod statusa: " + (lastError?.message || ""));
+  }
+
+  async function deleteAufgabe(row: any) {
+    const ok = confirm(`Da li želiš obrisati zadatak: ${getTitle(row)}?`);
 
     if (!ok) return;
 
     const { error } = await supabase
-      .from("projekt_aufgaben")
+      .from(aufgabenConfig.table)
       .delete()
-      .eq("id", id);
+      .eq("id", row.id);
 
     if (error) {
-      alert("Greška kod brisanja zadatka: " + error.message);
+      alert("Greška kod brisanja: " + error.message);
       return;
     }
 
-    loadData();
-  }
-
-  async function changeStatus(item: any, newStatus: string) {
-    const payload: any = {
-      status: newStatus,
-      erledigt_am: newStatus === "Erledigt" ? getTodayLocalDate() : null,
-    };
-
-    const { error } = await supabase
-      .from("projekt_aufgaben")
-      .update(payload)
-      .eq("id", item.id);
-
-    if (error) {
-      alert("Greška kod promjene statusa: " + error.message);
-      return;
-    }
-
-    loadData();
-  }
-
-  function getStatusStyle(statusValue: string) {
-    if (statusValue === "Erledigt") return okBadgeStyle;
-    if (statusValue === "Abgelehnt") return dangerBadgeStyle;
-    if (statusValue === "In Arbeit") return blueBadgeStyle;
-
-    return warningBadgeStyle;
-  }
-
-  function getPriorityStyle(priority: string) {
-    if (priority === "Dringend") return dangerBadgeStyle;
-    if (priority === "Hoch") return warningBadgeStyle;
-    if (priority === "Niedrig") return grayBadgeStyle;
-
-    return blueBadgeStyle;
-  }
-
-  if (loading) {
-    return (
-      <main style={mainStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
-
-        <h1 style={titleStyle}>✅ Aufgaben / Mängel</h1>
-        <p style={loadingStyle}>Wird geladen...</p>
-      </main>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <main style={mainStyle}>
-        <h1 style={titleStyle}>Kein Zugriff</h1>
-      </main>
-    );
+    await loadAufgaben();
   }
 
   return (
-    <main style={mainStyle}>
-      <div style={topBarStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
+    <main className="page">
+      <section className="top">
+        <div>
+          <Link className="back" href={`/projekte/${projektId}`}>
+            ← Zurück zu Projekt
+          </Link>
 
-        <div style={topButtonWrapStyle}>
-          <button onClick={loadData} style={refreshButtonStyle}>
+          <p className="label">Projekt Aufgaben</p>
+          <h1>Aufgaben</h1>
+          <p className="subtitle">
+            {getProjektName()}
+            {getProjektOrt() ? ` · ${getProjektOrt()}` : ""}
+          </p>
+        </div>
+
+        <div className="topButtons">
+          <button className="btn gray" onClick={loadAll}>
             Aktualisieren
           </button>
 
           <button
+            className="btn blue"
             onClick={() => {
-              clearForm();
-              setShowForm(!showForm);
-            }}
-            style={newButtonStyle}
-          >
-            {showForm ? "Schließen" : "+ Aufgabe / Mangel"}
-          </button>
-        </div>
-      </div>
-
-      <h1 style={titleStyle}>✅ Aufgaben / Mängel</h1>
-
-      <p style={descriptionStyle}>
-        Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
-        <strong>{workerName}</strong>
-      </p>
-
-      <section style={summaryGridStyle}>
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Gesamt</span>
-          <strong style={summaryValueStyle}>{summary.total}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Offen</span>
-          <strong style={summaryValueStyle}>{summary.offen}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>In Arbeit</span>
-          <strong style={summaryValueStyle}>{summary.inArbeit}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Erledigt</span>
-          <strong style={{ ...summaryValueStyle, color: "#22c55e" }}>
-            {summary.erledigt}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Abgelehnt</span>
-          <strong style={{ ...summaryValueStyle, color: "#ef4444" }}>
-            {summary.abgelehnt}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Mängel</span>
-          <strong style={summaryValueStyle}>{summary.mangel}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Überfällig</span>
-          <strong
-            style={{
-              ...summaryValueStyle,
-              color: summary.ueberfaellig > 0 ? "#ef4444" : "#22c55e",
+              resetForm();
+              setShowForm(true);
             }}
           >
-            {summary.ueberfaellig}
-          </strong>
-        </div>
-      </section>
-
-      <section style={filterBoxStyle}>
-        <div style={filterGridStyle}>
-          <div>
-            <label style={labelStyle}>Status Filter</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="Alle">Alle</option>
-              <option value="Offen">Offen</option>
-              <option value="In Arbeit">In Arbeit</option>
-              <option value="Erledigt">Erledigt</option>
-              <option value="Abgelehnt">Abgelehnt</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Typ Filter</label>
-            <select
-              value={filterTyp}
-              onChange={(e) => setFilterTyp(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="Alle">Alle</option>
-              <option value="Aufgabe">Aufgabe</option>
-              <option value="Mangel">Mangel</option>
-              <option value="Info">Info</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Radnik Filter</label>
-            <select
-              value={filterRadnik}
-              onChange={(e) => setFilterRadnik(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="Alle">Alle</option>
-              {RADNICI.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            onClick={() => {
-              setFilterStatus("Alle");
-              setFilterTyp("Alle");
-              setFilterRadnik("Alle");
-            }}
-            style={grayButtonStyle}
-          >
-            Filter löschen
+            + Aufgabe hinzufügen
           </button>
         </div>
       </section>
 
-      <section style={infoBoxStyle}>
-        <h2 style={sectionTitleStyle}>Aufgaben Regel</h2>
-        <p style={infoTextStyle}>
-          Aufgaben, Mängel und Infos können einem Radnik, Raum und einer LV Position
-          zugeordnet werden. Überfällige offene Punkte werden rot markiert.
-        </p>
+      {errorText && <div className="errorBox">{errorText}</div>}
+
+      <section className="stats">
+        <div className="stat">
+          <span>Offen</span>
+          <strong>{offenCount}</strong>
+        </div>
+
+        <div className="stat">
+          <span>Fertig</span>
+          <strong>{fertigCount}</strong>
+        </div>
+
+        <div className="stat dangerStat">
+          <span>Überfällig</span>
+          <strong>{overdueCount}</strong>
+        </div>
       </section>
 
-      {showForm && (
-        <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>
-            {editingId ? "Aufgabe bearbeiten" : "Aufgabe / Mangel anlegen"}
-          </h2>
+      <section className="toolbar">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Traži zadatak, radnika, opis, datum..."
+        />
 
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Datum</label>
-              <input
-                type="date"
-                value={datum}
-                onChange={(e) => setDatum(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+        >
+          <option value="Alle">Alle Status</option>
+          {STATUS_LISTE.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
 
-            <div>
-              <label style={labelStyle}>Typ</label>
-              <select value={typ} onChange={(e) => setTyp(e.target.value)} style={inputStyle}>
-                <option value="Aufgabe">Aufgabe</option>
-                <option value="Mangel">Mangel</option>
-                <option value="Info">Info</option>
-              </select>
-            </div>
-          </div>
+        <select
+          value={filterRadnik}
+          onChange={(e) => setFilterRadnik(e.target.value)}
+        >
+          <option value="Alle">Alle Radnici</option>
+          {RADNICI.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+      </section>
 
-          <label style={labelStyle}>Titel *</label>
-          <input
-            value={titel}
-            onChange={(e) => setTitel(e.target.value)}
-            placeholder="z.B. Bad EG Silikon fertig machen"
-            style={inputStyle}
-          />
+      <section className="quickAdd">
+        <h2>Brzi zadaci</h2>
 
-          <label style={labelStyle}>Beschreibung</label>
-          <textarea
-            value={beschreibung}
-            onChange={(e) => setBeschreibung(e.target.value)}
-            placeholder="Opis zadatka ili nedostatka"
-            style={textareaStyle}
-          />
-
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Priorität</label>
-              <select
-                value={prioritaet}
-                onChange={(e) => setPrioritaet(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="Niedrig">Niedrig</option>
-                <option value="Normal">Normal</option>
-                <option value="Hoch">Hoch</option>
-                <option value="Dringend">Dringend</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={labelStyle}>Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="Offen">Offen</option>
-                <option value="In Arbeit">In Arbeit</option>
-                <option value="Erledigt">Erledigt</option>
-                <option value="Abgelehnt">Abgelehnt</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={labelStyle}>Zuständig</label>
-              <select
-                value={assignedTo}
-                onChange={(e) => setAssignedTo(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">Ohne Zuweisung</option>
-                {RADNICI.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Fällig bis</label>
-              <input
-                type="date"
-                value={faelligBis}
-                onChange={(e) => setFaelligBis(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Raum</label>
-              <select
-                value={selectedRaumId}
-                onChange={(e) => setSelectedRaumId(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">Ohne Raum</option>
-                {raeume.map((raum) => (
-                  <option key={raum.id} value={raum.id}>
-                    {raum.ebene ? `${raum.ebene} - ` : ""}
-                    {raum.raum_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <label style={labelStyle}>LV Position</label>
-          <select
-            value={selectedPositionId}
-            onChange={(e) => setSelectedPositionId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">Ohne LV Position</option>
-            {positionen.map((pos) => (
-              <option key={pos.id} value={pos.id}>
-                {pos.position_nr} - {pos.kurztext}
-              </option>
-            ))}
-          </select>
-
-          <div style={formButtonRowStyle}>
-            <button onClick={saveAufgabe} style={saveButtonStyle}>
-              {editingId ? "Änderungen speichern" : "Aufgabe speichern"}
+        <div className="quickGrid">
+          {[
+            "Baustelle vorbereiten",
+            "Material prüfen",
+            "Fotos machen",
+            "Mangel melden",
+            "Arbeitszeit eintragen",
+            "Tagesbericht schreiben",
+            "Aufräumen",
+            "Abnahme vorbereiten",
+          ].map((title) => (
+            <button key={title} onClick={() => quickAufgabe(title, "")}>
+              + {title}
             </button>
+          ))}
+        </div>
+      </section>
 
-            <button
-              onClick={() => {
-                clearForm();
-                setShowForm(false);
-              }}
-              style={cancelButtonStyle}
-            >
-              Abbrechen
-            </button>
-          </div>
-        </section>
-      )}
+      {loading ? (
+        <div className="emptyBox">Učitavanje Aufgaben...</div>
+      ) : filtered.length === 0 ? (
+        <div className="emptyBox">
+          <h2>Nema zadataka</h2>
+          <p>Dodaj prvi zadatak za ovaj projekt.</p>
+        </div>
+      ) : (
+        <section className="grid">
+          {filtered.map((row) => {
+            const due = getDueDate(row);
+            const isDone = String(getStatus(row)).toLowerCase() === "fertig";
+            const isOverdue = due && due < today() && !isDone;
 
-      <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Aufgaben Liste</h2>
+            return (
+              <article key={row.id} className={isOverdue ? "card overdue" : "card"}>
+                <div className="cardTop">
+                  <div>
+                    <h2>{getTitle(row) || "Aufgabe"}</h2>
+                    <p>
+                      Erstellt: {getDate(row) || "-"}
+                      {due ? ` · Fällig: ${due}` : ""}
+                    </p>
+                  </div>
 
-        {filteredAufgaben.length === 0 ? (
-          <p style={emptyStyle}>Keine Aufgaben gefunden.</p>
-        ) : (
-          <div style={taskGridStyle}>
-            {filteredAufgaben.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  ...taskCardStyle,
-                  border: isOverdue(item)
-                    ? "1px solid #dc2626"
-                    : item.typ === "Mangel"
-                    ? "1px solid #ca8a04"
-                    : "1px solid #333",
-                }}
-              >
-                <div style={taskTopRowStyle}>
-                  <span
-                    style={
-                      item.typ === "Mangel"
-                        ? warningBadgeStyle
-                        : item.typ === "Info"
-                        ? blueBadgeStyle
-                        : okBadgeStyle
-                    }
-                  >
-                    {item.typ || "Aufgabe"}
-                  </span>
-
-                  <span style={getPriorityStyle(item.prioritaet || "Normal")}>
-                    {item.prioritaet || "Normal"}
+                  <span className={isDone ? "badge done" : "badge"}>
+                    {getStatus(row)}
                   </span>
                 </div>
 
-                <h3 style={taskTitleStyle}>{item.titel}</h3>
-
-                {item.beschreibung && (
-                  <p style={taskDescriptionStyle}>{item.beschreibung}</p>
-                )}
-
-                <div style={taskInfoGridStyle}>
+                <div className="detailGrid">
                   <div>
-                    <span style={smallLabelStyle}>Status</span>
-                    <select
-                      value={item.status || "Offen"}
-                      onChange={(e) => changeStatus(item, e.target.value)}
-                      style={smallSelectStyle}
-                    >
-                      <option value="Offen">Offen</option>
-                      <option value="In Arbeit">In Arbeit</option>
-                      <option value="Erledigt">Erledigt</option>
-                      <option value="Abgelehnt">Abgelehnt</option>
-                    </select>
+                    <span>Radnik</span>
+                    <strong>{getAssigned(row) || "Nicht zugewiesen"}</strong>
                   </div>
 
                   <div>
-                    <span style={smallLabelStyle}>Status Anzeige</span>
-                    <span style={getStatusStyle(item.status || "Offen")}>
-                      {item.status || "Offen"}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span style={smallLabelStyle}>Zuständig</span>
-                    <strong>{item.assigned_to || "-"}</strong>
-                  </div>
-
-                  <div>
-                    <span style={smallLabelStyle}>Fällig</span>
-                    <strong style={{ color: isOverdue(item) ? "#ef4444" : "white" }}>
-                      {formatDate(item.faellig_bis)}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span style={smallLabelStyle}>Erledigt</span>
-                    <strong>{formatDate(item.erledigt_am)}</strong>
-                  </div>
-
-                  <div>
-                    <span style={smallLabelStyle}>Datum</span>
-                    <strong>{formatDate(item.datum)}</strong>
+                    <span>Priorität</span>
+                    <strong>{getPriority(row)}</strong>
                   </div>
                 </div>
 
-                <p style={taskMetaStyle}>
-                  Raum: <strong>{getRaumName(item.raum_id)}</strong>
-                </p>
-
-                <p style={taskMetaStyle}>
-                  LV: <strong>{getPositionText(item.lv_position_id)}</strong>
-                </p>
-
-                <p style={taskMetaStyle}>
-                  Erstellt von: <strong>{item.created_by || "-"}</strong>
-                </p>
-
-                {isAdmin && (
-                  <p style={taskMetaStyle}>
-                    Zeit der Eingabe:{" "}
-                    <strong>{formatDateTime(item.created_at)}</strong>
-                  </p>
+                {isOverdue && (
+                  <div className="warningBox">
+                    Ovaj zadatak je preko roka.
+                  </div>
                 )}
 
-                {item.foto_url && (
-                  <a href={item.foto_url} target="_blank" rel="noopener noreferrer">
-                    <img src={item.foto_url} alt={item.titel || "Foto"} style={photoStyle} />
-                  </a>
+                {getDescription(row) && (
+                  <p className="description">{getDescription(row)}</p>
                 )}
 
-                <div style={quickActionGridStyle}>
-                  <button onClick={() => changeStatus(item, "Offen")} style={waitButtonStyle}>
-                    Offen
-                  </button>
-
-                  <button
-                    onClick={() => changeStatus(item, "In Arbeit")}
-                    style={workButtonStyle}
-                  >
+                <div className="actions">
+                  <button onClick={() => startEdit(row)}>Bearbeiten</button>
+                  <button onClick={() => changeStatus(row, "In Arbeit")}>
                     In Arbeit
                   </button>
-
-                  <button
-                    onClick={() => changeStatus(item, "Erledigt")}
-                    style={doneButtonStyle}
-                  >
-                    Erledigt
+                  <button onClick={() => changeStatus(row, "Fertig")}>
+                    Fertig
                   </button>
-
-                  <button
-                    onClick={() => changeStatus(item, "Abgelehnt")}
-                    style={rejectButtonStyle}
-                  >
-                    Ablehnen
-                  </button>
-                </div>
-
-                <div style={actionRowStyle}>
-                  <button onClick={() => editAufgabe(item)} style={editButtonStyle}>
-                    Bearbeiten
-                  </button>
-
-                  <button onClick={() => deleteAufgabe(item.id)} style={deleteButtonStyle}>
+                  <button className="delete" onClick={() => deleteAufgabe(row)}>
                     Löschen
                   </button>
                 </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
+
+      {showForm && (
+        <div className="modalBg">
+          <div className="modal">
+            <div className="modalHead">
+              <h2>{editId ? "Aufgabe bearbeiten" : "Aufgabe hinzufügen"}</h2>
+
+              <button
+                onClick={() => {
+                  resetForm();
+                  setShowForm(false);
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <label>Datum</label>
+            <input
+              type="date"
+              value={form.datum}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, datum: e.target.value }))
+              }
+            />
+
+            <label>Aufgabe *</label>
+            <input
+              value={form.titel}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, titel: e.target.value }))
+              }
+              placeholder="z.B. Material prüfen"
+            />
+
+            <label>Beschreibung</label>
+            <textarea
+              value={form.beschreibung}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, beschreibung: e.target.value }))
+              }
+              placeholder="Opis zadatka"
+            />
+
+            <label>Zugewiesen an</label>
+            <select
+              value={form.zugewiesen_an}
+              onChange={(e) =>
+                setForm((old) => ({
+                  ...old,
+                  zugewiesen_an: e.target.value,
+                }))
+              }
+            >
+              <option value="">Nicht zugewiesen</option>
+              {RADNICI.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+
+            <label>Oder Name manuell</label>
+            <input
+              value={form.zugewiesen_an}
+              onChange={(e) =>
+                setForm((old) => ({
+                  ...old,
+                  zugewiesen_an: e.target.value,
+                }))
+              }
+              placeholder="Ime radnika"
+            />
+
+            <div className="twoGrid">
+              <div>
+                <label>Fällig am</label>
+                <input
+                  type="date"
+                  value={form.faellig_am}
+                  onChange={(e) =>
+                    setForm((old) => ({
+                      ...old,
+                      faellig_am: e.target.value,
+                    }))
+                  }
+                />
               </div>
-            ))}
+
+              <div>
+                <label>Priorität</label>
+                <select
+                  value={form.prioritaet}
+                  onChange={(e) =>
+                    setForm((old) => ({
+                      ...old,
+                      prioritaet: e.target.value,
+                    }))
+                  }
+                >
+                  {PRIORITAETEN.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <label>Status</label>
+            <select
+              value={form.status}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, status: e.target.value }))
+              }
+            >
+              {STATUS_LISTE.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+
+            <div className="modalActions">
+              <button
+                className="cancel"
+                onClick={() => {
+                  resetForm();
+                  setShowForm(false);
+                }}
+              >
+                Abbrechen
+              </button>
+
+              <button className="save" onClick={saveAufgabe} disabled={saving}>
+                {saving ? "Speichern..." : "Speichern"}
+              </button>
+            </div>
           </div>
-        )}
-      </section>
+        </div>
+      )}
+
+      <style>{`
+        .page {
+          min-height: 100vh;
+          background: #050505;
+          color: white;
+          padding: 28px;
+          font-family: Arial, sans-serif;
+        }
+
+        .top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 20px;
+          margin-bottom: 22px;
+        }
+
+        .back {
+          display: inline-block;
+          color: white;
+          text-decoration: none;
+          background: #1f2937;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 11px 15px;
+          font-weight: 800;
+          margin-bottom: 18px;
+        }
+
+        .label {
+          color: #9ca3af;
+          margin: 0 0 8px;
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+        h1 {
+          margin: 0;
+          font-size: 44px;
+          line-height: 1;
+        }
+
+        .subtitle {
+          color: #cbd5e1;
+          margin: 12px 0 0;
+          font-size: 17px;
+          font-weight: 700;
+        }
+
+        .topButtons {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        button,
+        a,
+        input,
+        textarea,
+        select {
+          font-family: inherit;
+        }
+
+        button,
+        a {
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-size: 15px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .gray {
+          background: #374151;
+        }
+
+        .blue {
+          background: #2563eb;
+        }
+
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .stat {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+        }
+
+        .stat span {
+          display: block;
+          color: #9ca3af;
+          margin-bottom: 8px;
+          font-weight: 800;
+        }
+
+        .stat strong {
+          font-size: 34px;
+        }
+
+        .dangerStat strong {
+          color: #fca5a5;
+        }
+
+        .toolbar {
+          display: grid;
+          grid-template-columns: 1fr 190px 190px;
+          gap: 10px;
+          margin-bottom: 18px;
+        }
+
+        .toolbar input,
+        .toolbar select {
+          background: #111827;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 15px 16px;
+          font-size: 16px;
+          outline: none;
+        }
+
+        .quickAdd {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+          margin-bottom: 18px;
+        }
+
+        .quickAdd h2 {
+          margin: 0 0 12px;
+          font-size: 22px;
+        }
+
+        .quickGrid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 10px;
+        }
+
+        .quickGrid button {
+          background: #1f2937;
+          border: 1px solid #374151;
+          color: white;
+          border-radius: 14px;
+          padding: 13px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .errorBox {
+          background: #7f1d1d;
+          border: 1px solid #ef4444;
+          color: white;
+          padding: 16px;
+          border-radius: 14px;
+          margin-bottom: 18px;
+          font-weight: 800;
+        }
+
+        .emptyBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 30px;
+          text-align: center;
+          color: #cbd5e1;
+        }
+
+        .emptyBox h2 {
+          color: white;
+          margin-top: 0;
+        }
+
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+          gap: 18px;
+        }
+
+        .card {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 22px;
+          padding: 20px;
+        }
+
+        .card.overdue {
+          border-color: #dc2626;
+        }
+
+        .cardTop {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        .card h2 {
+          margin: 0;
+          font-size: 23px;
+        }
+
+        .card p {
+          margin: 8px 0 0;
+          color: #cbd5e1;
+          line-height: 1.45;
+        }
+
+        .badge {
+          background: #064e3b;
+          color: #bbf7d0;
+          border: 1px solid #16a34a;
+          border-radius: 999px;
+          padding: 8px 12px;
+          font-size: 13px;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+
+        .badge.done {
+          background: #374151;
+          color: #e5e7eb;
+          border-color: #6b7280;
+        }
+
+        .detailGrid {
+          display: grid;
+          grid-template-columns: 1fr 140px;
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+
+        .detailGrid div {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 12px;
+        }
+
+        .detailGrid span {
+          display: block;
+          color: #9ca3af;
+          font-weight: 800;
+          font-size: 13px;
+          margin-bottom: 6px;
+        }
+
+        .detailGrid strong {
+          color: white;
+        }
+
+        .warningBox {
+          background: #7f1d1d;
+          border: 1px solid #ef4444;
+          border-radius: 14px;
+          padding: 12px;
+          color: white;
+          font-weight: 900;
+          margin-bottom: 12px;
+        }
+
+        .description {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 12px;
+          white-space: pre-wrap;
+          margin-bottom: 12px !important;
+        }
+
+        .actions {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+          padding-top: 14px;
+          border-top: 1px solid #1f2937;
+        }
+
+        .actions button {
+          background: #374151;
+          color: white;
+          border: 0;
+          border-radius: 12px;
+          padding: 12px 8px;
+          font-weight: 900;
+          cursor: pointer;
+          font-size: 14px;
+        }
+
+        .actions .delete {
+          background: #dc2626;
+        }
+
+        .modalBg {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.78);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 16px;
+          z-index: 100;
+        }
+
+        .modal {
+          width: 100%;
+          max-width: 680px;
+          max-height: 92vh;
+          overflow: auto;
+          background: #111827;
+          border: 1px solid #374151;
+          border-radius: 22px;
+          padding: 22px;
+        }
+
+        .modalHead {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 18px;
+        }
+
+        .modalHead h2 {
+          margin: 0;
+          font-size: 28px;
+        }
+
+        .modalHead button {
+          width: 42px;
+          height: 42px;
+          border: 0;
+          border-radius: 12px;
+          background: #374151;
+          color: white;
+          font-size: 28px;
+          cursor: pointer;
+        }
+
+        label {
+          display: block;
+          color: #d1d5db;
+          font-weight: 800;
+          margin: 14px 0 7px;
+        }
+
+        .modal input,
+        .modal textarea,
+        .modal select {
+          width: 100%;
+          box-sizing: border-box;
+          background: #030712;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 14px;
+          font-size: 16px;
+          outline: none;
+        }
+
+        .modal textarea {
+          min-height: 110px;
+          resize: vertical;
+        }
+
+        .twoGrid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+
+        .modalActions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 20px;
+        }
+
+        .modalActions button {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .cancel {
+          background: #374151;
+        }
+
+        .save {
+          background: #2563eb;
+        }
+
+        .save:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 900px) {
+          .toolbar,
+          .quickGrid {
+            grid-template-columns: 1fr;
+          }
+
+          .actions {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .page {
+            padding: 16px;
+          }
+
+          .top {
+            display: block;
+          }
+
+          h1 {
+            font-size: 36px;
+          }
+
+          .topButtons {
+            display: grid;
+            grid-template-columns: 1fr;
+            margin-top: 16px;
+          }
+
+          .stats,
+          .grid,
+          .detailGrid,
+          .twoGrid {
+            grid-template-columns: 1fr;
+          }
+
+          .actions {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </main>
   );
 }
-
-const mainStyle: any = {
-  background: "#000",
-  minHeight: "100vh",
-  color: "white",
-  padding: "20px",
-};
-
-const topBarStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "12px",
-  marginBottom: "20px",
-  flexWrap: "wrap",
-};
-
-const topButtonWrapStyle: any = {
-  display: "flex",
-  gap: "10px",
-  flexWrap: "wrap",
-};
-
-const backStyle: any = {
-  color: "#3b82f6",
-  textDecoration: "none",
-  fontWeight: "bold",
-  fontSize: "16px",
-};
-
-const titleStyle: any = {
-  fontSize: "38px",
-  color: "#f97316",
-  margin: "0 0 10px 0",
-};
-
-const descriptionStyle: any = {
-  color: "#bbb",
-  fontSize: "16px",
-  marginBottom: "18px",
-};
-
-const loadingStyle: any = {
-  color: "#aaa",
-  fontSize: "18px",
-};
-
-const refreshButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const newButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const summaryGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))",
-  gap: "12px",
-  marginBottom: "20px",
-};
-
-const summaryCardStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "14px",
-};
-
-const summaryLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "13px",
-  marginBottom: "6px",
-};
-
-const summaryValueStyle: any = {
-  color: "#f97316",
-  fontSize: "22px",
-};
-
-const filterBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const filterGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: "12px",
-  alignItems: "end",
-};
-
-const infoBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const infoTextStyle: any = {
-  color: "#ccc",
-  margin: 0,
-  lineHeight: "1.5",
-};
-
-const formBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const formTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const sectionTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const formGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "12px",
-};
-
-const labelStyle: any = {
-  display: "block",
-  color: "#ddd",
-  fontWeight: "bold",
-  marginBottom: "6px",
-  marginTop: "12px",
-};
-
-const inputStyle: any = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "10px",
-  border: "1px solid #333",
-  background: "#000",
-  color: "white",
-  fontSize: "15px",
-  boxSizing: "border-box",
-};
-
-const textareaStyle: any = {
-  ...inputStyle,
-  minHeight: "95px",
-  resize: "vertical",
-};
-
-const formButtonRowStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "12px",
-  marginTop: "18px",
-};
-
-const saveButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const cancelButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const grayButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const listBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const emptyStyle: any = {
-  color: "#aaa",
-  fontSize: "16px",
-};
-
-const taskGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-  gap: "14px",
-};
-
-const taskCardStyle: any = {
-  background: "#000",
-  borderRadius: "16px",
-  padding: "14px",
-};
-
-const taskTopRowStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "10px",
-  flexWrap: "wrap",
-};
-
-const taskTitleStyle: any = {
-  color: "#f97316",
-  margin: "12px 0 8px 0",
-  fontSize: "18px",
-};
-
-const taskDescriptionStyle: any = {
-  color: "#ccc",
-  fontSize: "14px",
-  lineHeight: "1.45",
-  margin: "0 0 12px 0",
-};
-
-const taskInfoGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "10px",
-  marginTop: "12px",
-};
-
-const smallLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "12px",
-  marginBottom: "4px",
-};
-
-const taskMetaStyle: any = {
-  color: "#aaa",
-  fontSize: "13px",
-  margin: "8px 0",
-};
-
-const smallSelectStyle: any = {
-  background: "#111",
-  color: "white",
-  border: "1px solid #333",
-  borderRadius: "8px",
-  padding: "7px",
-  width: "100%",
-};
-
-const photoStyle: any = {
-  width: "100%",
-  height: "180px",
-  objectFit: "cover",
-  borderRadius: "12px",
-  marginTop: "10px",
-};
-
-const quickActionGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "8px",
-  marginTop: "12px",
-};
-
-const actionRowStyle: any = {
-  display: "flex",
-  gap: "8px",
-  flexWrap: "wrap",
-  marginTop: "12px",
-};
-
-const editButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "8px 10px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const deleteButtonStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "8px 10px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const waitButtonStyle: any = {
-  background: "#ca8a04",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "8px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const workButtonStyle: any = {
-  ...waitButtonStyle,
-  background: "#2563eb",
-};
-
-const doneButtonStyle: any = {
-  ...waitButtonStyle,
-  background: "#16a34a",
-};
-
-const rejectButtonStyle: any = {
-  ...waitButtonStyle,
-  background: "#7f1d1d",
-};
-
-const okBadgeStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const warningBadgeStyle: any = {
-  background: "#ca8a04",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const dangerBadgeStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const blueBadgeStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const grayBadgeStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
