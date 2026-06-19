@@ -144,7 +144,7 @@ export default function ProjektePage() {
 
     setSaving(true);
 
-    const payloads = [
+    const payloads: any[] = [
       {
         name: projektName,
         ort: form.ort.trim(),
@@ -193,7 +193,7 @@ export default function ProjektePage() {
     let lastError: any = null;
 
     for (const payload of payloads) {
-      const { error } = await supabase.from(tableName).insert(payload);
+      const { error } = await supabase.from(tableName).insert(payload as any);
 
       if (!error) {
         setForm({
@@ -224,7 +224,7 @@ export default function ProjektePage() {
 
     const { error } = await supabase
       .from(tableName)
-      .update({ status: newStatus })
+      .update({ status: newStatus } as any)
       .eq("id", p.id);
 
     if (error) {
@@ -489,7 +489,7 @@ export default function ProjektePage() {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         .page {
           min-height: 100vh;
           background: #050505;
