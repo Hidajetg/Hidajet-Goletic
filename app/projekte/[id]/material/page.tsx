@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
@@ -19,12 +19,14 @@ function getTodayLocalDate() {
 export default function ProjektMaterialPage() {
   const params = useParams();
   const router = useRouter();
+  const savingRef = useRef(false);
 
   const projektId = String(params.id);
 
   const [workerName, setWorkerName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [projekt, setProjekt] = useState<any>(null);
   const [raeume, setRaeume] = useState<any[]>([]);
@@ -53,34 +55,97 @@ export default function ProjektMaterialPage() {
   const [bewegungPositionId, setBewegungPositionId] = useState("");
   const [bewegungNotiz, setBewegungNotiz] = useState("");
 
+  const [filterMaterial, setFilterMaterial] = useState("Alle");
+  const [filterTyp, setFilterTyp] = useState("Alle");
+  const [filterDatum, setFilterDatum] = useState("");
+
+  const materialRows = useMemo(() => {
+    return materialien
+      .map((mat) => {
+        const entries = bewegungen.filter(
+          (b) => Number(b.material_id) === Number(mat.id)
+        );
+
+        const zugang = entries
+          .filter((b) => b.typ === "Zugang")
+          .reduce((sum, b) => sum + Number(b.menge || 0), 0);
+
+        const verbrauch = entries
+          .filter((b) => b.typ === "Verbrauch")
+          .reduce((sum, b) => sum + Number(b.menge || 0), 0);
+
+        const rueckgabe = entries
+          .filter((b) => b.typ === "Rückgabe")
+          .reduce((sum, b) => sum + Number(b.menge || 0), 0);
+
+        const plan = Number(mat.menge_plan || 0);
+        const mindest = Number(mat.mindestbestand || 0);
+        const rest = plan + zugang + rueckgabe - verbrauch;
+
+        return {
+          ...mat,
+          plan,
+          zugang,
+          verbrauch,
+          rueckgabe,
+          rest,
+          mindest,
+          warnung: mindest > 0 && rest <= mindest,
+        };
+      })
+      .sort((a, b) => String(a.material_name || "").localeCompare(String(b.material_name || "")));
+  }, [materialien, bewegungen]);
+
+  const filteredBewegungen = useMemo(() => {
+    return bewegungen
+      .filter((item) => {
+        if (filterMaterial !== "Alle" && String(item.material_id || "") !== filterMaterial)
+          return false;
+
+        if (filterTyp !== "Alle" && item.typ !== filterTyp) return false;
+
+        if (filterDatum && item.datum !== filterDatum) return false;
+
+        return true;
+      })
+      .sort((a, b) => {
+        const dateA = String(a.datum || "");
+        const dateB = String(b.datum || "");
+
+        if (dateA !== dateB) return dateB.localeCompare(dateA);
+
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+
+        return timeB - timeA;
+      });
+  }, [bewegungen, filterMaterial, filterTyp, filterDatum]);
+
   const summary = useMemo(() => {
-    let plan = 0;
-    let zugang = 0;
-    let verbrauch = 0;
-    let rueckgabe = 0;
-
-    materialien.forEach((mat) => {
-      plan += Number(mat.menge_plan || 0);
-    });
-
-    bewegungen.forEach((b) => {
-      const menge = Number(b.menge || 0);
-
-      if (b.typ === "Zugang") zugang += menge;
-      if (b.typ === "Verbrauch") verbrauch += menge;
-      if (b.typ === "Rückgabe") rueckgabe += menge;
-    });
+    const plan = materialRows.reduce((sum, m) => sum + Number(m.plan || 0), 0);
+    const zugang = materialRows.reduce((sum, m) => sum + Number(m.zugang || 0), 0);
+    const verbrauch = materialRows.reduce(
+      (sum, m) => sum + Number(m.verbrauch || 0),
+      0
+    );
+    const rueckgabe = materialRows.reduce(
+      (sum, m) => sum + Number(m.rueckgabe || 0),
+      0
+    );
+    const rest = materialRows.reduce((sum, m) => sum + Number(m.rest || 0), 0);
+    const warnungen = materialRows.filter((m) => m.warnung).length;
 
     return {
-      materialCount: materialien.length,
-      bewegungCount: bewegungen.length,
+      materialien: materialien.length,
+      bewegungen: bewegungen.length,
       plan,
       zugang,
       verbrauch,
       rueckgabe,
-      rest: plan + zugang + rueckgabe - verbrauch,
+      rest,
+      warnungen,
     };
-  }, [materialien, bewegungen]);
+  }, [materialRows, materialien, bewegungen]);
 
   useEffect(() => {
     const name = localStorage.getItem("worker_name");
@@ -99,7 +164,6 @@ export default function ProjektMaterialPage() {
 
     setWorkerName(name);
     setIsAdmin(adminStatus);
-
     loadData();
   }, [router, projektId]);
 
@@ -139,7 +203,6 @@ export default function ProjektMaterialPage() {
       .from("projekt_lv_positionen")
       .select("*")
       .eq("projekt_id", Number(projektId))
-      .eq("aktiv", true)
       .order("position_nr", { ascending: true });
 
     if (positionenRes.error) {
@@ -158,7 +221,7 @@ export default function ProjektMaterialPage() {
       .order("material_name", { ascending: true });
 
     if (materialRes.error) {
-      alert("Greška kod učitavanja materiala: " + materialRes.error.message);
+      alert("Greška kod učitavanja materijala: " + materialRes.error.message);
       setMaterialien([]);
       setLoading(false);
       return;
@@ -174,9 +237,7 @@ export default function ProjektMaterialPage() {
       .order("created_at", { ascending: false });
 
     if (bewegungRes.error) {
-      alert(
-        "Greška kod učitavanja material kretanja: " + bewegungRes.error.message
-      );
+      alert("Greška kod učitavanja kretanja materijala: " + bewegungRes.error.message);
       setBewegungen([]);
       setLoading(false);
       return;
@@ -184,99 +245,6 @@ export default function ProjektMaterialPage() {
 
     setBewegungen(bewegungRes.data || []);
     setLoading(false);
-  }
-
-  function parseNumber(value: string) {
-    const num = parseFloat(String(value || "0").replace(",", "."));
-    return Number.isNaN(num) ? 0 : num;
-  }
-
-  function formatNumber(value: any, digits = 2) {
-    const num = Number(value || 0);
-
-    return num.toLocaleString("de-AT", {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    });
-  }
-
-  function formatDate(value: string | null) {
-    if (!value) return "-";
-
-    const parts = String(value).split("-");
-    if (parts.length === 3) {
-      return `${parts[2]}.${parts[1]}.${parts[0]}`;
-    }
-
-    return value;
-  }
-
-  function getMaterial(id: number | string | null) {
-    if (!id) return null;
-    return materialien.find((m) => String(m.id) === String(id)) || null;
-  }
-
-  function getMaterialName(id: number | string | null) {
-    const mat = getMaterial(id);
-    if (!mat) return "-";
-    return mat.material_name;
-  }
-
-  function getMaterialEinheit(id: number | string | null) {
-    const mat = getMaterial(id);
-    if (!mat) return "";
-    return mat.einheit || "";
-  }
-
-  function getRaumName(id: number | null) {
-    if (!id) return "-";
-
-    const raum = raeume.find((r) => Number(r.id) === Number(id));
-
-    if (!raum) return "-";
-
-    return `${raum.ebene ? raum.ebene + " - " : ""}${raum.raum_name}`;
-  }
-
-  function getPositionText(id: number | null) {
-    if (!id) return "-";
-
-    const pos = positionen.find((p) => Number(p.id) === Number(id));
-
-    if (!pos) return "-";
-
-    return `${pos.position_nr} - ${pos.kurztext}`;
-  }
-
-  function getStatsForMaterial(materialId: number) {
-    const mat = materialien.find((m) => Number(m.id) === Number(materialId));
-    const entries = bewegungen.filter(
-      (b) => Number(b.material_id) === Number(materialId)
-    );
-
-    let zugang = 0;
-    let verbrauch = 0;
-    let rueckgabe = 0;
-
-    entries.forEach((b) => {
-      const menge = Number(b.menge || 0);
-
-      if (b.typ === "Zugang") zugang += menge;
-      if (b.typ === "Verbrauch") verbrauch += menge;
-      if (b.typ === "Rückgabe") rueckgabe += menge;
-    });
-
-    const plan = Number(mat?.menge_plan || 0);
-    const rest = plan + zugang + rueckgabe - verbrauch;
-
-    return {
-      plan,
-      zugang,
-      verbrauch,
-      rueckgabe,
-      rest,
-      mindestbestand: Number(mat?.mindestbestand || 0),
-    };
   }
 
   function clearMaterialForm() {
@@ -300,21 +268,113 @@ export default function ProjektMaterialPage() {
     setBewegungNotiz("");
   }
 
+  function parseNumber(value: any) {
+    const num = parseFloat(String(value || "0").replace(",", "."));
+    return Number.isNaN(num) ? 0 : num;
+  }
+
+  function formatNumber(value: any, digits = 2) {
+    const num = Number(value || 0);
+
+    return num.toLocaleString("de-AT", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
+  }
+
+  function formatDate(value: string | null) {
+    if (!value) return "-";
+
+    const parts = String(value).slice(0, 10).split("-");
+    if (parts.length === 3) {
+      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+
+    return value;
+  }
+
+  function formatDateTime(value: string | null) {
+    if (!value) return "-";
+
+    const d = new Date(value);
+
+    if (Number.isNaN(d.getTime())) {
+      return String(value);
+    }
+
+    return d.toLocaleString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function getMaterial(id: number | string | null) {
+    if (!id) return null;
+    return materialien.find((m) => String(m.id) === String(id)) || null;
+  }
+
+  function getMaterialRow(id: number | string | null) {
+    if (!id) return null;
+    return materialRows.find((m) => String(m.id) === String(id)) || null;
+  }
+
+  function getMaterialName(id: number | string | null) {
+    const mat = getMaterial(id);
+    if (!mat) return "-";
+
+    return mat.material_name || "-";
+  }
+
+  function getMaterialEinheit(id: number | string | null) {
+    const mat = getMaterial(id);
+    if (!mat) return "";
+
+    return mat.einheit || "";
+  }
+
+  function getRaumName(id: number | string | null) {
+    if (!id) return "-";
+
+    const raum = raeume.find((r) => String(r.id) === String(id));
+    if (!raum) return "-";
+
+    return `${raum.ebene ? raum.ebene + " - " : ""}${raum.raum_name}`;
+  }
+
+  function getPositionText(id: number | string | null) {
+    if (!id) return "-";
+
+    const pos = positionen.find((p) => String(p.id) === String(id));
+    if (!pos) return "-";
+
+    return `${pos.position_nr} - ${pos.kurztext}`;
+  }
+
   async function saveMaterial() {
+    if (savingRef.current) return;
+
     if (!materialName.trim()) {
-      alert("Unesi naziv materiala.");
+      alert("Unesi naziv materijala.");
       return;
     }
 
-    const payload = {
+    const plan = parseNumber(mengePlan);
+    const mindest = parseNumber(mindestbestand);
+
+    savingRef.current = true;
+    setSaving(true);
+
+    const payload: any = {
       projekt_id: Number(projektId),
       material_name: materialName.trim(),
       gruppe: gruppe.trim() || null,
-      einheit: einheit || "Stk.",
-      menge_plan: parseNumber(mengePlan),
-      mindestbestand: parseNumber(mindestbestand),
+      einheit: einheit.trim() || "Stk.",
+      menge_plan: plan,
+      mindestbestand: mindest,
       notiz: materialNotiz.trim() || null,
-      created_by: workerName,
     };
 
     if (editingMaterialId) {
@@ -324,95 +384,107 @@ export default function ProjektMaterialPage() {
         .eq("id", editingMaterialId);
 
       if (error) {
-        alert("Greška kod izmjene materiala: " + error.message);
+        alert("Greška kod izmjene materijala: " + error.message);
+        savingRef.current = false;
+        setSaving(false);
         return;
       }
     } else {
+      payload.created_by = workerName;
+
       const { error } = await supabase.from("projekt_materialien").insert(payload);
 
       if (error) {
-        alert("Greška kod dodavanja materiala: " + error.message);
+        alert("Greška kod dodavanja materijala: " + error.message);
+        savingRef.current = false;
+        setSaving(false);
         return;
       }
     }
 
     clearMaterialForm();
     setShowMaterialForm(false);
-    loadData();
+    await loadData();
+
+    savingRef.current = false;
+    setSaving(false);
   }
 
-  function editMaterial(mat: any) {
-    setEditingMaterialId(mat.id);
-    setMaterialName(mat.material_name || "");
-    setGruppe(mat.gruppe || "");
-    setEinheit(mat.einheit || "Stk.");
-    setMengePlan(String(mat.menge_plan ?? ""));
-    setMindestbestand(String(mat.mindestbestand ?? ""));
-    setMaterialNotiz(mat.notiz || "");
+  function editMaterial(item: any) {
+    setEditingMaterialId(item.id);
+    setMaterialName(item.material_name || "");
+    setGruppe(item.gruppe || "");
+    setEinheit(item.einheit || "Stk.");
+    setMengePlan(String(item.menge_plan || ""));
+    setMindestbestand(String(item.mindestbestand || ""));
+    setMaterialNotiz(item.notiz || "");
     setShowMaterialForm(true);
     setShowBewegungForm(false);
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function deleteMaterial(id: number) {
-    const ok = confirm(
-      "Da li sigurno želiš obrisati ovaj material? Sva kretanja za ovaj material će biti obrisana."
+  async function deleteMaterial(item: any) {
+    const related = bewegungen.filter(
+      (b) => Number(b.material_id) === Number(item.id)
     );
+
+    if (related.length > 0) {
+      alert(
+        "Ovaj materijal ima kretanja. Prvo obriši kretanja materijala pa onda materijal."
+      );
+      return;
+    }
+
+    const ok = confirm("Da li sigurno želiš obrisati ovaj materijal?");
 
     if (!ok) return;
 
     const { error } = await supabase
       .from("projekt_materialien")
       .delete()
-      .eq("id", id);
+      .eq("id", item.id);
 
     if (error) {
-      alert("Greška kod brisanja materiala: " + error.message);
+      alert("Greška kod brisanja materijala: " + error.message);
       return;
     }
 
     loadData();
   }
 
-  function onSelectMaterialForBewegung(id: string) {
-    setBewegungMaterialId(id);
-
-    const mat = getMaterial(id);
-
-    if (mat) {
-      setEinheit(mat.einheit || "Stk.");
-    }
-  }
-
   async function saveBewegung() {
+    if (savingRef.current) return;
+
     if (!bewegungDatum) {
       alert("Odaberi datum.");
       return;
     }
 
     if (!bewegungMaterialId) {
-      alert("Odaberi material.");
+      alert("Odaberi materijal.");
       return;
     }
 
-    const mengeNumber = parseNumber(bewegungMenge);
+    const menge = parseNumber(bewegungMenge);
 
-    if (mengeNumber <= 0) {
-      alert("Menge mora biti veća od 0.");
+    if (!menge || menge <= 0) {
+      alert("Unesi ispravnu količinu.");
       return;
     }
 
-    const payload = {
+    savingRef.current = true;
+    setSaving(true);
+
+    const payload: any = {
       projekt_id: Number(projektId),
       material_id: Number(bewegungMaterialId),
       datum: bewegungDatum,
       typ: bewegungTyp,
-      menge: mengeNumber,
+      menge,
       raum_id: bewegungRaumId ? Number(bewegungRaumId) : null,
       lv_position_id: bewegungPositionId ? Number(bewegungPositionId) : null,
       notiz: bewegungNotiz.trim() || null,
-      created_by: workerName,
     };
 
     if (editingBewegungId) {
@@ -423,22 +495,31 @@ export default function ProjektMaterialPage() {
 
       if (error) {
         alert("Greška kod izmjene kretanja: " + error.message);
+        savingRef.current = false;
+        setSaving(false);
         return;
       }
     } else {
+      payload.created_by = workerName;
+
       const { error } = await supabase
         .from("projekt_material_bewegungen")
         .insert(payload);
 
       if (error) {
         alert("Greška kod dodavanja kretanja: " + error.message);
+        savingRef.current = false;
+        setSaving(false);
         return;
       }
     }
 
     clearBewegungForm();
     setShowBewegungForm(false);
-    loadData();
+    await loadData();
+
+    savingRef.current = false;
+    setSaving(false);
   }
 
   function editBewegung(item: any) {
@@ -446,7 +527,7 @@ export default function ProjektMaterialPage() {
     setBewegungDatum(item.datum || getTodayLocalDate());
     setBewegungMaterialId(item.material_id ? String(item.material_id) : "");
     setBewegungTyp(item.typ || "Verbrauch");
-    setBewegungMenge(String(item.menge ?? ""));
+    setBewegungMenge(String(item.menge || ""));
     setBewegungRaumId(item.raum_id ? String(item.raum_id) : "");
     setBewegungPositionId(item.lv_position_id ? String(item.lv_position_id) : "");
     setBewegungNotiz(item.notiz || "");
@@ -456,15 +537,15 @@ export default function ProjektMaterialPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function deleteBewegung(id: number) {
-    const ok = confirm("Da li sigurno želiš obrisati ovo material kretanje?");
+  async function deleteBewegung(item: any) {
+    const ok = confirm("Da li sigurno želiš obrisati ovo kretanje materijala?");
 
     if (!ok) return;
 
     const { error } = await supabase
       .from("projekt_material_bewegungen")
       .delete()
-      .eq("id", id);
+      .eq("id", item.id);
 
     if (error) {
       alert("Greška kod brisanja kretanja: " + error.message);
@@ -472,6 +553,14 @@ export default function ProjektMaterialPage() {
     }
 
     loadData();
+  }
+
+  function getTypStyle(typ: string) {
+    if (typ === "Zugang") return okBadgeStyle;
+    if (typ === "Rückgabe") return blueBadgeStyle;
+    if (typ === "Korrektur") return grayBadgeStyle;
+
+    return warningBadgeStyle;
   }
 
   if (loading) {
@@ -502,16 +591,21 @@ export default function ProjektMaterialPage() {
           ← Zurück zum Projekt
         </Link>
 
-        <div style={topButtonRowStyle}>
+        <div style={topButtonWrapStyle}>
+          <button onClick={loadData} style={refreshButtonStyle}>
+            Aktualisieren
+          </button>
+
           <button
             onClick={() => {
               clearMaterialForm();
               setShowMaterialForm(!showMaterialForm);
               setShowBewegungForm(false);
             }}
+            disabled={saving}
             style={newButtonStyle}
           >
-            {showMaterialForm ? "Schließen" : "+ Material"}
+            {showMaterialForm ? "Material schließen" : "+ Material"}
           </button>
 
           <button
@@ -520,9 +614,10 @@ export default function ProjektMaterialPage() {
               setShowBewegungForm(!showBewegungForm);
               setShowMaterialForm(false);
             }}
-            style={blueButtonStyle}
+            disabled={saving}
+            style={orangeButtonStyle}
           >
-            {showBewegungForm ? "Schließen" : "+ Bewegung"}
+            {showBewegungForm ? "Bewegung schließen" : "+ Bewegung"}
           </button>
         </div>
       </div>
@@ -530,29 +625,61 @@ export default function ProjektMaterialPage() {
       <h1 style={titleStyle}>🧱 Material</h1>
 
       <p style={descriptionStyle}>
-        Projekt: <strong>{projekt?.project_name || "-"}</strong>
+        Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
+        <strong>{workerName}</strong>
       </p>
 
       <section style={summaryGridStyle}>
         <div style={summaryCardStyle}>
           <span style={summaryLabelStyle}>Materialien</span>
-          <strong style={summaryValueStyle}>{summary.materialCount}</strong>
+          <strong style={summaryValueStyle}>{summary.materialien}</strong>
         </div>
 
         <div style={summaryCardStyle}>
           <span style={summaryLabelStyle}>Bewegungen</span>
-          <strong style={summaryValueStyle}>{summary.bewegungCount}</strong>
+          <strong style={summaryValueStyle}>{summary.bewegungen}</strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Plan Gesamt</span>
+          <span style={summaryLabelStyle}>Plan Menge</span>
           <strong style={summaryValueStyle}>{formatNumber(summary.plan)}</strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Verbrauch Gesamt</span>
-          <strong style={summaryValueStyle}>
+          <span style={summaryLabelStyle}>Zugang</span>
+          <strong style={{ ...summaryValueStyle, color: "#22c55e" }}>
+            {formatNumber(summary.zugang)}
+          </strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Verbrauch</span>
+          <strong style={{ ...summaryValueStyle, color: "#f97316" }}>
             {formatNumber(summary.verbrauch)}
+          </strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Rückgabe</span>
+          <strong style={{ ...summaryValueStyle, color: "#3b82f6" }}>
+            {formatNumber(summary.rueckgabe)}
+          </strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Rest</span>
+          <strong style={summaryValueStyle}>{formatNumber(summary.rest)}</strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Warnungen</span>
+          <strong
+            style={{
+              ...summaryValueStyle,
+              color: summary.warnungen > 0 ? "#ef4444" : "#22c55e",
+            }}
+          >
+            {summary.warnungen}
           </strong>
         </div>
       </section>
@@ -560,9 +687,9 @@ export default function ProjektMaterialPage() {
       <section style={infoBoxStyle}>
         <h2 style={sectionTitleStyle}>Material Regel</h2>
         <p style={infoTextStyle}>
-          Material wird zuerst als Plan angelegt. Danach werden Bewegungen
-          erfasst: Zugang, Verbrauch oder Rückgabe. Verbrauch kann optional einem
-          Raum und einer LV Position zugeordnet werden.
+          Material ima planiranu količinu. Kretanja su Zugang, Verbrauch, Rückgabe
+          ili Korrektur. Rest se računa automatski: Plan + Zugang + Rückgabe -
+          Verbrauch.
         </p>
       </section>
 
@@ -576,7 +703,7 @@ export default function ProjektMaterialPage() {
           <input
             value={materialName}
             onChange={(e) => setMaterialName(e.target.value)}
-            placeholder="z.B. Flexkleber C2TE S1"
+            placeholder="z.B. Fliesenkleber S1"
             style={inputStyle}
           />
 
@@ -593,32 +720,21 @@ export default function ProjektMaterialPage() {
 
             <div>
               <label style={labelStyle}>Einheit</label>
-              <select
+              <input
                 value={einheit}
                 onChange={(e) => setEinheit(e.target.value)}
+                placeholder="Stk. / kg / Sack / m²"
                 style={inputStyle}
-              >
-                <option value="Stk.">Stk.</option>
-                <option value="Sack">Sack</option>
-                <option value="kg">kg</option>
-                <option value="m²">m²</option>
-                <option value="m">m</option>
-                <option value="Liter">Liter</option>
-                <option value="Karton">Karton</option>
-                <option value="Tube">Tube</option>
-                <option value="Rolle">Rolle</option>
-                <option value="Palette">Palette</option>
-              </select>
+              />
             </div>
-          </div>
 
-          <div style={formGridStyle}>
             <div>
               <label style={labelStyle}>Plan Menge</label>
               <input
+                type="number"
+                step="0.01"
                 value={mengePlan}
                 onChange={(e) => setMengePlan(e.target.value)}
-                placeholder="z.B. 120"
                 style={inputStyle}
               />
             </div>
@@ -626,9 +742,10 @@ export default function ProjektMaterialPage() {
             <div>
               <label style={labelStyle}>Mindestbestand</label>
               <input
+                type="number"
+                step="0.01"
                 value={mindestbestand}
                 onChange={(e) => setMindestbestand(e.target.value)}
-                placeholder="z.B. 10"
                 style={inputStyle}
               />
             </div>
@@ -638,13 +755,25 @@ export default function ProjektMaterialPage() {
           <textarea
             value={materialNotiz}
             onChange={(e) => setMaterialNotiz(e.target.value)}
-            placeholder="Napomena za material"
+            placeholder="Napomena za materijal..."
             style={textareaStyle}
           />
 
           <div style={formButtonRowStyle}>
-            <button onClick={saveMaterial} style={saveButtonStyle}>
-              {editingMaterialId ? "Änderungen speichern" : "Material speichern"}
+            <button
+              onClick={saveMaterial}
+              disabled={saving}
+              style={{
+                ...saveButtonStyle,
+                opacity: saving ? 0.5 : 1,
+                cursor: saving ? "not-allowed" : "pointer",
+              }}
+            >
+              {saving
+                ? "Speichern..."
+                : editingMaterialId
+                ? "Änderungen speichern"
+                : "Material speichern"}
             </button>
 
             <button
@@ -652,6 +781,7 @@ export default function ProjektMaterialPage() {
                 clearMaterialForm();
                 setShowMaterialForm(false);
               }}
+              disabled={saving}
               style={cancelButtonStyle}
             >
               Abbrechen
@@ -666,129 +796,142 @@ export default function ProjektMaterialPage() {
             {editingBewegungId ? "Bewegung bearbeiten" : "Material Bewegung"}
           </h2>
 
-          {materialien.length === 0 ? (
-            <p style={warningStyle}>Prvo moraš dodati najmanje jedan material.</p>
-          ) : (
-            <>
-              <div style={formGridStyle}>
-                <div>
-                  <label style={labelStyle}>Datum *</label>
-                  <input
-                    type="date"
-                    value={bewegungDatum}
-                    onChange={(e) => setBewegungDatum(e.target.value)}
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div>
-                  <label style={labelStyle}>Material *</label>
-                  <select
-                    value={bewegungMaterialId}
-                    onChange={(e) => onSelectMaterialForBewegung(e.target.value)}
-                    style={inputStyle}
-                  >
-                    <option value="">Odaberi material</option>
-                    {materialien.map((mat) => (
-                      <option key={mat.id} value={mat.id}>
-                        {mat.material_name} | {mat.einheit}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={labelStyle}>Typ</label>
-                  <select
-                    value={bewegungTyp}
-                    onChange={(e) => setBewegungTyp(e.target.value)}
-                    style={inputStyle}
-                  >
-                    <option value="Zugang">Zugang</option>
-                    <option value="Verbrauch">Verbrauch</option>
-                    <option value="Rückgabe">Rückgabe</option>
-                  </select>
-                </div>
-              </div>
-
-              <label style={labelStyle}>Menge *</label>
+          <div style={formGridStyle}>
+            <div>
+              <label style={labelStyle}>Datum *</label>
               <input
-                value={bewegungMenge}
-                onChange={(e) => setBewegungMenge(e.target.value)}
-                placeholder="z.B. 5"
+                type="date"
+                value={bewegungDatum}
+                onChange={(e) => setBewegungDatum(e.target.value)}
                 style={inputStyle}
               />
+            </div>
 
-              <div style={formGridStyle}>
-                <div>
-                  <label style={labelStyle}>Raum</label>
-                  <select
-                    value={bewegungRaumId}
-                    onChange={(e) => setBewegungRaumId(e.target.value)}
-                    style={inputStyle}
-                  >
-                    <option value="">Ohne Raum</option>
-                    {raeume.map((raum) => (
-                      <option key={raum.id} value={raum.id}>
-                        {raum.ebene ? `${raum.ebene} - ` : ""}
-                        {raum.raum_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            <div>
+              <label style={labelStyle}>Typ</label>
+              <select
+                value={bewegungTyp}
+                onChange={(e) => setBewegungTyp(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="Zugang">Zugang</option>
+                <option value="Verbrauch">Verbrauch</option>
+                <option value="Rückgabe">Rückgabe</option>
+                <option value="Korrektur">Korrektur</option>
+              </select>
+            </div>
+          </div>
 
-                <div>
-                  <label style={labelStyle}>LV Position</label>
-                  <select
-                    value={bewegungPositionId}
-                    onChange={(e) => setBewegungPositionId(e.target.value)}
-                    style={inputStyle}
-                  >
-                    <option value="">Ohne LV Position</option>
-                    {positionen.map((pos) => (
-                      <option key={pos.id} value={pos.id}>
-                        {pos.position_nr} - {pos.kurztext}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+          <label style={labelStyle}>Material *</label>
+          <select
+            value={bewegungMaterialId}
+            onChange={(e) => setBewegungMaterialId(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Material auswählen</option>
+            {materialRows.map((mat) => (
+              <option key={mat.id} value={mat.id}>
+                {mat.material_name} · Rest {formatNumber(mat.rest)} {mat.einheit || ""}
+              </option>
+            ))}
+          </select>
 
-              <label style={labelStyle}>Notiz</label>
-              <textarea
-                value={bewegungNotiz}
-                onChange={(e) => setBewegungNotiz(e.target.value)}
-                placeholder="Napomena za kretanje"
-                style={textareaStyle}
-              />
-
-              <div style={formButtonRowStyle}>
-                <button onClick={saveBewegung} style={saveButtonStyle}>
-                  {editingBewegungId
-                    ? "Änderungen speichern"
-                    : "Bewegung speichern"}
-                </button>
-
-                <button
-                  onClick={() => {
-                    clearBewegungForm();
-                    setShowBewegungForm(false);
-                  }}
-                  style={cancelButtonStyle}
-                >
-                  Abbrechen
-                </button>
-              </div>
-            </>
+          {bewegungMaterialId && (
+            <div style={previewBoxStyle}>
+              <strong>Aktueller Rest:</strong>{" "}
+              {formatNumber(getMaterialRow(bewegungMaterialId)?.rest || 0)}{" "}
+              {getMaterialEinheit(bewegungMaterialId)}
+            </div>
           )}
+
+          <div style={formGridStyle}>
+            <div>
+              <label style={labelStyle}>Menge *</label>
+              <input
+                type="number"
+                step="0.01"
+                value={bewegungMenge}
+                onChange={(e) => setBewegungMenge(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Raum</label>
+              <select
+                value={bewegungRaumId}
+                onChange={(e) => setBewegungRaumId(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">Ohne Raum</option>
+                {raeume.map((raum) => (
+                  <option key={raum.id} value={raum.id}>
+                    {raum.ebene ? `${raum.ebene} - ` : ""}
+                    {raum.raum_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <label style={labelStyle}>LV Position</label>
+          <select
+            value={bewegungPositionId}
+            onChange={(e) => setBewegungPositionId(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Ohne LV Position</option>
+            {positionen.map((pos) => (
+              <option key={pos.id} value={pos.id}>
+                {pos.position_nr} - {pos.kurztext}
+              </option>
+            ))}
+          </select>
+
+          <label style={labelStyle}>Notiz</label>
+          <textarea
+            value={bewegungNotiz}
+            onChange={(e) => setBewegungNotiz(e.target.value)}
+            placeholder="Napomena za kretanje materijala..."
+            style={textareaStyle}
+          />
+
+          <div style={formButtonRowStyle}>
+            <button
+              onClick={saveBewegung}
+              disabled={saving}
+              style={{
+                ...saveButtonStyle,
+                opacity: saving ? 0.5 : 1,
+                cursor: saving ? "not-allowed" : "pointer",
+              }}
+            >
+              {saving
+                ? "Speichern..."
+                : editingBewegungId
+                ? "Änderungen speichern"
+                : "Bewegung speichern"}
+            </button>
+
+            <button
+              onClick={() => {
+                clearBewegungForm();
+                setShowBewegungForm(false);
+              }}
+              disabled={saving}
+              style={cancelButtonStyle}
+            >
+              Abbrechen
+            </button>
+          </div>
         </section>
       )}
 
       <section style={listBoxStyle}>
         <h2 style={sectionTitleStyle}>Material Übersicht</h2>
 
-        {materialien.length === 0 ? (
-          <p style={emptyStyle}>Noch kein Material vorhanden.</p>
+        {materialRows.length === 0 ? (
+          <p style={emptyStyle}>Kein Material vorhanden.</p>
         ) : (
           <div style={tableWrapStyle}>
             <table style={tableStyle}>
@@ -796,133 +939,49 @@ export default function ProjektMaterialPage() {
                 <tr>
                   <th style={thStyle}>Material</th>
                   <th style={thStyle}>Gruppe</th>
-                  <th style={thStyle}>Einheit</th>
-                  <th style={thStyle}>Plan</th>
-                  <th style={thStyle}>Zugang</th>
-                  <th style={thStyle}>Verbrauch</th>
-                  <th style={thStyle}>Rückgabe</th>
-                  <th style={thStyle}>Rest</th>
+                  <th style={thStyle}>EH</th>
+                  <th style={thRightStyle}>Plan</th>
+                  <th style={thRightStyle}>Zugang</th>
+                  <th style={thRightStyle}>Verbrauch</th>
+                  <th style={thRightStyle}>Rückgabe</th>
+                  <th style={thRightStyle}>Rest</th>
+                  <th style={thRightStyle}>Mindest</th>
                   <th style={thStyle}>Status</th>
                   <th style={thStyle}>Aktion</th>
                 </tr>
               </thead>
 
               <tbody>
-                {materialien.map((mat) => {
-                  const stats = getStatsForMaterial(mat.id);
-                  const low =
-                    stats.mindestbestand > 0 && stats.rest <= stats.mindestbestand;
-
-                  return (
-                    <tr key={mat.id}>
-                      <td style={tdStyle}>
-                        <strong>{mat.material_name}</strong>
-                        {mat.notiz && (
-                          <>
-                            <br />
-                            <span style={smallTextStyle}>{mat.notiz}</span>
-                          </>
-                        )}
-                      </td>
-
-                      <td style={tdStyle}>{mat.gruppe || "-"}</td>
-                      <td style={tdStyle}>{mat.einheit || "-"}</td>
-                      <td style={tdRightStyle}>{formatNumber(stats.plan)}</td>
-                      <td style={tdRightStyle}>{formatNumber(stats.zugang)}</td>
-                      <td style={tdRightStyle}>{formatNumber(stats.verbrauch)}</td>
-                      <td style={tdRightStyle}>{formatNumber(stats.rueckgabe)}</td>
-                      <td style={tdRightStyle}>
-                        <strong>{formatNumber(stats.rest)}</strong>
-                      </td>
-                      <td style={tdStyle}>
-                        <span style={low ? warningBadgeStyle : okBadgeStyle}>
-                          {low ? "Niedrig" : "OK"}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>
-                        <div style={actionRowStyle}>
-                          <button
-                            onClick={() => editMaterial(mat)}
-                            style={editButtonStyle}
-                          >
-                            Bearbeiten
-                          </button>
-
-                          <button
-                            onClick={() => deleteMaterial(mat.id)}
-                            style={deleteButtonStyle}
-                          >
-                            Löschen
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Material Bewegungen</h2>
-
-        {bewegungen.length === 0 ? (
-          <p style={emptyStyle}>Noch keine Material Bewegung vorhanden.</p>
-        ) : (
-          <div style={tableWrapStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Datum</th>
-                  <th style={thStyle}>Typ</th>
-                  <th style={thStyle}>Material</th>
-                  <th style={thStyle}>Menge</th>
-                  <th style={thStyle}>Einheit</th>
-                  <th style={thStyle}>Raum</th>
-                  <th style={thStyle}>LV Position</th>
-                  <th style={thStyle}>Notiz</th>
-                  <th style={thStyle}>Aktion</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {bewegungen.map((item) => (
-                  <tr key={item.id}>
-                    <td style={tdStyle}>{formatDate(item.datum)}</td>
+                {materialRows.map((mat) => (
+                  <tr key={mat.id}>
                     <td style={tdStyle}>
-                      <span
-                        style={
-                          item.typ === "Zugang"
-                            ? okBadgeStyle
-                            : item.typ === "Rückgabe"
-                            ? blueBadgeStyle
-                            : warningBadgeStyle
-                        }
-                      >
-                        {item.typ}
-                      </span>
+                      <strong>{mat.material_name}</strong>
+                      {mat.notiz && <div style={miniTextStyle}>{mat.notiz}</div>}
                     </td>
-                    <td style={tdStyle}>{getMaterialName(item.material_id)}</td>
+                    <td style={tdStyle}>{mat.gruppe || "-"}</td>
+                    <td style={tdStyle}>{mat.einheit || "-"}</td>
+                    <td style={tdRightStyle}>{formatNumber(mat.plan)}</td>
+                    <td style={tdRightStyle}>{formatNumber(mat.zugang)}</td>
+                    <td style={tdRightStyle}>{formatNumber(mat.verbrauch)}</td>
+                    <td style={tdRightStyle}>{formatNumber(mat.rueckgabe)}</td>
                     <td style={tdRightStyle}>
-                      <strong>{formatNumber(item.menge)}</strong>
+                      <strong>{formatNumber(mat.rest)}</strong>
                     </td>
-                    <td style={tdStyle}>{getMaterialEinheit(item.material_id)}</td>
-                    <td style={tdStyle}>{getRaumName(item.raum_id)}</td>
-                    <td style={tdStyle}>{getPositionText(item.lv_position_id)}</td>
-                    <td style={tdStyle}>{item.notiz || "-"}</td>
+                    <td style={tdRightStyle}>{formatNumber(mat.mindest)}</td>
+                    <td style={tdStyle}>
+                      {mat.warnung ? (
+                        <span style={dangerBadgeStyle}>Niedrig</span>
+                      ) : (
+                        <span style={okBadgeStyle}>OK</span>
+                      )}
+                    </td>
                     <td style={tdStyle}>
                       <div style={actionRowStyle}>
-                        <button
-                          onClick={() => editBewegung(item)}
-                          style={editButtonStyle}
-                        >
+                        <button onClick={() => editMaterial(mat)} style={editButtonStyle}>
                           Bearbeiten
                         </button>
-
                         <button
-                          onClick={() => deleteBewegung(item.id)}
+                          onClick={() => deleteMaterial(mat)}
                           style={deleteButtonStyle}
                         >
                           Löschen
@@ -933,6 +992,131 @@ export default function ProjektMaterialPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </section>
+
+      <section style={filterBoxStyle}>
+        <h2 style={sectionTitleStyle}>Bewegungen Filter</h2>
+
+        <div style={filterGridStyle}>
+          <div>
+            <label style={labelStyle}>Material Filter</label>
+            <select
+              value={filterMaterial}
+              onChange={(e) => setFilterMaterial(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="Alle">Alle Materialien</option>
+              {materialien.map((mat) => (
+                <option key={mat.id} value={mat.id}>
+                  {mat.material_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Typ Filter</label>
+            <select
+              value={filterTyp}
+              onChange={(e) => setFilterTyp(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="Alle">Alle</option>
+              <option value="Zugang">Zugang</option>
+              <option value="Verbrauch">Verbrauch</option>
+              <option value="Rückgabe">Rückgabe</option>
+              <option value="Korrektur">Korrektur</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Datum Filter</label>
+            <input
+              type="date"
+              value={filterDatum}
+              onChange={(e) => setFilterDatum(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          <button
+            onClick={() => {
+              setFilterMaterial("Alle");
+              setFilterTyp("Alle");
+              setFilterDatum("");
+            }}
+            style={grayButtonStyle}
+          >
+            Filter löschen
+          </button>
+        </div>
+      </section>
+
+      <section style={listBoxStyle}>
+        <h2 style={sectionTitleStyle}>Material Bewegungen</h2>
+
+        {filteredBewegungen.length === 0 ? (
+          <p style={emptyStyle}>Keine Bewegungen gefunden.</p>
+        ) : (
+          <div style={bewegungGridStyle}>
+            {filteredBewegungen.map((item) => (
+              <div key={item.id} style={bewegungCardStyle}>
+                <div style={cardTopStyle}>
+                  <span style={getTypStyle(item.typ)}>{item.typ || "-"}</span>
+                  <strong style={dateTextStyle}>{formatDate(item.datum)}</strong>
+                </div>
+
+                <h3 style={cardTitleStyle}>{getMaterialName(item.material_id)}</h3>
+
+                <div style={detailGridStyle}>
+                  <div>
+                    <span style={smallLabelStyle}>Menge</span>
+                    <strong>
+                      {formatNumber(item.menge)} {getMaterialEinheit(item.material_id)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span style={smallLabelStyle}>Raum</span>
+                    <strong>{getRaumName(item.raum_id)}</strong>
+                  </div>
+
+                  <div>
+                    <span style={smallLabelStyle}>LV Position</span>
+                    <strong>{getPositionText(item.lv_position_id)}</strong>
+                  </div>
+
+                  <div>
+                    <span style={smallLabelStyle}>Erstellt von</span>
+                    <strong>{item.created_by || "-"}</strong>
+                  </div>
+                </div>
+
+                {isAdmin && (
+                  <p style={metaTextStyle}>
+                    Zeit der Eingabe:{" "}
+                    <strong>{formatDateTime(item.created_at)}</strong>
+                  </p>
+                )}
+
+                {item.notiz && <p style={noteTextStyle}>{item.notiz}</p>}
+
+                <div style={actionRowStyle}>
+                  <button onClick={() => editBewegung(item)} style={editButtonStyle}>
+                    Bearbeiten
+                  </button>
+
+                  <button
+                    onClick={() => deleteBewegung(item)}
+                    style={deleteButtonStyle}
+                  >
+                    Löschen
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>
@@ -956,7 +1140,7 @@ const topBarStyle: any = {
   flexWrap: "wrap",
 };
 
-const topButtonRowStyle: any = {
+const topButtonWrapStyle: any = {
   display: "flex",
   gap: "10px",
   flexWrap: "wrap",
@@ -986,6 +1170,17 @@ const loadingStyle: any = {
   fontSize: "18px",
 };
 
+const refreshButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 18px",
+  fontSize: "15px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
 const newButtonStyle: any = {
   background: "#16a34a",
   color: "white",
@@ -997,14 +1192,14 @@ const newButtonStyle: any = {
   cursor: "pointer",
 };
 
-const blueButtonStyle: any = {
+const orangeButtonStyle: any = {
   ...newButtonStyle,
-  background: "#2563eb",
+  background: "#f97316",
 };
 
 const summaryGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
   gap: "12px",
   marginBottom: "20px",
 };
@@ -1064,7 +1259,7 @@ const sectionTitleStyle: any = {
 
 const formGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
   gap: "12px",
 };
 
@@ -1089,8 +1284,17 @@ const inputStyle: any = {
 
 const textareaStyle: any = {
   ...inputStyle,
-  minHeight: "95px",
+  minHeight: "100px",
   resize: "vertical",
+};
+
+const previewBoxStyle: any = {
+  marginTop: "12px",
+  background: "#000",
+  border: "1px solid #333",
+  borderRadius: "12px",
+  padding: "12px",
+  color: "#ddd",
 };
 
 const formButtonRowStyle: any = {
@@ -1122,20 +1326,37 @@ const cancelButtonStyle: any = {
   cursor: "pointer",
 };
 
-const warningStyle: any = {
-  background: "#7f1d1d",
-  border: "1px solid #dc2626",
-  color: "white",
-  borderRadius: "12px",
-  padding: "12px",
-};
-
 const listBoxStyle: any = {
   background: "#111",
   border: "1px solid #333",
   borderRadius: "16px",
   padding: "18px",
   marginBottom: "22px",
+};
+
+const filterBoxStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "16px",
+  padding: "18px",
+  marginBottom: "20px",
+};
+
+const filterGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gap: "12px",
+  alignItems: "end",
+};
+
+const grayButtonStyle: any = {
+  background: "#4b5563",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px",
+  fontWeight: "bold",
+  cursor: "pointer",
 };
 
 const emptyStyle: any = {
@@ -1162,6 +1383,11 @@ const thStyle: any = {
   whiteSpace: "nowrap",
 };
 
+const thRightStyle: any = {
+  ...thStyle,
+  textAlign: "right",
+};
+
 const tdStyle: any = {
   borderBottom: "1px solid #222",
   color: "#ddd",
@@ -1176,9 +1402,10 @@ const tdRightStyle: any = {
   whiteSpace: "nowrap",
 };
 
-const smallTextStyle: any = {
-  color: "#aaa",
+const miniTextStyle: any = {
+  color: "#999",
   fontSize: "12px",
+  marginTop: "4px",
 };
 
 const actionRowStyle: any = {
@@ -1207,6 +1434,70 @@ const deleteButtonStyle: any = {
   cursor: "pointer",
 };
 
+const bewegungGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+  gap: "14px",
+};
+
+const bewegungCardStyle: any = {
+  background: "#000",
+  border: "1px solid #333",
+  borderRadius: "16px",
+  padding: "14px",
+};
+
+const cardTopStyle: any = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "10px",
+  flexWrap: "wrap",
+};
+
+const dateTextStyle: any = {
+  color: "#ccc",
+  fontSize: "13px",
+};
+
+const cardTitleStyle: any = {
+  color: "#f97316",
+  margin: "12px 0 10px 0",
+  fontSize: "18px",
+};
+
+const detailGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "10px",
+  background: "#080808",
+  border: "1px solid #222",
+  borderRadius: "12px",
+  padding: "10px",
+};
+
+const smallLabelStyle: any = {
+  display: "block",
+  color: "#aaa",
+  fontSize: "12px",
+  marginBottom: "4px",
+};
+
+const metaTextStyle: any = {
+  color: "#aaa",
+  fontSize: "13px",
+  margin: "8px 0",
+};
+
+const noteTextStyle: any = {
+  color: "#ccc",
+  fontSize: "13px",
+  lineHeight: "1.4",
+  background: "#080808",
+  border: "1px solid #222",
+  borderRadius: "10px",
+  padding: "10px",
+};
+
 const okBadgeStyle: any = {
   background: "#16a34a",
   color: "white",
@@ -1227,8 +1518,28 @@ const warningBadgeStyle: any = {
   whiteSpace: "nowrap",
 };
 
+const dangerBadgeStyle: any = {
+  background: "#dc2626",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
 const blueBadgeStyle: any = {
   background: "#2563eb",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
+const grayBadgeStyle: any = {
+  background: "#4b5563",
   color: "white",
   borderRadius: "999px",
   padding: "5px 9px",
