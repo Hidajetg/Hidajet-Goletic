@@ -75,6 +75,7 @@ const translations: any = {
     noPhotos: "Keine Fotos vorhanden.",
     noTasks: "Keine Aufgaben vorhanden.",
     adminNote: "Admin Notiz",
+    entryTime: "Eingetragen am",
     deletePhoto: "Foto löschen",
 
     fortschritt: "Fortschritt",
@@ -174,6 +175,7 @@ const translations: any = {
     noPhotos: "Nema slika.",
     noTasks: "Nema zadataka.",
     adminNote: "Admin napomena",
+    entryTime: "Vrijeme unosa",
     deletePhoto: "Obriši sliku",
 
     fortschritt: "Napredak",
@@ -273,6 +275,7 @@ const translations: any = {
     noPhotos: "Rasm yo‘q.",
     noTasks: "Vazifa yo‘q.",
     adminNote: "Admin eslatmasi",
+    entryTime: "Kiritilgan vaqt",
     deletePhoto: "Rasmni o‘chirish",
 
     fortschritt: "Jarayon",
@@ -372,6 +375,7 @@ const translations: any = {
     noPhotos: "No photos available.",
     noTasks: "No tasks available.",
     adminNote: "Admin note",
+    entryTime: "Entry time",
     deletePhoto: "Delete photo",
 
     fortschritt: "Progress",
@@ -422,12 +426,16 @@ export default function RadnikProjektDetailPage() {
   const projektId = String(params.id);
 
   const [workerName, setWorkerName] = useState("");
+  const [userRole, setUserRole] = useState("");
   const [lang, setLang] = useState("ba");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const t = translations[lang] || translations.ba;
+  const isAdmin =
+    userRole === "admin" ||
+    ["Admin", "Hido", "Steffi"].includes(String(workerName || "").trim());
 
   const [projekt, setProjekt] = useState<any>(null);
   const [raeume, setRaeume] = useState<any[]>([]);
@@ -522,6 +530,11 @@ export default function RadnikProjektDetailPage() {
 
   useEffect(() => {
     const name = localStorage.getItem("worker_name");
+    const savedRole =
+      localStorage.getItem("role") ||
+      localStorage.getItem("worker_role") ||
+      localStorage.getItem("user_role") ||
+      "";
     const savedLang = localStorage.getItem("lang") || "ba";
 
     if (!name) {
@@ -530,6 +543,7 @@ export default function RadnikProjektDetailPage() {
     }
 
     setWorkerName(name);
+    setUserRole(savedRole);
     setLang(savedLang);
     loadBaseData(name, datum);
   }, [router, projektId]);
@@ -719,6 +733,24 @@ export default function RadnikProjektDetailPage() {
     }
 
     return value;
+  }
+
+  function formatDateTime(value: string | null | undefined) {
+    if (!value) return "-";
+
+    const d = new Date(value);
+
+    if (Number.isNaN(d.getTime())) {
+      return String(value);
+    }
+
+    return d.toLocaleString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   function getRaum(id: number | string | null) {
@@ -1173,6 +1205,16 @@ export default function RadnikProjektDetailPage() {
     return (
       <p style={adminNotizStyle}>
         {t.adminNote}: <strong>{value}</strong>
+      </p>
+    );
+  }
+
+  function EntryTime({ value }: { value: string | null | undefined }) {
+    if (!isAdmin || !value) return null;
+
+    return (
+      <p style={entryTimeStyle}>
+        {t.entryTime}: <strong>{formatDateTime(value)}</strong>
       </p>
     );
   }
@@ -1758,6 +1800,7 @@ export default function RadnikProjektDetailPage() {
               <p style={miniTextStyle}>
                 {t.workType}: {z.arbeitsart || "-"}
               </p>
+              <EntryTime value={z.created_at} />
               <AdminNotiz value={z.admin_notiz} />
             </div>
           ))
@@ -1783,6 +1826,7 @@ export default function RadnikProjektDetailPage() {
               <p style={miniTextStyle}>
                 {t.lvPosition}: {getPositionText(l.lv_position_id)}
               </p>
+              <EntryTime value={l.created_at} />
               <AdminNotiz value={l.admin_notiz} />
             </div>
           ))
@@ -1808,6 +1852,7 @@ export default function RadnikProjektDetailPage() {
                 {t.room}: {getRaumName(r.raum_id)}
               </p>
               <p style={miniTextStyle}>{r.beschreibung}</p>
+              <EntryTime value={r.created_at} />
               <AdminNotiz value={r.admin_notiz} />
             </div>
           ))
@@ -1841,6 +1886,7 @@ export default function RadnikProjektDetailPage() {
                   <p style={miniTextStyle}>
                     {t.room}: {getRaumName(foto.raum_id)}
                   </p>
+                  <EntryTime value={foto.created_at} />
                   <AdminNotiz value={foto.admin_notiz} />
 
                   <button
@@ -1875,6 +1921,7 @@ export default function RadnikProjektDetailPage() {
               <p style={miniTextStyle}>
                 {t.room}: {getRaumName(a.raum_id)}
               </p>
+              <EntryTime value={a.created_at} />
               <AdminNotiz value={a.admin_notiz} />
             </div>
           ))
@@ -2157,6 +2204,16 @@ const miniTextStyle: any = {
   color: "#ccc",
   fontSize: "13px",
   margin: "5px 0",
+};
+
+const entryTimeStyle: any = {
+  color: "#93c5fd",
+  background: "#071525",
+  border: "1px solid #1d4ed8",
+  borderRadius: "10px",
+  padding: "8px",
+  fontSize: "13px",
+  marginTop: "8px",
 };
 
 const adminNotizStyle: any = {
