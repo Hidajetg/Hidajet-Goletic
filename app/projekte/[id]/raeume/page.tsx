@@ -1,1347 +1,983 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-const ADMINI = ["Hido", "Steffi", "Admin"];
+type Projekt = {
+  id: number | string;
+  project_name?: string | null;
+  name?: string | null;
+  naziv?: string | null;
+  ort?: string | null;
+  adresse?: string | null;
+  status?: string | null;
+  [key: string]: any;
+};
 
-const STANDARD_POSITIONEN = [
-  {
-    position_nr: "01",
-    kurztext: "Keramika",
-    einheit: "m²",
-    menge_soll: 0,
-    minuten_pro_einheit: 60,
-    positionspreis: 0,
-  },
-  {
-    position_nr: "02",
-    kurztext: "Priprema podloge",
-    einheit: "m²",
-    menge_soll: 0,
-    minuten_pro_einheit: 15,
-    positionspreis: 0,
-  },
-  {
-    position_nr: "03",
-    kurztext: "Estrich",
-    einheit: "m²",
-    menge_soll: 0,
-    minuten_pro_einheit: 30,
-    positionspreis: 0,
-  },
-  {
-    position_nr: "04",
-    kurztext: "Hidroizolacija",
-    einheit: "m²",
-    menge_soll: 0,
-    minuten_pro_einheit: 20,
-    positionspreis: 0,
-  },
-  {
-    position_nr: "05",
-    kurztext: "Ljepilo",
-    einheit: "Sack",
-    menge_soll: 0,
-    minuten_pro_einheit: 0,
-    positionspreis: 0,
-  },
-  {
-    position_nr: "06",
-    kurztext: "Schienen",
-    einheit: "lfm",
-    menge_soll: 0,
-    minuten_pro_einheit: 10,
-    positionspreis: 0,
-  },
-  {
-    position_nr: "07",
-    kurztext: "Fuge",
-    einheit: "m²",
-    menge_soll: 0,
-    minuten_pro_einheit: 12,
-    positionspreis: 0,
-  },
-  {
-    position_nr: "08",
-    kurztext: "Silikoni",
-    einheit: "lfm",
-    menge_soll: 0,
-    minuten_pro_einheit: 8,
-    positionspreis: 0,
-  },
-  {
-    position_nr: "09",
-    kurztext: "Terase",
-    einheit: "m²",
-    menge_soll: 0,
-    minuten_pro_einheit: 75,
-    positionspreis: 0,
-  },
-  {
-    position_nr: "10",
-    kurztext: "Dodaci",
-    einheit: "Stk.",
-    menge_soll: 0,
-    minuten_pro_einheit: 0,
-    positionspreis: 0,
-  },
-];
+type RoomTableConfig = {
+  table: string;
+  column: string;
+};
 
-export default function ProjektPositionenPage() {
+export default function ProjektRaeumePage() {
   const params = useParams();
-  const router = useRouter();
-  const savingRef = useRef(false);
-
   const projektId = String(params.id);
 
-  const [workerName, setWorkerName] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [errorText, setErrorText] = useState("");
 
-  const [projekt, setProjekt] = useState<any>(null);
-  const [positionen, setPositionen] = useState<any[]>([]);
+  const [projekt, setProjekt] = useState<Projekt | null>(null);
+  const [raeume, setRaeume] = useState<any[]>([]);
+  const [roomConfig, setRoomConfig] = useState<RoomTableConfig>({
+    table: "projekt_raeume",
+    column: "projekt_id",
+  });
 
-  const [arbeitszeiten, setArbeitszeiten] = useState<any[]>([]);
-  const [leistungen, setLeistungen] = useState<any[]>([]);
-  const [fotos, setFotos] = useState<any[]>([]);
-  const [aufgaben, setAufgaben] = useState<any[]>([]);
-  const [materialBewegungen, setMaterialBewegungen] = useState<any[]>([]);
-
+  const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<number | string | null>(null);
 
-  const [positionNr, setPositionNr] = useState("");
-  const [kurztext, setKurztext] = useState("");
-  const [einheit, setEinheit] = useState("m²");
-  const [mengeSoll, setMengeSoll] = useState("");
-  const [minutenProEinheit, setMinutenProEinheit] = useState("");
-  const [positionspreis, setPositionspreis] = useState("");
-  const [aktiv, setAktiv] = useState(true);
-
-  const [searchText, setSearchText] = useState("");
-  const [filterStatus, setFilterStatus] = useState("Alle");
-
-  const positionRows = useMemo(() => {
-    return positionen
-      .map((pos) => {
-        const usage = getPositionUsage(pos.id);
-
-        const mengeSollNum = Number(pos.menge_soll || 0);
-        const minuten = Number(pos.minuten_pro_einheit || 0);
-        const preis = Number(pos.positionspreis || 0);
-
-        const planStunden = (mengeSollNum * minuten) / 60;
-        const planWert = mengeSollNum * preis;
-
-        const leistungListe = leistungen.filter(
-          (x) => Number(x.lv_position_id) === Number(pos.id)
-        );
-
-        const istMenge = leistungListe.reduce(
-          (sum, x) => sum + Number(x.menge_ist || 0) * Number(x.faktor || 1),
-          0
-        );
-
-        const genehmigtMenge = leistungListe
-          .filter((x) => x.status === "Genehmigt")
-          .reduce(
-            (sum, x) => sum + Number(x.menge_ist || 0) * Number(x.faktor || 1),
-            0
-          );
-
-        const arbeitszeitStunden = arbeitszeiten
-          .filter((x) => Number(x.lv_position_id) === Number(pos.id))
-          .reduce((sum, x) => sum + Number(x.stunden || 0), 0);
-
-        const genehmigteStunden = arbeitszeiten
-          .filter(
-            (x) =>
-              Number(x.lv_position_id) === Number(pos.id) &&
-              x.freigabe_status === "Genehmigt"
-          )
-          .reduce((sum, x) => sum + Number(x.stunden || 0), 0);
-
-        const restMenge = mengeSollNum - genehmigtMenge;
-        const fortschritt =
-          mengeSollNum > 0 ? Math.min((genehmigtMenge / mengeSollNum) * 100, 999) : 0;
-
-        return {
-          ...pos,
-          aktivStatus: pos.aktiv !== false,
-          usage,
-          mengeSollNum,
-          minuten,
-          preis,
-          planStunden,
-          planWert,
-          istMenge,
-          genehmigtMenge,
-          restMenge,
-          arbeitszeitStunden,
-          genehmigteStunden,
-          fortschritt,
-        };
-      })
-      .filter((row) => {
-        if (filterStatus === "Aktiv" && !row.aktivStatus) return false;
-        if (filterStatus === "Inaktiv" && row.aktivStatus) return false;
-
-        if (searchText.trim()) {
-          const text = `${row.position_nr || ""} ${row.kurztext || ""} ${
-            row.einheit || ""
-          }`.toLowerCase();
-
-          return text.includes(searchText.trim().toLowerCase());
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        return String(a.position_nr || "").localeCompare(String(b.position_nr || ""), "de", {
-          numeric: true,
-        });
-      });
-  }, [
-    positionen,
-    arbeitszeiten,
-    leistungen,
-    fotos,
-    aufgaben,
-    materialBewegungen,
-    searchText,
-    filterStatus,
-  ]);
-
-  const summary = useMemo(() => {
-    const activeRows = positionen.filter((p) => p.aktiv !== false);
-    const inactiveRows = positionen.filter((p) => p.aktiv === false);
-
-    const totalPlanStunden = positionen.reduce((sum, p) => {
-      return (
-        sum +
-        (Number(p.menge_soll || 0) * Number(p.minuten_pro_einheit || 0)) / 60
-      );
-    }, 0);
-
-    const totalPlanWert = positionen.reduce((sum, p) => {
-      return sum + Number(p.menge_soll || 0) * Number(p.positionspreis || 0);
-    }, 0);
-
-    const totalLeistungMenge = leistungen
-      .filter((l) => l.status === "Genehmigt")
-      .reduce((sum, l) => {
-        return sum + Number(l.menge_ist || 0) * Number(l.faktor || 1);
-      }, 0);
-
-    const totalArbeitszeit = arbeitszeiten
-      .filter((a) => a.freigabe_status === "Genehmigt")
-      .reduce((sum, a) => sum + Number(a.stunden || 0), 0);
-
-    const usedPositions = positionen.filter((p) => getPositionUsage(p.id).total > 0)
-      .length;
-
-    return {
-      total: positionen.length,
-      active: activeRows.length,
-      inactive: inactiveRows.length,
-      totalPlanStunden,
-      totalPlanWert,
-      totalLeistungMenge,
-      totalArbeitszeit,
-      usedPositions,
-    };
-  }, [positionen, arbeitszeiten, leistungen, fotos, aufgaben, materialBewegungen]);
+  const [form, setForm] = useState({
+    name: "",
+    etage: "",
+    bereich: "",
+    status: "Offen",
+    beschreibung: "",
+  });
 
   useEffect(() => {
-    const name = localStorage.getItem("worker_name");
+    loadAll();
+  }, [projektId]);
 
-    if (!name) {
-      router.push("/login");
-      return;
-    }
+  function getProjektName() {
+    if (!projekt) return "Projekt";
 
-    const adminStatus = ADMINI.includes(name);
+    return (
+      projekt.project_name ||
+      projekt.name ||
+      projekt.naziv ||
+      projekt.title ||
+      `Projekt ${projekt.id}`
+    );
+  }
 
-    if (!adminStatus) {
-      router.push("/");
-      return;
-    }
+  function getRoomName(room: any) {
+    return (
+      room.name ||
+      room.raum_name ||
+      room.naziv ||
+      room.title ||
+      room.prostorija ||
+      `Raum ${room.id}`
+    );
+  }
 
-    setWorkerName(name);
-    setIsAdmin(adminStatus);
-    loadData();
-  }, [router, projektId]);
+  function getRoomEtage(room: any) {
+    return room.etage || room.stockwerk || room.floor || "";
+  }
 
-  async function loadData() {
+  function getRoomBereich(room: any) {
+    return room.bereich || room.zone || room.gruppe || room.category || "";
+  }
+
+  function getRoomStatus(room: any) {
+    return room.status || room.stand || "Offen";
+  }
+
+  function getRoomInfo(room: any) {
+    return room.beschreibung || room.info || room.notiz || room.note || "";
+  }
+
+  function resetForm() {
+    setForm({
+      name: "",
+      etage: "",
+      bereich: "",
+      status: "Offen",
+      beschreibung: "",
+    });
+    setEditId(null);
+  }
+
+  async function loadAll() {
     setLoading(true);
+    setErrorText("");
 
-    const projektRes = await supabase
-      .from("projekte")
-      .select("*")
-      .eq("id", Number(projektId))
-      .single();
-
-    if (projektRes.error) {
-      alert("Greška kod učitavanja projekta: " + projektRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    setProjekt(projektRes.data);
-
-    const positionenRes = await supabase
-      .from("projekt_lv_positionen")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("position_nr", { ascending: true });
-
-    if (positionenRes.error) {
-      alert("Greška kod učitavanja LV pozicija: " + positionenRes.error.message);
-      setPositionen([]);
-      setLoading(false);
-      return;
-    }
-
-    setPositionen(positionenRes.data || []);
-
-    const arbeitszeitRes = await supabase
-      .from("projekt_arbeitszeiten")
-      .select("*")
-      .eq("projekt_id", Number(projektId));
-
-    setArbeitszeiten(arbeitszeitRes.data || []);
-
-    const leistungRes = await supabase
-      .from("projekt_leistungen")
-      .select("*")
-      .eq("projekt_id", Number(projektId));
-
-    setLeistungen(leistungRes.data || []);
-
-    const fotosRes = await supabase
-      .from("projekt_fotos")
-      .select("*")
-      .eq("projekt_id", Number(projektId));
-
-    setFotos(fotosRes.data || []);
-
-    const aufgabenRes = await supabase
-      .from("projekt_aufgaben")
-      .select("*")
-      .eq("projekt_id", Number(projektId));
-
-    setAufgaben(aufgabenRes.data || []);
-
-    const materialRes = await supabase
-      .from("projekt_material_bewegungen")
-      .select("*")
-      .eq("projekt_id", Number(projektId));
-
-    setMaterialBewegungen(materialRes.data || []);
+    await loadProjekt();
+    await loadRaeume();
 
     setLoading(false);
   }
 
-  function clearForm() {
-    setEditingId(null);
-    setPositionNr("");
-    setKurztext("");
-    setEinheit("m²");
-    setMengeSoll("");
-    setMinutenProEinheit("");
-    setPositionspreis("");
-    setAktiv(true);
+  async function loadProjekt() {
+    const { data } = await supabase
+      .from("projekte")
+      .select("*")
+      .eq("id", Number(projektId))
+      .maybeSingle();
+
+    setProjekt((data as Projekt) || null);
   }
 
-  function parseNumber(value: any) {
-    const num = parseFloat(String(value || "0").replace(",", "."));
-    return Number.isNaN(num) ? 0 : num;
-  }
+  async function loadRaeume() {
+    const configs: RoomTableConfig[] = [
+      { table: "projekt_raeume", column: "projekt_id" },
+      { table: "raeume", column: "projekt_id" },
+      { table: "raeume", column: "project_id" },
+      { table: "prostorije", column: "projekt_id" },
+      { table: "prostorije", column: "project_id" },
+      { table: "rooms", column: "projekt_id" },
+      { table: "rooms", column: "project_id" },
+      { table: "prostorije", column: "baustelle_id" },
+      { table: "raeume", column: "baustelle_id" },
+    ];
 
-  function formatNumber(value: any, digits = 2) {
-    const num = Number(value || 0);
+    for (const config of configs) {
+      const { data, error } = await supabase
+        .from(config.table)
+        .select("*")
+        .eq(config.column, Number(projektId));
 
-    return num.toLocaleString("de-AT", {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    });
-  }
+      if (!error) {
+        const sorted = [...(data || [])].sort((a: any, b: any) => {
+          const ao = Number(a.sort_order || a.reihenfolge || a.order || a.id || 0);
+          const bo = Number(b.sort_order || b.reihenfolge || b.order || b.id || 0);
+          return ao - bo;
+        });
 
-  function formatMoney(value: any) {
-    const num = Number(value || 0);
-
-    return num.toLocaleString("de-AT", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
-
-  function formatDateTime(value: string | null) {
-    if (!value) return "-";
-
-    const d = new Date(value);
-
-    if (Number.isNaN(d.getTime())) {
-      return String(value);
+        setRoomConfig(config);
+        setRaeume(sorted);
+        return;
+      }
     }
 
-    return d.toLocaleString("de-AT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    setRaeume([]);
+    setErrorText(
+      "Ne mogu učitati Räume. Provjeri tabelu projekt_raeume i kolonu projekt_id."
+    );
+  }
+
+  const filteredRaeume = useMemo(() => {
+    return raeume.filter((room) => {
+      const text = `${getRoomName(room)} ${getRoomEtage(room)} ${getRoomBereich(
+        room
+      )} ${getRoomStatus(room)} ${getRoomInfo(room)}`.toLowerCase();
+
+      return text.includes(search.toLowerCase());
     });
+  }, [raeume, search]);
+
+  function makeRoomPayload(nameValue?: string) {
+    const roomName = (nameValue || form.name).trim();
+    const base: any = {};
+    base[roomConfig.column] = Number(projektId);
+
+    return [
+      {
+        ...base,
+        name: roomName,
+        etage: form.etage.trim(),
+        bereich: form.bereich.trim(),
+        status: form.status,
+        beschreibung: form.beschreibung.trim(),
+      },
+      {
+        ...base,
+        raum_name: roomName,
+        etage: form.etage.trim(),
+        bereich: form.bereich.trim(),
+        status: form.status,
+        beschreibung: form.beschreibung.trim(),
+      },
+      {
+        ...base,
+        naziv: roomName,
+        etage: form.etage.trim(),
+        status: form.status,
+        info: form.beschreibung.trim(),
+      },
+      {
+        ...base,
+        name: roomName,
+        status: form.status,
+      },
+      {
+        ...base,
+        raum_name: roomName,
+        status: form.status,
+      },
+      {
+        ...base,
+        naziv: roomName,
+        status: form.status,
+      },
+      {
+        ...base,
+        name: roomName,
+      },
+      {
+        ...base,
+        raum_name: roomName,
+      },
+      {
+        ...base,
+        naziv: roomName,
+      },
+    ];
   }
 
-  function getPositionUsage(positionId: number | string) {
-    const arbeitszeitCount = arbeitszeiten.filter(
-      (x) => Number(x.lv_position_id) === Number(positionId)
-    ).length;
-
-    const leistungCount = leistungen.filter(
-      (x) => Number(x.lv_position_id) === Number(positionId)
-    ).length;
-
-    const fotosCount = fotos.filter(
-      (x) => Number(x.lv_position_id) === Number(positionId)
-    ).length;
-
-    const aufgabenCount = aufgaben.filter(
-      (x) => Number(x.lv_position_id) === Number(positionId)
-    ).length;
-
-    const materialCount = materialBewegungen.filter(
-      (x) => Number(x.lv_position_id) === Number(positionId)
-    ).length;
-
-    return {
-      arbeitszeitCount,
-      leistungCount,
-      fotosCount,
-      aufgabenCount,
-      materialCount,
-      total:
-        arbeitszeitCount + leistungCount + fotosCount + aufgabenCount + materialCount,
-    };
-  }
-
-  function checkDuplicatePosition() {
-    return positionen.find((pos) => {
-      if (editingId && Number(pos.id) === Number(editingId)) return false;
-
-      return (
-        String(pos.position_nr || "").trim().toLowerCase() ===
-        positionNr.trim().toLowerCase()
-      );
-    });
-  }
-
-  async function savePosition() {
-    if (savingRef.current) return;
-
-    if (!positionNr.trim()) {
-      alert("Unesi broj pozicije.");
+  async function saveRoom() {
+    if (!form.name.trim()) {
+      alert("Upiši naziv prostorije.");
       return;
     }
 
-    if (!kurztext.trim()) {
-      alert("Unesi naziv rada / Kurztext.");
-      return;
-    }
-
-    const duplicate = checkDuplicatePosition();
-
-    if (duplicate) {
-      alert("Ovaj broj pozicije već postoji.");
-      return;
-    }
-
-    savingRef.current = true;
     setSaving(true);
+    let lastError: any = null;
 
-    const payload: any = {
-      projekt_id: Number(projektId),
-      position_nr: positionNr.trim(),
-      kurztext: kurztext.trim(),
-      einheit: einheit.trim() || "m²",
-      menge_soll: parseNumber(mengeSoll),
-      minuten_pro_einheit: parseNumber(minutenProEinheit),
-      positionspreis: parseNumber(positionspreis),
-      aktiv,
-    };
+    for (const payload of makeRoomPayload()) {
+      const query = editId
+        ? supabase
+            .from(roomConfig.table)
+            .update(payload as any)
+            .eq("id", editId)
+        : supabase.from(roomConfig.table).insert(payload as any);
 
-    if (editingId) {
-      const { error } = await supabase
-        .from("projekt_lv_positionen")
-        .update(payload)
-        .eq("id", editingId);
+      const { error } = await query;
 
-      if (error) {
-        alert("Greška kod izmjene LV pozicije: " + error.message);
-        savingRef.current = false;
+      if (!error) {
+        resetForm();
+        setShowForm(false);
         setSaving(false);
+        await loadRaeume();
         return;
       }
-    } else {
-      const { error } = await supabase.from("projekt_lv_positionen").insert(payload);
 
-      if (error) {
-        alert("Greška kod dodavanja LV pozicije: " + error.message);
-        savingRef.current = false;
-        setSaving(false);
-        return;
-      }
+      lastError = error;
     }
 
-    clearForm();
-    setShowForm(false);
-    await loadData();
-
-    savingRef.current = false;
     setSaving(false);
+    alert("Greška kod spremanja Räume: " + (lastError?.message || ""));
   }
 
-  function editPosition(pos: any) {
-    setEditingId(pos.id);
-    setPositionNr(pos.position_nr || "");
-    setKurztext(pos.kurztext || "");
-    setEinheit(pos.einheit || "m²");
-    setMengeSoll(String(pos.menge_soll || ""));
-    setMinutenProEinheit(String(pos.minuten_pro_einheit || ""));
-    setPositionspreis(String(pos.positionspreis || ""));
-    setAktiv(pos.aktiv !== false);
-    setShowForm(true);
+  async function quickAddRoom(name: string) {
+    setSaving(true);
+    let lastError: any = null;
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  async function deletePosition(pos: any) {
-    const usage = getPositionUsage(pos.id);
-
-    if (usage.total > 0) {
-      alert(
-        "Ova LV pozicija se već koristi i ne može se obrisati.\n\n" +
-          "Možeš je postaviti kao INAKTIV.\n\n" +
-          `Arbeitszeit: ${usage.arbeitszeitCount}\n` +
-          `Leistung: ${usage.leistungCount}\n` +
-          `Fotos: ${usage.fotosCount}\n` +
-          `Aufgaben: ${usage.aufgabenCount}\n` +
-          `Material: ${usage.materialCount}`
-      );
-      return;
-    }
-
-    const ok = confirm("Da li sigurno želiš obrisati ovu LV poziciju?");
-
-    if (!ok) return;
-
-    const { error } = await supabase
-      .from("projekt_lv_positionen")
-      .delete()
-      .eq("id", pos.id);
-
-    if (error) {
-      alert("Greška kod brisanja LV pozicije: " + error.message);
-      return;
-    }
-
-    await loadData();
-  }
-
-  async function toggleAktiv(pos: any) {
-    const { error } = await supabase
-      .from("projekt_lv_positionen")
-      .update({ aktiv: pos.aktiv === false })
-      .eq("id", pos.id);
-
-    if (error) {
-      alert("Greška kod promjene statusa: " + error.message);
-      return;
-    }
-
-    await loadData();
-  }
-
-  async function addStandardPositionen() {
-    if (savingRef.current) return;
-
-    const ok = confirm(
-      "Dodati standardne LV pozicije?\n\nDupli brojevi pozicija se neće dodati."
-    );
-
-    if (!ok) return;
-
-    const existingNumbers = positionen.map((p) =>
-      String(p.position_nr || "").trim().toLowerCase()
-    );
-
-    const rowsToInsert = STANDARD_POSITIONEN.filter((item) => {
-      return !existingNumbers.includes(String(item.position_nr).trim().toLowerCase());
-    }).map((item) => ({
-      projekt_id: Number(projektId),
-      position_nr: item.position_nr,
-      kurztext: item.kurztext,
-      einheit: item.einheit,
-      menge_soll: item.menge_soll,
-      minuten_pro_einheit: item.minuten_pro_einheit,
-      positionspreis: item.positionspreis,
-      aktiv: true,
+    const oldForm = { ...form };
+    const quickPayloads = makeRoomPayload(name).map((payload: any) => ({
+      ...payload,
+      status: "Offen",
     }));
 
-    if (rowsToInsert.length === 0) {
-      alert("Sve standardne pozicije već postoje.");
-      return;
+    for (const payload of quickPayloads) {
+      const { error } = await supabase.from(roomConfig.table).insert(payload as any);
+
+      if (!error) {
+        setSaving(false);
+        setForm(oldForm);
+        await loadRaeume();
+        return;
+      }
+
+      lastError = error;
     }
 
-    savingRef.current = true;
-    setSaving(true);
+    setSaving(false);
+    alert("Greška kod brzog dodavanja: " + (lastError?.message || ""));
+  }
 
-    const { error } = await supabase.from("projekt_lv_positionen").insert(rowsToInsert);
+  function startEdit(room: any) {
+    setEditId(room.id);
+    setForm({
+      name: getRoomName(room),
+      etage: getRoomEtage(room),
+      bereich: getRoomBereich(room),
+      status: getRoomStatus(room),
+      beschreibung: getRoomInfo(room),
+    });
+    setShowForm(true);
+  }
+
+  async function changeStatus(room: any, newStatus: string) {
+    const payloads: any[] = [{ status: newStatus }, { stand: newStatus }];
+    let lastError: any = null;
+
+    for (const payload of payloads) {
+      const { error } = await supabase
+        .from(roomConfig.table)
+        .update(payload as any)
+        .eq("id", room.id);
+
+      if (!error) {
+        await loadRaeume();
+        return;
+      }
+
+      lastError = error;
+    }
+
+    alert("Greška kod statusa: " + (lastError?.message || ""));
+  }
+
+  async function deleteRoom(room: any) {
+    const ok = confirm(`Da li želiš obrisati prostoriju: ${getRoomName(room)}?`);
+
+    if (!ok) return;
+
+    const { error } = await supabase.from(roomConfig.table).delete().eq("id", room.id);
 
     if (error) {
-      alert("Greška kod dodavanja standardnih pozicija: " + error.message);
-      savingRef.current = false;
-      setSaving(false);
+      alert("Greška kod brisanja: " + error.message);
       return;
     }
 
-    await loadData();
-
-    savingRef.current = false;
-    setSaving(false);
+    await loadRaeume();
   }
 
   if (loading) {
     return (
-      <main style={mainStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
+      <main className="page">
+        <div className="emptyBox">Učitavanje Räume...</div>
 
-        <h1 style={titleStyle}>📋 LV Positionen</h1>
-        <p style={loadingStyle}>Wird geladen...</p>
-      </main>
-    );
-  }
+        <style>{`
+          .page {
+            min-height: 100vh;
+            background: #050505;
+            color: white;
+            padding: 28px;
+            font-family: Arial, sans-serif;
+          }
 
-  if (!isAdmin) {
-    return (
-      <main style={mainStyle}>
-        <h1 style={titleStyle}>Kein Zugriff</h1>
+          .emptyBox {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 18px;
+            padding: 30px;
+            text-align: center;
+            color: #cbd5e1;
+            font-weight: 800;
+          }
+        `}</style>
       </main>
     );
   }
 
   return (
-    <main style={mainStyle}>
-      <div style={topBarStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
+    <main className="page">
+      <section className="top">
+        <div>
+          <Link className="back" href={`/projekte/${projektId}`}>
+            ← Zurück zu Projekt
+          </Link>
 
-        <div style={topButtonWrapStyle}>
-          <button onClick={loadData} style={refreshButtonStyle}>
+          <p className="label">Projekt Räume</p>
+          <h1>Räume</h1>
+          <p className="subtitle">{getProjektName()}</p>
+        </div>
+
+        <div className="topButtons">
+          <button className="btn gray" onClick={loadAll}>
             Aktualisieren
           </button>
 
-          <button onClick={addStandardPositionen} disabled={saving} style={purpleButtonStyle}>
-            Standard LV
-          </button>
-
           <button
+            className="btn blue"
             onClick={() => {
-              clearForm();
-              setShowForm(!showForm);
+              resetForm();
+              setShowForm(true);
             }}
-            disabled={saving}
-            style={newButtonStyle}
           >
-            {showForm ? "Schließen" : "+ LV Position"}
-          </button>
-        </div>
-      </div>
-
-      <h1 style={titleStyle}>📋 LV Positionen</h1>
-
-      <p style={descriptionStyle}>
-        Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
-        <strong>{workerName}</strong>
-      </p>
-
-      <section style={summaryGridStyle}>
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Positionen</span>
-          <strong style={summaryValueStyle}>{summary.total}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Aktiv</span>
-          <strong style={{ ...summaryValueStyle, color: "#22c55e" }}>
-            {summary.active}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Inaktiv</span>
-          <strong style={{ ...summaryValueStyle, color: "#ef4444" }}>
-            {summary.inactive}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Benutzt</span>
-          <strong style={summaryValueStyle}>{summary.usedPositions}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Plan Stunden</span>
-          <strong style={summaryValueStyle}>
-            {formatNumber(summary.totalPlanStunden)} h
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>LV Wert</span>
-          <strong style={summaryValueStyle}>{formatMoney(summary.totalPlanWert)} €</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Genehmigte Leistung</span>
-          <strong style={summaryValueStyle}>
-            {formatNumber(summary.totalLeistungMenge)}
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Genehmigte Stunden</span>
-          <strong style={summaryValueStyle}>
-            {formatNumber(summary.totalArbeitszeit)} h
-          </strong>
-        </div>
-      </section>
-
-      <section style={infoBoxStyle}>
-        <h2 style={sectionTitleStyle}>LV Regel</h2>
-        <p style={infoTextStyle}>
-          LV pozicije se koriste u Arbeitszeit, Leistung, Fotos, Aufgaben i
-          Material. Pozicija koja se već koristi ne briše se, nego se postavlja kao
-          inaktiv.
-        </p>
-      </section>
-
-      <section style={filterBoxStyle}>
-        <div style={filterGridStyle}>
-          <div>
-            <label style={labelStyle}>Traži poziciju</label>
-            <input
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Broj, naziv, jedinica..."
-              style={inputStyle}
-            />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Status Filter</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="Alle">Alle</option>
-              <option value="Aktiv">Aktiv</option>
-              <option value="Inaktiv">Inaktiv</option>
-            </select>
-          </div>
-
-          <button
-            onClick={() => {
-              setSearchText("");
-              setFilterStatus("Alle");
-            }}
-            style={grayButtonStyle}
-          >
-            Filter löschen
+            + Raum hinzufügen
           </button>
         </div>
       </section>
 
-      {showForm && (
-        <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>
-            {editingId ? "LV Position bearbeiten" : "LV Position anlegen"}
-          </h2>
+      {errorText && <div className="errorBox">{errorText}</div>}
 
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Position Nr. *</label>
-              <input
-                value={positionNr}
-                onChange={(e) => setPositionNr(e.target.value)}
-                placeholder="z.B. 01"
-                style={inputStyle}
-              />
-            </div>
+      <section className="stats">
+        <div className="stat">
+          <span>Ukupno Räume</span>
+          <strong>{raeume.length}</strong>
+        </div>
 
-            <div>
-              <label style={labelStyle}>Einheit</label>
-              <input
-                value={einheit}
-                onChange={(e) => setEinheit(e.target.value)}
-                placeholder="m² / lfm / Stk. / Sack"
-                style={inputStyle}
-              />
-            </div>
+        <div className="stat">
+          <span>Offen</span>
+          <strong>
+            {raeume.filter((r) => String(getRoomStatus(r)).toLowerCase() !== "fertig").length}
+          </strong>
+        </div>
 
-            <div>
-              <label style={labelStyle}>Aktiv</label>
-              <select
-                value={aktiv ? "Ja" : "Nein"}
-                onChange={(e) => setAktiv(e.target.value === "Ja")}
-                style={inputStyle}
-              >
-                <option value="Ja">Ja</option>
-                <option value="Nein">Nein</option>
-              </select>
-            </div>
-          </div>
+        <div className="stat">
+          <span>Fertig</span>
+          <strong>
+            {raeume.filter((r) => String(getRoomStatus(r)).toLowerCase() === "fertig").length}
+          </strong>
+        </div>
+      </section>
 
-          <label style={labelStyle}>Kurztext / Arbeit *</label>
-          <input
-            value={kurztext}
-            onChange={(e) => setKurztext(e.target.value)}
-            placeholder="z.B. Keramika, Fuge, Silikon..."
-            style={inputStyle}
-          />
+      <section className="toolbar">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Traži Raum, Etage, Bereich ili Status..."
+        />
+      </section>
 
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Menge Soll</label>
-              <input
-                type="number"
-                step="0.01"
-                value={mengeSoll}
-                onChange={(e) => setMengeSoll(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
+      <section className="quickAdd">
+        <h2>Brzo dodavanje</h2>
+        <div className="quickGrid">
+          {["Bad", "WC", "Küche", "Wohnzimmer", "Schlafzimmer", "Flur", "Keller", "Terrasse"].map(
+            (name) => (
+              <button key={name} onClick={() => quickAddRoom(name)} disabled={saving}>
+                + {name}
+              </button>
+            )
+          )}
+        </div>
+      </section>
 
-            <div>
-              <label style={labelStyle}>Minuten pro Einheit</label>
-              <input
-                type="number"
-                step="0.01"
-                value={minutenProEinheit}
-                onChange={(e) => setMinutenProEinheit(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
+      {filteredRaeume.length === 0 ? (
+        <div className="emptyBox">
+          <h2>Nema Räume</h2>
+          <p>Dodaj prvu prostoriju za ovaj projekt.</p>
+        </div>
+      ) : (
+        <section className="grid">
+          {filteredRaeume.map((room) => (
+            <article key={room.id} className="card">
+              <div className="cardTop">
+                <div>
+                  <h2>{getRoomName(room)}</h2>
+                  <p>
+                    {[getRoomEtage(room), getRoomBereich(room)]
+                      .filter(Boolean)
+                      .join(" · ") || "Bez dodatnih podataka"}
+                  </p>
+                </div>
 
-            <div>
-              <label style={labelStyle}>Positionspreis €</label>
-              <input
-                type="number"
-                step="0.01"
-                value={positionspreis}
-                onChange={(e) => setPositionspreis(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
+                <span
+                  className={
+                    String(getRoomStatus(room)).toLowerCase() === "fertig"
+                      ? "badge done"
+                      : "badge"
+                  }
+                >
+                  {getRoomStatus(room)}
+                </span>
+              </div>
 
-          <div style={previewBoxStyle}>
-            <strong>Pregled:</strong> {positionNr || "-"} · {kurztext || "-"} · Menge{" "}
-            {formatNumber(parseNumber(mengeSoll))} {einheit || ""} · Plan{" "}
-            <strong>
-              {formatNumber(
-                (parseNumber(mengeSoll) * parseNumber(minutenProEinheit)) / 60
-              )}{" "}
-              h
-            </strong>{" "}
-            · Wert{" "}
-            <strong>
-              {formatMoney(parseNumber(mengeSoll) * parseNumber(positionspreis))} €
-            </strong>
-          </div>
+              {getRoomInfo(room) && <div className="info">{getRoomInfo(room)}</div>}
 
-          <div style={formButtonRowStyle}>
-            <button
-              onClick={savePosition}
-              disabled={saving}
-              style={{
-                ...saveButtonStyle,
-                opacity: saving ? 0.5 : 1,
-                cursor: saving ? "not-allowed" : "pointer",
-              }}
-            >
-              {saving
-                ? "Speichern..."
-                : editingId
-                ? "Änderungen speichern"
-                : "Position speichern"}
-            </button>
+              <div className="roomLinks">
+                <Link href={`/projekte/${projektId}/positionen?raum=${room.id}`}>
+                  Positionen
+                </Link>
+                <Link href={`/projekte/${projektId}/material?raum=${room.id}`}>Material</Link>
+                <Link href={`/projekte/${projektId}/fotos?raum=${room.id}`}>Fotos</Link>
+                <Link href={`/projekte/${projektId}/arbeitszeit?raum=${room.id}`}>
+                  Arbeitszeit
+                </Link>
+              </div>
 
-            <button
-              onClick={() => {
-                clearForm();
-                setShowForm(false);
-              }}
-              disabled={saving}
-              style={cancelButtonStyle}
-            >
-              Abbrechen
-            </button>
-          </div>
+              <div className="actions">
+                <button onClick={() => startEdit(room)}>Bearbeiten</button>
+                <button onClick={() => changeStatus(room, "Fertig")}>Fertig</button>
+                <button onClick={() => changeStatus(room, "Offen")}>Offen</button>
+                <button className="delete" onClick={() => deleteRoom(room)}>
+                  Löschen
+                </button>
+              </div>
+            </article>
+          ))}
         </section>
       )}
 
-      <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>LV Positionen Liste</h2>
+      {showForm && (
+        <div className="modalBg">
+          <div className="modal">
+            <div className="modalHead">
+              <h2>{editId ? "Raum bearbeiten" : "Raum hinzufügen"}</h2>
+              <button
+                onClick={() => {
+                  resetForm();
+                  setShowForm(false);
+                }}
+              >
+                ×
+              </button>
+            </div>
 
-        {positionRows.length === 0 ? (
-          <p style={emptyStyle}>Keine LV Positionen gefunden.</p>
-        ) : (
-          <div style={tableWrapStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Nr.</th>
-                  <th style={thStyle}>Kurztext</th>
-                  <th style={thStyle}>EH</th>
-                  <th style={thRightStyle}>Menge Soll</th>
-                  <th style={thRightStyle}>Min/EH</th>
-                  <th style={thRightStyle}>Plan h</th>
-                  <th style={thRightStyle}>Preis</th>
-                  <th style={thRightStyle}>Wert</th>
-                  <th style={thRightStyle}>Ist</th>
-                  <th style={thRightStyle}>Fortschritt</th>
-                  <th style={thRightStyle}>Nutzung</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Aktion</th>
-                </tr>
-              </thead>
+            <label>Raum Name *</label>
+            <input
+              value={form.name}
+              onChange={(e) => setForm((old) => ({ ...old, name: e.target.value }))}
+              placeholder="z.B. Bad EG"
+            />
 
-              <tbody>
-                {positionRows.map((pos) => (
-                  <tr key={pos.id}>
-                    <td style={tdStyle}>
-                      <strong>{pos.position_nr}</strong>
-                    </td>
+            <label>Etage</label>
+            <input
+              value={form.etage}
+              onChange={(e) => setForm((old) => ({ ...old, etage: e.target.value }))}
+              placeholder="z.B. EG, OG, DG"
+            />
 
-                    <td style={tdStyle}>
-                      <strong>{pos.kurztext}</strong>
-                      {isAdmin && (
-                        <div style={miniTextStyle}>
-                          Zeit der Eingabe: {formatDateTime(pos.created_at)}
-                        </div>
-                      )}
-                    </td>
+            <label>Bereich</label>
+            <input
+              value={form.bereich}
+              onChange={(e) => setForm((old) => ({ ...old, bereich: e.target.value }))}
+              placeholder="z.B. Wohnung 1, Haus A"
+            />
 
-                    <td style={tdStyle}>{pos.einheit || "-"}</td>
-                    <td style={tdRightStyle}>{formatNumber(pos.mengeSollNum)}</td>
-                    <td style={tdRightStyle}>{formatNumber(pos.minuten)}</td>
-                    <td style={tdRightStyle}>{formatNumber(pos.planStunden)} h</td>
-                    <td style={tdRightStyle}>{formatMoney(pos.preis)} €</td>
-                    <td style={tdRightStyle}>{formatMoney(pos.planWert)} €</td>
-                    <td style={tdRightStyle}>{formatNumber(pos.genehmigtMenge)}</td>
-                    <td style={tdRightStyle}>{formatNumber(pos.fortschritt)}%</td>
-                    <td style={tdRightStyle}>
-                      {pos.usage.total > 0 ? (
-                        <span style={warningBadgeStyle}>{pos.usage.total}</span>
-                      ) : (
-                        <span style={okBadgeStyle}>frei</span>
-                      )}
-                    </td>
+            <label>Status</label>
+            <select
+              value={form.status}
+              onChange={(e) => setForm((old) => ({ ...old, status: e.target.value }))}
+            >
+              <option value="Offen">Offen</option>
+              <option value="In Arbeit">In Arbeit</option>
+              <option value="Fertig">Fertig</option>
+            </select>
 
-                    <td style={tdStyle}>
-                      {pos.aktivStatus ? (
-                        <span style={okBadgeStyle}>Aktiv</span>
-                      ) : (
-                        <span style={dangerBadgeStyle}>Inaktiv</span>
-                      )}
-                    </td>
+            <label>Info / Notiz</label>
+            <textarea
+              value={form.beschreibung}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, beschreibung: e.target.value }))
+              }
+              placeholder="Kratka informacija za ovu prostoriju"
+            />
 
-                    <td style={tdStyle}>
-                      <div style={actionRowStyle}>
-                        <button onClick={() => editPosition(pos)} style={editButtonStyle}>
-                          Bearbeiten
-                        </button>
+            <div className="modalActions">
+              <button
+                className="cancel"
+                onClick={() => {
+                  resetForm();
+                  setShowForm(false);
+                }}
+              >
+                Abbrechen
+              </button>
 
-                        <button onClick={() => toggleAktiv(pos)} style={statusButtonStyle}>
-                          {pos.aktivStatus ? "Inaktiv" : "Aktiv"}
-                        </button>
-
-                        <button
-                          onClick={() => deletePosition(pos)}
-                          style={deleteButtonStyle}
-                        >
-                          Löschen
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              <button className="save" onClick={saveRoom} disabled={saving}>
+                {saving ? "Speichern..." : "Speichern"}
+              </button>
+            </div>
           </div>
-        )}
-      </section>
+        </div>
+      )}
+
+      <style>{`
+        .page {
+          min-height: 100vh;
+          background: #050505;
+          color: white;
+          padding: 28px;
+          font-family: Arial, sans-serif;
+        }
+
+        .top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 20px;
+          margin-bottom: 22px;
+        }
+
+        .back {
+          display: inline-block;
+          color: white;
+          text-decoration: none;
+          background: #1f2937;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 11px 15px;
+          font-weight: 800;
+          margin-bottom: 18px;
+        }
+
+        .label {
+          color: #9ca3af;
+          margin: 0 0 8px;
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+        h1 {
+          margin: 0;
+          font-size: 44px;
+          line-height: 1;
+        }
+
+        .subtitle {
+          color: #cbd5e1;
+          margin: 12px 0 0;
+          font-size: 17px;
+          font-weight: 700;
+        }
+
+        .topButtons {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        button,
+        a,
+        input,
+        textarea,
+        select {
+          font-family: inherit;
+        }
+
+        button,
+        a {
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-size: 15px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .gray {
+          background: #374151;
+        }
+
+        .blue {
+          background: #2563eb;
+        }
+
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .stat {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+        }
+
+        .stat span {
+          display: block;
+          color: #9ca3af;
+          margin-bottom: 8px;
+          font-weight: 800;
+        }
+
+        .stat strong {
+          font-size: 34px;
+        }
+
+        .toolbar {
+          margin-bottom: 18px;
+        }
+
+        .toolbar input {
+          width: 100%;
+          box-sizing: border-box;
+          background: #111827;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 15px 16px;
+          font-size: 16px;
+          outline: none;
+        }
+
+        .quickAdd {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+          margin-bottom: 18px;
+        }
+
+        .quickAdd h2 {
+          margin: 0 0 12px;
+          font-size: 22px;
+        }
+
+        .quickGrid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 10px;
+        }
+
+        .quickGrid button {
+          background: #1f2937;
+          border: 1px solid #374151;
+          color: white;
+          border-radius: 14px;
+          padding: 13px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .errorBox {
+          background: #7f1d1d;
+          border: 1px solid #ef4444;
+          color: white;
+          padding: 16px;
+          border-radius: 14px;
+          margin-bottom: 18px;
+          font-weight: 800;
+        }
+
+        .emptyBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 30px;
+          text-align: center;
+          color: #cbd5e1;
+        }
+
+        .emptyBox h2 {
+          color: white;
+          margin-top: 0;
+        }
+
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          gap: 18px;
+        }
+
+        .card {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 22px;
+          padding: 20px;
+        }
+
+        .cardTop {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        .card h2 {
+          margin: 0;
+          font-size: 24px;
+        }
+
+        .card p {
+          margin: 8px 0 0;
+          color: #cbd5e1;
+        }
+
+        .badge {
+          background: #064e3b;
+          color: #bbf7d0;
+          border: 1px solid #16a34a;
+          border-radius: 999px;
+          padding: 8px 12px;
+          font-size: 13px;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+
+        .badge.done {
+          background: #374151;
+          color: #e5e7eb;
+          border-color: #6b7280;
+        }
+
+        .info {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 12px;
+          color: #d1d5db;
+          margin-bottom: 12px;
+          white-space: pre-wrap;
+        }
+
+        .roomLinks {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+
+        .roomLinks a {
+          background: #1f2937;
+          border: 1px solid #374151;
+          color: white;
+          text-decoration: none;
+          text-align: center;
+          border-radius: 14px;
+          padding: 12px;
+          font-weight: 800;
+        }
+
+        .actions {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+          padding-top: 14px;
+          border-top: 1px solid #1f2937;
+        }
+
+        .actions button {
+          background: #374151;
+          color: white;
+          border: 0;
+          border-radius: 12px;
+          padding: 12px 8px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .actions .delete {
+          background: #dc2626;
+        }
+
+        .modalBg {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.78);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 16px;
+          z-index: 100;
+        }
+
+        .modal {
+          width: 100%;
+          max-width: 620px;
+          max-height: 92vh;
+          overflow: auto;
+          background: #111827;
+          border: 1px solid #374151;
+          border-radius: 22px;
+          padding: 22px;
+        }
+
+        .modalHead {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 18px;
+        }
+
+        .modalHead h2 {
+          margin: 0;
+          font-size: 28px;
+        }
+
+        .modalHead button {
+          width: 42px;
+          height: 42px;
+          border: 0;
+          border-radius: 12px;
+          background: #374151;
+          color: white;
+          font-size: 28px;
+          cursor: pointer;
+        }
+
+        label {
+          display: block;
+          color: #d1d5db;
+          font-weight: 800;
+          margin: 14px 0 7px;
+        }
+
+        .modal input,
+        .modal textarea,
+        .modal select {
+          width: 100%;
+          box-sizing: border-box;
+          background: #030712;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 14px;
+          font-size: 16px;
+          outline: none;
+        }
+
+        .modal textarea {
+          min-height: 90px;
+          resize: vertical;
+        }
+
+        .modalActions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 20px;
+        }
+
+        .modalActions button {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .cancel {
+          background: #374151;
+        }
+
+        .save {
+          background: #2563eb;
+        }
+
+        .save:disabled,
+        .quickGrid button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 760px) {
+          .page {
+            padding: 16px;
+          }
+
+          .top {
+            display: block;
+          }
+
+          h1 {
+            font-size: 36px;
+          }
+
+          .topButtons {
+            display: grid;
+            grid-template-columns: 1fr;
+            margin-top: 16px;
+          }
+
+          .stats,
+          .quickGrid,
+          .grid,
+          .roomLinks,
+          .actions {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </main>
   );
 }
-
-const mainStyle: any = {
-  background: "#000",
-  minHeight: "100vh",
-  color: "white",
-  padding: "20px",
-};
-
-const topBarStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "12px",
-  marginBottom: "20px",
-  flexWrap: "wrap",
-};
-
-const topButtonWrapStyle: any = {
-  display: "flex",
-  gap: "10px",
-  flexWrap: "wrap",
-};
-
-const backStyle: any = {
-  color: "#3b82f6",
-  textDecoration: "none",
-  fontWeight: "bold",
-  fontSize: "16px",
-};
-
-const titleStyle: any = {
-  fontSize: "38px",
-  color: "#f97316",
-  margin: "0 0 10px 0",
-};
-
-const descriptionStyle: any = {
-  color: "#bbb",
-  fontSize: "16px",
-  marginBottom: "18px",
-};
-
-const loadingStyle: any = {
-  color: "#aaa",
-  fontSize: "18px",
-};
-
-const refreshButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const newButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const purpleButtonStyle: any = {
-  background: "#7c3aed",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const summaryGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))",
-  gap: "12px",
-  marginBottom: "20px",
-};
-
-const summaryCardStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "14px",
-};
-
-const summaryLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "13px",
-  marginBottom: "6px",
-};
-
-const summaryValueStyle: any = {
-  color: "#f97316",
-  fontSize: "22px",
-};
-
-const infoBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const infoTextStyle: any = {
-  color: "#ccc",
-  margin: 0,
-  lineHeight: "1.5",
-};
-
-const filterBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const filterGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-  gap: "12px",
-  alignItems: "end",
-};
-
-const formBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const formTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const sectionTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const formGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-  gap: "12px",
-};
-
-const labelStyle: any = {
-  display: "block",
-  color: "#ddd",
-  fontWeight: "bold",
-  marginBottom: "6px",
-  marginTop: "12px",
-};
-
-const inputStyle: any = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "10px",
-  border: "1px solid #333",
-  background: "#000",
-  color: "white",
-  fontSize: "15px",
-  boxSizing: "border-box",
-};
-
-const previewBoxStyle: any = {
-  marginTop: "14px",
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "12px",
-  color: "#ddd",
-  lineHeight: "1.5",
-};
-
-const formButtonRowStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "12px",
-  marginTop: "18px",
-};
-
-const saveButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const cancelButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const grayButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const listBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const emptyStyle: any = {
-  color: "#aaa",
-  fontSize: "16px",
-};
-
-const tableWrapStyle: any = {
-  overflowX: "auto",
-};
-
-const tableStyle: any = {
-  width: "100%",
-  borderCollapse: "collapse",
-  minWidth: "1450px",
-};
-
-const thStyle: any = {
-  borderBottom: "1px solid #333",
-  color: "#f97316",
-  padding: "10px",
-  textAlign: "left",
-  fontSize: "13px",
-  whiteSpace: "nowrap",
-};
-
-const thRightStyle: any = {
-  ...thStyle,
-  textAlign: "right",
-};
-
-const tdStyle: any = {
-  borderBottom: "1px solid #222",
-  color: "#ddd",
-  padding: "10px",
-  fontSize: "13px",
-  verticalAlign: "top",
-};
-
-const tdRightStyle: any = {
-  ...tdStyle,
-  textAlign: "right",
-  whiteSpace: "nowrap",
-};
-
-const miniTextStyle: any = {
-  color: "#999",
-  fontSize: "12px",
-  marginTop: "4px",
-};
-
-const actionRowStyle: any = {
-  display: "flex",
-  gap: "8px",
-  flexWrap: "wrap",
-};
-
-const editButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "7px 9px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const statusButtonStyle: any = {
-  background: "#ca8a04",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "7px 9px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const deleteButtonStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "7px 9px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const okBadgeStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const warningBadgeStyle: any = {
-  background: "#ca8a04",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const dangerBadgeStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
