@@ -1,1506 +1,1304 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-const ADMINI = ["Hido", "Steffi", "Admin"];
-const RADNICI = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun", "Hido", "Steffi"];
+type Projekt = {
+  id: number | string;
+  name?: string | null;
+  naziv?: string | null;
+  title?: string | null;
+  projekt?: string | null;
+  baustelle_name?: string | null;
+  ort?: string | null;
+  mjesto?: string | null;
+  location?: string | null;
+  [key: string]: any;
+};
 
-function getTodayLocalDate() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+type TableConfig = {
+  table: string;
+  column: string;
+};
 
-  return `${year}-${month}-${day}`;
-}
+type ArbeitszeitForm = {
+  datum: string;
+  radnik: string;
+  start_time: string;
+  end_time: string;
+  pause_minuten: string;
+  raum_id: string;
+  notiz: string;
+};
+
+const RADNICI = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
 
 export default function ProjektArbeitszeitPage() {
   const params = useParams();
-  const router = useRouter();
-  const savingRef = useRef(false);
-
   const projektId = String(params.id);
+  const projektIdValue = isNaN(Number(projektId)) ? projektId : Number(projektId);
 
-  const [workerName, setWorkerName] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [projekt, setProjekt] = useState<any>(null);
+  const [projekt, setProjekt] = useState<Projekt | null>(null);
+  const [arbeitszeiten, setArbeitszeiten] = useState<any[]>([]);
   const [raeume, setRaeume] = useState<any[]>([]);
-  const [positionen, setPositionen] = useState<any[]>([]);
-  const [zeiten, setZeiten] = useState<any[]>([]);
+  const [errorText, setErrorText] = useState("");
 
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [timeConfig, setTimeConfig] = useState<TableConfig>({
+    table: "arbeitszeiten",
+    column: "projekt_id",
+  });
 
-  const [selectedWorker, setSelectedWorker] = useState("");
-  const [datum, setDatum] = useState(getTodayLocalDate());
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("17:00");
-  const [pauseMinutes, setPauseMinutes] = useState("30");
-  const [selectedRaumId, setSelectedRaumId] = useState("");
-  const [selectedPositionId, setSelectedPositionId] = useState("");
-  const [arbeitsart, setArbeitsart] = useState("Leistung");
-  const [freigabeStatus, setFreigabeStatus] = useState("Wartet");
-  const [notiz, setNotiz] = useState("");
-
-  const [filterStatus, setFilterStatus] = useState("Alle");
+  const [search, setSearch] = useState("");
   const [filterDatum, setFilterDatum] = useState("");
-  const [filterWorker, setFilterWorker] = useState("Alle");
-  const [filterRaum, setFilterRaum] = useState("Alle");
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<number | string | null>(null);
 
-  const filteredZeiten = useMemo(() => {
-    return zeiten
-      .filter((item) => {
-        const status = normalizeStatus(item.freigabe_status);
-
-        if (filterStatus !== "Alle" && status !== filterStatus) return false;
-        if (filterDatum && item.datum !== filterDatum) return false;
-        if (filterWorker !== "Alle" && item.worker_name !== filterWorker) return false;
-        if (filterRaum !== "Alle" && String(item.raum_id || "") !== filterRaum)
-          return false;
-
-        return true;
-      })
-      .sort((a, b) => {
-        const dateA = String(a.datum || "");
-        const dateB = String(b.datum || "");
-
-        if (dateA !== dateB) return dateB.localeCompare(dateA);
-
-        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-
-        return timeB - timeA;
-      });
-  }, [zeiten, filterStatus, filterDatum, filterWorker, filterRaum]);
-
-  const summary = useMemo(() => {
-    const totalHours = zeiten.reduce((sum, z) => sum + Number(z.stunden || 0), 0);
-
-    const approvedHours = zeiten
-      .filter((z) => normalizeStatus(z.freigabe_status) === "Genehmigt")
-      .reduce((sum, z) => sum + Number(z.stunden || 0), 0);
-
-    const waitingHours = zeiten
-      .filter((z) => normalizeStatus(z.freigabe_status) === "Wartet")
-      .reduce((sum, z) => sum + Number(z.stunden || 0), 0);
-
-    const rejectedHours = zeiten
-      .filter((z) => normalizeStatus(z.freigabe_status) === "Abgelehnt")
-      .reduce((sum, z) => sum + Number(z.stunden || 0), 0);
-
-    const wartet = zeiten.filter(
-      (z) => normalizeStatus(z.freigabe_status) === "Wartet"
-    ).length;
-
-    const genehmigt = zeiten.filter(
-      (z) => normalizeStatus(z.freigabe_status) === "Genehmigt"
-    ).length;
-
-    const abgelehnt = zeiten.filter(
-      (z) => normalizeStatus(z.freigabe_status) === "Abgelehnt"
-    ).length;
-
-    const todayHours = zeiten
-      .filter((z) => z.datum === getTodayLocalDate())
-      .reduce((sum, z) => sum + Number(z.stunden || 0), 0);
-
-    const workers = Array.from(new Set(zeiten.map((z) => z.worker_name))).filter(
-      Boolean
-    );
-
-    return {
-      total: zeiten.length,
-      totalHours,
-      approvedHours,
-      waitingHours,
-      rejectedHours,
-      wartet,
-      genehmigt,
-      abgelehnt,
-      todayHours,
-      workerCount: workers.length,
-    };
-  }, [zeiten]);
-
-  const workerRows = useMemo(() => {
-    return RADNICI.map((name) => {
-      const list = zeiten.filter((z) => z.worker_name === name);
-
-      const total = list.reduce((sum, z) => sum + Number(z.stunden || 0), 0);
-
-      const genehmigt = list
-        .filter((z) => normalizeStatus(z.freigabe_status) === "Genehmigt")
-        .reduce((sum, z) => sum + Number(z.stunden || 0), 0);
-
-      const wartet = list
-        .filter((z) => normalizeStatus(z.freigabe_status) === "Wartet")
-        .reduce((sum, z) => sum + Number(z.stunden || 0), 0);
-
-      return {
-        name,
-        total,
-        genehmigt,
-        wartet,
-        count: list.length,
-      };
-    }).filter((row) => row.total > 0 || row.count > 0);
-  }, [zeiten]);
+  const [form, setForm] = useState<ArbeitszeitForm>({
+    datum: today(),
+    radnik: "",
+    start_time: "08:00",
+    end_time: "17:00",
+    pause_minuten: "30",
+    raum_id: "",
+    notiz: "",
+  });
 
   useEffect(() => {
-    const name = localStorage.getItem("worker_name");
+    loadAll();
+  }, [projektId]);
 
-    if (!name) {
-      router.push("/login");
-      return;
-    }
-
-    const adminStatus = ADMINI.includes(name);
-
-    if (!adminStatus) {
-      router.push("/");
-      return;
-    }
-
-    setWorkerName(name);
-    setSelectedWorker(name);
-    setIsAdmin(adminStatus);
-    loadData();
-  }, [router, projektId]);
-
-  async function loadData() {
-    setLoading(true);
-
-    const projektRes = await supabase
-      .from("projekte")
-      .select("*")
-      .eq("id", Number(projektId))
-      .single();
-
-    if (projektRes.error) {
-      alert("Greška kod učitavanja projekta: " + projektRes.error.message);
-      setLoading(false);
-      return;
-    }
-
-    setProjekt(projektRes.data);
-
-    const raeumeRes = await supabase
-      .from("projekt_raeume")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("created_at", { ascending: true });
-
-    if (raeumeRes.error) {
-      alert("Greška kod učitavanja prostorija: " + raeumeRes.error.message);
-      setRaeume([]);
-      setLoading(false);
-      return;
-    }
-
-    setRaeume(raeumeRes.data || []);
-
-    const positionenRes = await supabase
-      .from("projekt_lv_positionen")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .eq("aktiv", true)
-      .order("position_nr", { ascending: true });
-
-    if (positionenRes.error) {
-      alert("Greška kod učitavanja LV pozicija: " + positionenRes.error.message);
-      setPositionen([]);
-      setLoading(false);
-      return;
-    }
-
-    setPositionen(positionenRes.data || []);
-
-    const zeitenRes = await supabase
-      .from("projekt_arbeitszeiten")
-      .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("datum", { ascending: false })
-      .order("created_at", { ascending: false });
-
-    if (zeitenRes.error) {
-      alert("Greška kod učitavanja radnog vremena: " + zeitenRes.error.message);
-      setZeiten([]);
-      setLoading(false);
-      return;
-    }
-
-    setZeiten(zeitenRes.data || []);
-    setLoading(false);
+  function today() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
   }
 
-  function clearForm() {
-    setEditingId(null);
-    setSelectedWorker(workerName || "Arnes");
-    setDatum(getTodayLocalDate());
-    setStartTime("08:00");
-    setEndTime("17:00");
-    setPauseMinutes("30");
-    setSelectedRaumId("");
-    setSelectedPositionId("");
-    setArbeitsart("Leistung");
-    setFreigabeStatus("Wartet");
-    setNotiz("");
+  function getProjektName() {
+    if (!projekt) return "Projekt";
+
+    return (
+      projekt.name ||
+      projekt.naziv ||
+      projekt.title ||
+      projekt.projekt ||
+      projekt.baustelle_name ||
+      `Projekt ${projekt.id}`
+    );
   }
 
-  function normalizeStatus(value: string | null) {
-    if (value === "Genehmigt") return "Genehmigt";
-    if (value === "Abgelehnt") return "Abgelehnt";
-    return "Wartet";
+  function getProjektOrt() {
+    if (!projekt) return "";
+    return projekt.ort || projekt.mjesto || projekt.location || projekt.adresse || "";
   }
 
-  function timeToMinutes(value: string) {
+  function getDate(row: any) {
+    return row.datum || row.date || row.tag || row.day || row.created_date || "";
+  }
+
+  function getWorker(row: any) {
+    return (
+      row.radnik ||
+      row.arbeiter ||
+      row.worker ||
+      row.worker_name ||
+      row.mitarbeiter ||
+      row.name ||
+      ""
+    );
+  }
+
+  function getStart(row: any) {
+    return (
+      row.start_time ||
+      row.start ||
+      row.von ||
+      row.beginn ||
+      row.arbeitsbeginn ||
+      ""
+    );
+  }
+
+  function getEnd(row: any) {
+    return row.end_time || row.end || row.bis || row.ende || row.arbeitsende || "";
+  }
+
+  function getPause(row: any) {
+    return (
+      row.pause_minuten ||
+      row.pause_minutes ||
+      row.break_minutes ||
+      row.pause ||
+      0
+    );
+  }
+
+  function getStoredHours(row: any) {
+    return row.stunden || row.hours || row.total_hours || row.gesamt_stunden || "";
+  }
+
+  function getNote(row: any) {
+    return row.notiz || row.note || row.bemerkung || row.info || "";
+  }
+
+  function getRoomId(row: any) {
+    return row.raum_id || row.room_id || row.prostorija_id || "";
+  }
+
+  function getRoomName(room: any) {
+    return (
+      room.name ||
+      room.raum_name ||
+      room.naziv ||
+      room.title ||
+      room.prostorija ||
+      `Raum ${room.id}`
+    );
+  }
+
+  function findRoomName(roomId: string | number) {
+    if (!roomId) return "";
+    const room = raeume.find((r) => String(r.id) === String(roomId));
+    return room ? getRoomName(room) : "";
+  }
+
+  function parseTimeToMinutes(value: string) {
     if (!value || !value.includes(":")) return 0;
 
-    const [h, m] = value.split(":").map(Number);
-
+    const [h, m] = value.split(":").map((x) => Number(x));
     return h * 60 + m;
   }
 
-  function calculateHours() {
-    const start = timeToMinutes(startTime);
-    const end = timeToMinutes(endTime);
-    const pause = Number(pauseMinutes || 0);
+  function calculateHours(start: string, end: string, pause: string | number) {
+    const s = parseTimeToMinutes(start);
+    let e = parseTimeToMinutes(end);
+    const p = Number(pause || 0);
 
-    let diff = end - start - pause;
+    if (!s || !e) return 0;
 
-    if (diff < 0) diff = 0;
+    if (e < s) e += 24 * 60;
 
-    return diff / 60;
+    const total = e - s - p;
+    return Math.max(0, total / 60);
   }
 
-  function setStandardTime() {
-    setStartTime("08:00");
-    setEndTime("17:00");
-    setPauseMinutes("30");
+  function getHours(row: any) {
+    const stored = Number(getStoredHours(row));
+
+    if (!isNaN(stored) && stored > 0) {
+      return stored;
+    }
+
+    return calculateHours(getStart(row), getEnd(row), getPause(row));
   }
 
-  function setEarlyTime() {
-    setStartTime("07:00");
-    setEndTime("16:00");
-    setPauseMinutes("30");
+  function formatHours(value: number) {
+    return value.toFixed(2).replace(".", ",");
   }
 
-  function setShortDay() {
-    setStartTime("08:00");
-    setEndTime("14:00");
-    setPauseMinutes("30");
-  }
-
-  function formatNumber(value: any, digits = 2) {
-    const num = Number(value || 0);
-
-    return num.toLocaleString("de-AT", {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
+  function resetForm() {
+    setEditId(null);
+    setForm({
+      datum: today(),
+      radnik: "",
+      start_time: "08:00",
+      end_time: "17:00",
+      pause_minuten: "30",
+      raum_id: "",
+      notiz: "",
     });
   }
 
-  function formatDate(value: string | null) {
-    if (!value) return "-";
+  async function loadAll() {
+    setLoading(true);
+    setErrorText("");
 
-    const parts = String(value).slice(0, 10).split("-");
-    if (parts.length === 3) {
-      return `${parts[2]}.${parts[1]}.${parts[0]}`;
-    }
+    await loadProjekt();
+    await loadRaeume();
+    await loadArbeitszeiten();
 
-    return value;
+    setLoading(false);
   }
 
-  function formatDateTime(value: string | null) {
-    if (!value) return "-";
+  async function loadProjekt() {
+    const tables = ["projekte", "baustellen"];
 
-    const d = new Date(value);
+    for (const table of tables) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq("id", projektIdValue)
+        .maybeSingle();
 
-    if (Number.isNaN(d.getTime())) {
-      return String(value);
+      if (!error && data) {
+        setProjekt(data as Projekt);
+        return;
+      }
     }
 
-    return d.toLocaleString("de-AT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    setProjekt(null);
+  }
+
+  async function loadRaeume() {
+    const configs: TableConfig[] = [
+      { table: "projekt_raeume", column: "projekt_id" },
+      { table: "raeume", column: "projekt_id" },
+      { table: "raeume", column: "project_id" },
+      { table: "prostorije", column: "projekt_id" },
+      { table: "prostorije", column: "project_id" },
+      { table: "rooms", column: "projekt_id" },
+      { table: "rooms", column: "project_id" },
+      { table: "prostorije", column: "baustelle_id" },
+      { table: "raeume", column: "baustelle_id" },
+    ];
+
+    for (const config of configs) {
+      const { data, error } = await supabase
+        .from(config.table)
+        .select("*")
+        .eq(config.column, projektIdValue);
+
+      if (!error) {
+        setRaeume(data || []);
+        return;
+      }
+    }
+
+    setRaeume([]);
+  }
+
+  async function loadArbeitszeiten() {
+    const configs: TableConfig[] = [
+      { table: "arbeitszeiten", column: "projekt_id" },
+      { table: "arbeitszeiten", column: "project_id" },
+      { table: "arbeitszeiten", column: "baustelle_id" },
+      { table: "arbeitszeit", column: "projekt_id" },
+      { table: "arbeitszeit", column: "project_id" },
+      { table: "arbeitszeit", column: "baustelle_id" },
+      { table: "stunden", column: "projekt_id" },
+      { table: "stunden", column: "project_id" },
+      { table: "stunden", column: "baustelle_id" },
+    ];
+
+    for (const config of configs) {
+      const { data, error } = await supabase
+        .from(config.table)
+        .select("*")
+        .eq(config.column, projektIdValue);
+
+      if (!error) {
+        const sorted = [...(data || [])].sort((a: any, b: any) => {
+          const da = String(getDate(a));
+          const db = String(getDate(b));
+          const sa = String(getStart(a));
+          const sb = String(getStart(b));
+
+          if (da === db) return sb.localeCompare(sa);
+          return db.localeCompare(da);
+        });
+
+        setTimeConfig(config);
+        setArbeitszeiten(sorted);
+        return;
+      }
+    }
+
+    setArbeitszeiten([]);
+    setErrorText(
+      "Ne mogu učitati Arbeitszeit. Provjeri tabelu arbeitszeiten i kolonu projekt_id."
+    );
+  }
+
+  const filtered = useMemo(() => {
+    return arbeitszeiten.filter((row) => {
+      const roomName = findRoomName(getRoomId(row));
+
+      const text = `
+        ${getDate(row)}
+        ${getWorker(row)}
+        ${getStart(row)}
+        ${getEnd(row)}
+        ${getPause(row)}
+        ${getNote(row)}
+        ${roomName}
+      `.toLowerCase();
+
+      const searchOk = text.includes(search.toLowerCase());
+      const dateOk = !filterDatum || String(getDate(row)) === filterDatum;
+
+      return searchOk && dateOk;
     });
-  }
+  }, [arbeitszeiten, search, filterDatum, raeume]);
 
-  function getRaum(id: number | string | null) {
-    if (!id) return null;
-    return raeume.find((r) => String(r.id) === String(id)) || null;
-  }
+  const totalHours = useMemo(() => {
+    return filtered.reduce((sum, row) => sum + getHours(row), 0);
+  }, [filtered]);
 
-  function getPosition(id: number | string | null) {
-    if (!id) return null;
-    return positionen.find((p) => String(p.id) === String(id)) || null;
-  }
+  const workerTotals = useMemo(() => {
+    const result: { [key: string]: number } = {};
 
-  function getRaumName(id: number | string | null) {
-    const raum = getRaum(id);
-    if (!raum) return "-";
+    filtered.forEach((row) => {
+      const worker = getWorker(row) || "Ohne Name";
+      result[worker] = (result[worker] || 0) + getHours(row);
+    });
 
-    return `${raum.ebene ? raum.ebene + " - " : ""}${raum.raum_name}`;
-  }
+    return result;
+  }, [filtered]);
 
-  function getPositionText(id: number | string | null) {
-    const pos = getPosition(id);
-    if (!pos) return "-";
+  function isDuplicate(values: ArbeitszeitForm) {
+    return arbeitszeiten.some((row) => {
+      if (editId && String(row.id) === String(editId)) return false;
 
-    return `${pos.position_nr} - ${pos.kurztext}`;
-  }
-
-  function checkDuplicate() {
-    if (editingId) return false;
-
-    return zeiten.some((z) => {
       return (
-        z.worker_name === selectedWorker &&
-        z.datum === datum &&
-        String(z.start_time || "").slice(0, 5) === startTime &&
-        String(z.end_time || "").slice(0, 5) === endTime &&
-        String(z.raum_id || "") === String(selectedRaumId || "") &&
-        String(z.lv_position_id || "") === String(selectedPositionId || "")
+        String(getDate(row)) === String(values.datum) &&
+        String(getWorker(row)).toLowerCase() ===
+          String(values.radnik).toLowerCase() &&
+        String(getStart(row)) === String(values.start_time) &&
+        String(getEnd(row)) === String(values.end_time)
       );
     });
   }
 
-  async function saveArbeitszeit() {
-    if (savingRef.current) return;
+  function buildPayloads(values: ArbeitszeitForm) {
+    const hours = calculateHours(
+      values.start_time,
+      values.end_time,
+      values.pause_minuten
+    );
 
-    if (!selectedWorker) {
-      alert("Odaberi radnika.");
-      return;
-    }
+    const base: any = {};
+    base[timeConfig.column] = projektIdValue;
 
-    if (!datum) {
+    const roomValue =
+      values.raum_id && !isNaN(Number(values.raum_id))
+        ? Number(values.raum_id)
+        : values.raum_id;
+
+    const roomPayload1 = values.raum_id ? { raum_id: roomValue } : {};
+    const roomPayload2 = values.raum_id ? { room_id: roomValue } : {};
+
+    return [
+      {
+        ...base,
+        datum: values.datum,
+        radnik: values.radnik.trim(),
+        start_time: values.start_time,
+        end_time: values.end_time,
+        pause_minuten: Number(values.pause_minuten || 0),
+        stunden: hours,
+        notiz: values.notiz.trim(),
+        ...roomPayload1,
+      },
+      {
+        ...base,
+        datum: values.datum,
+        arbeiter: values.radnik.trim(),
+        von: values.start_time,
+        bis: values.end_time,
+        pause: Number(values.pause_minuten || 0),
+        stunden: hours,
+        bemerkung: values.notiz.trim(),
+        ...roomPayload1,
+      },
+      {
+        ...base,
+        date: values.datum,
+        worker_name: values.radnik.trim(),
+        start: values.start_time,
+        end: values.end_time,
+        break_minutes: Number(values.pause_minuten || 0),
+        total_hours: hours,
+        info: values.notiz.trim(),
+        ...roomPayload2,
+      },
+      {
+        ...base,
+        date: values.datum,
+        worker: values.radnik.trim(),
+        start: values.start_time,
+        end: values.end_time,
+        hours: hours,
+        ...roomPayload2,
+      },
+      {
+        ...base,
+        datum: values.datum,
+        name: values.radnik.trim(),
+        start: values.start_time,
+        ende: values.end_time,
+        pause: Number(values.pause_minuten || 0),
+        stunden: hours,
+      },
+      {
+        ...base,
+        datum: values.datum,
+        radnik: values.radnik.trim(),
+        stunden: hours,
+      },
+      {
+        ...base,
+        date: values.datum,
+        worker: values.radnik.trim(),
+        hours: hours,
+      },
+    ];
+  }
+
+  async function saveWithValues(values: ArbeitszeitForm) {
+    if (!values.datum) {
       alert("Odaberi datum.");
       return;
     }
 
-    if (!startTime || !endTime) {
-      alert("Unesi početak i kraj.");
+    if (!values.radnik.trim()) {
+      alert("Odaberi ili upiši radnika.");
       return;
     }
 
-    if (!selectedRaumId) {
-      alert("Odaberi prostoriju.");
+    if (!values.start_time || !values.end_time) {
+      alert("Upiši početak i kraj rada.");
       return;
     }
 
-    const start = timeToMinutes(startTime);
-    const end = timeToMinutes(endTime);
-
-    if (end <= start) {
-      alert("Kraj rada mora biti poslije početka rada.");
+    if (isDuplicate(values)) {
+      alert("Ovaj unos već postoji. Nije dodan dupli unos.");
       return;
     }
 
-    const stunden = calculateHours();
-
-    if (stunden <= 0) {
-      alert("Radno vrijeme mora biti veće od 0.");
-      return;
-    }
-
-    if (checkDuplicate()) {
-      alert("Ovaj unos već postoji i neće biti dupliran.");
-      return;
-    }
-
-    savingRef.current = true;
     setSaving(true);
+    let lastError: any = null;
 
-    const payload: any = {
-      projekt_id: Number(projektId),
-      worker_name: selectedWorker,
-      datum,
-      start_time: startTime,
-      end_time: endTime,
-      pause_minutes: Number(pauseMinutes || 0),
-      stunden,
-      raum_id: selectedRaumId ? Number(selectedRaumId) : null,
-      lv_position_id: selectedPositionId ? Number(selectedPositionId) : null,
-      arbeitsart,
-      freigabe_status: freigabeStatus,
-      notiz: notiz.trim() || null,
+    for (const payload of buildPayloads(values)) {
+      const query = editId
+        ? supabase.from(timeConfig.table).update(payload as any).eq("id", editId)
+        : supabase.from(timeConfig.table).insert(payload as any);
+
+      const { error } = await query;
+
+      if (!error) {
+        resetForm();
+        setShowForm(false);
+        setSaving(false);
+        await loadArbeitszeiten();
+        return;
+      }
+
+      lastError = error;
+    }
+
+    setSaving(false);
+    alert("Greška kod spremanja Arbeitszeit: " + (lastError?.message || ""));
+  }
+
+  async function quickAddWorker(worker: string) {
+    if (saving) return;
+
+    const values: ArbeitszeitForm = {
+      datum: today(),
+      radnik: worker,
+      start_time: "08:00",
+      end_time: "17:00",
+      pause_minuten: "30",
+      raum_id: "",
+      notiz: "",
     };
 
-    if (editingId) {
-      const { error } = await supabase
-        .from("projekt_arbeitszeiten")
-        .update(payload)
-        .eq("id", editingId);
-
-      if (error) {
-        alert("Greška kod izmjene radnog vremena: " + error.message);
-        savingRef.current = false;
-        setSaving(false);
-        return;
-      }
-    } else {
-      payload.created_by = workerName;
-
-      const { error } = await supabase.from("projekt_arbeitszeiten").insert(payload);
-
-      if (error) {
-        alert("Greška kod dodavanja radnog vremena: " + error.message);
-        savingRef.current = false;
-        setSaving(false);
-        return;
-      }
-    }
-
-    clearForm();
-    setShowForm(false);
-    await loadData();
-
-    savingRef.current = false;
-    setSaving(false);
+    await saveWithValues(values);
   }
 
-  function editArbeitszeit(item: any) {
-    setEditingId(item.id);
-    setSelectedWorker(item.worker_name || workerName || "Arnes");
-    setDatum(item.datum || getTodayLocalDate());
-    setStartTime(String(item.start_time || "08:00").slice(0, 5));
-    setEndTime(String(item.end_time || "17:00").slice(0, 5));
-    setPauseMinutes(String(item.pause_minutes ?? "30"));
-    setSelectedRaumId(item.raum_id ? String(item.raum_id) : "");
-    setSelectedPositionId(item.lv_position_id ? String(item.lv_position_id) : "");
-    setArbeitsart(item.arbeitsart || "Leistung");
-    setFreigabeStatus(normalizeStatus(item.freigabe_status));
-    setNotiz(item.notiz || "");
+  function startEdit(row: any) {
+    setEditId(row.id);
+
+    setForm({
+      datum: String(getDate(row) || today()),
+      radnik: String(getWorker(row) || ""),
+      start_time: String(getStart(row) || "08:00"),
+      end_time: String(getEnd(row) || "17:00"),
+      pause_minuten: String(getPause(row) || "30"),
+      raum_id: String(getRoomId(row) || ""),
+      notiz: String(getNote(row) || ""),
+    });
+
     setShowForm(true);
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function deleteArbeitszeit(item: any) {
-    const ok = confirm("Da li sigurno želiš obrisati ovaj unos radnog vremena?");
+  async function deleteRow(row: any) {
+    const ok = confirm(
+      `Da li želiš obrisati unos za ${getWorker(row)} od ${getDate(row)}?`
+    );
 
     if (!ok) return;
 
     const { error } = await supabase
-      .from("projekt_arbeitszeiten")
+      .from(timeConfig.table)
       .delete()
-      .eq("id", item.id);
+      .eq("id", row.id);
 
     if (error) {
-      alert("Greška kod brisanja radnog vremena: " + error.message);
+      alert("Greška kod brisanja: " + error.message);
       return;
     }
 
-    loadData();
-  }
-
-  async function changeStatus(item: any, newStatus: string) {
-    const { error } = await supabase
-      .from("projekt_arbeitszeiten")
-      .update({ freigabe_status: newStatus })
-      .eq("id", item.id);
-
-    if (error) {
-      alert("Greška kod promjene statusa: " + error.message);
-      return;
-    }
-
-    loadData();
-  }
-
-  function getStatusBadgeStyle(statusValue: string) {
-    const normalized = normalizeStatus(statusValue);
-
-    if (normalized === "Genehmigt") return okBadgeStyle;
-    if (normalized === "Abgelehnt") return dangerBadgeStyle;
-
-    return warningBadgeStyle;
-  }
-
-  if (loading) {
-    return (
-      <main style={mainStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
-
-        <h1 style={titleStyle}>⏱️ Arbeitszeit</h1>
-        <p style={loadingStyle}>Wird geladen...</p>
-      </main>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <main style={mainStyle}>
-        <h1 style={titleStyle}>Kein Zugriff</h1>
-      </main>
-    );
+    await loadArbeitszeiten();
   }
 
   return (
-    <main style={mainStyle}>
-      <div style={topBarStyle}>
-        <Link href={`/projekte/${projektId}`} style={backStyle}>
-          ← Zurück zum Projekt
-        </Link>
+    <main className="page">
+      <section className="top">
+        <div>
+          <Link className="back" href={`/projekte/${projektId}`}>
+            ← Zurück zu Projekt
+          </Link>
 
-        <div style={topButtonWrapStyle}>
-          <button onClick={loadData} style={refreshButtonStyle}>
+          <p className="label">Projekt Arbeitszeit</p>
+          <h1>Arbeitszeit</h1>
+          <p className="subtitle">
+            {getProjektName()}
+            {getProjektOrt() ? ` · ${getProjektOrt()}` : ""}
+          </p>
+        </div>
+
+        <div className="topButtons">
+          <button className="btn gray" onClick={loadAll}>
             Aktualisieren
           </button>
 
           <button
+            className="btn blue"
             onClick={() => {
-              clearForm();
-              setShowForm(!showForm);
+              resetForm();
+              setShowForm(true);
             }}
-            disabled={saving}
-            style={newButtonStyle}
           >
-            {showForm ? "Schließen" : "+ Arbeitszeit"}
-          </button>
-        </div>
-      </div>
-
-      <h1 style={titleStyle}>⏱️ Arbeitszeit</h1>
-
-      <p style={descriptionStyle}>
-        Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
-        <strong>{workerName}</strong>
-      </p>
-
-      <section style={summaryGridStyle}>
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Alle Einträge</span>
-          <strong style={summaryValueStyle}>{summary.total}</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Gesamt Stunden</span>
-          <strong style={summaryValueStyle}>{formatNumber(summary.totalHours)} h</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Genehmigt</span>
-          <strong style={{ ...summaryValueStyle, color: "#22c55e" }}>
-            {formatNumber(summary.approvedHours)} h
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Wartet</span>
-          <strong style={{ ...summaryValueStyle, color: "#facc15" }}>
-            {formatNumber(summary.waitingHours)} h
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Abgelehnt</span>
-          <strong style={{ ...summaryValueStyle, color: "#ef4444" }}>
-            {formatNumber(summary.rejectedHours)} h
-          </strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Heute</span>
-          <strong style={summaryValueStyle}>{formatNumber(summary.todayHours)} h</strong>
-        </div>
-
-        <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Radnici</span>
-          <strong style={summaryValueStyle}>{summary.workerCount}</strong>
-        </div>
-      </section>
-
-      <section style={filterBoxStyle}>
-        <div style={filterGridStyle}>
-          <div>
-            <label style={labelStyle}>Status Filter</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="Alle">Alle</option>
-              <option value="Wartet">Wartet</option>
-              <option value="Genehmigt">Genehmigt</option>
-              <option value="Abgelehnt">Abgelehnt</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Datum Filter</label>
-            <input
-              type="date"
-              value={filterDatum}
-              onChange={(e) => setFilterDatum(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Radnik Filter</label>
-            <select
-              value={filterWorker}
-              onChange={(e) => setFilterWorker(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="Alle">Alle</option>
-              {RADNICI.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Raum Filter</label>
-            <select
-              value={filterRaum}
-              onChange={(e) => setFilterRaum(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="Alle">Alle Räume</option>
-              {raeume.map((raum) => (
-                <option key={raum.id} value={raum.id}>
-                  {raum.ebene ? `${raum.ebene} - ` : ""}
-                  {raum.raum_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            onClick={() => {
-              setFilterStatus("Alle");
-              setFilterDatum("");
-              setFilterWorker("Alle");
-              setFilterRaum("Alle");
-            }}
-            style={grayButtonStyle}
-          >
-            Filter löschen
+            + Zeit hinzufügen
           </button>
         </div>
       </section>
 
-      <section style={infoBoxStyle}>
-        <h2 style={sectionTitleStyle}>Arbeitszeit Regel</h2>
-        <p style={infoTextStyle}>
-          Standard je 08:00 - 17:00 sa 30 min pauze. Unos ide u Freigabe /
-          Kontrolle. Samo Genehmigt ulazi u Tagesbericht, Auswertung i Bericht /
-          Druck.
-        </p>
+      {errorText && <div className="errorBox">{errorText}</div>}
+
+      <section className="stats">
+        <div className="stat">
+          <span>Ukupno unosa</span>
+          <strong>{filtered.length}</strong>
+        </div>
+
+        <div className="stat">
+          <span>Ukupno sati</span>
+          <strong>{formatHours(totalHours)}</strong>
+        </div>
+
+        <div className="stat">
+          <span>Radnici</span>
+          <strong>{Object.keys(workerTotals).length}</strong>
+        </div>
       </section>
 
-      {showForm && (
-        <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>
-            {editingId ? "Arbeitszeit bearbeiten" : "Arbeitszeit erfassen"}
-          </h2>
+      <section className="toolbar">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Traži radnika, datum, Raum ili napomenu..."
+        />
 
-          <div style={quickTimeGridStyle}>
-            <button onClick={setStandardTime} type="button" style={quickTimeButtonStyle}>
-              08:00 - 17:00 / 30 min
-            </button>
+        <input
+          type="date"
+          value={filterDatum}
+          onChange={(e) => setFilterDatum(e.target.value)}
+        />
 
-            <button onClick={setEarlyTime} type="button" style={quickTimeButtonStyle}>
-              07:00 - 16:00 / 30 min
-            </button>
+        <button onClick={() => setFilterDatum("")}>Alle</button>
+      </section>
 
-            <button onClick={setShortDay} type="button" style={quickTimeButtonStyle}>
-              Kurz 08:00 - 14:00
-            </button>
-          </div>
+      <section className="quickAdd">
+        <h2>Brzi unos 08:00 - 17:00 / Pause 30 min</h2>
 
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Radnik *</label>
-              <select
-                value={selectedWorker}
-                onChange={(e) => setSelectedWorker(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">Radnik auswählen</option>
-                {RADNICI.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label style={labelStyle}>Datum *</label>
-              <input
-                type="date"
-                value={datum}
-                onChange={(e) => setDatum(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Status</label>
-              <select
-                value={freigabeStatus}
-                onChange={(e) => setFreigabeStatus(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="Wartet">Wartet</option>
-                <option value="Genehmigt">Genehmigt</option>
-                <option value="Abgelehnt">Abgelehnt</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Start *</label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Ende *</label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Pause Minuten</label>
-              <input
-                type="number"
-                value={pauseMinutes}
-                onChange={(e) => setPauseMinutes(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Stunden</label>
-              <div style={calculatedBoxStyle}>{formatNumber(calculateHours())} h</div>
-            </div>
-          </div>
-
-          <label style={labelStyle}>Raum *</label>
-          <select
-            value={selectedRaumId}
-            onChange={(e) => setSelectedRaumId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">Raum auswählen</option>
-            {raeume.map((raum) => (
-              <option key={raum.id} value={raum.id}>
-                {raum.ebene ? `${raum.ebene} - ` : ""}
-                {raum.raum_name}
-              </option>
-            ))}
-          </select>
-
-          <label style={labelStyle}>LV Position</label>
-          <select
-            value={selectedPositionId}
-            onChange={(e) => setSelectedPositionId(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">Ohne LV Position</option>
-            {positionen.map((pos) => (
-              <option key={pos.id} value={pos.id}>
-                {pos.position_nr} - {pos.kurztext}
-              </option>
-            ))}
-          </select>
-
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Art</label>
-              <select
-                value={arbeitsart}
-                onChange={(e) => setArbeitsart(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="Leistung">Leistung</option>
-                <option value="Vorbereitung">Vorbereitung</option>
-                <option value="Nacharbeit">Nacharbeit</option>
-                <option value="Aufräumen">Aufräumen</option>
-                <option value="Sonstiges">Sonstiges</option>
-              </select>
-            </div>
-          </div>
-
-          <label style={labelStyle}>Notiz</label>
-          <textarea
-            value={notiz}
-            onChange={(e) => setNotiz(e.target.value)}
-            placeholder="Napomena za radno vrijeme..."
-            style={textareaStyle}
-          />
-
-          <div style={previewBoxStyle}>
-            <strong>Pregled:</strong> {selectedWorker || "-"} · {formatDate(datum)} ·{" "}
-            {startTime} - {endTime} · Pause {pauseMinutes || 0} min ·{" "}
-            <strong>{formatNumber(calculateHours())} h</strong>
-          </div>
-
-          <div style={formButtonRowStyle}>
+        <div className="quickGrid">
+          {RADNICI.map((worker) => (
             <button
-              onClick={saveArbeitszeit}
+              key={worker}
+              onClick={() => quickAddWorker(worker)}
               disabled={saving}
-              style={{
-                ...saveButtonStyle,
-                opacity: saving ? 0.5 : 1,
-                cursor: saving ? "not-allowed" : "pointer",
-              }}
             >
-              {saving
-                ? "Speichern..."
-                : editingId
-                ? "Änderungen speichern"
-                : "Arbeitszeit speichern"}
+              + {worker}
             </button>
+          ))}
+        </div>
+      </section>
 
-            <button
-              onClick={() => {
-                clearForm();
-                setShowForm(false);
-              }}
-              disabled={saving}
-              style={cancelButtonStyle}
-            >
-              Abbrechen
-            </button>
+      {Object.keys(workerTotals).length > 0 && (
+        <section className="workerTotals">
+          <h2>Sati po radniku</h2>
+
+          <div className="workerGrid">
+            {Object.entries(workerTotals).map(([worker, hours]) => (
+              <div key={worker}>
+                <span>{worker}</span>
+                <strong>{formatHours(hours)} h</strong>
+              </div>
+            ))}
           </div>
         </section>
       )}
 
-      <section style={boxStyle}>
-        <h2 style={sectionTitleStyle}>Stunden po radniku</h2>
-
-        {workerRows.length === 0 ? (
-          <p style={emptyStyle}>Nema sati.</p>
-        ) : (
-          <div style={tableWrapStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Radnik</th>
-                  <th style={thRightStyle}>Gesamt</th>
-                  <th style={thRightStyle}>Genehmigt</th>
-                  <th style={thRightStyle}>Wartet</th>
-                  <th style={thRightStyle}>Einträge</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {workerRows.map((row) => (
-                  <tr key={row.name}>
-                    <td style={tdStyle}>
-                      <strong>{row.name}</strong>
-                    </td>
-                    <td style={tdRightStyle}>{formatNumber(row.total)} h</td>
-                    <td style={tdRightStyle}>{formatNumber(row.genehmigt)} h</td>
-                    <td style={tdRightStyle}>{formatNumber(row.wartet)} h</td>
-                    <td style={tdRightStyle}>{row.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {loading ? (
+        <div className="emptyBox">Učitavanje Arbeitszeit...</div>
+      ) : filtered.length === 0 ? (
+        <div className="emptyBox">
+          <h2>Nema unosa</h2>
+          <p>Dodaj radno vrijeme za ovaj projekt.</p>
+        </div>
+      ) : (
+        <section className="tableBox">
+          <div className="tableHeader">
+            <span>Datum</span>
+            <span>Radnik</span>
+            <span>Vrijeme</span>
+            <span>Pause</span>
+            <span>Sati</span>
+            <span>Raum</span>
+            <span>Akcije</span>
           </div>
-        )}
-      </section>
 
-      <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Arbeitszeit Liste</h2>
+          {filtered.map((row) => (
+            <div key={row.id} className="tableRow">
+              <span>{getDate(row) || "-"}</span>
+              <span className="strong">{getWorker(row) || "-"}</span>
+              <span>
+                {getStart(row) || "-"} - {getEnd(row) || "-"}
+              </span>
+              <span>{getPause(row) || 0} min</span>
+              <span className="hours">{formatHours(getHours(row))} h</span>
+              <span>{findRoomName(getRoomId(row)) || "-"}</span>
 
-        {filteredZeiten.length === 0 ? (
-          <p style={emptyStyle}>Keine Arbeitszeit Einträge gefunden.</p>
-        ) : (
-          <div style={zeitGridStyle}>
-            {filteredZeiten.map((item) => {
-              const statusValue = normalizeStatus(item.freigabe_status);
+              <span className="rowActions">
+                <button onClick={() => startEdit(row)}>Bearbeiten</button>
+                <button className="delete" onClick={() => deleteRow(row)}>
+                  Löschen
+                </button>
+              </span>
 
-              return (
-                <div key={item.id} style={zeitCardStyle}>
-                  <div style={cardTopStyle}>
-                    <span style={arbeitszeitBadgeStyle}>Arbeitszeit</span>
-                    <span style={getStatusBadgeStyle(statusValue)}>
-                      {statusValue}
-                    </span>
-                  </div>
+              {getNote(row) && <p className="note">{getNote(row)}</p>}
+            </div>
+          ))}
+        </section>
+      )}
 
-                  <h3 style={zeitTitleStyle}>
-                    {item.worker_name} · {String(item.start_time || "").slice(0, 5)} -{" "}
-                    {String(item.end_time || "").slice(0, 5)} ·{" "}
-                    {formatNumber(item.stunden)} h
-                  </h3>
+      {showForm && (
+        <div className="modalBg">
+          <div className="modal">
+            <div className="modalHead">
+              <h2>{editId ? "Arbeitszeit bearbeiten" : "Arbeitszeit hinzufügen"}</h2>
 
-                  <div style={detailGridStyle}>
-                    <div>
-                      <span style={smallLabelStyle}>Datum</span>
-                      <strong>{formatDate(item.datum)}</strong>
-                    </div>
+              <button
+                onClick={() => {
+                  resetForm();
+                  setShowForm(false);
+                }}
+              >
+                ×
+              </button>
+            </div>
 
-                    <div>
-                      <span style={smallLabelStyle}>Pause</span>
-                      <strong>{item.pause_minutes || 0} min</strong>
-                    </div>
+            <label>Datum</label>
+            <input
+              type="date"
+              value={form.datum}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, datum: e.target.value }))
+              }
+            />
 
-                    <div>
-                      <span style={smallLabelStyle}>Raum</span>
-                      <strong>{getRaumName(item.raum_id)}</strong>
-                    </div>
+            <label>Radnik</label>
+            <select
+              value={form.radnik}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, radnik: e.target.value }))
+              }
+            >
+              <option value="">Radnik auswählen</option>
+              {RADNICI.map((worker) => (
+                <option key={worker} value={worker}>
+                  {worker}
+                </option>
+              ))}
+            </select>
 
-                    <div>
-                      <span style={smallLabelStyle}>Art</span>
-                      <strong>{item.arbeitsart || "-"}</strong>
-                    </div>
+            <label>Oder Name manuell</label>
+            <input
+              value={form.radnik}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, radnik: e.target.value }))
+              }
+              placeholder="Ime radnika"
+            />
 
-                    <div>
-                      <span style={smallLabelStyle}>LV Position</span>
-                      <strong>{getPositionText(item.lv_position_id)}</strong>
-                    </div>
+            <div className="timeGrid">
+              <div>
+                <label>Von</label>
+                <input
+                  type="time"
+                  value={form.start_time}
+                  onChange={(e) =>
+                    setForm((old) => ({ ...old, start_time: e.target.value }))
+                  }
+                />
+              </div>
 
-                    <div>
-                      <span style={smallLabelStyle}>Erstellt von</span>
-                      <strong>{item.created_by || "-"}</strong>
-                    </div>
-                  </div>
+              <div>
+                <label>Bis</label>
+                <input
+                  type="time"
+                  value={form.end_time}
+                  onChange={(e) =>
+                    setForm((old) => ({ ...old, end_time: e.target.value }))
+                  }
+                />
+              </div>
 
-                  {isAdmin && (
-                    <p style={metaTextStyle}>
-                      Zeit der Eingabe:{" "}
-                      <strong>{formatDateTime(item.created_at)}</strong>
-                    </p>
-                  )}
+              <div>
+                <label>Pause min</label>
+                <input
+                  type="number"
+                  value={form.pause_minuten}
+                  onChange={(e) =>
+                    setForm((old) => ({
+                      ...old,
+                      pause_minuten: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
 
-                  {item.notiz && <p style={noteTextStyle}>{item.notiz}</p>}
+            <div className="preview">
+              Stunden:{" "}
+              <strong>
+                {formatHours(
+                  calculateHours(
+                    form.start_time,
+                    form.end_time,
+                    form.pause_minuten
+                  )
+                )}{" "}
+                h
+              </strong>
+            </div>
 
-                  <div style={quickStatusGridStyle}>
-                    <button
-                      onClick={() => changeStatus(item, "Genehmigt")}
-                      style={approveButtonStyle}
-                    >
-                      Genehmigen
-                    </button>
+            <label>Raum / prostorija</label>
+            <select
+              value={form.raum_id}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, raum_id: e.target.value }))
+              }
+            >
+              <option value="">Ohne Raum</option>
+              {raeume.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {getRoomName(room)}
+                </option>
+              ))}
+            </select>
 
-                    <button
-                      onClick={() => changeStatus(item, "Abgelehnt")}
-                      style={rejectButtonStyle}
-                    >
-                      Ablehnen
-                    </button>
+            <label>Notiz</label>
+            <textarea
+              value={form.notiz}
+              onChange={(e) =>
+                setForm((old) => ({ ...old, notiz: e.target.value }))
+              }
+              placeholder="Napomena za ovaj unos"
+            />
 
-                    <button
-                      onClick={() => changeStatus(item, "Wartet")}
-                      style={waitButtonStyle}
-                    >
-                      Wartet
-                    </button>
-                  </div>
+            <div className="modalActions">
+              <button
+                className="cancel"
+                onClick={() => {
+                  resetForm();
+                  setShowForm(false);
+                }}
+              >
+                Abbrechen
+              </button>
 
-                  <div style={actionRowStyle}>
-                    <button
-                      onClick={() => editArbeitszeit(item)}
-                      style={editButtonStyle}
-                    >
-                      Bearbeiten
-                    </button>
-
-                    <button
-                      onClick={() => deleteArbeitszeit(item)}
-                      style={deleteButtonStyle}
-                    >
-                      Löschen
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+              <button
+                className="save"
+                onClick={() => saveWithValues(form)}
+                disabled={saving}
+              >
+                {saving ? "Speichern..." : "Speichern"}
+              </button>
+            </div>
           </div>
-        )}
-      </section>
+        </div>
+      )}
+
+      <style>{`
+        .page {
+          min-height: 100vh;
+          background: #050505;
+          color: white;
+          padding: 28px;
+          font-family: Arial, sans-serif;
+        }
+
+        .top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 20px;
+          margin-bottom: 22px;
+        }
+
+        .back {
+          display: inline-block;
+          color: white;
+          text-decoration: none;
+          background: #1f2937;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 11px 15px;
+          font-weight: 800;
+          margin-bottom: 18px;
+        }
+
+        .label {
+          color: #9ca3af;
+          margin: 0 0 8px;
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+        h1 {
+          margin: 0;
+          font-size: 44px;
+          line-height: 1;
+        }
+
+        .subtitle {
+          color: #cbd5e1;
+          margin: 12px 0 0;
+          font-size: 17px;
+          font-weight: 700;
+        }
+
+        .topButtons {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        button,
+        a,
+        input,
+        textarea,
+        select {
+          font-family: inherit;
+        }
+
+        button,
+        a {
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-size: 15px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .gray {
+          background: #374151;
+        }
+
+        .blue {
+          background: #2563eb;
+        }
+
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .stat {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+        }
+
+        .stat span {
+          display: block;
+          color: #9ca3af;
+          margin-bottom: 8px;
+          font-weight: 800;
+        }
+
+        .stat strong {
+          font-size: 34px;
+        }
+
+        .toolbar {
+          display: grid;
+          grid-template-columns: 1fr 190px 90px;
+          gap: 10px;
+          margin-bottom: 18px;
+        }
+
+        .toolbar input {
+          background: #111827;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 15px 16px;
+          font-size: 16px;
+          outline: none;
+        }
+
+        .toolbar button {
+          background: #374151;
+          color: white;
+          border: 0;
+          border-radius: 14px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .quickAdd,
+        .workerTotals {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 18px;
+          margin-bottom: 18px;
+        }
+
+        .quickAdd h2,
+        .workerTotals h2 {
+          margin: 0 0 12px;
+          font-size: 22px;
+        }
+
+        .quickGrid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 10px;
+        }
+
+        .quickGrid button {
+          background: #1f2937;
+          border: 1px solid #374151;
+          color: white;
+          border-radius: 14px;
+          padding: 14px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .workerGrid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 10px;
+        }
+
+        .workerGrid div {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 14px;
+        }
+
+        .workerGrid span {
+          display: block;
+          color: #9ca3af;
+          font-weight: 800;
+          margin-bottom: 6px;
+        }
+
+        .workerGrid strong {
+          font-size: 22px;
+        }
+
+        .errorBox {
+          background: #7f1d1d;
+          border: 1px solid #ef4444;
+          color: white;
+          padding: 16px;
+          border-radius: 14px;
+          margin-bottom: 18px;
+          font-weight: 800;
+        }
+
+        .emptyBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 30px;
+          text-align: center;
+          color: #cbd5e1;
+        }
+
+        .emptyBox h2 {
+          color: white;
+          margin-top: 0;
+        }
+
+        .tableBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          overflow: hidden;
+        }
+
+        .tableHeader,
+        .tableRow {
+          display: grid;
+          grid-template-columns: 130px 1fr 150px 90px 100px 1fr 210px;
+          gap: 10px;
+          align-items: center;
+          padding: 14px;
+        }
+
+        .tableHeader {
+          background: #0b1220;
+          color: #9ca3af;
+          font-weight: 900;
+          border-bottom: 1px solid #1f2937;
+        }
+
+        .tableRow {
+          border-bottom: 1px solid #1f2937;
+          color: #e5e7eb;
+        }
+
+        .tableRow:last-child {
+          border-bottom: 0;
+        }
+
+        .strong {
+          font-weight: 900;
+          color: white;
+        }
+
+        .hours {
+          font-weight: 900;
+          color: #bbf7d0;
+        }
+
+        .rowActions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+
+        .rowActions button {
+          background: #374151;
+          color: white;
+          border: 0;
+          border-radius: 12px;
+          padding: 11px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .rowActions .delete {
+          background: #dc2626;
+        }
+
+        .note {
+          grid-column: 1 / -1;
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 12px;
+          padding: 10px;
+          margin: 4px 0 0;
+          color: #cbd5e1;
+        }
+
+        .modalBg {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.78);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 16px;
+          z-index: 100;
+        }
+
+        .modal {
+          width: 100%;
+          max-width: 620px;
+          max-height: 92vh;
+          overflow: auto;
+          background: #111827;
+          border: 1px solid #374151;
+          border-radius: 22px;
+          padding: 22px;
+        }
+
+        .modalHead {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 18px;
+        }
+
+        .modalHead h2 {
+          margin: 0;
+          font-size: 28px;
+        }
+
+        .modalHead button {
+          width: 42px;
+          height: 42px;
+          border: 0;
+          border-radius: 12px;
+          background: #374151;
+          color: white;
+          font-size: 28px;
+          cursor: pointer;
+        }
+
+        label {
+          display: block;
+          color: #d1d5db;
+          font-weight: 800;
+          margin: 14px 0 7px;
+        }
+
+        .modal input,
+        .modal textarea,
+        .modal select {
+          width: 100%;
+          box-sizing: border-box;
+          background: #030712;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 14px;
+          font-size: 16px;
+          outline: none;
+        }
+
+        .modal textarea {
+          min-height: 90px;
+          resize: vertical;
+        }
+
+        .timeGrid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+        }
+
+        .preview {
+          margin-top: 14px;
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 14px;
+          color: #cbd5e1;
+          font-weight: 800;
+        }
+
+        .preview strong {
+          color: white;
+          font-size: 22px;
+        }
+
+        .modalActions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 20px;
+        }
+
+        .modalActions button {
+          border: 0;
+          border-radius: 14px;
+          padding: 14px 18px;
+          color: white;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .cancel {
+          background: #374151;
+        }
+
+        .save {
+          background: #2563eb;
+        }
+
+        .save:disabled,
+        .quickGrid button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 1050px) {
+          .tableHeader {
+            display: none;
+          }
+
+          .tableRow {
+            grid-template-columns: 1fr;
+            gap: 8px;
+          }
+
+          .rowActions {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .page {
+            padding: 16px;
+          }
+
+          .top {
+            display: block;
+          }
+
+          h1 {
+            font-size: 36px;
+          }
+
+          .topButtons {
+            display: grid;
+            grid-template-columns: 1fr;
+            margin-top: 16px;
+          }
+
+          .stats,
+          .toolbar,
+          .quickGrid,
+          .timeGrid {
+            grid-template-columns: 1fr;
+          }
+
+          .toolbar button {
+            padding: 14px;
+          }
+
+          .rowActions {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </main>
   );
 }
-
-const mainStyle: any = {
-  background: "#000",
-  minHeight: "100vh",
-  color: "white",
-  padding: "20px",
-};
-
-const topBarStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "12px",
-  marginBottom: "20px",
-  flexWrap: "wrap",
-};
-
-const topButtonWrapStyle: any = {
-  display: "flex",
-  gap: "10px",
-  flexWrap: "wrap",
-};
-
-const backStyle: any = {
-  color: "#3b82f6",
-  textDecoration: "none",
-  fontWeight: "bold",
-  fontSize: "16px",
-};
-
-const titleStyle: any = {
-  fontSize: "38px",
-  color: "#f97316",
-  margin: "0 0 10px 0",
-};
-
-const descriptionStyle: any = {
-  color: "#bbb",
-  fontSize: "16px",
-  marginBottom: "18px",
-};
-
-const loadingStyle: any = {
-  color: "#aaa",
-  fontSize: "18px",
-};
-
-const refreshButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const newButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px 18px",
-  fontSize: "15px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const summaryGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))",
-  gap: "12px",
-  marginBottom: "20px",
-};
-
-const summaryCardStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "14px",
-};
-
-const summaryLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "13px",
-  marginBottom: "6px",
-};
-
-const summaryValueStyle: any = {
-  color: "#f97316",
-  fontSize: "22px",
-};
-
-const filterBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const filterGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "12px",
-  alignItems: "end",
-};
-
-const infoBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const infoTextStyle: any = {
-  color: "#ccc",
-  margin: 0,
-  lineHeight: "1.5",
-};
-
-const formBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const formTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const sectionTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "14px",
-};
-
-const quickTimeGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: "10px",
-  marginBottom: "12px",
-};
-
-const quickTimeButtonStyle: any = {
-  background: "#000",
-  color: "white",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "12px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const formGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-  gap: "12px",
-};
-
-const labelStyle: any = {
-  display: "block",
-  color: "#ddd",
-  fontWeight: "bold",
-  marginBottom: "6px",
-  marginTop: "12px",
-};
-
-const inputStyle: any = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "10px",
-  border: "1px solid #333",
-  background: "#000",
-  color: "white",
-  fontSize: "15px",
-  boxSizing: "border-box",
-};
-
-const textareaStyle: any = {
-  ...inputStyle,
-  minHeight: "100px",
-  resize: "vertical",
-};
-
-const calculatedBoxStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "10px",
-  padding: "12px",
-  color: "#f97316",
-  fontWeight: "bold",
-};
-
-const previewBoxStyle: any = {
-  marginTop: "14px",
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "12px",
-  color: "#ddd",
-};
-
-const formButtonRowStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "12px",
-  marginTop: "18px",
-};
-
-const saveButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const cancelButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "13px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const grayButtonStyle: any = {
-  background: "#4b5563",
-  color: "white",
-  border: "none",
-  borderRadius: "12px",
-  padding: "12px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const boxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "20px",
-};
-
-const listBoxStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const emptyStyle: any = {
-  color: "#aaa",
-  fontSize: "16px",
-};
-
-const tableWrapStyle: any = {
-  overflowX: "auto",
-};
-
-const tableStyle: any = {
-  width: "100%",
-  borderCollapse: "collapse",
-  minWidth: "760px",
-};
-
-const thStyle: any = {
-  borderBottom: "1px solid #333",
-  color: "#f97316",
-  padding: "10px",
-  textAlign: "left",
-  fontSize: "13px",
-  whiteSpace: "nowrap",
-};
-
-const thRightStyle: any = {
-  ...thStyle,
-  textAlign: "right",
-};
-
-const tdStyle: any = {
-  borderBottom: "1px solid #222",
-  color: "#ddd",
-  padding: "10px",
-  fontSize: "13px",
-  verticalAlign: "top",
-};
-
-const tdRightStyle: any = {
-  ...tdStyle,
-  textAlign: "right",
-  whiteSpace: "nowrap",
-};
-
-const zeitGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-  gap: "14px",
-};
-
-const zeitCardStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "14px",
-};
-
-const cardTopStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "10px",
-  flexWrap: "wrap",
-};
-
-const zeitTitleStyle: any = {
-  color: "#f97316",
-  margin: "12px 0 10px 0",
-  fontSize: "18px",
-  lineHeight: "1.35",
-};
-
-const detailGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "10px",
-  background: "#080808",
-  border: "1px solid #222",
-  borderRadius: "12px",
-  padding: "10px",
-};
-
-const smallLabelStyle: any = {
-  display: "block",
-  color: "#aaa",
-  fontSize: "12px",
-  marginBottom: "4px",
-};
-
-const metaTextStyle: any = {
-  color: "#aaa",
-  fontSize: "13px",
-  margin: "8px 0",
-};
-
-const noteTextStyle: any = {
-  color: "#ccc",
-  fontSize: "13px",
-  lineHeight: "1.4",
-  background: "#080808",
-  border: "1px solid #222",
-  borderRadius: "10px",
-  padding: "10px",
-};
-
-const quickStatusGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr 1fr",
-  gap: "8px",
-  marginTop: "12px",
-};
-
-const actionRowStyle: any = {
-  display: "flex",
-  gap: "8px",
-  flexWrap: "wrap",
-  marginTop: "12px",
-};
-
-const approveButtonStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "8px",
-  fontWeight: "bold",
-  cursor: "pointer",
-  fontSize: "12px",
-};
-
-const rejectButtonStyle: any = {
-  ...approveButtonStyle,
-  background: "#7f1d1d",
-};
-
-const waitButtonStyle: any = {
-  ...approveButtonStyle,
-  background: "#ca8a04",
-};
-
-const editButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "8px 10px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const deleteButtonStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  padding: "8px 10px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const arbeitszeitBadgeStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const okBadgeStyle: any = {
-  background: "#16a34a",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const warningBadgeStyle: any = {
-  background: "#ca8a04",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
-
-const dangerBadgeStyle: any = {
-  background: "#dc2626",
-  color: "white",
-  borderRadius: "999px",
-  padding: "5px 9px",
-  fontWeight: "bold",
-  fontSize: "12px",
-  whiteSpace: "nowrap",
-};
