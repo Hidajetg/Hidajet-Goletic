@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 
 const ADMINI = ["Hido", "Steffi", "Admin"];
 
@@ -19,12 +19,14 @@ function getTodayLocalDate() {
 export default function ProjektLeistungPage() {
   const params = useParams();
   const router = useRouter();
+  const savingRef = useRef(false);
 
   const projektId = String(params.id);
 
   const [workerName, setWorkerName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [projekt, setProjekt] = useState<any>(null);
   const [raeume, setRaeume] = useState<any[]>([]);
@@ -44,27 +46,128 @@ export default function ProjektLeistungPage() {
   const [status, setStatus] = useState("Offen");
   const [notiz, setNotiz] = useState("");
 
+  const [filterStatus, setFilterStatus] = useState("Alle");
+  const [filterDatum, setFilterDatum] = useState("");
+  const [filterRaum, setFilterRaum] = useState("Alle");
+  const [filterPosition, setFilterPosition] = useState("Alle");
+
+  const filteredLeistungen = useMemo(() => {
+    return leistungen
+      .filter((item) => {
+        const currentStatus = normalizeStatus(item.status);
+
+        if (filterStatus !== "Alle" && currentStatus !== filterStatus) return false;
+        if (filterDatum && item.datum !== filterDatum) return false;
+        if (filterRaum !== "Alle" && String(item.raum_id || "") !== filterRaum)
+          return false;
+        if (
+          filterPosition !== "Alle" &&
+          String(item.lv_position_id || "") !== filterPosition
+        )
+          return false;
+
+        return true;
+      })
+      .sort((a, b) => {
+        const dateA = String(a.datum || "");
+        const dateB = String(b.datum || "");
+
+        if (dateA !== dateB) return dateB.localeCompare(dateA);
+
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+
+        return timeB - timeA;
+      });
+  }, [leistungen, filterStatus, filterDatum, filterRaum, filterPosition]);
+
   const summary = useMemo(() => {
-    const totalEntries = leistungen.length;
+    const offen = leistungen.filter(
+      (item) => normalizeStatus(item.status) === "Offen"
+    ).length;
 
-    const totalEffectiveHours = leistungen.reduce((sum, item) => {
-      return sum + getEffectiveHours(item);
-    }, 0);
+    const genehmigt = leistungen.filter(
+      (item) => normalizeStatus(item.status) === "Genehmigt"
+    ).length;
 
-    const totalIstMenge = leistungen.reduce((sum, item) => {
-      return sum + Number(item.menge_ist || 0);
-    }, 0);
+    const abgelehnt = leistungen.filter(
+      (item) => normalizeStatus(item.status) === "Abgelehnt"
+    ).length;
 
-    const confirmed = leistungen.filter((item) => item.status === "Bestätigt")
-      .length;
+    const approvedLeistungen = leistungen.filter(
+      (item) => normalizeStatus(item.status) === "Genehmigt"
+    );
+
+    const totalMenge = approvedLeistungen.reduce(
+      (sum, item) => sum + Number(item.menge_ist || 0),
+      0
+    );
+
+    const totalWirksameMenge = approvedLeistungen.reduce(
+      (sum, item) => sum + getWirksameMenge(item),
+      0
+    );
+
+    const totalEffectiveHours = approvedLeistungen.reduce(
+      (sum, item) => sum + getEffectiveHours(item),
+      0
+    );
+
+    const approvedArbeitszeitHours = arbeitszeiten
+      .filter((item) => item.freigabe_status === "Genehmigt")
+      .reduce((sum, item) => sum + Number(item.stunden || 0), 0);
+
+    const produktivitaet =
+      approvedArbeitszeitHours > 0
+        ? (totalEffectiveHours / approvedArbeitszeitHours) * 100
+        : 0;
 
     return {
-      totalEntries,
+      total: leistungen.length,
+      offen,
+      genehmigt,
+      abgelehnt,
+      totalMenge,
+      totalWirksameMenge,
       totalEffectiveHours,
-      totalIstMenge,
-      confirmed,
+      approvedArbeitszeitHours,
+      produktivitaet,
     };
-  }, [leistungen, positionen]);
+  }, [leistungen, arbeitszeiten, positionen]);
+
+  const positionRows = useMemo(() => {
+    return positionen.map((pos) => {
+      const related = leistungen.filter(
+        (item) =>
+          Number(item.lv_position_id) === Number(pos.id) &&
+          normalizeStatus(item.status) !== "Abgelehnt"
+      );
+
+      const mengeIstTotal = related.reduce(
+        (sum, item) => sum + Number(item.menge_ist || 0),
+        0
+      );
+
+      const effectiveHours = related.reduce(
+        (sum, item) => sum + getEffectiveHours(item),
+        0
+      );
+
+      const mengeSoll = Number(pos.menge_soll || 0);
+      const percent = mengeSoll > 0 ? (mengeIstTotal / mengeSoll) * 100 : 0;
+
+      return {
+        id: pos.id,
+        position_nr: pos.position_nr,
+        kurztext: pos.kurztext,
+        einheit: pos.einheit || "",
+        mengeSoll,
+        mengeIstTotal,
+        percent,
+        effectiveHours,
+      };
+    });
+  }, [positionen, leistungen]);
 
   useEffect(() => {
     const name = localStorage.getItem("worker_name");
@@ -166,7 +269,25 @@ export default function ProjektLeistungPage() {
     setLoading(false);
   }
 
-  function parseNumber(value: string) {
+  function clearForm() {
+    setEditingId(null);
+    setDatum(getTodayLocalDate());
+    setSelectedRaumId("");
+    setSelectedPositionId("");
+    setMengeIst("");
+    setEinheit("m²");
+    setFaktor("1.00");
+    setStatus("Offen");
+    setNotiz("");
+  }
+
+  function normalizeStatus(value: string | null) {
+    if (value === "Genehmigt") return "Genehmigt";
+    if (value === "Abgelehnt") return "Abgelehnt";
+    return "Offen";
+  }
+
+  function parseNumber(value: any) {
     const num = parseFloat(String(value || "0").replace(",", "."));
     return Number.isNaN(num) ? 0 : num;
   }
@@ -183,10 +304,29 @@ export default function ProjektLeistungPage() {
   function formatDate(value: string | null) {
     if (!value) return "-";
 
-    return new Date(value).toLocaleDateString("de-AT", {
+    const parts = String(value).slice(0, 10).split("-");
+    if (parts.length === 3) {
+      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+
+    return value;
+  }
+
+  function formatDateTime(value: string | null) {
+    if (!value) return "-";
+
+    const d = new Date(value);
+
+    if (Number.isNaN(d.getTime())) {
+      return String(value);
+    }
+
+    return d.toLocaleString("de-AT", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   }
 
@@ -200,14 +340,14 @@ export default function ProjektLeistungPage() {
     return positionen.find((p) => String(p.id) === String(id)) || null;
   }
 
-  function getRaumName(id: number | null) {
+  function getRaumName(id: number | string | null) {
     const raum = getRaum(id);
     if (!raum) return "-";
 
     return `${raum.ebene ? raum.ebene + " - " : ""}${raum.raum_name}`;
   }
 
-  function getPositionText(id: number | null) {
+  function getPositionText(id: number | string | null) {
     const pos = getPosition(id);
     if (!pos) return "-";
 
@@ -221,97 +361,35 @@ export default function ProjektLeistungPage() {
   function getEffectiveHours(item: any) {
     const pos = getPosition(item.lv_position_id);
     const minuten = Number(pos?.minuten_pro_einheit || 0);
-    const wirksameMenge = getWirksameMenge(item);
+    const menge = Number(item.menge_ist || 0);
+    const faktorValue = Number(item.faktor || 1);
 
-    return (wirksameMenge * minuten) / 60;
+    return (menge * faktorValue * minuten) / 60;
   }
 
-  function getRelatedArbeitszeiten(item: any) {
-    return arbeitszeiten.filter((zeit) => {
-      const sameDate = zeit.datum === item.datum;
-      const sameRaum = Number(zeit.raum_id) === Number(item.raum_id);
+  function getPreviewEffectiveHours() {
+    const pos = getPosition(selectedPositionId);
+    const minuten = Number(pos?.minuten_pro_einheit || 0);
+    const menge = parseNumber(mengeIst);
+    const faktorValue = parseNumber(faktor) || 1;
 
-      const samePosition =
-        !zeit.lv_position_id ||
-        Number(zeit.lv_position_id) === Number(item.lv_position_id);
-
-      return sameDate && sameRaum && samePosition;
-    });
+    return (menge * faktorValue * minuten) / 60;
   }
 
-  function getWorkerSplit(item: any) {
-    const related = getRelatedArbeitszeiten(item);
-    const effectiveHours = getEffectiveHours(item);
+  function handlePositionChange(value: string) {
+    setSelectedPositionId(value);
 
-    const byWorker: any = {};
-
-    related.forEach((zeit) => {
-      const name = zeit.worker_name || "Unbekannt";
-      byWorker[name] = (byWorker[name] || 0) + Number(zeit.stunden || 0);
-    });
-
-    const totalRealHours = Object.values(byWorker).reduce(
-      (sum: any, value: any) => {
-        return Number(sum) + Number(value || 0);
-      },
-      0
-    ) as number;
-
-    return Object.keys(byWorker).map((name) => {
-      const realHours = Number(byWorker[name] || 0);
-      const share = totalRealHours > 0 ? realHours / totalRealHours : 0;
-      const effectiveShare = effectiveHours * share;
-      const efficiency = realHours > 0 ? (effectiveShare / realHours) * 100 : 0;
-
-      return {
-        name,
-        realHours,
-        effectiveShare,
-        efficiency,
-      };
-    });
-  }
-
-  function onSelectRaum(id: string) {
-    setSelectedRaumId(id);
-
-    const raum = getRaum(id);
-
-    if (raum) {
-      setFaktor(String(raum.faktor || "1.00"));
+    const pos = getPosition(value);
+    if (pos?.einheit) {
+      setEinheit(pos.einheit);
     }
-  }
-
-  function onSelectPosition(id: string) {
-    setSelectedPositionId(id);
-
-    const pos = getPosition(id);
-
-    if (pos) {
-      setEinheit(pos.einheit || "m²");
-    }
-  }
-
-  function clearForm() {
-    setEditingId(null);
-    setDatum(getTodayLocalDate());
-    setSelectedRaumId("");
-    setSelectedPositionId("");
-    setMengeIst("");
-    setEinheit("m²");
-    setFaktor("1.00");
-    setStatus("Offen");
-    setNotiz("");
   }
 
   async function saveLeistung() {
+    if (savingRef.current) return;
+
     if (!datum) {
       alert("Odaberi datum.");
-      return;
-    }
-
-    if (!selectedRaumId) {
-      alert("Odaberi prostoriju.");
       return;
     }
 
@@ -320,31 +398,27 @@ export default function ProjektLeistungPage() {
       return;
     }
 
-    const mengeNumber = parseNumber(mengeIst);
-    const faktorNumber = parseNumber(faktor);
+    const menge = parseNumber(mengeIst);
+    const faktorValue = parseNumber(faktor) || 1;
 
-    if (mengeNumber <= 0) {
-      alert("Menge mora biti veća od 0.");
+    if (!menge || menge <= 0) {
+      alert("Unesi ispravnu količinu.");
       return;
     }
 
-    if (faktorNumber <= 0) {
-      alert("Faktor mora biti veći od 0.");
-      return;
-    }
+    savingRef.current = true;
+    setSaving(true);
 
-    const payload = {
+    const payload: any = {
       projekt_id: Number(projektId),
       datum,
-      raum_id: Number(selectedRaumId),
-      lv_position_id: Number(selectedPositionId),
-      menge_ist: mengeNumber,
-      einheit,
-      faktor: faktorNumber,
-      wirksame_menge: mengeNumber * faktorNumber,
+      raum_id: selectedRaumId ? Number(selectedRaumId) : null,
+      lv_position_id: selectedPositionId ? Number(selectedPositionId) : null,
+      menge_ist: menge,
+      einheit: einheit || null,
+      faktor: faktorValue,
       status,
       notiz: notiz.trim() || null,
-      created_by: workerName,
     };
 
     if (editingId) {
@@ -355,20 +429,29 @@ export default function ProjektLeistungPage() {
 
       if (error) {
         alert("Greška kod izmjene Leistung: " + error.message);
+        savingRef.current = false;
+        setSaving(false);
         return;
       }
     } else {
+      payload.created_by = workerName;
+
       const { error } = await supabase.from("projekt_leistungen").insert(payload);
 
       if (error) {
         alert("Greška kod dodavanja Leistung: " + error.message);
+        savingRef.current = false;
+        setSaving(false);
         return;
       }
     }
 
     clearForm();
     setShowForm(false);
-    loadData();
+    await loadData();
+
+    savingRef.current = false;
+    setSaving(false);
   }
 
   function editLeistung(item: any) {
@@ -376,17 +459,17 @@ export default function ProjektLeistungPage() {
     setDatum(item.datum || getTodayLocalDate());
     setSelectedRaumId(item.raum_id ? String(item.raum_id) : "");
     setSelectedPositionId(item.lv_position_id ? String(item.lv_position_id) : "");
-    setMengeIst(String(item.menge_ist ?? ""));
+    setMengeIst(String(item.menge_ist || ""));
     setEinheit(item.einheit || "m²");
-    setFaktor(String(item.faktor ?? "1.00"));
-    setStatus(item.status || "Offen");
+    setFaktor(String(item.faktor || "1.00"));
+    setStatus(normalizeStatus(item.status));
     setNotiz(item.notiz || "");
     setShowForm(true);
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function deleteLeistung(id: number) {
+  async function deleteLeistung(item: any) {
     const ok = confirm("Da li sigurno želiš obrisati ovaj Leistung unos?");
 
     if (!ok) return;
@@ -394,7 +477,7 @@ export default function ProjektLeistungPage() {
     const { error } = await supabase
       .from("projekt_leistungen")
       .delete()
-      .eq("id", id);
+      .eq("id", item.id);
 
     if (error) {
       alert("Greška kod brisanja Leistung: " + error.message);
@@ -404,18 +487,33 @@ export default function ProjektLeistungPage() {
     loadData();
   }
 
-  async function changeStatus(id: number, newStatus: string) {
+  async function changeStatus(item: any, newStatus: string) {
     const { error } = await supabase
       .from("projekt_leistungen")
       .update({ status: newStatus })
-      .eq("id", id);
+      .eq("id", item.id);
 
     if (error) {
-      alert("Greška kod statusa: " + error.message);
+      alert("Greška kod promjene statusa: " + error.message);
       return;
     }
 
     loadData();
+  }
+
+  function getStatusBadgeStyle(statusValue: string) {
+    const normalized = normalizeStatus(statusValue);
+
+    if (normalized === "Genehmigt") return okBadgeStyle;
+    if (normalized === "Abgelehnt") return dangerBadgeStyle;
+
+    return warningBadgeStyle;
+  }
+
+  function getProgressBadgeStyle(percent: number) {
+    if (percent >= 100) return okBadgeStyle;
+    if (percent >= 50) return warningBadgeStyle;
+    return grayBadgeStyle;
   }
 
   if (loading) {
@@ -446,38 +544,67 @@ export default function ProjektLeistungPage() {
           ← Zurück zum Projekt
         </Link>
 
-        <button
-          onClick={() => {
-            clearForm();
-            setShowForm(!showForm);
-          }}
-          style={newButtonStyle}
-        >
-          {showForm ? "Schließen" : "+ Leistung"}
-        </button>
+        <div style={topButtonWrapStyle}>
+          <button onClick={loadData} style={refreshButtonStyle}>
+            Aktualisieren
+          </button>
+
+          <button
+            onClick={() => {
+              clearForm();
+              setShowForm(!showForm);
+            }}
+            disabled={saving}
+            style={newButtonStyle}
+          >
+            {showForm ? "Schließen" : "+ Leistung"}
+          </button>
+        </div>
       </div>
 
-      <h1 style={titleStyle}>✅ Leistung</h1>
+      <h1 style={titleStyle}>✅ Leistung / Produktivität</h1>
 
       <p style={descriptionStyle}>
-        Projekt: <strong>{projekt?.project_name || "-"}</strong>
+        Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
+        <strong>{workerName}</strong>
       </p>
 
       <section style={summaryGridStyle}>
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Einträge</span>
-          <strong style={summaryValueStyle}>{summary.totalEntries}</strong>
+          <span style={summaryLabelStyle}>Alle Einträge</span>
+          <strong style={summaryValueStyle}>{summary.total}</strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Bestätigt</span>
-          <strong style={summaryValueStyle}>{summary.confirmed}</strong>
+          <span style={summaryLabelStyle}>Offen / Wartet</span>
+          <strong style={{ ...summaryValueStyle, color: "#facc15" }}>
+            {summary.offen}
+          </strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Ist Menge</span>
+          <span style={summaryLabelStyle}>Genehmigt</span>
+          <strong style={{ ...summaryValueStyle, color: "#22c55e" }}>
+            {summary.genehmigt}
+          </strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Abgelehnt</span>
+          <strong style={{ ...summaryValueStyle, color: "#ef4444" }}>
+            {summary.abgelehnt}
+          </strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Genehmigte Menge</span>
+          <strong style={summaryValueStyle}>{formatNumber(summary.totalMenge)}</strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Wirksame Menge</span>
           <strong style={summaryValueStyle}>
-            {formatNumber(summary.totalIstMenge)}
+            {formatNumber(summary.totalWirksameMenge)}
           </strong>
         </div>
 
@@ -487,246 +614,317 @@ export default function ProjektLeistungPage() {
             {formatNumber(summary.totalEffectiveHours)} h
           </strong>
         </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Arbeitszeit genehmigt</span>
+          <strong style={summaryValueStyle}>
+            {formatNumber(summary.approvedArbeitszeitHours)} h
+          </strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Produktivität</span>
+          <strong
+            style={{
+              ...summaryValueStyle,
+              color:
+                summary.produktivitaet >= 100
+                  ? "#22c55e"
+                  : summary.produktivitaet >= 80
+                  ? "#f97316"
+                  : "#ef4444",
+            }}
+          >
+            {formatNumber(summary.produktivitaet, 0)}%
+          </strong>
+        </div>
+      </section>
+
+      <section style={filterBoxStyle}>
+        <div style={filterGridStyle}>
+          <div>
+            <label style={labelStyle}>Status Filter</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="Alle">Alle</option>
+              <option value="Offen">Offen / Wartet</option>
+              <option value="Genehmigt">Genehmigt</option>
+              <option value="Abgelehnt">Abgelehnt</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Datum Filter</label>
+            <input
+              type="date"
+              value={filterDatum}
+              onChange={(e) => setFilterDatum(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>Raum Filter</label>
+            <select
+              value={filterRaum}
+              onChange={(e) => setFilterRaum(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="Alle">Alle Räume</option>
+              {raeume.map((raum) => (
+                <option key={raum.id} value={raum.id}>
+                  {raum.ebene ? `${raum.ebene} - ` : ""}
+                  {raum.raum_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>LV Filter</label>
+            <select
+              value={filterPosition}
+              onChange={(e) => setFilterPosition(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="Alle">Alle Positionen</option>
+              {positionen.map((pos) => (
+                <option key={pos.id} value={pos.id}>
+                  {pos.position_nr} - {pos.kurztext}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={() => {
+              setFilterStatus("Alle");
+              setFilterDatum("");
+              setFilterRaum("Alle");
+              setFilterPosition("Alle");
+            }}
+            style={grayButtonStyle}
+          >
+            Filter löschen
+          </button>
+        </div>
       </section>
 
       <section style={infoBoxStyle}>
-        <h2 style={sectionTitleStyle}>Kako se računa?</h2>
+        <h2 style={sectionTitleStyle}>Leistung Regel</h2>
         <p style={infoTextStyle}>
-          Leistung se unosi jednom po prostoru i LV poziciji. Aplikacija uzima
-          normu iz LV pozicije, faktor iz prostorije i stvarne sate iz
-          Arbeitszeit. Tako se kasnije vidi ko je koliko stvarno doprinio.
+          Leistung je dnevni učinak po LV poziciji i prostoriji. Genehmigte
+          Einträge ulaze u Freigabe / Kontrolle, Tagesbericht, Auswertung i Bericht
+          / Druck. Offen znači da unos još čeka potvrdu.
         </p>
       </section>
 
       {showForm && (
         <section style={formBoxStyle}>
           <h2 style={formTitleStyle}>
-            {editingId ? "Leistung bearbeiten" : "Leistung eintragen"}
+            {editingId ? "Leistung bearbeiten" : "Leistung erfassen"}
           </h2>
 
-          {raeume.length === 0 || positionen.length === 0 ? (
-            <p style={warningStyle}>
-              Prvo moraš imati najmanje jednu prostoriju i jednu aktivnu LV
-              poziciju.
-            </p>
-          ) : (
-            <>
-              <div style={formGridStyle}>
-                <div>
-                  <label style={labelStyle}>Datum *</label>
-                  <input
-                    type="date"
-                    value={datum}
-                    onChange={(e) => setDatum(e.target.value)}
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div>
-                  <label style={labelStyle}>Raum *</label>
-                  <select
-                    value={selectedRaumId}
-                    onChange={(e) => onSelectRaum(e.target.value)}
-                    style={inputStyle}
-                  >
-                    <option value="">Odaberi prostoriju</option>
-                    {raeume.map((raum) => (
-                      <option key={raum.id} value={raum.id}>
-                        {raum.ebene ? `${raum.ebene} - ` : ""}
-                        {raum.raum_name} | Faktor {raum.faktor}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <label style={labelStyle}>LV Position *</label>
-              <select
-                value={selectedPositionId}
-                onChange={(e) => onSelectPosition(e.target.value)}
+          <div style={formGridStyle}>
+            <div>
+              <label style={labelStyle}>Datum *</label>
+              <input
+                type="date"
+                value={datum}
+                onChange={(e) => setDatum(e.target.value)}
                 style={inputStyle}
-              >
-                <option value="">Odaberi LV poziciju</option>
-                {positionen.map((pos) => (
-                  <option key={pos.id} value={pos.id}>
-                    {pos.position_nr} - {pos.kurztext} | {pos.einheit} |{" "}
-                    {pos.minuten_pro_einheit} Min/EH
-                  </option>
-                ))}
-              </select>
+              />
+            </div>
 
-              <div style={formGridStyle}>
-                <div>
-                  <label style={labelStyle}>Menge Ist *</label>
-                  <input
-                    value={mengeIst}
-                    onChange={(e) => setMengeIst(e.target.value)}
-                    placeholder="z.B. 18"
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div>
-                  <label style={labelStyle}>Einheit</label>
-                  <input
-                    value={einheit}
-                    onChange={(e) => setEinheit(e.target.value)}
-                    placeholder="m² / m / Stk."
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div>
-                  <label style={labelStyle}>Faktor</label>
-                  <input
-                    value={faktor}
-                    onChange={(e) => setFaktor(e.target.value)}
-                    placeholder="z.B. 1.25"
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-
-              <div style={calculatedBoxStyle}>
-                Wirksame Menge:{" "}
-                <strong>{formatNumber(parseNumber(mengeIst) * parseNumber(faktor))}</strong>{" "}
-                {einheit}
-                <br />
-                Effektive Stunden:{" "}
-                <strong>
-                  {formatNumber(
-                    (parseNumber(mengeIst) *
-                      parseNumber(faktor) *
-                      Number(
-                        getPosition(selectedPositionId)?.minuten_pro_einheit || 0
-                      )) /
-                      60
-                  )}{" "}
-                  h
-                </strong>
-              </div>
-
+            <div>
               <label style={labelStyle}>Status</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 style={inputStyle}
               >
-                <option value="Offen">Offen</option>
-                <option value="Bestätigt">Bestätigt</option>
+                <option value="Offen">Offen / Wartet</option>
+                <option value="Genehmigt">Genehmigt</option>
                 <option value="Abgelehnt">Abgelehnt</option>
               </select>
+            </div>
+          </div>
 
-              <label style={labelStyle}>Notiz</label>
-              <textarea
-                value={notiz}
-                onChange={(e) => setNotiz(e.target.value)}
-                placeholder="Napomena za dnevni učinak"
-                style={textareaStyle}
-              />
+          <label style={labelStyle}>Raum</label>
+          <select
+            value={selectedRaumId}
+            onChange={(e) => setSelectedRaumId(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Ohne Raum</option>
+            {raeume.map((raum) => (
+              <option key={raum.id} value={raum.id}>
+                {raum.ebene ? `${raum.ebene} - ` : ""}
+                {raum.raum_name}
+              </option>
+            ))}
+          </select>
 
-              <div style={formButtonRowStyle}>
-                <button onClick={saveLeistung} style={saveButtonStyle}>
-                  {editingId ? "Änderungen speichern" : "Leistung speichern"}
-                </button>
+          <label style={labelStyle}>LV Position *</label>
+          <select
+            value={selectedPositionId}
+            onChange={(e) => handlePositionChange(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">LV Position auswählen</option>
+            {positionen.map((pos) => (
+              <option key={pos.id} value={pos.id}>
+                {pos.position_nr} - {pos.kurztext}
+              </option>
+            ))}
+          </select>
 
-                <button
-                  onClick={() => {
-                    clearForm();
-                    setShowForm(false);
-                  }}
-                  style={cancelButtonStyle}
-                >
-                  Abbrechen
-                </button>
-              </div>
-            </>
+          {selectedPositionId && (
+            <div style={selectedPositionBoxStyle}>
+              <strong>Ausgewählte Position:</strong>{" "}
+              {getPositionText(selectedPositionId)}
+              <br />
+              <span>
+                Einheit: <strong>{getPosition(selectedPositionId)?.einheit || "-"}</strong>{" "}
+                · Soll:{" "}
+                <strong>
+                  {formatNumber(getPosition(selectedPositionId)?.menge_soll || 0)}
+                </strong>{" "}
+                · Minuten/EH:{" "}
+                <strong>
+                  {formatNumber(
+                    getPosition(selectedPositionId)?.minuten_pro_einheit || 0,
+                    0
+                  )}
+                </strong>
+              </span>
+            </div>
           )}
+
+          <div style={formGridStyle}>
+            <div>
+              <label style={labelStyle}>Menge Ist *</label>
+              <input
+                type="number"
+                step="0.01"
+                value={mengeIst}
+                onChange={(e) => setMengeIst(e.target.value)}
+                placeholder="z.B. 25"
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Einheit</label>
+              <input
+                value={einheit}
+                onChange={(e) => setEinheit(e.target.value)}
+                placeholder="m² / lfm / Stk."
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Faktor</label>
+              <input
+                type="number"
+                step="0.05"
+                value={faktor}
+                onChange={(e) => setFaktor(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <label style={labelStyle}>Notiz</label>
+          <textarea
+            value={notiz}
+            onChange={(e) => setNotiz(e.target.value)}
+            placeholder="Napomena za ovaj učinak..."
+            style={textareaStyle}
+          />
+
+          <div style={previewBoxStyle}>
+            <strong>Pregled:</strong>{" "}
+            Menge {formatNumber(parseNumber(mengeIst))} × Faktor{" "}
+            {formatNumber(parseNumber(faktor) || 1)} ={" "}
+            <strong>{formatNumber(parseNumber(mengeIst) * (parseNumber(faktor) || 1))}</strong>{" "}
+            wirksame Menge · Effektiv{" "}
+            <strong>{formatNumber(getPreviewEffectiveHours())} h</strong>
+          </div>
+
+          <div style={formButtonRowStyle}>
+            <button
+              onClick={saveLeistung}
+              disabled={saving}
+              style={{
+                ...saveButtonStyle,
+                opacity: saving ? 0.5 : 1,
+                cursor: saving ? "not-allowed" : "pointer",
+              }}
+            >
+              {saving
+                ? "Speichern..."
+                : editingId
+                ? "Änderungen speichern"
+                : "Leistung speichern"}
+            </button>
+
+            <button
+              onClick={() => {
+                clearForm();
+                setShowForm(false);
+              }}
+              disabled={saving}
+              style={cancelButtonStyle}
+            >
+              Abbrechen
+            </button>
+          </div>
         </section>
       )}
 
-      <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Leistung Liste</h2>
+      <section style={boxStyle}>
+        <h2 style={sectionTitleStyle}>LV Positionen Soll / Ist</h2>
 
-        {leistungen.length === 0 ? (
-          <p style={emptyStyle}>Noch keine Leistung vorhanden.</p>
+        {positionRows.length === 0 ? (
+          <p style={emptyStyle}>Keine LV Positionen vorhanden.</p>
         ) : (
           <div style={tableWrapStyle}>
             <table style={tableStyle}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Datum</th>
-                  <th style={thStyle}>Raum</th>
-                  <th style={thStyle}>LV Position</th>
-                  <th style={thStyle}>Menge</th>
+                  <th style={thStyle}>Pos.</th>
+                  <th style={thStyle}>Kurztext</th>
+                  <th style={thRightStyle}>Soll</th>
+                  <th style={thRightStyle}>Ist</th>
                   <th style={thStyle}>EH</th>
-                  <th style={thStyle}>Faktor</th>
-                  <th style={thStyle}>Wirksam</th>
-                  <th style={thStyle}>Eff. h</th>
-                  <th style={thStyle}>Arbeitszeit h</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Aktion</th>
+                  <th style={thRightStyle}>%</th>
+                  <th style={thRightStyle}>Effektiv h</th>
                 </tr>
               </thead>
 
               <tbody>
-                {leistungen.map((item) => {
-                  const related = getRelatedArbeitszeiten(item);
-                  const realHours = related.reduce(
-                    (sum, z) => sum + Number(z.stunden || 0),
-                    0
-                  );
-
-                  return (
-                    <tr key={item.id}>
-                      <td style={tdStyle}>{formatDate(item.datum)}</td>
-                      <td style={tdStyle}>{getRaumName(item.raum_id)}</td>
-                      <td style={tdStyle}>
-                        {getPositionText(item.lv_position_id)}
-                      </td>
-                      <td style={tdRightStyle}>
-                        {formatNumber(item.menge_ist)}
-                      </td>
-                      <td style={tdStyle}>{item.einheit || "-"}</td>
-                      <td style={tdRightStyle}>{formatNumber(item.faktor)}</td>
-                      <td style={tdRightStyle}>
-                        {formatNumber(item.wirksame_menge)}
-                      </td>
-                      <td style={tdRightStyle}>
-                        <strong>{formatNumber(getEffectiveHours(item))} h</strong>
-                      </td>
-                      <td style={tdRightStyle}>{formatNumber(realHours)} h</td>
-                      <td style={tdStyle}>
-                        <select
-                          value={item.status || "Offen"}
-                          onChange={(e) => changeStatus(item.id, e.target.value)}
-                          style={smallSelectStyle}
-                        >
-                          <option value="Offen">Offen</option>
-                          <option value="Bestätigt">Bestätigt</option>
-                          <option value="Abgelehnt">Abgelehnt</option>
-                        </select>
-                      </td>
-                      <td style={tdStyle}>
-                        <div style={actionRowStyle}>
-                          <button
-                            onClick={() => editLeistung(item)}
-                            style={editButtonStyle}
-                          >
-                            Bearbeiten
-                          </button>
-
-                          <button
-                            onClick={() => deleteLeistung(item.id)}
-                            style={deleteButtonStyle}
-                          >
-                            Löschen
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {positionRows.map((row) => (
+                  <tr key={row.id}>
+                    <td style={tdStyle}>{row.position_nr}</td>
+                    <td style={tdStyle}>{row.kurztext}</td>
+                    <td style={tdRightStyle}>{formatNumber(row.mengeSoll)}</td>
+                    <td style={tdRightStyle}>{formatNumber(row.mengeIstTotal)}</td>
+                    <td style={tdStyle}>{row.einheit || "-"}</td>
+                    <td style={tdRightStyle}>
+                      <span style={getProgressBadgeStyle(row.percent)}>
+                        {formatNumber(row.percent, 0)}%
+                      </span>
+                    </td>
+                    <td style={tdRightStyle}>
+                      <strong>{formatNumber(row.effectiveHours)} h</strong>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -734,65 +932,108 @@ export default function ProjektLeistungPage() {
       </section>
 
       <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Aufteilung nach Arbeitszeit</h2>
+        <h2 style={sectionTitleStyle}>Leistung Liste</h2>
 
-        {leistungen.length === 0 ? (
-          <p style={emptyStyle}>Noch keine Aufteilung vorhanden.</p>
+        {filteredLeistungen.length === 0 ? (
+          <p style={emptyStyle}>Keine Leistung Einträge gefunden.</p>
         ) : (
-          <div style={splitGridStyle}>
-            {leistungen.map((item) => {
-              const split = getWorkerSplit(item);
+          <div style={leistungGridStyle}>
+            {filteredLeistungen.map((item) => {
+              const statusValue = normalizeStatus(item.status);
 
               return (
-                <div key={item.id} style={splitCardStyle}>
-                  <h3 style={splitTitleStyle}>
-                    {formatDate(item.datum)} · {getRaumName(item.raum_id)}
+                <div key={item.id} style={leistungCardStyle}>
+                  <div style={cardTopStyle}>
+                    <span style={leistungBadgeStyle}>Leistung</span>
+                    <span style={getStatusBadgeStyle(statusValue)}>
+                      {statusValue === "Offen" ? "Offen / Wartet" : statusValue}
+                    </span>
+                  </div>
+
+                  <h3 style={leistungTitleStyle}>
+                    {formatNumber(item.menge_ist)} {item.einheit || ""} ·{" "}
+                    {getPositionText(item.lv_position_id)}
                   </h3>
 
-                  <p style={splitTextStyle}>
-                    <strong>{getPositionText(item.lv_position_id)}</strong>
-                  </p>
-
-                  <p style={splitTextStyle}>
-                    Effektive Stunden:{" "}
-                    <strong>{formatNumber(getEffectiveHours(item))} h</strong>
-                  </p>
-
-                  {split.length === 0 ? (
-                    <p style={warningSmallStyle}>
-                      Nema Arbeitszeit za ovaj datum i ovu prostoriju.
-                    </p>
-                  ) : (
-                    <div style={miniTableWrapStyle}>
-                      <table style={miniTableStyle}>
-                        <thead>
-                          <tr>
-                            <th style={miniThStyle}>Radnik</th>
-                            <th style={miniThStyle}>Real h</th>
-                            <th style={miniThStyle}>Eff. h</th>
-                            <th style={miniThStyle}>%</th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {split.map((worker) => (
-                            <tr key={worker.name}>
-                              <td style={miniTdStyle}>{worker.name}</td>
-                              <td style={miniTdRightStyle}>
-                                {formatNumber(worker.realHours)}
-                              </td>
-                              <td style={miniTdRightStyle}>
-                                {formatNumber(worker.effectiveShare)}
-                              </td>
-                              <td style={miniTdRightStyle}>
-                                {formatNumber(worker.efficiency, 0)}%
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  <div style={detailGridStyle}>
+                    <div>
+                      <span style={smallLabelStyle}>Datum</span>
+                      <strong>{formatDate(item.datum)}</strong>
                     </div>
+
+                    <div>
+                      <span style={smallLabelStyle}>Raum</span>
+                      <strong>{getRaumName(item.raum_id)}</strong>
+                    </div>
+
+                    <div>
+                      <span style={smallLabelStyle}>Faktor</span>
+                      <strong>{formatNumber(item.faktor)}</strong>
+                    </div>
+
+                    <div>
+                      <span style={smallLabelStyle}>Wirksame Menge</span>
+                      <strong>{formatNumber(getWirksameMenge(item))}</strong>
+                    </div>
+
+                    <div>
+                      <span style={smallLabelStyle}>Effektiv</span>
+                      <strong>{formatNumber(getEffectiveHours(item))} h</strong>
+                    </div>
+
+                    <div>
+                      <span style={smallLabelStyle}>Erstellt von</span>
+                      <strong>{item.created_by || "-"}</strong>
+                    </div>
+                  </div>
+
+                  {isAdmin && (
+                    <p style={metaTextStyle}>
+                      Zeit der Eingabe:{" "}
+                      <strong>{formatDateTime(item.created_at)}</strong>
+                    </p>
                   )}
+
+                  {item.notiz && <p style={noteTextStyle}>{item.notiz}</p>}
+
+                  <div style={quickStatusGridStyle}>
+                    <button
+                      onClick={() => changeStatus(item, "Genehmigt")}
+                      style={approveButtonStyle}
+                    >
+                      Genehmigen
+                    </button>
+
+                    <button
+                      onClick={() => changeStatus(item, "Abgelehnt")}
+                      style={rejectButtonStyle}
+                    >
+                      Ablehnen
+                    </button>
+
+                    <button
+                      onClick={() => changeStatus(item, "Offen")}
+                      style={waitButtonStyle}
+                    >
+                      Offen
+                    </button>
+                  </div>
+
+                  <div style={actionRowStyle}>
+                    <button
+                      onClick={() => editLeistung(item)}
+                      style={editButtonStyle}
+                    >
+                      Bearbeiten
+                    </button>
+
+                    <button
+                      onClick={() => deleteLeistung(item)}
+                      style={deleteButtonStyle}
+                    >
+                      Löschen
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -816,6 +1057,12 @@ const topBarStyle: any = {
   alignItems: "center",
   gap: "12px",
   marginBottom: "20px",
+  flexWrap: "wrap",
+};
+
+const topButtonWrapStyle: any = {
+  display: "flex",
+  gap: "10px",
   flexWrap: "wrap",
 };
 
@@ -843,6 +1090,17 @@ const loadingStyle: any = {
   fontSize: "18px",
 };
 
+const refreshButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 18px",
+  fontSize: "15px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
 const newButtonStyle: any = {
   background: "#16a34a",
   color: "white",
@@ -856,7 +1114,7 @@ const newButtonStyle: any = {
 
 const summaryGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))",
   gap: "12px",
   marginBottom: "20px",
 };
@@ -878,6 +1136,21 @@ const summaryLabelStyle: any = {
 const summaryValueStyle: any = {
   color: "#f97316",
   fontSize: "22px",
+};
+
+const filterBoxStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "16px",
+  padding: "18px",
+  marginBottom: "20px",
+};
+
+const filterGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gap: "12px",
+  alignItems: "end",
 };
 
 const infoBoxStyle: any = {
@@ -916,7 +1189,7 @@ const sectionTitleStyle: any = {
 
 const formGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
   gap: "12px",
 };
 
@@ -939,29 +1212,29 @@ const inputStyle: any = {
   boxSizing: "border-box",
 };
 
-const smallSelectStyle: any = {
-  background: "#000",
-  color: "white",
-  border: "1px solid #333",
-  borderRadius: "8px",
-  padding: "7px",
-};
-
 const textareaStyle: any = {
   ...inputStyle,
-  minHeight: "95px",
+  minHeight: "100px",
   resize: "vertical",
 };
 
-const calculatedBoxStyle: any = {
+const selectedPositionBoxStyle: any = {
+  marginTop: "12px",
   background: "#000",
   border: "1px solid #333",
   borderRadius: "12px",
   padding: "12px",
-  marginTop: "12px",
-  color: "#f97316",
-  fontSize: "16px",
-  lineHeight: "1.7",
+  color: "#ddd",
+  lineHeight: "1.5",
+};
+
+const previewBoxStyle: any = {
+  marginTop: "14px",
+  background: "#000",
+  border: "1px solid #333",
+  borderRadius: "12px",
+  padding: "12px",
+  color: "#ddd",
 };
 
 const formButtonRowStyle: any = {
@@ -993,21 +1266,22 @@ const cancelButtonStyle: any = {
   cursor: "pointer",
 };
 
-const warningStyle: any = {
-  background: "#7f1d1d",
-  border: "1px solid #dc2626",
+const grayButtonStyle: any = {
+  background: "#4b5563",
   color: "white",
+  border: "none",
   borderRadius: "12px",
   padding: "12px",
+  fontWeight: "bold",
+  cursor: "pointer",
 };
 
-const warningSmallStyle: any = {
-  background: "#7f1d1d",
-  border: "1px solid #dc2626",
-  color: "white",
-  borderRadius: "10px",
-  padding: "10px",
-  fontSize: "13px",
+const boxStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "16px",
+  padding: "18px",
+  marginBottom: "20px",
 };
 
 const listBoxStyle: any = {
@@ -1030,7 +1304,7 @@ const tableWrapStyle: any = {
 const tableStyle: any = {
   width: "100%",
   borderCollapse: "collapse",
-  minWidth: "1150px",
+  minWidth: "850px",
 };
 
 const thStyle: any = {
@@ -1040,6 +1314,11 @@ const thStyle: any = {
   textAlign: "left",
   fontSize: "13px",
   whiteSpace: "nowrap",
+};
+
+const thRightStyle: any = {
+  ...thStyle,
+  textAlign: "right",
 };
 
 const tdStyle: any = {
@@ -1056,10 +1335,99 @@ const tdRightStyle: any = {
   whiteSpace: "nowrap",
 };
 
+const leistungGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+  gap: "14px",
+};
+
+const leistungCardStyle: any = {
+  background: "#000",
+  border: "1px solid #333",
+  borderRadius: "16px",
+  padding: "14px",
+};
+
+const cardTopStyle: any = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "10px",
+  flexWrap: "wrap",
+};
+
+const leistungTitleStyle: any = {
+  color: "#f97316",
+  margin: "12px 0 10px 0",
+  fontSize: "18px",
+  lineHeight: "1.35",
+};
+
+const detailGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "10px",
+  background: "#080808",
+  border: "1px solid #222",
+  borderRadius: "12px",
+  padding: "10px",
+};
+
+const smallLabelStyle: any = {
+  display: "block",
+  color: "#aaa",
+  fontSize: "12px",
+  marginBottom: "4px",
+};
+
+const metaTextStyle: any = {
+  color: "#aaa",
+  fontSize: "13px",
+  margin: "8px 0",
+};
+
+const noteTextStyle: any = {
+  color: "#ccc",
+  fontSize: "13px",
+  lineHeight: "1.4",
+  background: "#080808",
+  border: "1px solid #222",
+  borderRadius: "10px",
+  padding: "10px",
+};
+
+const quickStatusGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr 1fr",
+  gap: "8px",
+  marginTop: "12px",
+};
+
 const actionRowStyle: any = {
   display: "flex",
   gap: "8px",
   flexWrap: "wrap",
+  marginTop: "12px",
+};
+
+const approveButtonStyle: any = {
+  background: "#16a34a",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  padding: "8px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  fontSize: "12px",
+};
+
+const rejectButtonStyle: any = {
+  ...approveButtonStyle,
+  background: "#7f1d1d",
+};
+
+const waitButtonStyle: any = {
+  ...approveButtonStyle,
+  background: "#ca8a04",
 };
 
 const editButtonStyle: any = {
@@ -1067,7 +1435,7 @@ const editButtonStyle: any = {
   color: "white",
   border: "none",
   borderRadius: "8px",
-  padding: "7px 9px",
+  padding: "8px 10px",
   fontWeight: "bold",
   cursor: "pointer",
 };
@@ -1077,62 +1445,57 @@ const deleteButtonStyle: any = {
   color: "white",
   border: "none",
   borderRadius: "8px",
-  padding: "7px 9px",
+  padding: "8px 10px",
   fontWeight: "bold",
   cursor: "pointer",
 };
 
-const splitGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-  gap: "14px",
-};
-
-const splitCardStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "14px",
-  padding: "14px",
-};
-
-const splitTitleStyle: any = {
-  color: "#f97316",
-  marginTop: 0,
-  marginBottom: "8px",
-};
-
-const splitTextStyle: any = {
-  color: "#ccc",
-  margin: "6px 0",
-  fontSize: "14px",
-};
-
-const miniTableWrapStyle: any = {
-  overflowX: "auto",
-};
-
-const miniTableStyle: any = {
-  width: "100%",
-  borderCollapse: "collapse",
-  marginTop: "10px",
-};
-
-const miniThStyle: any = {
-  borderBottom: "1px solid #333",
-  color: "#f97316",
-  padding: "7px",
+const leistungBadgeStyle: any = {
+  background: "#16a34a",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
   fontSize: "12px",
-  textAlign: "left",
+  whiteSpace: "nowrap",
 };
 
-const miniTdStyle: any = {
-  borderBottom: "1px solid #222",
-  color: "#ddd",
-  padding: "7px",
+const okBadgeStyle: any = {
+  background: "#16a34a",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
   fontSize: "12px",
+  whiteSpace: "nowrap",
 };
 
-const miniTdRightStyle: any = {
-  ...miniTdStyle,
-  textAlign: "right",
+const warningBadgeStyle: any = {
+  background: "#ca8a04",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
+const dangerBadgeStyle: any = {
+  background: "#dc2626",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
+const grayBadgeStyle: any = {
+  background: "#4b5563",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
 };
