@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
@@ -16,32 +16,24 @@ type Projekt = {
   mjesto?: string | null;
   location?: string | null;
   adresse?: string | null;
+  auftraggeber?: string | null;
+  bauleiter?: string | null;
+  google_location?: string | null;
+  google_maps?: string | null;
+  google_maps_url?: string | null;
+  info?: string | null;
   [key: string]: any;
 };
 
-type TableConfig = {
-  table: string;
-  column: string;
-};
-
-const RADNICI = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
-
-const GRUPPEN = [
-  "Keramika",
-  "Priprema podloge",
-  "Estrich",
-  "Hidroizolacija",
-  "Ljepilo",
-  "Schienen",
-  "Fuge",
-  "Silikoni",
-  "Terase",
-  "Dodaci",
+const RADNICI = [
+  { name: "Arnes", pin: "1111" },
+  { name: "Ramiz", pin: "2222" },
+  { name: "Abror", pin: "3333" },
+  { name: "Shohruh", pin: "4444" },
+  { name: "Harun", pin: "5555" },
 ];
 
-const EINHEITEN = ["m²", "m", "Stk.", "kg", "Sack", "Eimer", "Pauschal"];
-
-export default function RadnikProjektMobilePage() {
+export default function RadnikLinkAdminPage() {
   const params = useParams();
 
   const projektId = String(params.id);
@@ -50,55 +42,18 @@ export default function RadnikProjektMobilePage() {
     : Number(projektId);
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
   const [projekt, setProjekt] = useState<Projekt | null>(null);
-  const [arbeitszeiten, setArbeitszeiten] = useState<any[]>([]);
-  const [leistungen, setLeistungen] = useState<any[]>([]);
-  const [regieRows, setRegieRows] = useState<any[]>([]);
-
-  const [worker, setWorker] = useState("");
-  const [datum, setDatum] = useState(today());
-
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("17:00");
-  const [pauseMinuten, setPauseMinuten] = useState("30");
-  const [zeitNotiz, setZeitNotiz] = useState("");
-
-  const [leistungTitel, setLeistungTitel] = useState("");
-  const [leistungMenge, setLeistungMenge] = useState("");
-  const [leistungEinheit, setLeistungEinheit] = useState("m²");
-  const [leistungGruppe, setLeistungGruppe] = useState("Keramika");
-  const [leistungNotiz, setLeistungNotiz] = useState("");
-
-  const [regieArbeit, setRegieArbeit] = useState("");
-  const [regieBeschreibung, setRegieBeschreibung] = useState("");
-  const [regiePreis, setRegiePreis] = useState("");
-
+  const [origin, setOrigin] = useState("");
   const [message, setMessage] = useState("");
   const [errorText, setErrorText] = useState("");
 
   useEffect(() => {
-    const savedWorker =
-      localStorage.getItem("workerName") ||
-      localStorage.getItem("radnik") ||
-      localStorage.getItem("userName") ||
-      "";
-
-    if (savedWorker) {
-      setWorker(savedWorker);
+    if (typeof window !== "undefined") {
+      setOrigin(window.location.origin);
     }
 
-    loadAll();
+    loadProjekt();
   }, [projektId]);
-
-  function today() {
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  }
 
   function getProjektName() {
     if (!projekt) return "Projekt";
@@ -115,144 +70,32 @@ export default function RadnikProjektMobilePage() {
 
   function getProjektOrt() {
     if (!projekt) return "";
-
     return projekt.ort || projekt.mjesto || projekt.location || projekt.adresse || "";
   }
 
-  function toNumber(value: any) {
-    const n = Number(String(value || "0").replace(",", "."));
-    return isNaN(n) ? 0 : n;
-  }
+  function getGoogleLocation() {
+    if (!projekt) return "";
 
-  function formatNumber(value: any) {
-    const n = toNumber(value);
-    return n.toFixed(2).replace(".", ",").replace(",00", "");
-  }
-
-  function formatHours(value: any) {
-    const n = toNumber(value);
-    return n.toFixed(2).replace(".", ",") + " h";
-  }
-
-  function getDate(row: any) {
-    return row.datum || row.date || row.tag || row.day || row.created_date || "";
-  }
-
-  function getWorker(row: any) {
     return (
-      row.radnik ||
-      row.arbeiter ||
-      row.worker ||
-      row.worker_name ||
-      row.mitarbeiter ||
-      row.name ||
+      projekt.google_location ||
+      projekt.google_maps ||
+      projekt.google_maps_url ||
+      projekt.maps_url ||
+      projekt.location_url ||
       ""
     );
   }
 
-  function getStart(row: any) {
-    return row.start_time || row.start || row.von || row.beginn || "";
+  function getWorkerLink() {
+    if (!origin) return `/projekte/radnik/${projektId}`;
+    return `${origin}/projekte/radnik/${projektId}`;
   }
 
-  function getEnd(row: any) {
-    return row.end_time || row.end || row.bis || row.ende || "";
-  }
-
-  function getPause(row: any) {
-    return row.pause_minuten || row.pause_minutes || row.break_minutes || row.pause || 0;
-  }
-
-  function getStoredHours(row: any) {
-    return row.stunden || row.hours || row.total_hours || row.gesamt_stunden || "";
-  }
-
-  function getTitle(row: any) {
-    return row.titel || row.title || row.name || row.leistung || row.arbeit || row.work || "";
-  }
-
-  function getQuantity(row: any) {
-    return row.menge || row.quantity || row.kolicina || row.qty || "";
-  }
-
-  function getUnit(row: any) {
-    return row.einheit || row.unit || row.jedinica || "";
-  }
-
-  function getNote(row: any) {
-    return row.notiz || row.note || row.bemerkung || row.info || "";
-  }
-
-  function parseTimeToMinutes(value: string) {
-    if (!value || !value.includes(":")) return 0;
-
-    const [h, m] = value.split(":").map((x) => Number(x));
-    return h * 60 + m;
-  }
-
-  function calculateHours(start: string, end: string, pause: string | number) {
-    const s = parseTimeToMinutes(start);
-    let e = parseTimeToMinutes(end);
-    const p = Number(pause || 0);
-
-    if (!s || !e) return 0;
-
-    if (e < s) e += 24 * 60;
-
-    const total = e - s - p;
-    return Math.max(0, total / 60);
-  }
-
-  function getHours(row: any) {
-    const stored = toNumber(getStoredHours(row));
-
-    if (stored > 0) return stored;
-
-    return calculateHours(getStart(row), getEnd(row), getPause(row));
-  }
-
-  async function loadAll() {
+  async function loadProjekt() {
     setLoading(true);
     setErrorText("");
     setMessage("");
 
-    await loadProjekt();
-
-    const arbeitszeitData = await loadRows([
-      { table: "arbeitszeiten", column: "projekt_id" },
-      { table: "arbeitszeiten", column: "project_id" },
-      { table: "arbeitszeiten", column: "baustelle_id" },
-      { table: "arbeitszeit", column: "projekt_id" },
-      { table: "arbeitszeit", column: "project_id" },
-      { table: "stunden", column: "projekt_id" },
-    ]);
-
-    const leistungData = await loadRows([
-      { table: "leistungen", column: "projekt_id" },
-      { table: "leistungen", column: "project_id" },
-      { table: "leistung", column: "projekt_id" },
-      { table: "leistung", column: "project_id" },
-      { table: "produktivitaet", column: "projekt_id" },
-      { table: "productivity", column: "project_id" },
-      { table: "projekt_leistung", column: "projekt_id" },
-    ]);
-
-    const regieData = await loadRows([
-      { table: "regie", column: "projekt_id" },
-      { table: "regie", column: "project_id" },
-      { table: "regiearbeiten", column: "projekt_id" },
-      { table: "projekt_regie", column: "projekt_id" },
-      { table: "zusatzarbeiten", column: "projekt_id" },
-      { table: "extra_work", column: "project_id" },
-    ]);
-
-    setArbeitszeiten(arbeitszeitData);
-    setLeistungen(leistungData);
-    setRegieRows(regieData);
-
-    setLoading(false);
-  }
-
-  async function loadProjekt() {
     const tables = ["projekte", "baustellen"];
 
     for (const table of tables) {
@@ -264,664 +107,242 @@ export default function RadnikProjektMobilePage() {
 
       if (!error && data) {
         setProjekt(data as Projekt);
+        setLoading(false);
         return;
       }
     }
 
     setProjekt(null);
+    setErrorText("Projekt nije pronađen.");
+    setLoading(false);
   }
 
-  async function loadRows(configs: TableConfig[]) {
-    for (const config of configs) {
-      const { data, error } = await supabase
-        .from(config.table)
-        .select("*")
-        .eq(config.column, projektIdValue);
+  async function copyLink() {
+    const link = getWorkerLink();
 
-      if (!error) {
-        return data || [];
+    try {
+      await navigator.clipboard.writeText(link);
+      setMessage("Link za radnike je kopiran.");
+    } catch {
+      setErrorText("Ne mogu kopirati link. Označi link ručno i kopiraj.");
+    }
+  }
+
+  async function shareLink() {
+    const link = getWorkerLink();
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `Radnik App - ${getProjektName()}`,
+          text: `Link za unos radnika: ${getProjektName()}`,
+          url: link,
+        });
+      } else {
+        await copyLink();
       }
+    } catch {
+      setErrorText("Dijeljenje nije uspjelo.");
     }
-
-    return [];
   }
 
-  async function insertFirstWorking(
-    configs: TableConfig[],
-    buildPayloads: (config: TableConfig) => any[]
-  ) {
-    let lastError: any = null;
-
-    for (const config of configs) {
-      const payloads = buildPayloads(config);
-
-      for (const payload of payloads) {
-        const { error } = await supabase.from(config.table).insert(payload as any);
-
-        if (!error) {
-          return true;
-        }
-
-        lastError = error;
-      }
-    }
-
-    throw new Error(lastError?.message || "Spremanje nije uspjelo.");
+  function openWorkerApp() {
+    window.open(getWorkerLink(), "_blank");
   }
 
-  function saveWorkerName(value: string) {
-    setWorker(value);
-    localStorage.setItem("workerName", value);
-    localStorage.setItem("radnik", value);
+  function openGoogleLocation() {
+    const value = getGoogleLocation();
+
+    if (!value) {
+      alert("Google lokacija nije upisana u Einstellungen.");
+      return;
+    }
+
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      window.open(value, "_blank");
+      return;
+    }
+
+    const query = encodeURIComponent(value);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, "_blank");
   }
 
-  const todayArbeitszeit = useMemo(() => {
-    return arbeitszeiten.filter((row) => {
-      return (
-        String(getDate(row)) === String(datum) &&
-        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase()
-      );
-    });
-  }, [arbeitszeiten, datum, worker]);
+  function copyInstruction() {
+    const text = `
+Radnik App
+Projekt: ${getProjektName()}
+Ort: ${getProjektOrt() || "-"}
+Link: ${getWorkerLink()}
 
-  const todayLeistung = useMemo(() => {
-    return leistungen.filter((row) => {
-      return (
-        String(getDate(row)) === String(datum) &&
-        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase()
-      );
-    });
-  }, [leistungen, datum, worker]);
+Uputstvo:
+1. Otvori link na telefonu.
+2. Odaberi svoje ime.
+3. Arbeitszeit je standardno 08:00 - 17:00 sa 30 minuta pauze.
+4. Unesi šta je urađeno pod Leistung.
+5. Za dodatne radove koristi Regie.
+6. Slike se dodaju preko Fotos.
+`.trim();
 
-  const todayRegie = useMemo(() => {
-    return regieRows.filter((row) => {
-      return (
-        String(getDate(row)) === String(datum) &&
-        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase()
-      );
-    });
-  }, [regieRows, datum, worker]);
-
-  const todayHours = useMemo(() => {
-    return todayArbeitszeit.reduce((sum, row) => sum + getHours(row), 0);
-  }, [todayArbeitszeit]);
-
-  function arbeitszeitDuplicate() {
-    return arbeitszeiten.some((row) => {
-      return (
-        String(getDate(row)) === String(datum) &&
-        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase() &&
-        String(getStart(row)) === String(startTime) &&
-        String(getEnd(row)) === String(endTime)
-      );
-    });
-  }
-
-  async function saveArbeitszeit() {
-    if (saving) return;
-
-    if (!worker.trim()) {
-      alert("Odaberi radnika.");
-      return;
-    }
-
-    if (arbeitszeitDuplicate()) {
-      alert("Ovaj unos vremena već postoji. Dupli unos nije dodan.");
-      return;
-    }
-
-    setSaving(true);
-    setMessage("");
-    setErrorText("");
-
-    const hours = calculateHours(startTime, endTime, pauseMinuten);
-
-    try {
-      await insertFirstWorking(
-        [
-          { table: "arbeitszeiten", column: "projekt_id" },
-          { table: "arbeitszeiten", column: "project_id" },
-          { table: "arbeitszeiten", column: "baustelle_id" },
-          { table: "arbeitszeit", column: "projekt_id" },
-          { table: "arbeitszeit", column: "project_id" },
-          { table: "stunden", column: "projekt_id" },
-        ],
-        (config) => {
-          const base: any = {};
-          base[config.column] = projektIdValue;
-
-          return [
-            {
-              ...base,
-              datum,
-              radnik: worker.trim(),
-              start_time: startTime,
-              end_time: endTime,
-              pause_minuten: Number(pauseMinuten || 0),
-              stunden: hours,
-              notiz: zeitNotiz.trim(),
-              status: "Wartet",
-            },
-            {
-              ...base,
-              date: datum,
-              worker: worker.trim(),
-              start: startTime,
-              end: endTime,
-              break_minutes: Number(pauseMinuten || 0),
-              hours,
-              note: zeitNotiz.trim(),
-              status: "Wartet",
-            },
-            {
-              ...base,
-              datum,
-              arbeiter: worker.trim(),
-              von: startTime,
-              bis: endTime,
-              pause: Number(pauseMinuten || 0),
-              stunden: hours,
-              bemerkung: zeitNotiz.trim(),
-            },
-            {
-              ...base,
-              datum,
-              name: worker.trim(),
-              stunden: hours,
-            },
-          ];
-        }
-      );
-
-      setMessage("Arbeitszeit je spremljen.");
-      setZeitNotiz("");
-      await loadAll();
-    } catch (err: any) {
-      setErrorText("Greška kod Arbeitszeit: " + (err?.message || ""));
-    }
-
-    setSaving(false);
-  }
-
-  function leistungDuplicate() {
-    return leistungen.some((row) => {
-      return (
-        String(getDate(row)) === String(datum) &&
-        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase() &&
-        String(getTitle(row)).toLowerCase() === String(leistungTitel).toLowerCase() &&
-        toNumber(getQuantity(row)) === toNumber(leistungMenge)
-      );
-    });
-  }
-
-  async function saveLeistung() {
-    if (saving) return;
-
-    if (!worker.trim()) {
-      alert("Odaberi radnika.");
-      return;
-    }
-
-    if (!leistungTitel.trim()) {
-      alert("Upiši šta je urađeno.");
-      return;
-    }
-
-    if (!leistungMenge.trim()) {
-      alert("Upiši količinu.");
-      return;
-    }
-
-    if (leistungDuplicate()) {
-      alert("Ovaj Leistung unos već postoji. Dupli unos nije dodan.");
-      return;
-    }
-
-    setSaving(true);
-    setMessage("");
-    setErrorText("");
-
-    try {
-      await insertFirstWorking(
-        [
-          { table: "leistungen", column: "projekt_id" },
-          { table: "leistungen", column: "project_id" },
-          { table: "leistung", column: "projekt_id" },
-          { table: "leistung", column: "project_id" },
-          { table: "produktivitaet", column: "projekt_id" },
-          { table: "productivity", column: "project_id" },
-          { table: "projekt_leistung", column: "projekt_id" },
-        ],
-        (config) => {
-          const base: any = {};
-          base[config.column] = projektIdValue;
-
-          const qty = toNumber(leistungMenge);
-
-          return [
-            {
-              ...base,
-              datum,
-              radnik: worker.trim(),
-              titel: leistungTitel.trim(),
-              gruppe: leistungGruppe,
-              menge: qty,
-              einheit: leistungEinheit,
-              notiz: leistungNotiz.trim(),
-              status: "Wartet",
-            },
-            {
-              ...base,
-              date: datum,
-              worker: worker.trim(),
-              title: leistungTitel.trim(),
-              category: leistungGruppe,
-              quantity: qty,
-              unit: leistungEinheit,
-              note: leistungNotiz.trim(),
-              status: "Wartet",
-            },
-            {
-              ...base,
-              datum,
-              arbeiter: worker.trim(),
-              leistung: leistungTitel.trim(),
-              kategorie: leistungGruppe,
-              menge: qty,
-              einheit: leistungEinheit,
-              bemerkung: leistungNotiz.trim(),
-            },
-            {
-              ...base,
-              datum,
-              name: worker.trim(),
-              title: leistungTitel.trim(),
-              quantity: qty,
-              unit: leistungEinheit,
-            },
-          ];
-        }
-      );
-
-      setMessage("Leistung je spremljen.");
-      setLeistungTitel("");
-      setLeistungMenge("");
-      setLeistungNotiz("");
-      await loadAll();
-    } catch (err: any) {
-      setErrorText("Greška kod Leistung: " + (err?.message || ""));
-    }
-
-    setSaving(false);
-  }
-
-  function regieDuplicate() {
-    return regieRows.some((row) => {
-      return (
-        String(getDate(row)) === String(datum) &&
-        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase() &&
-        String(getTitle(row)).toLowerCase() === String(regieArbeit).toLowerCase()
-      );
-    });
-  }
-
-  async function saveRegie() {
-    if (saving) return;
-
-    if (!worker.trim()) {
-      alert("Odaberi radnika.");
-      return;
-    }
-
-    if (!regieArbeit.trim()) {
-      alert("Upiši Regie dodatni rad.");
-      return;
-    }
-
-    if (regieDuplicate()) {
-      alert("Ovaj Regie unos već postoji. Dupli unos nije dodan.");
-      return;
-    }
-
-    setSaving(true);
-    setMessage("");
-    setErrorText("");
-
-    const hours = calculateHours(startTime, endTime, pauseMinuten);
-
-    try {
-      await insertFirstWorking(
-        [
-          { table: "regie", column: "projekt_id" },
-          { table: "regie", column: "project_id" },
-          { table: "regiearbeiten", column: "projekt_id" },
-          { table: "projekt_regie", column: "projekt_id" },
-          { table: "zusatzarbeiten", column: "projekt_id" },
-          { table: "extra_work", column: "project_id" },
-        ],
-        (config) => {
-          const base: any = {};
-          base[config.column] = projektIdValue;
-
-          return [
-            {
-              ...base,
-              datum,
-              radnik: worker.trim(),
-              arbeit: regieArbeit.trim(),
-              beschreibung: regieBeschreibung.trim(),
-              start_time: startTime,
-              end_time: endTime,
-              pause_minuten: Number(pauseMinuten || 0),
-              stunden: hours,
-              preis: toNumber(regiePreis),
-              status: "Wartet",
-              freigabe_status: "Wartet",
-            },
-            {
-              ...base,
-              date: datum,
-              worker: worker.trim(),
-              title: regieArbeit.trim(),
-              description: regieBeschreibung.trim(),
-              start: startTime,
-              end: endTime,
-              break_minutes: Number(pauseMinuten || 0),
-              hours,
-              price: toNumber(regiePreis),
-              status: "Wartet",
-              approval_status: "Wartet",
-            },
-            {
-              ...base,
-              datum,
-              arbeiter: worker.trim(),
-              regiearbeit: regieArbeit.trim(),
-              arbeiten: regieBeschreibung.trim(),
-              stunden: hours,
-              betrag: toNumber(regiePreis),
-            },
-          ];
-        }
-      );
-
-      setMessage("Regie je spremljen.");
-      setRegieArbeit("");
-      setRegieBeschreibung("");
-      setRegiePreis("");
-      await loadAll();
-    } catch (err: any) {
-      setErrorText("Greška kod Regie: " + (err?.message || ""));
-    }
-
-    setSaving(false);
+    navigator.clipboard.writeText(text);
+    setMessage("Uputstvo je kopirano.");
   }
 
   return (
     <main className="page">
       <section className="top">
         <div>
-          <p className="label">Radnik Mobile</p>
-          <h1>{getProjektName()}</h1>
-          <p className="subtitle">{getProjektOrt() || "Projekt"}</p>
+          <Link className="back" href={`/projekte/${projektId}`}>
+            ← Zurück zu Projekt
+          </Link>
+
+          <p className="label">Radnik Mobile Link</p>
+          <h1>Radnik App</h1>
+          <p className="subtitle">
+            {loading ? "Učitavanje..." : getProjektName()}
+            {getProjektOrt() ? ` · ${getProjektOrt()}` : ""}
+          </p>
         </div>
 
-        <Link className="back" href={`/projekte/${projektId}`}>
-          Admin
-        </Link>
+        <div className="topButtons">
+          <button className="btn gray" onClick={loadProjekt}>
+            Aktualisieren
+          </button>
+
+          <button className="btn blue" onClick={openWorkerApp}>
+            Radnik App öffnen
+          </button>
+        </div>
       </section>
 
       {message && <div className="successBox">{message}</div>}
       {errorText && <div className="errorBox">{errorText}</div>}
 
+      <section className="heroBox">
+        <div>
+          <p className="smallLabel">Link za telefon</p>
+          <h2>{getWorkerLink()}</h2>
+          <p>
+            Ovaj link pošalji radnicima. Radnik otvara link na telefonu i odmah
+            može unositi Arbeitszeit, Leistung i Regie.
+          </p>
+        </div>
+
+        <div className="heroActions">
+          <button onClick={copyLink}>Link kopieren</button>
+          <button onClick={shareLink}>Teilen</button>
+          <button onClick={copyInstruction}>Uputstvo kopieren</button>
+        </div>
+      </section>
+
+      <section className="projectBox">
+        <h2>Projekt Informationen</h2>
+
+        <div className="infoGrid">
+          <div>
+            <span>Projekt</span>
+            <strong>{getProjektName()}</strong>
+          </div>
+
+          <div>
+            <span>Ort</span>
+            <strong>{getProjektOrt() || "-"}</strong>
+          </div>
+
+          <div>
+            <span>Auftraggeber</span>
+            <strong>{projekt?.auftraggeber || "-"}</strong>
+          </div>
+
+          <div>
+            <span>Bauleiter</span>
+            <strong>{projekt?.bauleiter || "-"}</strong>
+          </div>
+        </div>
+
+        <div className="miniActions">
+          <button onClick={openGoogleLocation}>📍 Google Location öffnen</button>
+
+          <Link href={`/projekte/${projektId}/einstellungen`}>
+            Einstellungen öffnen
+          </Link>
+        </div>
+      </section>
+
       <section className="workerBox">
-        <label>Radnik</label>
-        <select value={worker} onChange={(e) => saveWorkerName(e.target.value)}>
-          <option value="">Odaberi ime</option>
-          {RADNICI.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+        <h2>Radnici</h2>
+        <p>
+          PIN ostaje isti kao prije. Na mobilnoj stranici radnik samo odabere ime,
+          da unos bude brz.
+        </p>
 
-        <label>Datum</label>
-        <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} />
-      </section>
-
-      <section className="stats">
-        <div>
-          <span>Danas sati</span>
-          <strong>{formatHours(todayHours)}</strong>
-        </div>
-
-        <div>
-          <span>Leistung</span>
-          <strong>{todayLeistung.length}</strong>
-        </div>
-
-        <div>
-          <span>Regie</span>
-          <strong>{todayRegie.length}</strong>
-        </div>
-      </section>
-
-      <section className="card">
-        <h2>Arbeitszeit</h2>
-        <p className="hint">Standard je 08:00 - 17:00 sa 30 min pauze.</p>
-
-        <div className="timeGrid">
-          <div>
-            <label>Von</label>
-            <input
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label>Bis</label>
-            <input
-              type="time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label>Pause</label>
-            <input
-              type="number"
-              value={pauseMinuten}
-              onChange={(e) => setPauseMinuten(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="preview">
-          Stunden:{" "}
-          <strong>
-            {formatHours(calculateHours(startTime, endTime, pauseMinuten))}
-          </strong>
-        </div>
-
-        <label>Notiz</label>
-        <textarea
-          value={zeitNotiz}
-          onChange={(e) => setZeitNotiz(e.target.value)}
-          placeholder="Napomena za vrijeme"
-        />
-
-        <button className="saveBtn" onClick={saveArbeitszeit} disabled={saving}>
-          {saving ? "Speichern..." : "Arbeitszeit speichern"}
-        </button>
-      </section>
-
-      <section className="card">
-        <h2>Leistung</h2>
-
-        <div className="quickGrid">
-          {[
-            "Fliesen verlegt",
-            "Abdichtung gemacht",
-            "Verfugt",
-            "Silikon gemacht",
-          ].map((text) => (
-            <button key={text} onClick={() => setLeistungTitel(text)}>
-              {text}
-            </button>
+        <div className="workerGrid">
+          {RADNICI.map((worker) => (
+            <div key={worker.name}>
+              <strong>{worker.name}</strong>
+              <span>PIN {worker.pin}</span>
+            </div>
           ))}
         </div>
+      </section>
 
-        <label>Šta je urađeno?</label>
-        <input
-          value={leistungTitel}
-          onChange={(e) => setLeistungTitel(e.target.value)}
-          placeholder="z.B. Fliesen verlegt"
-        />
+      <section className="stepsBox">
+        <h2>Kako radnik koristi</h2>
 
-        <div className="threeGrid">
+        <div className="steps">
           <div>
-            <label>Menge</label>
-            <input
-              value={leistungMenge}
-              onChange={(e) => setLeistungMenge(e.target.value)}
-              inputMode="decimal"
-              placeholder="25"
-            />
+            <span>1</span>
+            <strong>Otvori link</strong>
+            <p>Radnik otvori link na telefonu.</p>
           </div>
 
           <div>
-            <label>Einheit</label>
-            <select
-              value={leistungEinheit}
-              onChange={(e) => setLeistungEinheit(e.target.value)}
-            >
-              {EINHEITEN.map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
-              ))}
-            </select>
+            <span>2</span>
+            <strong>Odabere ime</strong>
+            <p>Ime se pamti na telefonu za sljedeći unos.</p>
           </div>
 
           <div>
-            <label>Gruppe</label>
-            <select
-              value={leistungGruppe}
-              onChange={(e) => setLeistungGruppe(e.target.value)}
-            >
-              {GRUPPEN.map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
-              ))}
-            </select>
+            <span>3</span>
+            <strong>Arbeitszeit</strong>
+            <p>Standardno 08:00 - 17:00 i 30 minuta pauze.</p>
+          </div>
+
+          <div>
+            <span>4</span>
+            <strong>Leistung / Regie</strong>
+            <p>Unosi urađeni rad ili dodatni Regie rad.</p>
           </div>
         </div>
-
-        <label>Notiz</label>
-        <textarea
-          value={leistungNotiz}
-          onChange={(e) => setLeistungNotiz(e.target.value)}
-          placeholder="Napomena za Leistung"
-        />
-
-        <button className="saveBtn" onClick={saveLeistung} disabled={saving}>
-          {saving ? "Speichern..." : "Leistung speichern"}
-        </button>
       </section>
 
-      <section className="card">
-        <h2>Regie / dodatni rad</h2>
+      <section className="moduleBox">
+        <h2>Schnelle Admin Links</h2>
 
-        <div className="quickGrid">
-          {["Zusatzarbeit", "Wartezeit", "Mangel beheben", "Transport"].map(
-            (text) => (
-              <button key={text} onClick={() => setRegieArbeit(text)}>
-                {text}
-              </button>
-            )
-          )}
+        <div className="moduleGrid">
+          <Link href={`/projekte/${projektId}/arbeitszeit`}>
+            ⏱️ Arbeitszeit
+          </Link>
+
+          <Link href={`/projekte/${projektId}/leistung`}>
+            📈 Leistung
+          </Link>
+
+          <Link href={`/projekte/${projektId}/regie`}>
+            🧾 Regie
+          </Link>
+
+          <Link href={`/projekte/${projektId}/fotos`}>
+            📸 Fotos
+          </Link>
+
+          <Link href={`/projekte/${projektId}/freigabe`}>
+            🔍 Freigabe
+          </Link>
+
+          <Link href={`/projekte/${projektId}/bericht`}>
+            🖨️ Bericht
+          </Link>
         </div>
-
-        <label>Regie Arbeit</label>
-        <input
-          value={regieArbeit}
-          onChange={(e) => setRegieArbeit(e.target.value)}
-          placeholder="z.B. Zusatzarbeit"
-        />
-
-        <label>Beschreibung</label>
-        <textarea
-          value={regieBeschreibung}
-          onChange={(e) => setRegieBeschreibung(e.target.value)}
-          placeholder="Opis dodatnog rada"
-        />
-
-        <label>Betrag / Preis</label>
-        <input
-          value={regiePreis}
-          onChange={(e) => setRegiePreis(e.target.value)}
-          inputMode="decimal"
-          placeholder="z.B. 150"
-        />
-
-        <button className="saveBtn orange" onClick={saveRegie} disabled={saving}>
-          {saving ? "Speichern..." : "Regie speichern"}
-        </button>
-      </section>
-
-      <section className="photoBox">
-        <h2>Fotos</h2>
-        <p>Za slike otvori Foto modul projekta.</p>
-
-        <Link href={`/projekte/${projektId}/fotos`}>📸 Fotos öffnen</Link>
-      </section>
-
-      <section className="todayBox">
-        <h2>Današnji unosi</h2>
-
-        {loading ? (
-          <p>Učitavanje...</p>
-        ) : todayArbeitszeit.length === 0 &&
-          todayLeistung.length === 0 &&
-          todayRegie.length === 0 ? (
-          <p>Nema unosa za ovaj dan.</p>
-        ) : (
-          <div className="todayList">
-            {todayArbeitszeit.map((row) => (
-              <div key={`zeit-${row.id}`}>
-                <b>Arbeitszeit</b>
-                <span>
-                  {getStart(row)} - {getEnd(row)} · {formatHours(getHours(row))}
-                </span>
-                {getNote(row) && <p>{getNote(row)}</p>}
-              </div>
-            ))}
-
-            {todayLeistung.map((row) => (
-              <div key={`leistung-${row.id}`}>
-                <b>Leistung</b>
-                <span>
-                  {getTitle(row)} · {formatNumber(getQuantity(row))} {getUnit(row)}
-                </span>
-                {getNote(row) && <p>{getNote(row)}</p>}
-              </div>
-            ))}
-
-            {todayRegie.map((row) => (
-              <div key={`regie-${row.id}`}>
-                <b>Regie</b>
-                <span>
-                  {getTitle(row)} · {formatHours(getHours(row))}
-                </span>
-                {getNote(row) && <p>{getNote(row)}</p>}
-              </div>
-            ))}
-          </div>
-        )}
       </section>
 
       <style>{`
@@ -929,291 +350,330 @@ export default function RadnikProjektMobilePage() {
           min-height: 100vh;
           background: #050505;
           color: white;
-          padding: 16px;
+          padding: 28px;
           font-family: Arial, sans-serif;
         }
 
         .top {
           display: flex;
           justify-content: space-between;
-          gap: 12px;
           align-items: flex-start;
-          margin-bottom: 16px;
+          gap: 20px;
+          margin-bottom: 22px;
+        }
+
+        .back {
+          display: inline-block;
+          color: white;
+          text-decoration: none;
+          background: #1f2937;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 11px 15px;
+          font-weight: 800;
+          margin-bottom: 18px;
         }
 
         .label {
           color: #9ca3af;
-          margin: 0 0 6px;
-          font-weight: 900;
-          font-size: 13px;
+          margin: 0 0 8px;
+          font-size: 14px;
+          font-weight: 800;
         }
 
         h1 {
           margin: 0;
-          font-size: 30px;
-          line-height: 1.05;
+          font-size: 44px;
+          line-height: 1;
         }
 
         .subtitle {
-          margin: 8px 0 0;
           color: #cbd5e1;
+          margin: 12px 0 0;
+          font-size: 17px;
           font-weight: 700;
         }
 
-        .back {
-          background: #374151;
-          color: white;
-          text-decoration: none;
-          border-radius: 14px;
-          padding: 12px 14px;
-          font-weight: 900;
-          white-space: nowrap;
-        }
-
-        button,
-        a,
-        input,
-        textarea,
-        select {
-          font-family: inherit;
+        .topButtons {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
         }
 
         button,
         a {
+          font-family: inherit;
           -webkit-tap-highlight-color: transparent;
         }
 
-        label {
-          display: block;
-          color: #d1d5db;
-          font-weight: 900;
-          margin: 14px 0 7px;
-        }
-
-        input,
-        textarea,
-        select {
-          width: 100%;
-          box-sizing: border-box;
-          background: #030712;
-          color: white;
-          border: 1px solid #374151;
-          border-radius: 14px;
-          padding: 15px;
-          font-size: 17px;
-          outline: none;
-        }
-
-        textarea {
-          min-height: 88px;
-          resize: vertical;
-          line-height: 1.45;
-        }
-
-        .workerBox,
-        .card,
-        .photoBox,
-        .todayBox {
-          background: #111827;
-          border: 1px solid #1f2937;
-          border-radius: 20px;
-          padding: 16px;
-          margin-bottom: 16px;
-        }
-
-        .card h2,
-        .photoBox h2,
-        .todayBox h2 {
-          margin: 0 0 10px;
-          font-size: 24px;
-        }
-
-        .hint,
-        .photoBox p,
-        .todayBox p {
-          color: #cbd5e1;
-          margin: 0 0 12px;
-          line-height: 1.45;
-        }
-
-        .stats {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 10px;
-          margin-bottom: 16px;
-        }
-
-        .stats div {
-          background: #111827;
-          border: 1px solid #1f2937;
-          border-radius: 16px;
-          padding: 14px;
-        }
-
-        .stats span {
-          display: block;
-          color: #9ca3af;
-          font-size: 13px;
-          font-weight: 900;
-          margin-bottom: 6px;
-        }
-
-        .stats strong {
-          font-size: 22px;
-        }
-
-        .timeGrid,
-        .threeGrid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 0;
-        }
-
-        .quickGrid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-          margin-bottom: 12px;
-        }
-
-        .quickGrid button {
-          background: #1f2937;
-          color: white;
-          border: 1px solid #374151;
-          border-radius: 14px;
-          padding: 13px;
-          font-weight: 900;
-          font-size: 14px;
-        }
-
-        .preview {
-          margin-top: 14px;
-          background: #0b1220;
-          border: 1px solid #1f2937;
-          border-radius: 14px;
-          padding: 14px;
-          color: #cbd5e1;
-          font-weight: 900;
-        }
-
-        .preview strong {
-          color: #bbf7d0;
-          font-size: 22px;
-        }
-
-        .saveBtn {
-          width: 100%;
-          margin-top: 14px;
-          background: #2563eb;
-          color: white;
+        .btn {
           border: 0;
-          border-radius: 16px;
-          padding: 17px;
-          font-size: 17px;
-          font-weight: 900;
-        }
-
-        .saveBtn.orange {
-          background: #ea580c;
-        }
-
-        .saveBtn:disabled {
-          opacity: 0.6;
-        }
-
-        .photoBox a {
-          display: block;
-          background: #15803d;
-          color: white;
-          text-decoration: none;
-          border-radius: 16px;
-          padding: 16px;
-          text-align: center;
-          font-size: 17px;
-          font-weight: 900;
-        }
-
-        .todayList {
-          display: grid;
-          gap: 10px;
-        }
-
-        .todayList div {
-          background: #0b1220;
-          border: 1px solid #1f2937;
           border-radius: 14px;
-          padding: 13px;
-        }
-
-        .todayList b {
-          display: block;
-          color: #93c5fd;
-          margin-bottom: 6px;
-        }
-
-        .todayList span {
-          display: block;
+          padding: 14px 18px;
           color: white;
-          font-weight: 800;
+          font-size: 15px;
+          font-weight: 900;
+          cursor: pointer;
+          text-decoration: none;
         }
 
-        .todayList p {
-          margin: 8px 0 0;
-          color: #cbd5e1;
+        .gray {
+          background: #374151;
+        }
+
+        .blue {
+          background: #2563eb;
         }
 
         .successBox {
           background: #064e3b;
           border: 1px solid #16a34a;
           color: white;
-          padding: 14px;
+          padding: 16px;
           border-radius: 14px;
-          margin-bottom: 16px;
-          font-weight: 900;
+          margin-bottom: 18px;
+          font-weight: 800;
         }
 
         .errorBox {
           background: #7f1d1d;
           border: 1px solid #ef4444;
           color: white;
-          padding: 14px;
+          padding: 16px;
           border-radius: 14px;
-          margin-bottom: 16px;
+          margin-bottom: 18px;
+          font-weight: 800;
+        }
+
+        .heroBox,
+        .projectBox,
+        .workerBox,
+        .stepsBox,
+        .moduleBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 20px;
+          padding: 20px;
+          margin-bottom: 18px;
+        }
+
+        .heroBox {
+          display: grid;
+          grid-template-columns: 1fr 260px;
+          gap: 18px;
+          align-items: start;
+          border-color: #2563eb;
+        }
+
+        .smallLabel {
+          color: #93c5fd;
+          margin: 0 0 8px;
+          font-weight: 900;
+          font-size: 13px;
+        }
+
+        .heroBox h2 {
+          margin: 0;
+          font-size: 22px;
+          line-height: 1.35;
+          word-break: break-all;
+          background: #030712;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 14px;
+        }
+
+        .heroBox p,
+        .workerBox p {
+          color: #cbd5e1;
+          line-height: 1.5;
+          margin: 12px 0 0;
+        }
+
+        .heroActions {
+          display: grid;
+          gap: 10px;
+        }
+
+        .heroActions button,
+        .miniActions button,
+        .miniActions a,
+        .moduleGrid a {
+          border: 0;
+          background: #2563eb;
+          color: white;
+          border-radius: 14px;
+          padding: 14px 16px;
+          font-weight: 900;
+          cursor: pointer;
+          text-decoration: none;
+          text-align: center;
+        }
+
+        .heroActions button:nth-child(2) {
+          background: #15803d;
+        }
+
+        .heroActions button:nth-child(3) {
+          background: #374151;
+        }
+
+        .projectBox h2,
+        .workerBox h2,
+        .stepsBox h2,
+        .moduleBox h2 {
+          margin: 0 0 14px;
+          font-size: 24px;
+        }
+
+        .infoGrid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+        }
+
+        .infoGrid div,
+        .workerGrid div,
+        .steps div {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 14px;
+        }
+
+        .infoGrid span {
+          display: block;
+          color: #9ca3af;
+          font-weight: 800;
+          margin-bottom: 6px;
+          font-size: 13px;
+        }
+
+        .infoGrid strong {
+          color: white;
+          font-size: 17px;
+          line-height: 1.35;
+        }
+
+        .miniActions {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin-top: 14px;
+        }
+
+        .miniActions button {
+          background: #15803d;
+        }
+
+        .miniActions a {
+          background: #374151;
+        }
+
+        .workerGrid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 10px;
+          margin-top: 14px;
+        }
+
+        .workerGrid strong {
+          display: block;
+          font-size: 19px;
+          margin-bottom: 6px;
+        }
+
+        .workerGrid span {
+          color: #bbf7d0;
           font-weight: 900;
         }
 
-        @media (min-width: 760px) {
+        .steps {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+        }
+
+        .steps span {
+          display: inline-flex;
+          width: 34px;
+          height: 34px;
+          border-radius: 999px;
+          background: #2563eb;
+          align-items: center;
+          justify-content: center;
+          font-weight: 900;
+          margin-bottom: 10px;
+        }
+
+        .steps strong {
+          display: block;
+          font-size: 18px;
+          margin-bottom: 8px;
+        }
+
+        .steps p {
+          color: #cbd5e1;
+          margin: 0;
+          line-height: 1.45;
+        }
+
+        .moduleGrid {
+          display: grid;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 10px;
+        }
+
+        .moduleGrid a {
+          background: #1f2937;
+          border: 1px solid #374151;
+        }
+
+        @media (max-width: 1000px) {
+          .heroBox,
+          .infoGrid,
+          .workerGrid,
+          .steps,
+          .moduleGrid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+        @media (max-width: 760px) {
           .page {
-            padding: 28px;
+            padding: 16px;
           }
 
           .top {
-            max-width: 880px;
-            margin: 0 auto 18px;
+            display: block;
           }
 
-          .workerBox,
-          .card,
-          .photoBox,
-          .todayBox,
-          .stats {
-            max-width: 880px;
-            margin-left: auto;
-            margin-right: auto;
+          h1 {
+            font-size: 36px;
           }
 
-          .timeGrid {
-            grid-template-columns: 1fr 1fr 130px;
-            gap: 12px;
+          .topButtons {
+            display: grid;
+            grid-template-columns: 1fr;
+            margin-top: 16px;
           }
 
-          .threeGrid {
-            grid-template-columns: 1fr 150px 1fr;
-            gap: 12px;
+          .heroBox,
+          .infoGrid,
+          .workerGrid,
+          .steps,
+          .moduleGrid {
+            grid-template-columns: 1fr;
           }
 
-          .quickGrid {
-            grid-template-columns: repeat(4, 1fr);
+          .miniActions {
+            display: grid;
+            grid-template-columns: 1fr;
+          }
+
+          .heroBox h2 {
+            font-size: 17px;
           }
         }
       `}</style>
