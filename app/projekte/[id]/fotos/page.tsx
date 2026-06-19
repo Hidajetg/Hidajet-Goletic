@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
@@ -22,11 +22,13 @@ export default function ProjektFotosPage() {
   const router = useRouter();
 
   const projektId = String(params.id);
+  const uploadLockRef = useRef(false);
 
   const [workerName, setWorkerName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(Date.now());
 
   const [projekt, setProjekt] = useState<any>(null);
   const [raeume, setRaeume] = useState<any[]>([]);
@@ -43,12 +45,22 @@ export default function ProjektFotosPage() {
   const [titel, setTitel] = useState("");
   const [beschreibung, setBeschreibung] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [freigabeStatus, setFreigabeStatus] = useState("Wartet");
+
+  const [filterTyp, setFilterTyp] = useState("Alle");
+  const [filterStatus, setFilterStatus] = useState("Alle");
+  const [filterDatum, setFilterDatum] = useState("");
 
   const summary = useMemo(() => {
     const fortschritt = fotos.filter((f) => f.typ === "Fortschritt").length;
     const mangel = fotos.filter((f) => f.typ === "Mangel").length;
     const vorher = fotos.filter((f) => f.typ === "Vorher").length;
     const nachher = fotos.filter((f) => f.typ === "Nachher").length;
+    const nachweis = fotos.filter((f) => f.typ === "Nachweis").length;
+
+    const wartet = fotos.filter((f) => (f.freigabe_status || "Wartet") === "Wartet").length;
+    const genehmigt = fotos.filter((f) => f.freigabe_status === "Genehmigt").length;
+    const abgelehnt = fotos.filter((f) => f.freigabe_status === "Abgelehnt").length;
 
     return {
       total: fotos.length,
@@ -56,8 +68,37 @@ export default function ProjektFotosPage() {
       mangel,
       vorher,
       nachher,
+      nachweis,
+      wartet,
+      genehmigt,
+      abgelehnt,
     };
   }, [fotos]);
+
+  const filteredFotos = useMemo(() => {
+    return fotos
+      .filter((foto) => {
+        if (filterTyp !== "Alle" && foto.typ !== filterTyp) return false;
+
+        const status = foto.freigabe_status || "Wartet";
+        if (filterStatus !== "Alle" && status !== filterStatus) return false;
+
+        if (filterDatum && foto.datum !== filterDatum) return false;
+
+        return true;
+      })
+      .sort((a, b) => {
+        const dateA = String(a.datum || "");
+        const dateB = String(b.datum || "");
+
+        if (dateA !== dateB) return dateB.localeCompare(dateA);
+
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+
+        return timeB - timeA;
+      });
+  }, [fotos, filterTyp, filterStatus, filterDatum]);
 
   useEffect(() => {
     const name = localStorage.getItem("worker_name");
@@ -154,12 +195,14 @@ export default function ProjektFotosPage() {
     setTitel("");
     setBeschreibung("");
     setFile(null);
+    setFreigabeStatus("Wartet");
+    setFileInputKey(Date.now());
   }
 
   function formatDate(value: string | null) {
     if (!value) return "-";
 
-    const parts = String(value).split("-");
+    const parts = String(value).slice(0, 10).split("-");
     if (parts.length === 3) {
       return `${parts[2]}.${parts[1]}.${parts[0]}`;
     }
@@ -167,7 +210,25 @@ export default function ProjektFotosPage() {
     return value;
   }
 
-  function getRaumName(id: number | null) {
+  function formatDateTime(value: string | null) {
+    if (!value) return "-";
+
+    const d = new Date(value);
+
+    if (Number.isNaN(d.getTime())) {
+      return String(value);
+    }
+
+    return d.toLocaleString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function getRaumName(id: number | string | null) {
     if (!id) return "-";
 
     const raum = raeume.find((r) => Number(r.id) === Number(id));
@@ -177,7 +238,7 @@ export default function ProjektFotosPage() {
     return `${raum.ebene ? raum.ebene + " - " : ""}${raum.raum_name}`;
   }
 
-  function getPositionText(id: number | null) {
+  function getPositionText(id: number | string | null) {
     if (!id) return "-";
 
     const pos = positionen.find((p) => Number(p.id) === Number(id));
@@ -195,11 +256,32 @@ export default function ProjektFotosPage() {
     return `${Date.now()}-${random}.${cleanExt}`;
   }
 
+  function validateImageFile(selectedFile: File) {
+    if (!selectedFile.type.startsWith("image/")) {
+      alert("Odaberi sliku.");
+      return false;
+    }
+
+    const maxSizeMb = 15;
+    const maxSize = maxSizeMb * 1024 * 1024;
+
+    if (selectedFile.size > maxSize) {
+      alert(`Slika je prevelika. Maksimalno ${maxSizeMb} MB.`);
+      return false;
+    }
+
+    return true;
+  }
+
   async function uploadFoto() {
+    if (uploadLockRef.current) return;
+
     if (!editingId && !file) {
       alert("Odaberi sliku.");
       return;
     }
+
+    if (file && !validateImageFile(file)) return;
 
     if (!datum) {
       alert("Odaberi datum.");
@@ -211,76 +293,100 @@ export default function ProjektFotosPage() {
       return;
     }
 
+    uploadLockRef.current = true;
     setUploading(true);
 
     let fotoUrl = "";
     let storagePath = "";
+    let uploadedNewFile = false;
 
-    if (file) {
-      const safeName = getSafeFileName(file.name);
-      storagePath = `${projektId}/${safeName}`;
+    try {
+      if (file) {
+        const safeName = getSafeFileName(file.name);
+        storagePath = `${projektId}/${safeName}`;
 
-      const uploadRes = await supabase.storage
-        .from(BUCKET)
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+        const uploadRes = await supabase.storage
+          .from(BUCKET)
+          .upload(storagePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
 
-      if (uploadRes.error) {
-        alert("Greška kod upload slike: " + uploadRes.error.message);
-        setUploading(false);
-        return;
+        if (uploadRes.error) {
+          alert("Greška kod upload slike: " + uploadRes.error.message);
+          uploadLockRef.current = false;
+          setUploading(false);
+          return;
+        }
+
+        uploadedNewFile = true;
+
+        const publicUrlRes = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
+        fotoUrl = publicUrlRes.data.publicUrl;
       }
 
-      const publicUrlRes = supabase.storage
-        .from(BUCKET)
-        .getPublicUrl(storagePath);
+      const payload: any = {
+        projekt_id: Number(projektId),
+        datum,
+        raum_id: selectedRaumId ? Number(selectedRaumId) : null,
+        lv_position_id: selectedPositionId ? Number(selectedPositionId) : null,
+        titel: titel.trim(),
+        beschreibung: beschreibung.trim() || null,
+        typ,
+        freigabe_status: freigabeStatus,
+      };
 
-      fotoUrl = publicUrlRes.data.publicUrl;
-    }
-
-    const payload: any = {
-      projekt_id: Number(projektId),
-      datum,
-      raum_id: selectedRaumId ? Number(selectedRaumId) : null,
-      lv_position_id: selectedPositionId ? Number(selectedPositionId) : null,
-      titel: titel.trim(),
-      beschreibung: beschreibung.trim() || null,
-      typ,
-      created_by: workerName,
-    };
-
-    if (file) {
-      payload.foto_url = fotoUrl;
-      payload.storage_path = storagePath;
-    }
-
-    if (editingId) {
-      const { error } = await supabase
-        .from("projekt_fotos")
-        .update(payload)
-        .eq("id", editingId);
-
-      if (error) {
-        alert("Greška kod izmjene slike: " + error.message);
-        setUploading(false);
-        return;
+      if (file) {
+        payload.foto_url = fotoUrl;
+        payload.storage_path = storagePath;
       }
-    } else {
-      const { error } = await supabase.from("projekt_fotos").insert(payload);
 
-      if (error) {
-        alert("Greška kod dodavanja slike: " + error.message);
-        setUploading(false);
-        return;
+      if (editingId) {
+        const oldFoto = fotos.find((f) => Number(f.id) === Number(editingId));
+
+        const { error } = await supabase
+          .from("projekt_fotos")
+          .update(payload)
+          .eq("id", editingId);
+
+        if (error) {
+          if (uploadedNewFile && storagePath) {
+            await supabase.storage.from(BUCKET).remove([storagePath]);
+          }
+
+          alert("Greška kod izmjene slike: " + error.message);
+          uploadLockRef.current = false;
+          setUploading(false);
+          return;
+        }
+
+        if (file && oldFoto?.storage_path && oldFoto.storage_path !== storagePath) {
+          await supabase.storage.from(BUCKET).remove([oldFoto.storage_path]);
+        }
+      } else {
+        payload.created_by = workerName;
+
+        const { error } = await supabase.from("projekt_fotos").insert(payload);
+
+        if (error) {
+          if (uploadedNewFile && storagePath) {
+            await supabase.storage.from(BUCKET).remove([storagePath]);
+          }
+
+          alert("Greška kod dodavanja slike: " + error.message);
+          uploadLockRef.current = false;
+          setUploading(false);
+          return;
+        }
       }
-    }
 
-    clearForm();
-    setShowForm(false);
-    setUploading(false);
-    loadData();
+      clearForm();
+      setShowForm(false);
+      await loadData();
+    } finally {
+      uploadLockRef.current = false;
+      setUploading(false);
+    }
   }
 
   function editFoto(item: any) {
@@ -291,7 +397,9 @@ export default function ProjektFotosPage() {
     setTyp(item.typ || "Fortschritt");
     setTitel(item.titel || "");
     setBeschreibung(item.beschreibung || "");
+    setFreigabeStatus(item.freigabe_status || "Wartet");
     setFile(null);
+    setFileInputKey(Date.now());
     setShowForm(true);
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -317,6 +425,36 @@ export default function ProjektFotosPage() {
     }
 
     loadData();
+  }
+
+  async function changeStatus(item: any, newStatus: string) {
+    const { error } = await supabase
+      .from("projekt_fotos")
+      .update({ freigabe_status: newStatus })
+      .eq("id", item.id);
+
+    if (error) {
+      alert("Greška kod promjene statusa: " + error.message);
+      return;
+    }
+
+    loadData();
+  }
+
+  function getTypeBadgeStyle(typeValue: string) {
+    if (typeValue === "Mangel") return dangerBadgeStyle;
+    if (typeValue === "Nachher") return okBadgeStyle;
+    if (typeValue === "Vorher") return blueBadgeStyle;
+    if (typeValue === "Nachweis") return purpleBadgeStyle;
+
+    return warningBadgeStyle;
+  }
+
+  function getStatusBadgeStyle(statusValue: string) {
+    if (statusValue === "Genehmigt") return okBadgeStyle;
+    if (statusValue === "Abgelehnt") return dangerBadgeStyle;
+
+    return waitBadgeStyle;
   }
 
   if (loading) {
@@ -347,27 +485,56 @@ export default function ProjektFotosPage() {
           ← Zurück zum Projekt
         </Link>
 
-        <button
-          onClick={() => {
-            clearForm();
-            setShowForm(!showForm);
-          }}
-          style={newButtonStyle}
-        >
-          {showForm ? "Schließen" : "+ Foto"}
-        </button>
+        <div style={topButtonWrapStyle}>
+          <button onClick={loadData} style={refreshButtonStyle}>
+            Aktualisieren
+          </button>
+
+          <button
+            onClick={() => {
+              clearForm();
+              setShowForm(!showForm);
+            }}
+            disabled={uploading}
+            style={newButtonStyle}
+          >
+            {showForm ? "Schließen" : "+ Foto"}
+          </button>
+        </div>
       </div>
 
       <h1 style={titleStyle}>📸 Fotos / Dokumentation</h1>
 
       <p style={descriptionStyle}>
-        Projekt: <strong>{projekt?.project_name || "-"}</strong>
+        Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
+        <strong>{workerName}</strong>
       </p>
 
       <section style={summaryGridStyle}>
         <div style={summaryCardStyle}>
           <span style={summaryLabelStyle}>Alle Fotos</span>
           <strong style={summaryValueStyle}>{summary.total}</strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Wartet</span>
+          <strong style={{ ...summaryValueStyle, color: "#facc15" }}>
+            {summary.wartet}
+          </strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Genehmigt</span>
+          <strong style={{ ...summaryValueStyle, color: "#22c55e" }}>
+            {summary.genehmigt}
+          </strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Abgelehnt</span>
+          <strong style={{ ...summaryValueStyle, color: "#ef4444" }}>
+            {summary.abgelehnt}
+          </strong>
         </div>
 
         <div style={summaryCardStyle}>
@@ -386,14 +553,76 @@ export default function ProjektFotosPage() {
             {summary.vorher + summary.nachher}
           </strong>
         </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Nachweis</span>
+          <strong style={summaryValueStyle}>{summary.nachweis}</strong>
+        </div>
+      </section>
+
+      <section style={filterBoxStyle}>
+        <div style={filterGridStyle}>
+          <div>
+            <label style={labelStyle}>Typ Filter</label>
+            <select
+              value={filterTyp}
+              onChange={(e) => setFilterTyp(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="Alle">Alle</option>
+              <option value="Fortschritt">Fortschritt</option>
+              <option value="Mangel">Mangel</option>
+              <option value="Nachweis">Nachweis</option>
+              <option value="Vorher">Vorher</option>
+              <option value="Nachher">Nachher</option>
+              <option value="Sonstiges">Sonstiges</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Status Filter</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="Alle">Alle</option>
+              <option value="Wartet">Wartet</option>
+              <option value="Genehmigt">Genehmigt</option>
+              <option value="Abgelehnt">Abgelehnt</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Datum Filter</label>
+            <input
+              type="date"
+              value={filterDatum}
+              onChange={(e) => setFilterDatum(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          <button
+            onClick={() => {
+              setFilterTyp("Alle");
+              setFilterStatus("Alle");
+              setFilterDatum("");
+            }}
+            style={grayButtonStyle}
+          >
+            Filter löschen
+          </button>
+        </div>
       </section>
 
       <section style={infoBoxStyle}>
         <h2 style={sectionTitleStyle}>Foto Regel</h2>
         <p style={infoTextStyle}>
           Svaka slika može biti povezana sa prostorijom i LV pozicijom. Za
-          nedostatke koristi tip <strong>Mangel</strong>, a za dokumentaciju
-          napretka koristi <strong>Fortschritt</strong>.
+          nedostatke koristi tip <strong>Mangel</strong>, za dokaz koristi{" "}
+          <strong>Nachweis</strong>, a za dokumentaciju napretka koristi{" "}
+          <strong>Fortschritt</strong>.
         </p>
       </section>
 
@@ -423,9 +652,23 @@ export default function ProjektFotosPage() {
               >
                 <option value="Fortschritt">Fortschritt</option>
                 <option value="Mangel">Mangel</option>
+                <option value="Nachweis">Nachweis</option>
                 <option value="Vorher">Vorher</option>
                 <option value="Nachher">Nachher</option>
                 <option value="Sonstiges">Sonstiges</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Status</label>
+              <select
+                value={freigabeStatus}
+                onChange={(e) => setFreigabeStatus(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="Wartet">Wartet</option>
+                <option value="Genehmigt">Genehmigt</option>
+                <option value="Abgelehnt">Abgelehnt</option>
               </select>
             </div>
           </div>
@@ -485,11 +728,20 @@ export default function ProjektFotosPage() {
             Foto {editingId ? "(leer lassen wenn Bild gleich bleibt)" : "*"}
           </label>
           <input
+            key={fileInputKey}
             type="file"
             accept="image/*"
+            capture="environment"
+            disabled={uploading}
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             style={fileInputStyle}
           />
+
+          {file && (
+            <p style={selectedFileStyle}>
+              Odabrano: <strong>{file.name}</strong>
+            </p>
+          )}
 
           <div style={formButtonRowStyle}>
             <button
@@ -498,6 +750,7 @@ export default function ProjektFotosPage() {
               style={{
                 ...saveButtonStyle,
                 opacity: uploading ? 0.5 : 1,
+                cursor: uploading ? "not-allowed" : "pointer",
               }}
             >
               {uploading
@@ -512,6 +765,7 @@ export default function ProjektFotosPage() {
                 clearForm();
                 setShowForm(false);
               }}
+              disabled={uploading}
               style={cancelButtonStyle}
             >
               Abbrechen
@@ -523,61 +777,102 @@ export default function ProjektFotosPage() {
       <section style={listBoxStyle}>
         <h2 style={sectionTitleStyle}>Foto Galerie</h2>
 
-        {fotos.length === 0 ? (
-          <p style={emptyStyle}>Noch keine Fotos vorhanden.</p>
+        {filteredFotos.length === 0 ? (
+          <p style={emptyStyle}>Keine Fotos gefunden.</p>
         ) : (
           <div style={photoGridStyle}>
-            {fotos.map((foto) => (
-              <div key={foto.id} style={photoCardStyle}>
-                <a href={foto.foto_url} target="_blank" rel="noopener noreferrer">
-                  <img src={foto.foto_url} alt={foto.titel || "Foto"} style={photoStyle} />
-                </a>
+            {filteredFotos.map((foto) => {
+              const statusValue = foto.freigabe_status || "Wartet";
 
-                <div style={photoBodyStyle}>
-                  <div style={photoTopRowStyle}>
-                    <span
-                      style={
-                        foto.typ === "Mangel"
-                          ? dangerBadgeStyle
-                          : foto.typ === "Nachher"
-                          ? okBadgeStyle
-                          : foto.typ === "Vorher"
-                          ? blueBadgeStyle
-                          : warningBadgeStyle
-                      }
-                    >
-                      {foto.typ || "Fortschritt"}
-                    </span>
+              return (
+                <div key={foto.id} style={photoCardStyle}>
+                  <a href={foto.foto_url} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={foto.foto_url}
+                      alt={foto.titel || "Foto"}
+                      style={photoStyle}
+                    />
+                  </a>
 
-                    <span style={dateStyle}>{formatDate(foto.datum)}</span>
-                  </div>
+                  <div style={photoBodyStyle}>
+                    <div style={photoTopRowStyle}>
+                      <span style={getTypeBadgeStyle(foto.typ || "Fortschritt")}>
+                        {foto.typ || "Fortschritt"}
+                      </span>
 
-                  <h3 style={photoTitleStyle}>{foto.titel || "-"}</h3>
+                      <span style={getStatusBadgeStyle(statusValue)}>
+                        {statusValue}
+                      </span>
+                    </div>
 
-                  <p style={photoMetaStyle}>
-                    Raum: <strong>{getRaumName(foto.raum_id)}</strong>
-                  </p>
+                    <h3 style={photoTitleStyle}>{foto.titel || "-"}</h3>
 
-                  <p style={photoMetaStyle}>
-                    LV: <strong>{getPositionText(foto.lv_position_id)}</strong>
-                  </p>
+                    <p style={photoMetaStyle}>
+                      Datum: <strong>{formatDate(foto.datum)}</strong>
+                    </p>
 
-                  {foto.beschreibung && (
-                    <p style={photoDescriptionStyle}>{foto.beschreibung}</p>
-                  )}
+                    <p style={photoMetaStyle}>
+                      Raum: <strong>{getRaumName(foto.raum_id)}</strong>
+                    </p>
 
-                  <div style={actionRowStyle}>
-                    <button onClick={() => editFoto(foto)} style={editButtonStyle}>
-                      Bearbeiten
-                    </button>
+                    <p style={photoMetaStyle}>
+                      LV: <strong>{getPositionText(foto.lv_position_id)}</strong>
+                    </p>
 
-                    <button onClick={() => deleteFoto(foto)} style={deleteButtonStyle}>
-                      Löschen
-                    </button>
+                    <p style={photoMetaStyle}>
+                      Erstellt von: <strong>{foto.created_by || "-"}</strong>
+                    </p>
+
+                    {isAdmin && (
+                      <p style={photoMetaStyle}>
+                        Zeit der Eingabe:{" "}
+                        <strong>{formatDateTime(foto.created_at)}</strong>
+                      </p>
+                    )}
+
+                    {foto.beschreibung && (
+                      <p style={photoDescriptionStyle}>{foto.beschreibung}</p>
+                    )}
+
+                    <div style={quickStatusGridStyle}>
+                      <button
+                        onClick={() => changeStatus(foto, "Genehmigt")}
+                        style={approveButtonStyle}
+                      >
+                        Genehmigen
+                      </button>
+
+                      <button
+                        onClick={() => changeStatus(foto, "Abgelehnt")}
+                        style={rejectButtonStyle}
+                      >
+                        Ablehnen
+                      </button>
+
+                      <button
+                        onClick={() => changeStatus(foto, "Wartet")}
+                        style={waitButtonStyle}
+                      >
+                        Wartet
+                      </button>
+                    </div>
+
+                    <div style={actionRowStyle}>
+                      <button onClick={() => editFoto(foto)} style={editButtonStyle}>
+                        Bearbeiten
+                      </button>
+
+                      <button
+                        onClick={() => deleteFoto(foto)}
+                        style={deleteButtonStyle}
+                      >
+                        Löschen
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -598,6 +893,12 @@ const topBarStyle: any = {
   alignItems: "center",
   gap: "12px",
   marginBottom: "20px",
+  flexWrap: "wrap",
+};
+
+const topButtonWrapStyle: any = {
+  display: "flex",
+  gap: "10px",
   flexWrap: "wrap",
 };
 
@@ -625,6 +926,17 @@ const loadingStyle: any = {
   fontSize: "18px",
 };
 
+const refreshButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 18px",
+  fontSize: "15px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
 const newButtonStyle: any = {
   background: "#16a34a",
   color: "white",
@@ -638,7 +950,7 @@ const newButtonStyle: any = {
 
 const summaryGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))",
   gap: "12px",
   marginBottom: "20px",
 };
@@ -660,6 +972,21 @@ const summaryLabelStyle: any = {
 const summaryValueStyle: any = {
   color: "#f97316",
   fontSize: "22px",
+};
+
+const filterBoxStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "16px",
+  padding: "18px",
+  marginBottom: "20px",
+};
+
+const filterGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gap: "12px",
+  alignItems: "end",
 };
 
 const infoBoxStyle: any = {
@@ -729,12 +1056,19 @@ const textareaStyle: any = {
 
 const fileInputStyle: any = {
   width: "100%",
-  padding: "12px",
-  borderRadius: "10px",
+  padding: "14px",
+  borderRadius: "12px",
   border: "1px solid #333",
   background: "#000",
   color: "white",
   boxSizing: "border-box",
+  fontSize: "15px",
+};
+
+const selectedFileStyle: any = {
+  color: "#bbb",
+  fontSize: "13px",
+  margin: "8px 0 0 0",
 };
 
 const formButtonRowStyle: any = {
@@ -766,6 +1100,16 @@ const cancelButtonStyle: any = {
   cursor: "pointer",
 };
 
+const grayButtonStyle: any = {
+  background: "#4b5563",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
 const listBoxStyle: any = {
   background: "#111",
   border: "1px solid #333",
@@ -781,7 +1125,7 @@ const emptyStyle: any = {
 
 const photoGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
   gap: "16px",
 };
 
@@ -810,6 +1154,7 @@ const photoTopRowStyle: any = {
   alignItems: "center",
   gap: "10px",
   marginBottom: "10px",
+  flexWrap: "wrap",
 };
 
 const photoTitleStyle: any = {
@@ -831,9 +1176,11 @@ const photoDescriptionStyle: any = {
   marginTop: "10px",
 };
 
-const dateStyle: any = {
-  color: "#aaa",
-  fontSize: "12px",
+const quickStatusGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr 1fr",
+  gap: "8px",
+  marginTop: "12px",
 };
 
 const actionRowStyle: any = {
@@ -863,6 +1210,27 @@ const deleteButtonStyle: any = {
   cursor: "pointer",
 };
 
+const approveButtonStyle: any = {
+  background: "#16a34a",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  padding: "8px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  fontSize: "12px",
+};
+
+const rejectButtonStyle: any = {
+  ...approveButtonStyle,
+  background: "#7f1d1d",
+};
+
+const waitButtonStyle: any = {
+  ...approveButtonStyle,
+  background: "#ca8a04",
+};
+
 const okBadgeStyle: any = {
   background: "#16a34a",
   color: "white",
@@ -874,6 +1242,16 @@ const okBadgeStyle: any = {
 };
 
 const warningBadgeStyle: any = {
+  background: "#ca8a04",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
+const waitBadgeStyle: any = {
   background: "#ca8a04",
   color: "white",
   borderRadius: "999px",
@@ -895,6 +1273,16 @@ const dangerBadgeStyle: any = {
 
 const blueBadgeStyle: any = {
   background: "#2563eb",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
+const purpleBadgeStyle: any = {
+  background: "#7c3aed",
   color: "white",
   borderRadius: "999px",
   padding: "5px 9px",
