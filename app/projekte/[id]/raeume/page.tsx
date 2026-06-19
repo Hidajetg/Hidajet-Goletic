@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
@@ -10,57 +10,113 @@ const ADMINI = ["Hido", "Steffi", "Admin"];
 export default function ProjektRaeumePage() {
   const params = useParams();
   const router = useRouter();
+  const savingRef = useRef(false);
 
   const projektId = String(params.id);
 
   const [workerName, setWorkerName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [projekt, setProjekt] = useState<any>(null);
   const [raeume, setRaeume] = useState<any[]>([]);
-  const [positionen, setPositionen] = useState<any[]>([]);
-  const [aufmass, setAufmass] = useState<any[]>([]);
 
-  const [showRaumForm, setShowRaumForm] = useState(false);
-  const [showAufmassForm, setShowAufmassForm] = useState(false);
+  const [arbeitszeiten, setArbeitszeiten] = useState<any[]>([]);
+  const [leistungen, setLeistungen] = useState<any[]>([]);
+  const [regie, setRegie] = useState<any[]>([]);
+  const [fotos, setFotos] = useState<any[]>([]);
+  const [aufgaben, setAufgaben] = useState<any[]>([]);
+  const [materialBewegungen, setMaterialBewegungen] = useState<any[]>([]);
 
-  const [editingRaumId, setEditingRaumId] = useState<number | null>(null);
-  const [editingAufmassId, setEditingAufmassId] = useState<number | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const [raumName, setRaumName] = useState("");
   const [ebene, setEbene] = useState("");
-  const [raumTyp, setRaumTyp] = useState("Normal");
-  const [grundflaeche, setGrundflaeche] = useState("");
-  const [raumFaktor, setRaumFaktor] = useState("1.00");
-  const [raumNotiz, setRaumNotiz] = useState("");
 
-  const [selectedRaumId, setSelectedRaumId] = useState("");
-  const [selectedPositionId, setSelectedPositionId] = useState("");
-  const [aufmassMenge, setAufmassMenge] = useState("");
-  const [aufmassEinheit, setAufmassEinheit] = useState("m²");
-  const [aufmassFaktor, setAufmassFaktor] = useState("1.00");
-  const [aufmassNotiz, setAufmassNotiz] = useState("");
+  const [filterEbene, setFilterEbene] = useState("Alle");
+  const [searchText, setSearchText] = useState("");
+
+  const ebenen = useMemo(() => {
+    const values = raeume
+      .map((r) => r.ebene)
+      .filter(Boolean)
+      .map((v) => String(v));
+
+    return Array.from(new Set(values)).sort();
+  }, [raeume]);
+
+  const raumRows = useMemo(() => {
+    return raeume
+      .map((raum) => {
+        const usage = getRaumUsage(raum.id);
+
+        return {
+          ...raum,
+          usage,
+        };
+      })
+      .filter((raum) => {
+        if (filterEbene !== "Alle" && String(raum.ebene || "") !== filterEbene) {
+          return false;
+        }
+
+        if (searchText.trim()) {
+          const text = `${raum.raum_name || ""} ${raum.ebene || ""}`.toLowerCase();
+          return text.includes(searchText.trim().toLowerCase());
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        const ebeneA = String(a.ebene || "");
+        const ebeneB = String(b.ebene || "");
+
+        if (ebeneA !== ebeneB) return ebeneA.localeCompare(ebeneB);
+
+        return String(a.raum_name || "").localeCompare(String(b.raum_name || ""));
+      });
+  }, [
+    raeume,
+    arbeitszeiten,
+    leistungen,
+    regie,
+    fotos,
+    aufgaben,
+    materialBewegungen,
+    filterEbene,
+    searchText,
+  ]);
 
   const summary = useMemo(() => {
-    const totalRaeume = raeume.length;
-    const totalAufmass = aufmass.length;
+    const benutzteRaeume = raeume.filter((raum) => getRaumUsage(raum.id).total > 0)
+      .length;
 
-    const totalPlanHours = aufmass.reduce((sum, item) => {
-      const pos = positionen.find((p) => p.id === item.lv_position_id);
-      const menge = Number(item.menge_soll || 0);
-      const faktor = Number(item.faktor || 1);
-      const minuten = Number(pos?.minuten_pro_einheit || 0);
-
-      return sum + (menge * faktor * minuten) / 60;
-    }, 0);
+    const freieRaeume = raeume.length - benutzteRaeume;
 
     return {
-      totalRaeume,
-      totalAufmass,
-      totalPlanHours,
+      total: raeume.length,
+      ebenen: ebenen.length,
+      benutzteRaeume,
+      freieRaeume,
+      arbeitszeiten: arbeitszeiten.length,
+      leistungen: leistungen.length,
+      regie: regie.length,
+      fotos: fotos.length,
+      aufgaben: aufgaben.length,
+      material: materialBewegungen.length,
     };
-  }, [raeume, aufmass, positionen]);
+  }, [
+    raeume,
+    ebenen,
+    arbeitszeiten,
+    leistungen,
+    regie,
+    fotos,
+    aufgaben,
+    materialBewegungen,
+  ]);
 
   useEffect(() => {
     const name = localStorage.getItem("worker_name");
@@ -114,136 +170,144 @@ export default function ProjektRaeumePage() {
 
     setRaeume(raeumeRes.data || []);
 
-    const positionenRes = await supabase
-      .from("projekt_lv_positionen")
+    const arbeitszeitRes = await supabase
+      .from("projekt_arbeitszeiten")
       .select("*")
-      .eq("projekt_id", Number(projektId))
-      .eq("aktiv", true)
-      .order("position_nr", { ascending: true });
+      .eq("projekt_id", Number(projektId));
 
-    if (positionenRes.error) {
-      alert("Greška kod učitavanja LV pozicija: " + positionenRes.error.message);
-      setPositionen([]);
-      setLoading(false);
-      return;
-    }
+    setArbeitszeiten(arbeitszeitRes.data || []);
 
-    setPositionen(positionenRes.data || []);
-
-    const aufmassRes = await supabase
-      .from("projekt_aufmass")
+    const leistungRes = await supabase
+      .from("projekt_leistungen")
       .select("*")
-      .eq("projekt_id", Number(projektId))
-      .order("created_at", { ascending: false });
+      .eq("projekt_id", Number(projektId));
 
-    if (aufmassRes.error) {
-      alert("Greška kod učitavanja Aufmaß: " + aufmassRes.error.message);
-      setAufmass([]);
-      setLoading(false);
-      return;
-    }
+    setLeistungen(leistungRes.data || []);
 
-    setAufmass(aufmassRes.data || []);
+    const regieRes = await supabase
+      .from("projekt_regie")
+      .select("*")
+      .eq("projekt_id", Number(projektId));
+
+    setRegie(regieRes.data || []);
+
+    const fotosRes = await supabase
+      .from("projekt_fotos")
+      .select("*")
+      .eq("projekt_id", Number(projektId));
+
+    setFotos(fotosRes.data || []);
+
+    const aufgabenRes = await supabase
+      .from("projekt_aufgaben")
+      .select("*")
+      .eq("projekt_id", Number(projektId));
+
+    setAufgaben(aufgabenRes.data || []);
+
+    const materialRes = await supabase
+      .from("projekt_material_bewegungen")
+      .select("*")
+      .eq("projekt_id", Number(projektId));
+
+    setMaterialBewegungen(materialRes.data || []);
+
     setLoading(false);
   }
 
-  function parseNumber(value: string) {
-    const num = parseFloat(String(value || "0").replace(",", "."));
-    return Number.isNaN(num) ? 0 : num;
+  function clearForm() {
+    setEditingId(null);
+    setRaumName("");
+    setEbene("");
   }
 
-  function formatNumber(value: any, digits = 2) {
-    const num = Number(value || 0);
+  function formatDateTime(value: string | null) {
+    if (!value) return "-";
 
-    return num.toLocaleString("de-AT", {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
+    const d = new Date(value);
+
+    if (Number.isNaN(d.getTime())) {
+      return String(value);
+    }
+
+    return d.toLocaleString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   }
 
-  function getAutoFaktor(sizeValue: string, typeValue: string) {
-    const size = parseNumber(sizeValue);
-    let faktor = 1;
+  function getRaumUsage(raumId: number | string) {
+    const arbeitszeitCount = arbeitszeiten.filter(
+      (x) => Number(x.raum_id) === Number(raumId)
+    ).length;
 
-    if (size > 0 && size <= 5) {
-      faktor = 1.45;
-    } else if (size > 5 && size <= 10) {
-      faktor = 1.35;
-    } else if (size > 10 && size <= 20) {
-      faktor = 1.25;
-    } else if (size > 20 && size <= 40) {
-      faktor = 1.1;
-    } else {
-      faktor = 1;
-    }
+    const leistungCount = leistungen.filter(
+      (x) => Number(x.raum_id) === Number(raumId)
+    ).length;
 
-    if (typeValue === "WC") faktor += 0.1;
-    if (typeValue === "Bad") faktor += 0.08;
-    if (typeValue === "Dusche") faktor += 0.1;
-    if (typeValue === "Treppe") faktor += 0.2;
-    if (typeValue === "Technik") faktor += 0.05;
+    const regieCount = regie.filter(
+      (x) => Number(x.raum_id) === Number(raumId)
+    ).length;
 
-    if (faktor > 1.7) faktor = 1.7;
+    const fotosCount = fotos.filter(
+      (x) => Number(x.raum_id) === Number(raumId)
+    ).length;
 
-    return faktor.toFixed(2);
-  }
+    const aufgabenCount = aufgaben.filter(
+      (x) => Number(x.raum_id) === Number(raumId)
+    ).length;
 
-  function berechneRaumFaktor() {
-    setRaumFaktor(getAutoFaktor(grundflaeche, raumTyp));
-  }
+    const materialCount = materialBewegungen.filter(
+      (x) => Number(x.raum_id) === Number(raumId)
+    ).length;
 
-  function clearRaumForm() {
-    setEditingRaumId(null);
-    setRaumName("");
-    setEbene("");
-    setRaumTyp("Normal");
-    setGrundflaeche("");
-    setRaumFaktor("1.00");
-    setRaumNotiz("");
-  }
-
-  function clearAufmassForm() {
-    setEditingAufmassId(null);
-    setSelectedRaumId("");
-    setSelectedPositionId("");
-    setAufmassMenge("");
-    setAufmassEinheit("m²");
-    setAufmassFaktor("1.00");
-    setAufmassNotiz("");
+    return {
+      arbeitszeitCount,
+      leistungCount,
+      regieCount,
+      fotosCount,
+      aufgabenCount,
+      materialCount,
+      total:
+        arbeitszeitCount +
+        leistungCount +
+        regieCount +
+        fotosCount +
+        aufgabenCount +
+        materialCount,
+    };
   }
 
   async function saveRaum() {
+    if (savingRef.current) return;
+
     if (!raumName.trim()) {
       alert("Unesi naziv prostorije.");
       return;
     }
 
-    const faktorNumber = parseNumber(raumFaktor);
+    savingRef.current = true;
+    setSaving(true);
 
-    if (faktorNumber <= 0) {
-      alert("Faktor mora biti veći od 0.");
-      return;
-    }
-
-    const payload = {
+    const payload: any = {
       projekt_id: Number(projektId),
       raum_name: raumName.trim(),
       ebene: ebene.trim() || null,
-      raum_typ: raumTyp,
-      grundflaeche: parseNumber(grundflaeche),
-      faktor: faktorNumber,
-      notiz: raumNotiz.trim() || null,
-      created_by: workerName,
     };
 
-    if (editingRaumId) {
+    if (editingId) {
       const { error } = await supabase
         .from("projekt_raeume")
         .update(payload)
-        .eq("id", editingRaumId);
+        .eq("id", editingId);
 
       if (error) {
         alert("Greška kod izmjene prostorije: " + error.message);
+        savingRef.current = false;
+        setSaving(false);
         return;
       }
     } else {
@@ -251,171 +315,60 @@ export default function ProjektRaeumePage() {
 
       if (error) {
         alert("Greška kod dodavanja prostorije: " + error.message);
+        savingRef.current = false;
+        setSaving(false);
         return;
       }
     }
 
-    clearRaumForm();
-    setShowRaumForm(false);
-    loadData();
+    clearForm();
+    setShowForm(false);
+    await loadData();
+
+    savingRef.current = false;
+    setSaving(false);
   }
 
   function editRaum(raum: any) {
-    setEditingRaumId(raum.id);
+    setEditingId(raum.id);
     setRaumName(raum.raum_name || "");
     setEbene(raum.ebene || "");
-    setRaumTyp(raum.raum_typ || "Normal");
-    setGrundflaeche(String(raum.grundflaeche ?? ""));
-    setRaumFaktor(String(raum.faktor ?? "1.00"));
-    setRaumNotiz(raum.notiz || "");
-    setShowRaumForm(true);
+    setShowForm(true);
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function deleteRaum(id: number) {
-    const ok = confirm(
-      "Da li sigurno želiš obrisati ovu prostoriju? Svi Aufmaß unosi za ovu prostoriju će biti obrisani."
-    );
+  async function deleteRaum(raum: any) {
+    const usage = getRaumUsage(raum.id);
+
+    if (usage.total > 0) {
+      alert(
+        "Ova prostorija se već koristi i ne može se obrisati dok ne obrišeš povezane unose.\n\n" +
+          `Arbeitszeit: ${usage.arbeitszeitCount}\n` +
+          `Leistung: ${usage.leistungCount}\n` +
+          `Regie: ${usage.regieCount}\n` +
+          `Fotos: ${usage.fotosCount}\n` +
+          `Aufgaben: ${usage.aufgabenCount}\n` +
+          `Material: ${usage.materialCount}`
+      );
+      return;
+    }
+
+    const ok = confirm("Da li sigurno želiš obrisati ovu prostoriju?");
 
     if (!ok) return;
 
-    const { error } = await supabase.from("projekt_raeume").delete().eq("id", id);
+    const { error } = await supabase
+      .from("projekt_raeume")
+      .delete()
+      .eq("id", raum.id);
 
     if (error) {
       alert("Greška kod brisanja prostorije: " + error.message);
       return;
     }
 
-    loadData();
-  }
-
-  function onSelectRaum(id: string) {
-    setSelectedRaumId(id);
-
-    const raum = raeume.find((r) => String(r.id) === id);
-
-    if (raum) {
-      setAufmassFaktor(String(raum.faktor || "1.00"));
-    }
-  }
-
-  function onSelectPosition(id: string) {
-    setSelectedPositionId(id);
-
-    const pos = positionen.find((p) => String(p.id) === id);
-
-    if (pos) {
-      setAufmassEinheit(pos.einheit || "m²");
-    }
-  }
-
-  async function saveAufmass() {
-    if (!selectedRaumId) {
-      alert("Odaberi prostoriju.");
-      return;
-    }
-
-    if (!selectedPositionId) {
-      alert("Odaberi LV poziciju.");
-      return;
-    }
-
-    const faktorNumber = parseNumber(aufmassFaktor);
-
-    if (faktorNumber <= 0) {
-      alert("Faktor mora biti veći od 0.");
-      return;
-    }
-
-    const payload = {
-      projekt_id: Number(projektId),
-      raum_id: Number(selectedRaumId),
-      lv_position_id: Number(selectedPositionId),
-      menge_soll: parseNumber(aufmassMenge),
-      einheit: aufmassEinheit,
-      faktor: faktorNumber,
-      notiz: aufmassNotiz.trim() || null,
-      created_by: workerName,
-    };
-
-    if (editingAufmassId) {
-      const { error } = await supabase
-        .from("projekt_aufmass")
-        .update(payload)
-        .eq("id", editingAufmassId);
-
-      if (error) {
-        alert("Greška kod izmjene Aufmaß: " + error.message);
-        return;
-      }
-    } else {
-      const { error } = await supabase.from("projekt_aufmass").insert(payload);
-
-      if (error) {
-        alert("Greška kod dodavanja Aufmaß: " + error.message);
-        return;
-      }
-    }
-
-    clearAufmassForm();
-    setShowAufmassForm(false);
-    loadData();
-  }
-
-  function editAufmass(item: any) {
-    setEditingAufmassId(item.id);
-    setSelectedRaumId(String(item.raum_id || ""));
-    setSelectedPositionId(String(item.lv_position_id || ""));
-    setAufmassMenge(String(item.menge_soll ?? ""));
-    setAufmassEinheit(item.einheit || "m²");
-    setAufmassFaktor(String(item.faktor ?? "1.00"));
-    setAufmassNotiz(item.notiz || "");
-    setShowAufmassForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  async function deleteAufmass(id: number) {
-    const ok = confirm("Da li sigurno želiš obrisati ovaj Aufmaß unos?");
-
-    if (!ok) return;
-
-    const { error } = await supabase.from("projekt_aufmass").delete().eq("id", id);
-
-    if (error) {
-      alert("Greška kod brisanja Aufmaß: " + error.message);
-      return;
-    }
-
-    loadData();
-  }
-
-  function getRaumName(id: number) {
-    const raum = raeume.find((r) => r.id === id);
-    if (!raum) return "-";
-
-    return `${raum.ebene ? raum.ebene + " - " : ""}${raum.raum_name}`;
-  }
-
-  function getPositionText(id: number) {
-    const pos = positionen.find((p) => p.id === id);
-    if (!pos) return "-";
-
-    return `${pos.position_nr} - ${pos.kurztext}`;
-  }
-
-  function getPosition(id: number) {
-    return positionen.find((p) => p.id === id);
-  }
-
-  function wirksameMenge(item: any) {
-    return Number(item.menge_soll || 0) * Number(item.faktor || 1);
-  }
-
-  function planHours(item: any) {
-    const pos = getPosition(item.lv_position_id);
-    const minuten = Number(pos?.minuten_pro_einheit || 0);
-
-    return (wirksameMenge(item) * minuten) / 60;
+    await loadData();
   }
 
   if (loading) {
@@ -425,7 +378,7 @@ export default function ProjektRaeumePage() {
           ← Zurück zum Projekt
         </Link>
 
-        <h1 style={titleStyle}>📐 Aufmaß / Räume</h1>
+        <h1 style={titleStyle}>🏠 Räume</h1>
         <p style={loadingStyle}>Wird geladen...</p>
       </main>
     );
@@ -446,147 +399,176 @@ export default function ProjektRaeumePage() {
           ← Zurück zum Projekt
         </Link>
 
-        <div style={topButtonRowStyle}>
-          <button
-            onClick={() => {
-              clearRaumForm();
-              setShowRaumForm(!showRaumForm);
-              setShowAufmassForm(false);
-            }}
-            style={newButtonStyle}
-          >
-            {showRaumForm ? "Schließen" : "+ Raum"}
+        <div style={topButtonWrapStyle}>
+          <button onClick={loadData} style={refreshButtonStyle}>
+            Aktualisieren
           </button>
 
           <button
             onClick={() => {
-              clearAufmassForm();
-              setShowAufmassForm(!showAufmassForm);
-              setShowRaumForm(false);
+              clearForm();
+              setShowForm(!showForm);
             }}
-            style={blueButtonStyle}
+            disabled={saving}
+            style={newButtonStyle}
           >
-            {showAufmassForm ? "Schließen" : "+ Aufmaß"}
+            {showForm ? "Schließen" : "+ Raum"}
           </button>
         </div>
       </div>
 
-      <h1 style={titleStyle}>📐 Aufmaß / Räume</h1>
+      <h1 style={titleStyle}>🏠 Räume</h1>
 
       <p style={descriptionStyle}>
-        Projekt: <strong>{projekt?.project_name || "-"}</strong>
+        Projekt: <strong>{projekt?.project_name || "-"}</strong> · Admin:{" "}
+        <strong>{workerName}</strong>
       </p>
 
       <section style={summaryGridStyle}>
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Räume</span>
-          <strong style={summaryValueStyle}>{summary.totalRaeume}</strong>
+          <span style={summaryLabelStyle}>Räume gesamt</span>
+          <strong style={summaryValueStyle}>{summary.total}</strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Aufmaß Einträge</span>
-          <strong style={summaryValueStyle}>{summary.totalAufmass}</strong>
+          <span style={summaryLabelStyle}>Ebenen</span>
+          <strong style={summaryValueStyle}>{summary.ebenen}</strong>
         </div>
 
         <div style={summaryCardStyle}>
-          <span style={summaryLabelStyle}>Plan Stunden mit Faktor</span>
-          <strong style={summaryValueStyle}>
-            {formatNumber(summary.totalPlanHours)} h
+          <span style={summaryLabelStyle}>Benutzte Räume</span>
+          <strong style={{ ...summaryValueStyle, color: "#facc15" }}>
+            {summary.benutzteRaeume}
           </strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Freie Räume</span>
+          <strong style={{ ...summaryValueStyle, color: "#22c55e" }}>
+            {summary.freieRaeume}
+          </strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Arbeitszeit</span>
+          <strong style={summaryValueStyle}>{summary.arbeitszeiten}</strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Leistung</span>
+          <strong style={summaryValueStyle}>{summary.leistungen}</strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Fotos</span>
+          <strong style={summaryValueStyle}>{summary.fotos}</strong>
+        </div>
+
+        <div style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Aufgaben</span>
+          <strong style={summaryValueStyle}>{summary.aufgaben}</strong>
         </div>
       </section>
 
-      {showRaumForm && (
+      <section style={infoBoxStyle}>
+        <h2 style={sectionTitleStyle}>Räume Regel</h2>
+        <p style={infoTextStyle}>
+          Räume su osnova za Arbeitszeit, Leistung, Regie, Fotos, Aufgaben i
+          Material. Prostorija se ne može obrisati ako već ima povezane unose.
+        </p>
+      </section>
+
+      <section style={filterBoxStyle}>
+        <div style={filterGridStyle}>
+          <div>
+            <label style={labelStyle}>Traži Raum</label>
+            <input
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="npr. Bad, WC, Küche..."
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>Ebene Filter</label>
+            <select
+              value={filterEbene}
+              onChange={(e) => setFilterEbene(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="Alle">Alle Ebenen</option>
+              {ebenen.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={() => {
+              setSearchText("");
+              setFilterEbene("Alle");
+            }}
+            style={grayButtonStyle}
+          >
+            Filter löschen
+          </button>
+        </div>
+      </section>
+
+      {showForm && (
         <section style={formBoxStyle}>
           <h2 style={formTitleStyle}>
-            {editingRaumId ? "Raum bearbeiten" : "Neuen Raum hinzufügen"}
+            {editingId ? "Raum bearbeiten" : "Raum anlegen"}
           </h2>
 
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Raumname *</label>
-              <input
-                value={raumName}
-                onChange={(e) => setRaumName(e.target.value)}
-                placeholder="z.B. WC EG"
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Ebene / Geschoss</label>
-              <input
-                value={ebene}
-                onChange={(e) => setEbene(e.target.value)}
-                placeholder="z.B. EG, 1.OG, KG"
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <div style={formGridStyle}>
-            <div>
-              <label style={labelStyle}>Raumtyp</label>
-              <select
-                value={raumTyp}
-                onChange={(e) => setRaumTyp(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="Normal">Normal</option>
-                <option value="WC">WC</option>
-                <option value="Bad">Bad</option>
-                <option value="Dusche">Dusche</option>
-                <option value="Gang">Gang</option>
-                <option value="Büro">Büro</option>
-                <option value="Werkstatt">Werkstatt</option>
-                <option value="Technik">Technik</option>
-                <option value="Treppe">Treppe</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={labelStyle}>Grundfläche m²</label>
-              <input
-                value={grundflaeche}
-                onChange={(e) => setGrundflaeche(e.target.value)}
-                placeholder="z.B. 4.5"
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Faktor *</label>
-              <input
-                value={raumFaktor}
-                onChange={(e) => setRaumFaktor(e.target.value)}
-                placeholder="z.B. 1.40"
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <button onClick={berechneRaumFaktor} style={purpleButtonStyle}>
-            Faktor automatisch berechnen
-          </button>
-
-          <label style={labelStyle}>Notiz</label>
-          <textarea
-            value={raumNotiz}
-            onChange={(e) => setRaumNotiz(e.target.value)}
-            placeholder="z.B. puno rezanja, instalacije, uski prostor..."
-            style={textareaStyle}
+          <label style={labelStyle}>Raum Name *</label>
+          <input
+            value={raumName}
+            onChange={(e) => setRaumName(e.target.value)}
+            placeholder="z.B. Bad EG, WC OG, Küche"
+            style={inputStyle}
           />
 
+          <label style={labelStyle}>Ebene / Geschoss</label>
+          <input
+            value={ebene}
+            onChange={(e) => setEbene(e.target.value)}
+            placeholder="EG, OG, DG, KG"
+            style={inputStyle}
+          />
+
+          <div style={previewBoxStyle}>
+            <strong>Pregled:</strong>{" "}
+            {ebene ? `${ebene} - ` : ""}
+            {raumName || "-"}
+          </div>
+
           <div style={formButtonRowStyle}>
-            <button onClick={saveRaum} style={saveButtonStyle}>
-              {editingRaumId ? "Änderungen speichern" : "Raum speichern"}
+            <button
+              onClick={saveRaum}
+              disabled={saving}
+              style={{
+                ...saveButtonStyle,
+                opacity: saving ? 0.5 : 1,
+                cursor: saving ? "not-allowed" : "pointer",
+              }}
+            >
+              {saving
+                ? "Speichern..."
+                : editingId
+                ? "Änderungen speichern"
+                : "Raum speichern"}
             </button>
 
             <button
               onClick={() => {
-                clearRaumForm();
-                setShowRaumForm(false);
+                clearForm();
+                setShowForm(false);
               }}
+              disabled={saving}
               style={cancelButtonStyle}
             >
               Abbrechen
@@ -595,221 +577,110 @@ export default function ProjektRaeumePage() {
         </section>
       )}
 
-      {showAufmassForm && (
-        <section style={formBoxStyle}>
-          <h2 style={formTitleStyle}>
-            {editingAufmassId ? "Aufmaß bearbeiten" : "Aufmaß hinzufügen"}
-          </h2>
-
-          {raeume.length === 0 || positionen.length === 0 ? (
-            <p style={warningStyle}>
-              Prvo moraš imati najmanje jednu prostoriju i jednu aktivnu LV
-              poziciju.
-            </p>
-          ) : (
-            <>
-              <div style={formGridStyle}>
-                <div>
-                  <label style={labelStyle}>Raum *</label>
-                  <select
-                    value={selectedRaumId}
-                    onChange={(e) => onSelectRaum(e.target.value)}
-                    style={inputStyle}
-                  >
-                    <option value="">Odaberi prostoriju</option>
-                    {raeume.map((raum) => (
-                      <option key={raum.id} value={raum.id}>
-                        {raum.ebene ? `${raum.ebene} - ` : ""}
-                        {raum.raum_name} | Faktor {raum.faktor}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={labelStyle}>LV Position *</label>
-                  <select
-                    value={selectedPositionId}
-                    onChange={(e) => onSelectPosition(e.target.value)}
-                    style={inputStyle}
-                  >
-                    <option value="">Odaberi LV poziciju</option>
-                    {positionen.map((pos) => (
-                      <option key={pos.id} value={pos.id}>
-                        {pos.position_nr} - {pos.kurztext}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div style={formGridStyle}>
-                <div>
-                  <label style={labelStyle}>Menge Soll</label>
-                  <input
-                    value={aufmassMenge}
-                    onChange={(e) => setAufmassMenge(e.target.value)}
-                    placeholder="z.B. 18"
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div>
-                  <label style={labelStyle}>Einheit</label>
-                  <input
-                    value={aufmassEinheit}
-                    onChange={(e) => setAufmassEinheit(e.target.value)}
-                    placeholder="m² / m / Stk."
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div>
-                  <label style={labelStyle}>Faktor</label>
-                  <input
-                    value={aufmassFaktor}
-                    onChange={(e) => setAufmassFaktor(e.target.value)}
-                    placeholder="z.B. 1.40"
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-
-              <label style={labelStyle}>Notiz</label>
-              <textarea
-                value={aufmassNotiz}
-                onChange={(e) => setAufmassNotiz(e.target.value)}
-                placeholder="Napomena za ovu poziciju u ovoj prostoriji"
-                style={textareaStyle}
-              />
-
-              <div style={formButtonRowStyle}>
-                <button onClick={saveAufmass} style={saveButtonStyle}>
-                  {editingAufmassId
-                    ? "Änderungen speichern"
-                    : "Aufmaß speichern"}
-                </button>
-
-                <button
-                  onClick={() => {
-                    clearAufmassForm();
-                    setShowAufmassForm(false);
-                  }}
-                  style={cancelButtonStyle}
-                >
-                  Abbrechen
-                </button>
-              </div>
-            </>
-          )}
-        </section>
-      )}
-
       <section style={listBoxStyle}>
         <h2 style={sectionTitleStyle}>Räume Liste</h2>
 
-        {raeume.length === 0 ? (
-          <p style={emptyStyle}>Noch keine Räume vorhanden.</p>
+        {raumRows.length === 0 ? (
+          <p style={emptyStyle}>Keine Räume gefunden.</p>
         ) : (
-          <div style={roomGridStyle}>
-            {raeume.map((raum) => (
-              <div key={raum.id} style={roomCardStyle}>
-                <h3 style={roomTitleStyle}>
+          <div style={raumGridStyle}>
+            {raumRows.map((raum) => (
+              <div key={raum.id} style={raumCardStyle}>
+                <div style={cardTopStyle}>
+                  <span style={raumBadgeStyle}>Raum</span>
+
+                  {raum.usage.total > 0 ? (
+                    <span style={warningBadgeStyle}>Benutzt</span>
+                  ) : (
+                    <span style={okBadgeStyle}>Frei</span>
+                  )}
+                </div>
+
+                <h3 style={raumTitleStyle}>
                   {raum.ebene ? `${raum.ebene} - ` : ""}
                   {raum.raum_name}
                 </h3>
 
-                <p style={roomTextStyle}>
-                  <strong>Typ:</strong> {raum.raum_typ || "-"}
-                </p>
+                <div style={detailGridStyle}>
+                  <div>
+                    <span style={smallLabelStyle}>Ebene</span>
+                    <strong>{raum.ebene || "-"}</strong>
+                  </div>
 
-                <p style={roomTextStyle}>
-                  <strong>Grundfläche:</strong>{" "}
-                  {formatNumber(raum.grundflaeche)} m²
-                </p>
+                  <div>
+                    <span style={smallLabelStyle}>Nutzung gesamt</span>
+                    <strong>{raum.usage.total}</strong>
+                  </div>
 
-                <p style={roomTextStyle}>
-                  <strong>Faktor:</strong> {formatNumber(raum.faktor)}
-                </p>
+                  <div>
+                    <span style={smallLabelStyle}>Arbeitszeit</span>
+                    <strong>{raum.usage.arbeitszeitCount}</strong>
+                  </div>
 
-                {raum.notiz && <p style={roomTextStyle}>{raum.notiz}</p>}
+                  <div>
+                    <span style={smallLabelStyle}>Leistung</span>
+                    <strong>{raum.usage.leistungCount}</strong>
+                  </div>
+
+                  <div>
+                    <span style={smallLabelStyle}>Regie</span>
+                    <strong>{raum.usage.regieCount}</strong>
+                  </div>
+
+                  <div>
+                    <span style={smallLabelStyle}>Fotos</span>
+                    <strong>{raum.usage.fotosCount}</strong>
+                  </div>
+
+                  <div>
+                    <span style={smallLabelStyle}>Aufgaben</span>
+                    <strong>{raum.usage.aufgabenCount}</strong>
+                  </div>
+
+                  <div>
+                    <span style={smallLabelStyle}>Material</span>
+                    <strong>{raum.usage.materialCount}</strong>
+                  </div>
+                </div>
+
+                {isAdmin && (
+                  <p style={metaTextStyle}>
+                    Zeit der Eingabe:{" "}
+                    <strong>{formatDateTime(raum.created_at)}</strong>
+                  </p>
+                )}
+
+                <div style={linkGridStyle}>
+                  <Link
+                    href={`/projekte/${projektId}/arbeitszeit`}
+                    style={blueLinkStyle}
+                  >
+                    Arbeitszeit
+                  </Link>
+
+                  <Link
+                    href={`/projekte/${projektId}/leistung`}
+                    style={greenLinkStyle}
+                  >
+                    Leistung
+                  </Link>
+
+                  <Link href={`/projekte/${projektId}/fotos`} style={orangeLinkStyle}>
+                    Fotos
+                  </Link>
+                </div>
 
                 <div style={actionRowStyle}>
                   <button onClick={() => editRaum(raum)} style={editButtonStyle}>
                     Bearbeiten
                   </button>
 
-                  <button
-                    onClick={() => deleteRaum(raum.id)}
-                    style={deleteButtonStyle}
-                  >
+                  <button onClick={() => deleteRaum(raum)} style={deleteButtonStyle}>
                     Löschen
                   </button>
                 </div>
               </div>
             ))}
-          </div>
-        )}
-      </section>
-
-      <section style={listBoxStyle}>
-        <h2 style={sectionTitleStyle}>Aufmaß nach Räumen</h2>
-
-        {aufmass.length === 0 ? (
-          <p style={emptyStyle}>Noch kein Aufmaß vorhanden.</p>
-        ) : (
-          <div style={tableWrapStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Raum</th>
-                  <th style={thStyle}>LV Position</th>
-                  <th style={thStyle}>Menge</th>
-                  <th style={thStyle}>EH</th>
-                  <th style={thStyle}>Faktor</th>
-                  <th style={thStyle}>Wirksame Menge</th>
-                  <th style={thStyle}>Plan h</th>
-                  <th style={thStyle}>Notiz</th>
-                  <th style={thStyle}>Aktion</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {aufmass.map((item) => (
-                  <tr key={item.id}>
-                    <td style={tdStyle}>{getRaumName(item.raum_id)}</td>
-                    <td style={tdStyle}>{getPositionText(item.lv_position_id)}</td>
-                    <td style={tdRightStyle}>
-                      {formatNumber(item.menge_soll)}
-                    </td>
-                    <td style={tdStyle}>{item.einheit || "-"}</td>
-                    <td style={tdRightStyle}>{formatNumber(item.faktor)}</td>
-                    <td style={tdRightStyle}>
-                      {formatNumber(wirksameMenge(item))}
-                    </td>
-                    <td style={tdRightStyle}>{formatNumber(planHours(item))}</td>
-                    <td style={tdStyle}>{item.notiz || "-"}</td>
-                    <td style={tdStyle}>
-                      <div style={actionRowStyle}>
-                        <button
-                          onClick={() => editAufmass(item)}
-                          style={editButtonStyle}
-                        >
-                          Bearbeiten
-                        </button>
-
-                        <button
-                          onClick={() => deleteAufmass(item.id)}
-                          style={deleteButtonStyle}
-                        >
-                          Löschen
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         )}
       </section>
@@ -833,7 +704,7 @@ const topBarStyle: any = {
   flexWrap: "wrap",
 };
 
-const topButtonRowStyle: any = {
+const topButtonWrapStyle: any = {
   display: "flex",
   gap: "10px",
   flexWrap: "wrap",
@@ -863,6 +734,17 @@ const loadingStyle: any = {
   fontSize: "18px",
 };
 
+const refreshButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "12px",
+  padding: "12px 18px",
+  fontSize: "15px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
 const newButtonStyle: any = {
   background: "#16a34a",
   color: "white",
@@ -874,25 +756,9 @@ const newButtonStyle: any = {
   cursor: "pointer",
 };
 
-const blueButtonStyle: any = {
-  ...newButtonStyle,
-  background: "#2563eb",
-};
-
-const purpleButtonStyle: any = {
-  background: "#9333ea",
-  color: "white",
-  border: "none",
-  borderRadius: "10px",
-  padding: "11px 14px",
-  fontWeight: "bold",
-  cursor: "pointer",
-  marginTop: "12px",
-};
-
 const summaryGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))",
   gap: "12px",
   marginBottom: "20px",
 };
@@ -916,6 +782,35 @@ const summaryValueStyle: any = {
   fontSize: "22px",
 };
 
+const infoBoxStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "16px",
+  padding: "18px",
+  marginBottom: "20px",
+};
+
+const infoTextStyle: any = {
+  color: "#ccc",
+  margin: 0,
+  lineHeight: "1.5",
+};
+
+const filterBoxStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "16px",
+  padding: "18px",
+  marginBottom: "20px",
+};
+
+const filterGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+  gap: "12px",
+  alignItems: "end",
+};
+
 const formBoxStyle: any = {
   background: "#111",
   border: "1px solid #333",
@@ -934,12 +829,6 @@ const sectionTitleStyle: any = {
   color: "#f97316",
   marginTop: 0,
   marginBottom: "14px",
-};
-
-const formGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "12px",
 };
 
 const labelStyle: any = {
@@ -961,10 +850,14 @@ const inputStyle: any = {
   boxSizing: "border-box",
 };
 
-const textareaStyle: any = {
-  ...inputStyle,
-  minHeight: "95px",
-  resize: "vertical",
+const previewBoxStyle: any = {
+  marginTop: "14px",
+  background: "#000",
+  border: "1px solid #333",
+  borderRadius: "12px",
+  padding: "12px",
+  color: "#ddd",
+  lineHeight: "1.5",
 };
 
 const formButtonRowStyle: any = {
@@ -996,12 +889,14 @@ const cancelButtonStyle: any = {
   cursor: "pointer",
 };
 
-const warningStyle: any = {
-  background: "#7f1d1d",
-  border: "1px solid #dc2626",
+const grayButtonStyle: any = {
+  background: "#4b5563",
   color: "white",
+  border: "none",
   borderRadius: "12px",
   padding: "12px",
+  fontWeight: "bold",
+  cursor: "pointer",
 };
 
 const listBoxStyle: any = {
@@ -1017,69 +912,89 @@ const emptyStyle: any = {
   fontSize: "16px",
 };
 
-const roomGridStyle: any = {
+const raumGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-  gap: "12px",
+  gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+  gap: "14px",
 };
 
-const roomCardStyle: any = {
+const raumCardStyle: any = {
   background: "#000",
   border: "1px solid #333",
-  borderRadius: "14px",
+  borderRadius: "16px",
   padding: "14px",
 };
 
-const roomTitleStyle: any = {
+const cardTopStyle: any = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "10px",
+  flexWrap: "wrap",
+};
+
+const raumTitleStyle: any = {
   color: "#f97316",
-  marginTop: 0,
-  marginBottom: "10px",
+  margin: "12px 0 10px 0",
+  fontSize: "19px",
+  lineHeight: "1.35",
 };
 
-const roomTextStyle: any = {
-  color: "#ccc",
-  margin: "6px 0",
-  fontSize: "14px",
-};
-
-const tableWrapStyle: any = {
-  overflowX: "auto",
-};
-
-const tableStyle: any = {
-  width: "100%",
-  borderCollapse: "collapse",
-  minWidth: "1100px",
-};
-
-const thStyle: any = {
-  borderBottom: "1px solid #333",
-  color: "#f97316",
+const detailGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "10px",
+  background: "#080808",
+  border: "1px solid #222",
+  borderRadius: "12px",
   padding: "10px",
-  textAlign: "left",
-  fontSize: "13px",
-  whiteSpace: "nowrap",
 };
 
-const tdStyle: any = {
-  borderBottom: "1px solid #222",
-  color: "#ddd",
-  padding: "10px",
-  fontSize: "13px",
-  verticalAlign: "top",
+const smallLabelStyle: any = {
+  display: "block",
+  color: "#aaa",
+  fontSize: "12px",
+  marginBottom: "4px",
 };
 
-const tdRightStyle: any = {
-  ...tdStyle,
-  textAlign: "right",
-  whiteSpace: "nowrap",
+const metaTextStyle: any = {
+  color: "#aaa",
+  fontSize: "13px",
+  margin: "8px 0",
+};
+
+const linkGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr 1fr",
+  gap: "8px",
+  marginTop: "12px",
+};
+
+const blueLinkStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  borderRadius: "8px",
+  padding: "8px",
+  textAlign: "center",
+  textDecoration: "none",
+  fontWeight: "bold",
+  fontSize: "12px",
+};
+
+const greenLinkStyle: any = {
+  ...blueLinkStyle,
+  background: "#16a34a",
+};
+
+const orangeLinkStyle: any = {
+  ...blueLinkStyle,
+  background: "#f97316",
 };
 
 const actionRowStyle: any = {
   display: "flex",
   gap: "8px",
   flexWrap: "wrap",
-  marginTop: "10px",
+  marginTop: "12px",
 };
 
 const editButtonStyle: any = {
@@ -1087,7 +1002,7 @@ const editButtonStyle: any = {
   color: "white",
   border: "none",
   borderRadius: "8px",
-  padding: "7px 9px",
+  padding: "8px 10px",
   fontWeight: "bold",
   cursor: "pointer",
 };
@@ -1097,7 +1012,37 @@ const deleteButtonStyle: any = {
   color: "white",
   border: "none",
   borderRadius: "8px",
-  padding: "7px 9px",
+  padding: "8px 10px",
   fontWeight: "bold",
   cursor: "pointer",
+};
+
+const raumBadgeStyle: any = {
+  background: "#7c3aed",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
+const okBadgeStyle: any = {
+  background: "#16a34a",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
+};
+
+const warningBadgeStyle: any = {
+  background: "#ca8a04",
+  color: "white",
+  borderRadius: "999px",
+  padding: "5px 9px",
+  fontWeight: "bold",
+  fontSize: "12px",
+  whiteSpace: "nowrap",
 };
