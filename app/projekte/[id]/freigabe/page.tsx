@@ -79,6 +79,11 @@ export default function ProjektFreigabePage() {
 
       if (dateA !== dateB) return dateB.localeCompare(dateA);
 
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+      if (timeA !== timeB) return timeB - timeA;
+
       return b.sortId - a.sortId;
     });
   }, [
@@ -220,6 +225,7 @@ export default function ProjektFreigabePage() {
       ).slice(0, 5)} · ${formatNumber(item.stunden)} h`,
       status: item.freigabe_status || "Wartet",
       createdBy: item.created_by || item.worker_name || "-",
+      createdAt: item.created_at || null,
       adminNotiz: item.admin_notiz || "",
       raw: item,
     }));
@@ -235,6 +241,7 @@ export default function ProjektFreigabePage() {
       )}`,
       status: item.status || "Wartet",
       createdBy: item.created_by || "-",
+      createdAt: item.created_at || null,
       adminNotiz: item.admin_notiz || "",
       raw: item,
     }));
@@ -250,6 +257,7 @@ export default function ProjektFreigabePage() {
       ).slice(0, 5)} · ${formatNumber(item.stunden_pro_worker)} h / Arbeiter`,
       status: normalizeRegieStatus(item.status),
       createdBy: item.created_by || "-",
+      createdAt: item.created_at || null,
       adminNotiz: item.admin_notiz || "",
       raw: item,
     }));
@@ -263,6 +271,7 @@ export default function ProjektFreigabePage() {
       title: item.titel || "Foto",
       status: item.freigabe_status || "Wartet",
       createdBy: item.created_by || "-",
+      createdAt: item.created_at || null,
       adminNotiz: item.admin_notiz || "",
       raw: item,
     }));
@@ -276,6 +285,7 @@ export default function ProjektFreigabePage() {
       title: item.titel || "-",
       status: normalizeAufgabeStatus(item.status),
       createdBy: item.created_by || "-",
+      createdAt: item.created_at || null,
       adminNotiz: item.admin_notiz || "",
       raw: item,
     }));
@@ -466,6 +476,24 @@ export default function ProjektFreigabePage() {
     }
 
     return value;
+  }
+
+  function formatDateTime(value: string | null) {
+    if (!value) return "-";
+
+    const d = new Date(value);
+
+    if (Number.isNaN(d.getTime())) {
+      return String(value);
+    }
+
+    return d.toLocaleString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   function formatNumber(value: any, digits = 2) {
@@ -719,6 +747,12 @@ export default function ProjektFreigabePage() {
                 <p style={metaTextStyle}>
                   Erstellt von: <strong>{item.createdBy}</strong>
                 </p>
+
+                {isAdmin && (
+                  <p style={metaTextStyle}>
+                    Zeit der Eingabe: <strong>{formatDateTime(item.createdAt)}</strong>
+                  </p>
+                )}
 
                 <div style={detailBoxStyle}>{renderDetails(item)}</div>
 
