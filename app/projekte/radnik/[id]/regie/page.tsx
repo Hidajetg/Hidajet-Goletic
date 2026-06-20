@@ -24,7 +24,7 @@ type Projekt = {
   [key: string]: any;
 };
 
-const WORKERS = ["Arnes", "Ramiz", "Abror", "Shohruh"];
+const WORKERS = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
 
 const t: Record<Lang, any> = {
   de: {
@@ -33,19 +33,24 @@ const t: Record<Lang, any> = {
     subtitle:
       "Regie ist ein Nachweis für Zusatzarbeiten. Nach der Unterschrift sind keine Änderungen mehr möglich.",
     language: "Sprache",
-    worker: "Arbeiter",
-    workers: "Arbeiter auswählen",
-    selectMainWorker: "Hauptarbeiter auswählen",
+    worker: "Angemeldeter Arbeiter",
+    noWorker:
+      "Kein Arbeiter angemeldet. Bitte zuerst über Login mit PIN anmelden.",
+    workers: "Weitere Arbeiter auswählen",
     date: "Datum",
     start: "Von",
     end: "Bis",
     pause: "Pause Minuten",
     room: "Raum",
     selectRoom: "Raum auswählen",
+    noRooms: "Keine Räume vorhanden. Bitte zuerst im Admin Räume hinzufügen.",
     position: "LV Position",
     selectPosition: "LV Position auswählen",
+    noPositions:
+      "Keine LV Positionen vorhanden. Wenn es keine passende LV Position gibt, Zusatzposition eintragen.",
     extraPosition: "Zusätzliche Position / Beschreibung",
-    extraPositionPlaceholder: "Wenn es keine passende LV Position gibt, hier eintragen",
+    extraPositionPlaceholder:
+      "Wenn es keine passende LV Position gibt, hier eintragen",
     work: "Regiearbeit",
     workPlaceholder: "Was wurde als Regiearbeit gemacht?",
     description: "Beschreibung",
@@ -74,7 +79,8 @@ const t: Record<Lang, any> = {
     locked: "Gesperrt",
     notLocked: "Offen",
     errors: {
-      selectMainWorker: "Bitte Hauptarbeiter auswählen.",
+      noWorker:
+        "Kein Arbeiter angemeldet. Bitte zuerst über Login mit PIN anmelden.",
       selectWorkers: "Bitte mindestens einen Arbeiter auswählen.",
       selectRoom: "Bitte Raum auswählen.",
       enterWork: "Bitte Regiearbeit eintragen.",
@@ -82,8 +88,6 @@ const t: Record<Lang, any> = {
       invalidTime: "Bitte gültige Arbeitszeit eintragen.",
       duplicate: "Diese Regie wurde bereits eingetragen.",
       saveFailed: "Regie konnte nicht gespeichert werden.",
-      sqlMissing:
-        "Datenbank ist nicht komplett. Bitte SQL 001_kontrola_radnika_lv_regie ausführen.",
     },
   },
   ba: {
@@ -92,17 +96,21 @@ const t: Record<Lang, any> = {
     subtitle:
       "Regie je dokaz za dodatni rad. Nakon potpisa više nema izmjena osim admina.",
     language: "Jezik",
-    worker: "Radnik",
-    workers: "Odaberi radnike",
-    selectMainWorker: "Odaberi glavnog radnika",
+    worker: "Prijavljeni radnik",
+    noWorker:
+      "Radnik nije prijavljen. Prvo se prijavi preko Login stranice sa PIN kodom.",
+    workers: "Odaberi dodatne radnike",
     date: "Datum",
     start: "Od",
     end: "Do",
     pause: "Pauza minuta",
     room: "Prostorija",
     selectRoom: "Odaberi prostoriju",
+    noRooms: "Nema prostorija. Prvo u adminu dodaj prostorije.",
     position: "LV pozicija",
     selectPosition: "Odaberi LV poziciju",
+    noPositions:
+      "Nema LV pozicija. Ako nema odgovarajuće LV pozicije, upiši dodatnu poziciju.",
     extraPosition: "Dodatna pozicija / opis",
     extraPositionPlaceholder: "Ako nema odgovarajuće LV pozicije, upiši ovdje",
     work: "Regie dodatni rad",
@@ -133,7 +141,8 @@ const t: Record<Lang, any> = {
     locked: "Zaključano",
     notLocked: "Otvoreno",
     errors: {
-      selectMainWorker: "Odaberi glavnog radnika.",
+      noWorker:
+        "Radnik nije prijavljen. Prvo se prijavi preko Login stranice sa PIN kodom.",
       selectWorkers: "Odaberi najmanje jednog radnika.",
       selectRoom: "Odaberi prostoriju.",
       enterWork: "Upiši Regie dodatni rad.",
@@ -141,8 +150,6 @@ const t: Record<Lang, any> = {
       invalidTime: "Upiši ispravno radno vrijeme.",
       duplicate: "Ovaj Regie unos već postoji.",
       saveFailed: "Regie nije spremljen.",
-      sqlMissing:
-        "Baza nije kompletna. Prvo pokreni SQL 001_kontrola_radnika_lv_regie.",
     },
   },
   en: {
@@ -151,17 +158,21 @@ const t: Record<Lang, any> = {
     subtitle:
       "Regie is proof for extra work. After signing, changes are only possible by admin.",
     language: "Language",
-    worker: "Worker",
-    workers: "Select workers",
-    selectMainWorker: "Select main worker",
+    worker: "Logged-in worker",
+    noWorker:
+      "No worker is logged in. Please log in first with PIN on the Login page.",
+    workers: "Select additional workers",
     date: "Date",
     start: "From",
     end: "To",
     pause: "Break minutes",
     room: "Room",
     selectRoom: "Select room",
+    noRooms: "No rooms available. Please add rooms in admin first.",
     position: "LV position",
     selectPosition: "Select LV position",
+    noPositions:
+      "No LV positions available. If there is no matching LV position, enter an extra position.",
     extraPosition: "Extra position / description",
     extraPositionPlaceholder: "If there is no matching LV position, enter it here",
     work: "Regie work",
@@ -192,7 +203,8 @@ const t: Record<Lang, any> = {
     locked: "Locked",
     notLocked: "Open",
     errors: {
-      selectMainWorker: "Select main worker.",
+      noWorker:
+        "No worker is logged in. Please log in first with PIN on the Login page.",
       selectWorkers: "Select at least one worker.",
       selectRoom: "Select room.",
       enterWork: "Enter Regie work.",
@@ -200,8 +212,6 @@ const t: Record<Lang, any> = {
       invalidTime: "Enter valid work time.",
       duplicate: "This Regie entry already exists.",
       saveFailed: "Regie could not be saved.",
-      sqlMissing:
-        "Database is not complete. Run SQL 001_kontrola_radnika_lv_regie first.",
     },
   },
   uz: {
@@ -210,17 +220,21 @@ const t: Record<Lang, any> = {
     subtitle:
       "Regie qo‘shimcha ish uchun dalil. Imzodan keyin faqat admin o‘zgartira oladi.",
     language: "Til",
-    worker: "Ishchi",
-    workers: "Ishchilarni tanlang",
-    selectMainWorker: "Asosiy ishchini tanlang",
+    worker: "Kirilgan ishchi",
+    noWorker:
+      "Ishchi tizimga kirmagan. Avval Login sahifasida PIN bilan kiring.",
+    workers: "Qo‘shimcha ishchilarni tanlang",
     date: "Sana",
     start: "Boshlash",
     end: "Tugatish",
     pause: "Tanaffus daqiqa",
     room: "Xona",
     selectRoom: "Xonani tanlang",
+    noRooms: "Xonalar yo‘q. Avval admin qismida xona qo‘shing.",
     position: "LV pozitsiya",
     selectPosition: "LV pozitsiyani tanlang",
+    noPositions:
+      "LV pozitsiyalar yo‘q. Mos LV pozitsiya bo‘lmasa, qo‘shimcha pozitsiya yozing.",
     extraPosition: "Qo‘shimcha pozitsiya / izoh",
     extraPositionPlaceholder: "Mos LV pozitsiya bo‘lmasa, shu yerga yozing",
     work: "Regie ishi",
@@ -251,7 +265,8 @@ const t: Record<Lang, any> = {
     locked: "Qulflangan",
     notLocked: "Ochiq",
     errors: {
-      selectMainWorker: "Asosiy ishchini tanlang.",
+      noWorker:
+        "Ishchi tizimga kirmagan. Avval Login sahifasida PIN bilan kiring.",
       selectWorkers: "Kamida bitta ishchini tanlang.",
       selectRoom: "Xonani tanlang.",
       enterWork: "Regie ishini yozing.",
@@ -259,8 +274,6 @@ const t: Record<Lang, any> = {
       invalidTime: "To‘g‘ri ish vaqtini kiriting.",
       duplicate: "Bu Regie yozuvi allaqachon mavjud.",
       saveFailed: "Regie saqlanmadi.",
-      sqlMissing:
-        "Baza to‘liq emas. Avval SQL 001_kontrola_radnika_lv_regie ni ishga tushiring.",
     },
   },
 };
@@ -273,7 +286,7 @@ export default function RadnikRegiePage() {
     ? projektId
     : Number(projektId);
 
-  const [lang, setLang] = useState<Lang>("de");
+  const [lang, setLang] = useState<Lang>("ba");
   const [projekt, setProjekt] = useState<Projekt | null>(null);
   const [raeume, setRaeume] = useState<any[]>([]);
   const [positionen, setPositionen] = useState<any[]>([]);
@@ -283,9 +296,11 @@ export default function RadnikRegiePage() {
   const [mainWorker, setMainWorker] = useState("");
   const [selectedWorkers, setSelectedWorkers] = useState<string[]>([]);
   const [datum, setDatum] = useState(today());
+
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("17:00");
   const [pauseMinuten, setPauseMinuten] = useState("30");
+
   const [raumId, setRaumId] = useState("");
   const [positionId, setPositionId] = useState("");
   const [extraPosition, setExtraPosition] = useState("");
@@ -305,22 +320,18 @@ export default function RadnikRegiePage() {
   const [messageText, setMessageText] = useState("");
 
   useEffect(() => {
-    const savedLang = (localStorage.getItem("appLanguage") || "de") as Lang;
-    const savedWorker =
-      localStorage.getItem("workerName") ||
-      localStorage.getItem("radnik") ||
-      "";
+    const savedLang = getSavedLanguage();
+    const loggedWorker = getLoggedWorker();
 
-    if (["de", "ba", "en", "uz"].includes(savedLang)) {
-      setLang(savedLang);
+    setLang(savedLang);
+    setMainWorker(loggedWorker);
+
+    if (loggedWorker) {
+      saveWorkerEverywhere(loggedWorker);
+      setSelectedWorkers([loggedWorker]);
     }
 
-    if (savedWorker) {
-      setMainWorker(savedWorker);
-      setSelectedWorkers([savedWorker]);
-    }
-
-    loadAll(savedWorker);
+    loadAll(loggedWorker, datum);
   }, [projektId]);
 
   function today() {
@@ -332,12 +343,76 @@ export default function RadnikRegiePage() {
     )}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
+  function getSavedLanguage(): Lang {
+    const value =
+      localStorage.getItem("appLanguage") ||
+      localStorage.getItem("lang") ||
+      localStorage.getItem("language") ||
+      "ba";
+
+    if (["de", "ba", "en", "uz"].includes(value)) {
+      return value as Lang;
+    }
+
+    return "ba";
+  }
+
+  function getLoggedWorker() {
+    const direct =
+      localStorage.getItem("worker_name") ||
+      localStorage.getItem("workerName") ||
+      localStorage.getItem("radnik") ||
+      localStorage.getItem("userName") ||
+      localStorage.getItem("name") ||
+      localStorage.getItem("worker") ||
+      localStorage.getItem("mitarbeiter") ||
+      localStorage.getItem("logged_worker") ||
+      localStorage.getItem("loggedWorker") ||
+      localStorage.getItem("current_worker") ||
+      localStorage.getItem("username") ||
+      "";
+
+    if (direct) return direct;
+
+    const jsonKeys = ["user", "currentUser", "loggedUser", "sessionUser"];
+
+    for (const key of jsonKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+
+        const parsed = JSON.parse(raw);
+
+        const name =
+          parsed?.worker_name ||
+          parsed?.workerName ||
+          parsed?.name ||
+          parsed?.userName ||
+          parsed?.radnik ||
+          parsed?.worker ||
+          "";
+
+        if (name) return String(name);
+      } catch {}
+    }
+
+    return "";
+  }
+
+  function saveWorkerEverywhere(name: string) {
+    localStorage.setItem("worker_name", name);
+    localStorage.setItem("workerName", name);
+    localStorage.setItem("radnik", name);
+    localStorage.setItem("userName", name);
+    localStorage.setItem("name", name);
+  }
+
   function tr(key: string) {
-    return t[lang]?.[key] || t.de[key] || key;
+    return t[lang]?.[key] || t.ba[key] || key;
   }
 
   function err(key: string) {
-    return t[lang]?.errors?.[key] || t.de.errors[key] || key;
+    return t[lang]?.errors?.[key] || t.ba.errors[key] || key;
   }
 
   function showError(key: string) {
@@ -348,27 +423,24 @@ export default function RadnikRegiePage() {
 
   function showSuccess(key: string) {
     setErrorText("");
-    setMessageText(t[lang]?.[key] || t.de[key] || key);
+    setMessageText(t[lang]?.[key] || t.ba[key] || key);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function changeLang(next: Lang) {
     setLang(next);
     localStorage.setItem("appLanguage", next);
-  }
-
-  function changeMainWorker(next: string) {
-    setMainWorker(next);
-    localStorage.setItem("workerName", next);
-    localStorage.setItem("radnik", next);
-
-    if (next && !selectedWorkers.includes(next)) {
-      setSelectedWorkers([next, ...selectedWorkers]);
-    }
+    localStorage.setItem("lang", next);
+    localStorage.setItem("language", next);
   }
 
   function toggleWorker(name: string) {
     setSelectedWorkers((old) => {
+      if (name === mainWorker) {
+        if (old.includes(name)) return old;
+        return [name, ...old];
+      }
+
       if (old.includes(name)) {
         return old.filter((x) => x !== name);
       }
@@ -378,7 +450,7 @@ export default function RadnikRegiePage() {
   }
 
   function getProjektName() {
-    if (!projekt) return "Projekt";
+    if (!projekt) return `Projekt ${projektId}`;
 
     return (
       projekt.name ||
@@ -403,6 +475,14 @@ export default function RadnikRegiePage() {
     );
   }
 
+  function belongsToProject(row: any) {
+    return (
+      String(row.projekt_id || "") === String(projektId) ||
+      String(row.project_id || "") === String(projektId) ||
+      String(row.baustelle_id || "") === String(projektId)
+    );
+  }
+
   function getRoomName(row: any) {
     return (
       row.name ||
@@ -415,6 +495,14 @@ export default function RadnikRegiePage() {
     );
   }
 
+  function getRoomEtage(row: any) {
+    return row.etage || row.floor || "";
+  }
+
+  function getRoomStatus(row: any) {
+    return row.status || "";
+  }
+
   function getPositionNr(row: any) {
     return row.position_nr || row.nr || row.pos || row.lv_nr || row.number || "";
   }
@@ -425,6 +513,7 @@ export default function RadnikRegiePage() {
       row.title ||
       row.kurztext ||
       row.name ||
+      row.naziv ||
       row.beschreibung ||
       row.description ||
       "LV Position"
@@ -494,7 +583,7 @@ export default function RadnikRegiePage() {
     return `regie-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
   }
 
-  async function loadAll(workerName = mainWorker) {
+  async function loadAll(workerName = mainWorker, dateValue = datum) {
     setLoading(true);
     setErrorText("");
     setMessageText("");
@@ -502,7 +591,7 @@ export default function RadnikRegiePage() {
     await loadProjekt();
     await loadRaeume();
     await loadPositionen();
-    await loadEntries(workerName);
+    await loadEntries(workerName, dateValue);
     await loadFotos();
 
     setLoading(false);
@@ -528,41 +617,67 @@ export default function RadnikRegiePage() {
   }
 
   async function loadRaeume() {
-    const { data, error } = await supabase
-      .from("raeume")
-      .select("*")
-      .eq("projekt_id", String(projektId))
-      .order("id", { ascending: true });
+    const tables = ["prostorije", "raeume"];
+    let finalRows: any[] = [];
 
-    if (!error) {
-      setRaeume(data || []);
-      return;
+    for (const table of tables) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .order("id", { ascending: true });
+
+      if (!error && data) {
+        const filtered = data.filter((row: any) => belongsToProject(row));
+
+        if (filtered.length > 0) {
+          finalRows = filtered;
+          break;
+        }
+      }
     }
 
-    setRaeume([]);
+    finalRows.sort((a, b) => {
+      const ar = Number(a.reihenfolge || a.sort_order || a.id || 0);
+      const br = Number(b.reihenfolge || b.sort_order || b.id || 0);
+      return ar - br;
+    });
+
+    setRaeume(finalRows);
   }
 
   async function loadPositionen() {
-    const { data, error } = await supabase
-      .from("positionen")
-      .select("*")
-      .eq("projekt_id", String(projektId))
-      .order("position_nr", { ascending: true });
+    const tables = ["positionen", "lv_positionen", "projekt_positionen"];
+    let finalRows: any[] = [];
 
-    if (!error) {
-      setPositionen(data || []);
-      return;
+    for (const table of tables) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .order("id", { ascending: true });
+
+      if (!error && data) {
+        const filtered = data.filter((row: any) => belongsToProject(row));
+
+        if (filtered.length > 0) {
+          finalRows = filtered;
+          break;
+        }
+      }
     }
 
-    setPositionen([]);
+    finalRows.sort((a, b) => {
+      const an = String(getPositionNr(a));
+      const bn = String(getPositionNr(b));
+      return an.localeCompare(bn, "de", { numeric: true });
+    });
+
+    setPositionen(finalRows);
   }
 
-  async function loadEntries(workerName = mainWorker) {
+  async function loadEntries(workerName = mainWorker, dateValue = datum) {
     const { data, error } = await supabase
       .from("regie")
       .select("*")
-      .eq("projekt_id", String(projektId))
-      .eq("datum", datum)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -573,13 +688,25 @@ export default function RadnikRegiePage() {
     const w = String(workerName || "").toLowerCase();
 
     setEntries(
-      (data || []).filter((row) => {
-        return (
+      (data || []).filter((row: any) => {
+        const sameProject = belongsToProject(row);
+        const sameDate =
+          String(row.datum || row.date || "") === String(dateValue);
+
+        const sameWorker =
           !w ||
-          String(row.workers_text || row.worker_names || row.radnik || "")
+          String(
+            row.workers_text ||
+              row.worker_names ||
+              row.radnik ||
+              row.worker ||
+              row.worker_name ||
+              ""
+          )
             .toLowerCase()
-            .includes(w)
-        );
+            .includes(w);
+
+        return sameProject && sameDate && sameWorker;
       })
     );
   }
@@ -588,38 +715,37 @@ export default function RadnikRegiePage() {
     const { data, error } = await supabase
       .from("regie_fotos")
       .select("*")
-      .eq("projekt_id", String(projektId))
       .order("created_at", { ascending: false });
 
-    if (!error) {
-      setRegieFotos(data || []);
+    if (error) {
+      setRegieFotos([]);
       return;
     }
 
-    setRegieFotos([]);
+    setRegieFotos((data || []).filter((row: any) => belongsToProject(row)));
   }
 
   const filteredPositionen = useMemo(() => {
     if (!raumId) return positionen;
 
-    return positionen.filter((row) => {
+    return positionen.filter((row: any) => {
       const rowRaumId = row.raum_id || row.room_id || "";
       return !rowRaumId || String(rowRaumId) === String(raumId);
     });
   }, [positionen, raumId]);
 
   const selectedRoom = useMemo(() => {
-    return raeume.find((row) => String(row.id) === String(raumId));
+    return raeume.find((row: any) => String(row.id) === String(raumId));
   }, [raeume, raumId]);
 
   const selectedPosition = useMemo(() => {
-    return positionen.find((row) => String(row.id) === String(positionId));
+    return positionen.find((row: any) => String(row.id) === String(positionId));
   }, [positionen, positionId]);
 
   function isDuplicate() {
-    return entries.some((row) => {
+    return entries.some((row: any) => {
       return (
-        String(row.datum) === String(datum) &&
+        String(row.datum || row.date || "") === String(datum) &&
         String(row.raum_id || "") === String(raumId) &&
         String(row.position_id || "") === String(positionId) &&
         String(row.arbeit || row.title || "")
@@ -659,7 +785,7 @@ export default function RadnikRegiePage() {
       const payload = {
         projekt_id: String(projektId),
         project_id: String(projektId),
-        baustelle_id: String(projektId),
+        baustelle_id: projektIdValue,
 
         regie_id: String(savedRegieId),
         relation_type: "regie",
@@ -669,8 +795,8 @@ export default function RadnikRegiePage() {
         raum_name: selectedRoom ? getRoomName(selectedRoom) : "",
         room_name: selectedRoom ? getRoomName(selectedRoom) : "",
 
-        position_id: String(positionId),
-        lv_position_id: String(positionId),
+        position_id: positionId ? String(positionId) : "",
+        lv_position_id: positionId ? String(positionId) : "",
         position_nr: selectedPosition ? getPositionNr(selectedPosition) : "",
         position_titel: selectedPosition ? getPositionTitle(selectedPosition) : "",
 
@@ -705,7 +831,7 @@ export default function RadnikRegiePage() {
     if (saving) return;
 
     if (!mainWorker.trim()) {
-      showError("selectMainWorker");
+      showError("noWorker");
       return;
     }
 
@@ -751,7 +877,7 @@ export default function RadnikRegiePage() {
     const payload = {
       projekt_id: String(projektId),
       project_id: String(projektId),
-      baustelle_id: String(projektId),
+      baustelle_id: projektIdValue,
 
       datum,
       date: datum,
@@ -759,6 +885,7 @@ export default function RadnikRegiePage() {
       radnik: mainWorker.trim(),
       arbeiter: mainWorker.trim(),
       worker: mainWorker.trim(),
+      worker_name: mainWorker.trim(),
       name: mainWorker.trim(),
 
       workers_text: workersText,
@@ -781,7 +908,7 @@ export default function RadnikRegiePage() {
 
       arbeit: arbeit.trim(),
       title: arbeit.trim(),
-      titel: arbeidSanitize(arbeit),
+      titel: arbeit.trim(),
       regiearbeit: arbeit.trim(),
 
       beschreibung: beschreibung.trim(),
@@ -844,12 +971,13 @@ export default function RadnikRegiePage() {
       await supabase.from("regie_arbeiter").insert({
         projekt_id: String(projektId),
         project_id: String(projektId),
-        baustelle_id: String(projektId),
+        baustelle_id: projektIdValue,
         regie_id: String(data.id),
 
         radnik: name,
         arbeiter: name,
         worker: name,
+        worker_name: name,
         name,
 
         stunden: hoursPerWorker,
@@ -872,17 +1000,13 @@ export default function RadnikRegiePage() {
     setFotoFiles([]);
 
     showSuccess("successSaved");
-    await loadEntries(mainWorker);
+    await loadEntries(mainWorker, datum);
     await loadFotos();
     setSaving(false);
   }
 
-  function arbeidSanitize(value: string) {
-    return value.trim();
-  }
-
   function getFotosForRegie(regieId: any) {
-    return regieFotos.filter((foto) => {
+    return regieFotos.filter((foto: any) => {
       return String(foto.regie_id || "") === String(regieId);
     });
   }
@@ -921,7 +1045,9 @@ export default function RadnikRegiePage() {
 
           <div className="afterButtons">
             {lastSaved.public_token && (
-              <Link href={`/regie/sign/${lastSaved.public_token}`}>
+              <Link
+                href={`/projekte/${projektId}/regie/sign/${lastSaved.public_token}`}
+              >
                 ✍️ {tr("signNow")}
               </Link>
             )}
@@ -953,6 +1079,7 @@ export default function RadnikRegiePage() {
               key={x}
               className={lang === x ? "active" : ""}
               onClick={() => changeLang(x)}
+              type="button"
             >
               {x.toUpperCase()}
             </button>
@@ -960,20 +1087,15 @@ export default function RadnikRegiePage() {
         </div>
 
         <label>{tr("worker")}</label>
-        <select
-          value={mainWorker}
-          onChange={(e) => changeMainWorker(e.target.value)}
-        >
-          <option value="">{tr("selectMainWorker")}</option>
 
-          {WORKERS.map((x) => (
-            <option key={x} value={x}>
-              {x}
-            </option>
-          ))}
-        </select>
+        {mainWorker ? (
+          <div className="workerBox">👷 {mainWorker}</div>
+        ) : (
+          <div className="warningBox">{tr("noWorker")}</div>
+        )}
 
         <label>{tr("workers")}</label>
+
         <div className="workerGrid">
           {WORKERS.map((name) => (
             <button
@@ -989,12 +1111,14 @@ export default function RadnikRegiePage() {
         </div>
 
         <label>{tr("date")}</label>
+
         <input
           type="date"
           value={datum}
           onChange={(e) => {
-            setDatum(e.target.value);
-            setTimeout(() => loadEntries(mainWorker), 50);
+            const nextDate = e.target.value;
+            setDatum(nextDate);
+            loadEntries(mainWorker, nextDate);
           }}
         />
 
@@ -1028,6 +1152,7 @@ export default function RadnikRegiePage() {
         </div>
 
         <label>{tr("room")}</label>
+
         <select
           value={raumId}
           onChange={(e) => {
@@ -1037,19 +1162,26 @@ export default function RadnikRegiePage() {
         >
           <option value="">{tr("selectRoom")}</option>
 
-          {raeume.map((row) => (
+          {raeume.map((row: any) => (
             <option key={row.id} value={row.id}>
               {getRoomName(row)}
+              {getRoomEtage(row) ? ` · ${getRoomEtage(row)}` : ""}
+              {getRoomStatus(row) ? ` · ${getRoomStatus(row)}` : ""}
             </option>
           ))}
         </select>
 
+        {raeume.length === 0 && <div className="warningBox">{tr("noRooms")}</div>}
+
         <label>{tr("position")}</label>
+
         <select
           value={positionId}
           onChange={(e) => {
             const id = e.target.value;
-            const pos = positionen.find((row) => String(row.id) === String(id));
+            const pos = positionen.find(
+              (row: any) => String(row.id) === String(id)
+            );
 
             setPositionId(id);
 
@@ -1060,7 +1192,7 @@ export default function RadnikRegiePage() {
         >
           <option value="">{tr("selectPosition")}</option>
 
-          {filteredPositionen.map((row) => (
+          {filteredPositionen.map((row: any) => (
             <option key={row.id} value={row.id}>
               {getPositionNr(row) ? `${getPositionNr(row)} · ` : ""}
               {getPositionTitle(row)}
@@ -1068,6 +1200,10 @@ export default function RadnikRegiePage() {
             </option>
           ))}
         </select>
+
+        {positionen.length === 0 && (
+          <div className="warningBox">{tr("noPositions")}</div>
+        )}
 
         {selectedPosition && (
           <div className="positionInfo">
@@ -1085,6 +1221,7 @@ export default function RadnikRegiePage() {
         )}
 
         <label>{tr("extraPosition")}</label>
+
         <textarea
           value={extraPosition}
           onChange={(e) => setExtraPosition(e.target.value)}
@@ -1092,6 +1229,7 @@ export default function RadnikRegiePage() {
         />
 
         <label>{tr("work")}</label>
+
         <input
           value={arbeit}
           onChange={(e) => setArbeit(e.target.value)}
@@ -1099,6 +1237,7 @@ export default function RadnikRegiePage() {
         />
 
         <label>{tr("description")}</label>
+
         <textarea
           value={beschreibung}
           onChange={(e) => setBeschreibung(e.target.value)}
@@ -1106,6 +1245,7 @@ export default function RadnikRegiePage() {
         />
 
         <label>{tr("material")}</label>
+
         <textarea
           value={material}
           onChange={(e) => setMaterial(e.target.value)}
@@ -1128,6 +1268,7 @@ export default function RadnikRegiePage() {
           <h2>{tr("photos")}</h2>
 
           <label>{tr("photoTitle")}</label>
+
           <input
             value={fotoTitel}
             onChange={(e) => setFotoTitel(e.target.value)}
@@ -1135,6 +1276,7 @@ export default function RadnikRegiePage() {
           />
 
           <label>{tr("photoNote")}</label>
+
           <textarea
             value={fotoNotiz}
             onChange={(e) => setFotoNotiz(e.target.value)}
@@ -1142,6 +1284,7 @@ export default function RadnikRegiePage() {
           />
 
           <label>{tr("addPhotos")}</label>
+
           <input
             type="file"
             accept="image/*"
@@ -1167,7 +1310,8 @@ export default function RadnikRegiePage() {
       <section className="todayBox">
         <div className="todayTop">
           <h2>{tr("todayEntries")}</h2>
-          <button onClick={() => loadEntries(mainWorker)}>
+
+          <button onClick={() => loadEntries(mainWorker, datum)} type="button">
             {loading ? "..." : "↻"}
           </button>
         </div>
@@ -1176,7 +1320,7 @@ export default function RadnikRegiePage() {
           <p className="empty">{tr("noEntries")}</p>
         ) : (
           <div className="entryList">
-            {entries.map((row) => {
+            {entries.map((row: any) => {
               const fotos = getFotosForRegie(row.id);
 
               return (
@@ -1193,7 +1337,10 @@ export default function RadnikRegiePage() {
 
                   <small>
                     {tr("position")}: {row.position_nr || row.lv_nr || "-"} ·{" "}
-                    {row.position_titel || row.position_title || row.extra_position || "-"}
+                    {row.position_titel ||
+                      row.position_title ||
+                      row.extra_position ||
+                      "-"}
                   </small>
 
                   <small>
@@ -1201,15 +1348,13 @@ export default function RadnikRegiePage() {
                     {row.locked ? tr("locked") : tr("notLocked")}
                   </small>
 
-                  <small>
-                    {formatHours(row.stunden || row.hours || 0)}
-                  </small>
+                  <small>{formatHours(row.stunden || row.hours || 0)}</small>
 
                   {row.beschreibung && <p>{row.beschreibung}</p>}
 
                   {fotos.length > 0 && (
                     <div className="miniPhotos">
-                      {fotos.slice(0, 4).map((foto) => (
+                      {fotos.slice(0, 4).map((foto: any) => (
                         <img
                           key={foto.id}
                           src={getFotoUrl(foto)}
@@ -1220,7 +1365,10 @@ export default function RadnikRegiePage() {
                   )}
 
                   {row.public_token && (
-                    <Link className="signLink" href={`/regie/sign/${row.public_token}`}>
+                    <Link
+                      className="signLink"
+                      href={`/projekte/${projektId}/regie/sign/${row.public_token}`}
+                    >
                       ✍️ {tr("signNow")}
                     </Link>
                   )}
@@ -1397,6 +1545,28 @@ export default function RadnikRegiePage() {
           min-height: 95px;
           resize: vertical;
           line-height: 1.45;
+        }
+
+        .workerBox {
+          width: 100%;
+          box-sizing: border-box;
+          background: #064e3b;
+          color: white;
+          border: 1px solid #16a34a;
+          border-radius: 16px;
+          padding: 17px;
+          font-size: 20px;
+          font-weight: 900;
+        }
+
+        .warningBox {
+          background: #78350f;
+          border: 1px solid #f59e0b;
+          color: #fed7aa;
+          padding: 14px;
+          border-radius: 14px;
+          font-weight: 900;
+          margin-top: 12px;
         }
 
         .langGrid {
