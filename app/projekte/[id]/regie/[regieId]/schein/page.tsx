@@ -45,6 +45,7 @@ export default function RegieScheinPage() {
   const [projekt, setProjekt] = useState<Projekt | null>(null);
   const [regie, setRegie] = useState<any>(null);
   const [unterschrift, setUnterschrift] = useState<any>(null);
+  const [regieFotos, setRegieFotos] = useState<any[]>([]);
   const [origin, setOrigin] = useState("");
   const [message, setMessage] = useState("");
   const [errorText, setErrorText] = useState("");
@@ -144,7 +145,13 @@ export default function RegieScheinPage() {
   }
 
   function getPause(row: any) {
-    return row?.pause_minuten || row?.pause_minutes || row?.break_minutes || row?.pause || 0;
+    return (
+      row?.pause_minuten ||
+      row?.pause_minutes ||
+      row?.break_minutes ||
+      row?.pause ||
+      0
+    );
   }
 
   function getStoredHours(row: any) {
@@ -153,10 +160,6 @@ export default function RegieScheinPage() {
 
   function getMaterial(row: any) {
     return row?.material || row?.materialien || row?.material_text || "";
-  }
-
-  function getPrice(row: any) {
-    return row?.preis || row?.price || row?.betrag || row?.amount || row?.kosten || "";
   }
 
   function getStatus(row: any) {
@@ -204,18 +207,33 @@ export default function RegieScheinPage() {
     return Boolean(getSignatureImage() || getSignedAt());
   }
 
+  function getFotoUrl(row: any) {
+    return (
+      row.url ||
+      row.image_url ||
+      row.foto_url ||
+      row.photo_url ||
+      row.public_url ||
+      ""
+    );
+  }
+
+  function getFotoTitle(row: any) {
+    return row.titel || row.title || row.name || "Regie Foto";
+  }
+
+  function getFotoText(row: any) {
+    return row.beschreibung || row.description || row.notiz || row.note || "";
+  }
+
   function getScheinUrl() {
     if (!origin) return `/projekte/${projektId}/regie/${regieId}/schein`;
     return `${origin}/projekte/${projektId}/regie/${regieId}/schein`;
   }
 
-  function getUnterschriftUrl() {
-    if (!origin) return `/projekte/${projektId}/regie/${regieId}/unterschrift`;
-    return `${origin}/projekte/${projektId}/regie/${regieId}/unterschrift`;
-  }
-
   function getQrImageUrl() {
     const target = encodeURIComponent(getScheinUrl());
+
     return `https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${target}`;
   }
 
@@ -227,11 +245,6 @@ export default function RegieScheinPage() {
   function formatHours(value: any) {
     const n = toNumber(value);
     return n.toFixed(2).replace(".", ",") + " h";
-  }
-
-  function formatMoney(value: any) {
-    const n = toNumber(value);
-    return n.toFixed(2).replace(".", ",") + " €";
   }
 
   function parseTimeToMinutes(value: string) {
@@ -279,6 +292,7 @@ export default function RegieScheinPage() {
     await loadProjekt();
     await loadRegie();
     await loadUnterschrift();
+    await loadRegieFotos();
 
     setLoading(false);
   }
@@ -344,6 +358,21 @@ export default function RegieScheinPage() {
     if (!error && data) {
       setUnterschrift(data);
     }
+  }
+
+  async function loadRegieFotos() {
+    const { data, error } = await supabase
+      .from("regie_fotos")
+      .select("*")
+      .eq("regie_id", regieId)
+      .order("created_at", { ascending: true });
+
+    if (!error) {
+      setRegieFotos(data || []);
+      return;
+    }
+
+    setRegieFotos([]);
   }
 
   async function savePdfLink() {
@@ -422,7 +451,7 @@ export default function RegieScheinPage() {
             ← Zurück zu Regie
           </Link>
 
-          <p className="label">Regieschein PDF</p>
+          <p className="label">Regieschein PDF / dodatni rad</p>
           <h1>Regieschein</h1>
           <p className="subtitle">
             {getProjektName()}
@@ -432,7 +461,7 @@ export default function RegieScheinPage() {
 
         <div className="topButtons">
           <button className="btn gray" onClick={loadAll}>
-            Aktualisieren
+            Aktualisieren / Osvježi
           </button>
 
           <button className="btn green" onClick={savePdfLink}>
@@ -473,7 +502,7 @@ export default function RegieScheinPage() {
             <div
               className="brandHero"
               style={{
-                backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.78), rgba(0,0,0,0.38)), url(${MOUNTAIN_BG_URL})`,
+                backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.80), rgba(0,0,0,0.38)), url(${MOUNTAIN_BG_URL})`,
               }}
             >
               <div className="logoBox">
@@ -483,7 +512,7 @@ export default function RegieScheinPage() {
               <div>
                 <p>Digitaler Regieschein</p>
                 <h2>Regiearbeiten / Zusatzarbeiten</h2>
-                <span>{getProjektName()}</span>
+                <span>Dodatni radovi · {getProjektName()}</span>
               </div>
 
               <div className="regieNr">
@@ -494,8 +523,13 @@ export default function RegieScheinPage() {
 
             <section className="paperIntro">
               <div>
-                <p className="documentLabel">Nachweis für ausgeführte Regiearbeiten</p>
+                <p className="documentLabel">
+                  Nachweis für ausgeführte Regiearbeiten
+                </p>
                 <h3>Regieschein</h3>
+                <p className="translation">
+                  Dokaz za urađene dodatne radove.
+                </p>
               </div>
 
               <div className={isSigned() ? "status ok" : "status wait"}>
@@ -510,7 +544,7 @@ export default function RegieScheinPage() {
               </div>
 
               <div>
-                <span>Ort</span>
+                <span>Ort / mjesto</span>
                 <strong>{getProjektOrt() || "-"}</strong>
               </div>
 
@@ -537,26 +571,27 @@ export default function RegieScheinPage() {
 
             <section className="section">
               <h3>1. Ausgeführte Regiearbeit</h3>
+              <p className="sectionTranslation">Urađeni dodatni rad</p>
 
               <table>
                 <tbody>
                   <tr>
-                    <th>Arbeiter</th>
+                    <th>Arbeiter / radnik</th>
                     <td>{getWorker(regie) || "-"}</td>
                   </tr>
 
                   <tr>
-                    <th>Regiearbeit</th>
+                    <th>Regiearbeit / dodatni rad</th>
                     <td>{getWork(regie) || "-"}</td>
                   </tr>
 
                   <tr>
-                    <th>Beschreibung</th>
+                    <th>Beschreibung / opis</th>
                     <td className="pre">{getDescription(regie) || "-"}</td>
                   </tr>
 
                   <tr>
-                    <th>Arbeitszeit</th>
+                    <th>Arbeitszeit / vrijeme</th>
                     <td>
                       {getStart(regie) || "-"} bis {getEnd(regie) || "-"} · Pause{" "}
                       {getPause(regie) || 0} min
@@ -564,18 +599,13 @@ export default function RegieScheinPage() {
                   </tr>
 
                   <tr>
-                    <th>Stunden</th>
+                    <th>Stunden / sati</th>
                     <td>{formatHours(getHours(regie))}</td>
                   </tr>
 
                   <tr>
-                    <th>Material</th>
+                    <th>Material / materijal</th>
                     <td className="pre">{getMaterial(regie) || "-"}</td>
-                  </tr>
-
-                  <tr>
-                    <th>Betrag</th>
-                    <td>{formatMoney(getPrice(regie))}</td>
                   </tr>
 
                   <tr>
@@ -589,7 +619,33 @@ export default function RegieScheinPage() {
             </section>
 
             <section className="section">
-              <h3>2. Bestätigung Bauleiter</h3>
+              <h3>2. Fotos / Bilder</h3>
+              <p className="sectionTranslation">
+                Slike povezane sa ovim Regie unosom.
+              </p>
+
+              {regieFotos.length === 0 ? (
+                <div className="noPhotos">Keine Fotos vorhanden.</div>
+              ) : (
+                <div className="photoGrid">
+                  {regieFotos.map((foto) => (
+                    <div key={foto.id} className="photoItem">
+                      <img src={getFotoUrl(foto)} alt={getFotoTitle(foto)} />
+                      <div>
+                        <strong>{getFotoTitle(foto)}</strong>
+                        {getFotoText(foto) && <p>{getFotoText(foto)}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="section">
+              <h3>3. Bestätigung Bauleiter</h3>
+              <p className="sectionTranslation">
+                Potvrda Bauleitera.
+              </p>
 
               <p className="confirmText">
                 Der Bauleiter bestätigt mit seiner Unterschrift, dass die oben
@@ -622,7 +678,7 @@ export default function RegieScheinPage() {
             </section>
 
             <section className="section">
-              <h3>3. QR Code / Digitaler Nachweis</h3>
+              <h3>4. QR Code / Digitaler Nachweis</h3>
 
               <div className="qrGrid">
                 <div className="qrBox">
@@ -632,7 +688,7 @@ export default function RegieScheinPage() {
                 <div>
                   <p>
                     Dieser QR Code öffnet den digitalen Regieschein mit
-                    Projektangaben, Regiearbeit und Unterschrift.
+                    Projektangaben, Regiearbeit, Fotos und Unterschrift.
                   </p>
 
                   <p className="linkText">{getScheinUrl()}</p>
@@ -925,6 +981,12 @@ export default function RegieScheinPage() {
           font-size: 30px;
         }
 
+        .translation {
+          margin: 8px 0 0;
+          color: #6b7280;
+          font-weight: 700;
+        }
+
         .status {
           border-radius: 999px;
           padding: 10px 14px;
@@ -982,10 +1044,16 @@ export default function RegieScheinPage() {
         }
 
         .section h3 {
-          margin: 0 0 12px;
+          margin: 0 0 5px;
           font-size: 24px;
           border-bottom: 1px solid #d1d5db;
           padding-bottom: 8px;
+        }
+
+        .sectionTranslation {
+          color: #6b7280;
+          margin: 0 0 12px;
+          font-weight: 700;
         }
 
         table {
@@ -1009,6 +1077,53 @@ export default function RegieScheinPage() {
 
         .pre {
           white-space: pre-wrap;
+        }
+
+        .noPhotos {
+          background: #f3f4f6;
+          border: 1px solid #d1d5db;
+          border-radius: 14px;
+          padding: 16px;
+          color: #6b7280;
+          font-weight: 900;
+        }
+
+        .photoGrid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 14px;
+        }
+
+        .photoItem {
+          border: 1px solid #d1d5db;
+          border-radius: 16px;
+          overflow: hidden;
+          background: #f9fafb;
+          page-break-inside: avoid;
+        }
+
+        .photoItem img {
+          display: block;
+          width: 100%;
+          height: 260px;
+          object-fit: cover;
+          background: #e5e7eb;
+        }
+
+        .photoItem div {
+          padding: 12px;
+        }
+
+        .photoItem strong {
+          display: block;
+          margin-bottom: 6px;
+          color: #111827;
+        }
+
+        .photoItem p {
+          margin: 0;
+          color: #4b5563;
+          line-height: 1.4;
         }
 
         .confirmText {
@@ -1104,7 +1219,8 @@ export default function RegieScheinPage() {
           .brandHero,
           .infoGrid,
           .signatureArea,
-          .qrGrid {
+          .qrGrid,
+          .photoGrid {
             grid-template-columns: 1fr;
           }
 
@@ -1156,6 +1272,10 @@ export default function RegieScheinPage() {
           .infoGrid {
             padding: 20px 20px 0;
           }
+
+          .photoItem img {
+            height: 220px;
+          }
         }
 
         @media print {
@@ -1185,6 +1305,10 @@ export default function RegieScheinPage() {
           }
 
           .section {
+            page-break-inside: avoid;
+          }
+
+          .photoItem {
             page-break-inside: avoid;
           }
         }
