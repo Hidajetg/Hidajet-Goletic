@@ -22,8 +22,6 @@ type Projekt = {
   [key: string]: any;
 };
 
-const WORKERS = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
-
 const t: Record<Lang, any> = {
   de: {
     back: "Zurück",
@@ -31,13 +29,16 @@ const t: Record<Lang, any> = {
     subtitle:
       "Leistung muss mit Raum und LV Position verbunden sein. Nur so kann die Arbeit richtig kontrolliert werden.",
     language: "Sprache",
-    worker: "Arbeiter",
-    selectWorker: "Arbeiter auswählen",
+    worker: "Angemeldeter Arbeiter",
+    noWorker:
+      "Kein Arbeiter angemeldet. Bitte zuerst über Login mit PIN anmelden.",
     date: "Datum",
     room: "Raum",
     selectRoom: "Raum auswählen",
     position: "LV Position",
     selectPosition: "LV Position auswählen",
+    noPositions:
+      "Keine LV Positionen vorhanden. Bitte zuerst im Admin LV Positionen hinzufügen oder importieren.",
     work: "Ausgeführte Arbeit",
     workPlaceholder: "Was wurde gemacht?",
     quantity: "Menge",
@@ -57,7 +58,8 @@ const t: Record<Lang, any> = {
     noEntries: "Keine Leistungen für heute.",
     successSaved: "Leistung wurde gespeichert.",
     errors: {
-      selectWorker: "Bitte Arbeiter auswählen.",
+      noWorker:
+        "Kein Arbeiter angemeldet. Bitte zuerst über Login mit PIN anmelden.",
       selectRoom: "Bitte Raum auswählen.",
       selectPosition: "Bitte LV Position auswählen.",
       enterWork: "Bitte eintragen, was gemacht wurde.",
@@ -65,8 +67,6 @@ const t: Record<Lang, any> = {
       invalidQuantity: "Bitte gültige Menge eintragen.",
       duplicate: "Diese Leistung wurde bereits eingetragen.",
       saveFailed: "Leistung konnte nicht gespeichert werden.",
-      sqlMissing:
-        "Datenbank ist nicht komplett. Bitte SQL 001_kontrola_radnika_lv_regie ausführen.",
     },
   },
   ba: {
@@ -75,13 +75,16 @@ const t: Record<Lang, any> = {
     subtitle:
       "Urađeni posao mora biti povezan sa prostorijom i LV pozicijom. Samo tako možemo pravilno kontrolisati rad.",
     language: "Jezik",
-    worker: "Radnik",
-    selectWorker: "Odaberi radnika",
+    worker: "Prijavljeni radnik",
+    noWorker:
+      "Radnik nije prijavljen. Prvo se prijavi preko Login stranice sa PIN kodom.",
     date: "Datum",
     room: "Prostorija",
     selectRoom: "Odaberi prostoriju",
     position: "LV pozicija",
     selectPosition: "Odaberi LV poziciju",
+    noPositions:
+      "Nema LV pozicija. Prvo u adminu dodaj ili importuj LV pozicije.",
     work: "Šta je urađeno",
     workPlaceholder: "Upiši šta je urađeno",
     quantity: "Količina",
@@ -101,7 +104,8 @@ const t: Record<Lang, any> = {
     noEntries: "Nema unosa za danas.",
     successSaved: "Urađeni posao je spremljen.",
     errors: {
-      selectWorker: "Odaberi radnika.",
+      noWorker:
+        "Radnik nije prijavljen. Prvo se prijavi preko Login stranice sa PIN kodom.",
       selectRoom: "Odaberi prostoriju.",
       selectPosition: "Odaberi LV poziciju.",
       enterWork: "Upiši šta je urađeno.",
@@ -109,8 +113,6 @@ const t: Record<Lang, any> = {
       invalidQuantity: "Upiši ispravnu količinu.",
       duplicate: "Ovaj Leistung unos već postoji.",
       saveFailed: "Urađeni posao nije spremljen.",
-      sqlMissing:
-        "Baza nije kompletna. Prvo pokreni SQL 001_kontrola_radnika_lv_regie.",
     },
   },
   en: {
@@ -119,13 +121,16 @@ const t: Record<Lang, any> = {
     subtitle:
       "Work performance must be connected to a room and LV position. This is required for correct control.",
     language: "Language",
-    worker: "Worker",
-    selectWorker: "Select worker",
+    worker: "Logged-in worker",
+    noWorker:
+      "No worker is logged in. Please log in first with PIN on the Login page.",
     date: "Date",
     room: "Room",
     selectRoom: "Select room",
     position: "LV position",
     selectPosition: "Select LV position",
+    noPositions:
+      "No LV positions available. Please add or import LV positions in admin first.",
     work: "Work done",
     workPlaceholder: "Enter what was done",
     quantity: "Quantity",
@@ -145,7 +150,8 @@ const t: Record<Lang, any> = {
     noEntries: "No entries for today.",
     successSaved: "Work performance was saved.",
     errors: {
-      selectWorker: "Select worker.",
+      noWorker:
+        "No worker is logged in. Please log in first with PIN on the Login page.",
       selectRoom: "Select room.",
       selectPosition: "Select LV position.",
       enterWork: "Enter what was done.",
@@ -153,8 +159,6 @@ const t: Record<Lang, any> = {
       invalidQuantity: "Enter a valid quantity.",
       duplicate: "This work performance was already entered.",
       saveFailed: "Work performance could not be saved.",
-      sqlMissing:
-        "Database is not complete. Run SQL 001_kontrola_radnika_lv_regie first.",
     },
   },
   uz: {
@@ -163,13 +167,16 @@ const t: Record<Lang, any> = {
     subtitle:
       "Bajarilgan ish xona va LV pozitsiya bilan bog‘lanishi kerak. Shunda ishni to‘g‘ri nazorat qilish mumkin.",
     language: "Til",
-    worker: "Ishchi",
-    selectWorker: "Ishchini tanlang",
+    worker: "Kirilgan ishchi",
+    noWorker:
+      "Ishchi tizimga kirmagan. Avval Login sahifasida PIN bilan kiring.",
     date: "Sana",
     room: "Xona",
     selectRoom: "Xonani tanlang",
     position: "LV pozitsiya",
     selectPosition: "LV pozitsiyani tanlang",
+    noPositions:
+      "LV pozitsiyalar yo‘q. Avval admin qismida LV pozitsiyalarni qo‘shing yoki import qiling.",
     work: "Qilingan ish",
     workPlaceholder: "Nima ish qilinganini yozing",
     quantity: "Miqdor",
@@ -189,7 +196,8 @@ const t: Record<Lang, any> = {
     noEntries: "Bugun yozuv yo‘q.",
     successSaved: "Bajarilgan ish saqlandi.",
     errors: {
-      selectWorker: "Ishchini tanlang.",
+      noWorker:
+        "Ishchi tizimga kirmagan. Avval Login sahifasida PIN bilan kiring.",
       selectRoom: "Xonani tanlang.",
       selectPosition: "LV pozitsiyani tanlang.",
       enterWork: "Nima ish qilinganini yozing.",
@@ -197,8 +205,6 @@ const t: Record<Lang, any> = {
       invalidQuantity: "To‘g‘ri miqdorni kiriting.",
       duplicate: "Bu bajarilgan ish allaqachon kiritilgan.",
       saveFailed: "Bajarilgan ishni saqlab bo‘lmadi.",
-      sqlMissing:
-        "Baza to‘liq emas. Avval SQL 001_kontrola_radnika_lv_regie ni ishga tushiring.",
     },
   },
 };
@@ -211,7 +217,7 @@ export default function RadnikLeistungPage() {
     ? projektId
     : Number(projektId);
 
-  const [lang, setLang] = useState<Lang>("de");
+  const [lang, setLang] = useState<Lang>("ba");
   const [projekt, setProjekt] = useState<Projekt | null>(null);
   const [raeume, setRaeume] = useState<any[]>([]);
   const [positionen, setPositionen] = useState<any[]>([]);
@@ -237,21 +243,17 @@ export default function RadnikLeistungPage() {
   const [messageText, setMessageText] = useState("");
 
   useEffect(() => {
-    const savedLang = (localStorage.getItem("appLanguage") || "de") as Lang;
-    const savedWorker =
-      localStorage.getItem("workerName") ||
-      localStorage.getItem("radnik") ||
-      "";
+    const savedLang = getSavedLanguage();
+    const loggedWorker = getLoggedWorker();
 
-    if (["de", "ba", "en", "uz"].includes(savedLang)) {
-      setLang(savedLang);
+    setLang(savedLang);
+    setWorker(loggedWorker);
+
+    if (loggedWorker) {
+      saveWorkerEverywhere(loggedWorker);
     }
 
-    if (savedWorker) {
-      setWorker(savedWorker);
-    }
-
-    loadAll(savedWorker);
+    loadAll(loggedWorker, datum);
   }, [projektId]);
 
   function today() {
@@ -263,12 +265,77 @@ export default function RadnikLeistungPage() {
     )}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
+  function getSavedLanguage(): Lang {
+    const value =
+      localStorage.getItem("appLanguage") ||
+      localStorage.getItem("lang") ||
+      localStorage.getItem("language") ||
+      "ba";
+
+    if (["de", "ba", "en", "uz"].includes(value)) {
+      return value as Lang;
+    }
+
+    return "ba";
+  }
+
+  function getLoggedWorker() {
+    const direct =
+      localStorage.getItem("worker_name") ||
+      localStorage.getItem("workerName") ||
+      localStorage.getItem("radnik") ||
+      localStorage.getItem("userName") ||
+      localStorage.getItem("name") ||
+      localStorage.getItem("worker") ||
+      localStorage.getItem("mitarbeiter") ||
+      localStorage.getItem("logged_worker") ||
+      localStorage.getItem("loggedWorker") ||
+      localStorage.getItem("current_worker") ||
+      localStorage.getItem("username") ||
+      "";
+
+    if (direct) return direct;
+
+    const jsonKeys = ["user", "currentUser", "loggedUser", "sessionUser"];
+
+    for (const key of jsonKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+
+        if (!raw) continue;
+
+        const parsed = JSON.parse(raw);
+
+        const name =
+          parsed?.worker_name ||
+          parsed?.workerName ||
+          parsed?.name ||
+          parsed?.userName ||
+          parsed?.radnik ||
+          parsed?.worker ||
+          "";
+
+        if (name) return String(name);
+      } catch {}
+    }
+
+    return "";
+  }
+
+  function saveWorkerEverywhere(name: string) {
+    localStorage.setItem("worker_name", name);
+    localStorage.setItem("workerName", name);
+    localStorage.setItem("radnik", name);
+    localStorage.setItem("userName", name);
+    localStorage.setItem("name", name);
+  }
+
   function tr(key: string) {
-    return t[lang]?.[key] || t.de[key] || key;
+    return t[lang]?.[key] || t.ba[key] || key;
   }
 
   function err(key: string) {
-    return t[lang]?.errors?.[key] || t.de.errors[key] || key;
+    return t[lang]?.errors?.[key] || t.ba.errors[key] || key;
   }
 
   function showError(key: string) {
@@ -279,23 +346,19 @@ export default function RadnikLeistungPage() {
 
   function showSuccess(key: string) {
     setErrorText("");
-    setMessageText(t[lang]?.[key] || t.de[key] || key);
+    setMessageText(t[lang]?.[key] || t.ba[key] || key);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function changeLang(next: Lang) {
     setLang(next);
     localStorage.setItem("appLanguage", next);
-  }
-
-  function changeWorker(next: string) {
-    setWorker(next);
-    localStorage.setItem("workerName", next);
-    localStorage.setItem("radnik", next);
+    localStorage.setItem("lang", next);
+    localStorage.setItem("language", next);
   }
 
   function getProjektName() {
-    if (!projekt) return "Projekt";
+    if (!projekt) return `Projekt ${projektId}`;
 
     return (
       projekt.name ||
@@ -332,6 +395,14 @@ export default function RadnikLeistungPage() {
     );
   }
 
+  function getRoomStatus(row: any) {
+    return row.status || "";
+  }
+
+  function getRoomEtage(row: any) {
+    return row.etage || row.floor || "";
+  }
+
   function getPositionNr(row: any) {
     return row.position_nr || row.nr || row.pos || row.lv_nr || row.number || "";
   }
@@ -342,6 +413,7 @@ export default function RadnikLeistungPage() {
       row.title ||
       row.kurztext ||
       row.name ||
+      row.naziv ||
       row.beschreibung ||
       row.description ||
       "LV Position"
@@ -368,7 +440,15 @@ export default function RadnikLeistungPage() {
   }
 
   function getEntryWorker(row: any) {
-    return row.radnik || row.worker || row.arbeiter || row.name || "";
+    return (
+      row.radnik ||
+      row.worker ||
+      row.worker_name ||
+      row.arbeiter ||
+      row.mitarbeiter ||
+      row.name ||
+      ""
+    );
   }
 
   function getEntryTitle(row: any) {
@@ -403,7 +483,7 @@ export default function RadnikLeistungPage() {
     return n.toFixed(2).replace(".", ",").replace(",00", "");
   }
 
-  async function loadAll(workerName = worker) {
+  async function loadAll(workerName = worker, dateValue = datum) {
     setLoading(true);
     setErrorText("");
     setMessageText("");
@@ -411,7 +491,7 @@ export default function RadnikLeistungPage() {
     await loadProjekt();
     await loadRaeume();
     await loadPositionen();
-    await loadEntries(workerName);
+    await loadEntries(workerName, dateValue);
     await loadFotos();
 
     setLoading(false);
@@ -437,25 +517,38 @@ export default function RadnikLeistungPage() {
   }
 
   async function loadRaeume() {
-    const { data, error } = await supabase
-      .from("raeume")
-      .select("*")
-      .eq("projekt_id", String(projektId))
-      .order("id", { ascending: true });
+    const tables = ["prostorije", "raeume"];
+    let finalRows: any[] = [];
 
-    if (!error) {
-      setRaeume(data || []);
-      return;
+    for (const table of tables) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .or(
+          `projekt_id.eq.${String(projektId)},project_id.eq.${String(
+            projektId
+          )},baustelle_id.eq.${String(projektId)}`
+        )
+        .order("id", { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        finalRows = data;
+        break;
+      }
     }
 
-    setRaeume([]);
+    setRaeume(finalRows || []);
   }
 
   async function loadPositionen() {
     const { data, error } = await supabase
       .from("positionen")
       .select("*")
-      .eq("projekt_id", String(projektId))
+      .or(
+        `projekt_id.eq.${String(projektId)},project_id.eq.${String(
+          projektId
+        )},baustelle_id.eq.${String(projektId)}`
+      )
       .order("position_nr", { ascending: true });
 
     if (!error) {
@@ -466,12 +559,12 @@ export default function RadnikLeistungPage() {
     setPositionen([]);
   }
 
-  async function loadEntries(workerName = worker) {
+  async function loadEntries(workerName = worker, dateValue = datum) {
     const { data, error } = await supabase
       .from("leistungen")
       .select("*")
       .eq("projekt_id", String(projektId))
-      .eq("datum", datum)
+      .eq("datum", dateValue)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -482,7 +575,7 @@ export default function RadnikLeistungPage() {
     const w = String(workerName || "").toLowerCase();
 
     setEntries(
-      (data || []).filter((row) => {
+      (data || []).filter((row: any) => {
         return !w || String(getEntryWorker(row)).toLowerCase() === w;
       })
     );
@@ -506,25 +599,30 @@ export default function RadnikLeistungPage() {
   const filteredPositionen = useMemo(() => {
     if (!raumId) return positionen;
 
-    return positionen.filter((row) => {
+    return positionen.filter((row: any) => {
       const rowRaumId = row.raum_id || row.room_id || "";
       return !rowRaumId || String(rowRaumId) === String(raumId);
     });
   }, [positionen, raumId]);
 
   const selectedRoom = useMemo(() => {
-    return raeume.find((row) => String(row.id) === String(raumId));
+    return raeume.find((row: any) => String(row.id) === String(raumId));
   }, [raeume, raumId]);
 
   const selectedPosition = useMemo(() => {
-    return positionen.find((row) => String(row.id) === String(positionId));
+    return positionen.find((row: any) => String(row.id) === String(positionId));
   }, [positionen, positionId]);
 
   const alreadyDoneForPosition = useMemo(() => {
     if (!positionId) return 0;
 
     return entries
-      .filter((row) => String(row.position_id || row.lv_position_id || "") === String(positionId))
+      .filter((row: any) => {
+        return (
+          String(row.position_id || row.lv_position_id || "") ===
+          String(positionId)
+        );
+      })
       .reduce((sum, row) => sum + toNumber(row.menge || row.quantity || 0), 0);
   }, [entries, positionId]);
 
@@ -543,7 +641,7 @@ export default function RadnikLeistungPage() {
   }, [selectedPosition]);
 
   function isDuplicate() {
-    return entries.some((row) => {
+    return entries.some((row: any) => {
       return (
         String(row.datum) === String(datum) &&
         String(getEntryWorker(row)).toLowerCase() === worker.toLowerCase() &&
@@ -585,6 +683,15 @@ export default function RadnikLeistungPage() {
         projekt_id: String(projektId),
         project_id: String(projektId),
         baustelle_id: String(projektId),
+
+        datum,
+        date: datum,
+
+        radnik: worker.trim(),
+        arbeiter: worker.trim(),
+        worker: worker.trim(),
+        worker_name: worker.trim(),
+        name: worker.trim(),
 
         leistung_id: String(savedLeistungId),
         relation_type: "leistung",
@@ -630,7 +737,7 @@ export default function RadnikLeistungPage() {
     if (saving) return;
 
     if (!worker.trim()) {
-      showError("selectWorker");
+      showError("noWorker");
       return;
     }
 
@@ -683,6 +790,7 @@ export default function RadnikLeistungPage() {
       radnik: worker.trim(),
       arbeiter: worker.trim(),
       worker: worker.trim(),
+      worker_name: worker.trim(),
       name: worker.trim(),
 
       raum_id: String(raumId),
@@ -747,13 +855,13 @@ export default function RadnikLeistungPage() {
     setFotoFiles([]);
 
     showSuccess("successSaved");
-    await loadEntries(worker);
+    await loadEntries(worker, datum);
     await loadFotos();
     setSaving(false);
   }
 
   function getFotosForLeistung(leistungId: any) {
-    return fotos.filter((foto) => {
+    return fotos.filter((foto: any) => {
       return String(foto.leistung_id || "") === String(leistungId);
     });
   }
@@ -787,6 +895,7 @@ export default function RadnikLeistungPage() {
               key={x}
               className={lang === x ? "active" : ""}
               onClick={() => changeLang(x)}
+              type="button"
             >
               {x.toUpperCase()}
             </button>
@@ -794,23 +903,21 @@ export default function RadnikLeistungPage() {
         </div>
 
         <label>{tr("worker")}</label>
-        <select value={worker} onChange={(e) => changeWorker(e.target.value)}>
-          <option value="">{tr("selectWorker")}</option>
 
-          {WORKERS.map((x) => (
-            <option key={x} value={x}>
-              {x}
-            </option>
-          ))}
-        </select>
+        {worker ? (
+          <div className="workerBox">👷 {worker}</div>
+        ) : (
+          <div className="warningBox">{tr("noWorker")}</div>
+        )}
 
         <label>{tr("date")}</label>
         <input
           type="date"
           value={datum}
           onChange={(e) => {
-            setDatum(e.target.value);
-            setTimeout(() => loadEntries(worker), 50);
+            const nextDate = e.target.value;
+            setDatum(nextDate);
+            loadEntries(worker, nextDate);
           }}
         />
 
@@ -826,9 +933,11 @@ export default function RadnikLeistungPage() {
         >
           <option value="">{tr("selectRoom")}</option>
 
-          {raeume.map((row) => (
+          {raeume.map((row: any) => (
             <option key={row.id} value={row.id}>
               {getRoomName(row)}
+              {getRoomEtage(row) ? ` · ${getRoomEtage(row)}` : ""}
+              {getRoomStatus(row) ? ` · ${getRoomStatus(row)}` : ""}
             </option>
           ))}
         </select>
@@ -838,7 +947,7 @@ export default function RadnikLeistungPage() {
           value={positionId}
           onChange={(e) => {
             const id = e.target.value;
-            const pos = positionen.find((row) => String(row.id) === String(id));
+            const pos = positionen.find((row: any) => String(row.id) === String(id));
 
             setPositionId(id);
 
@@ -850,7 +959,7 @@ export default function RadnikLeistungPage() {
         >
           <option value="">{tr("selectPosition")}</option>
 
-          {filteredPositionen.map((row) => (
+          {filteredPositionen.map((row: any) => (
             <option key={row.id} value={row.id}>
               {getPositionNr(row) ? `${getPositionNr(row)} · ` : ""}
               {getPositionTitle(row)}
@@ -858,6 +967,10 @@ export default function RadnikLeistungPage() {
             </option>
           ))}
         </select>
+
+        {positionen.length === 0 && (
+          <div className="warningBox">{tr("noPositions")}</div>
+        )}
 
         {selectedPosition && (
           <div className="positionInfo">
@@ -975,7 +1088,7 @@ export default function RadnikLeistungPage() {
       <section className="todayBox">
         <div className="todayTop">
           <h2>{tr("todayEntries")}</h2>
-          <button onClick={() => loadEntries(worker)}>
+          <button onClick={() => loadEntries(worker, datum)} type="button">
             {loading ? "..." : "↻"}
           </button>
         </div>
@@ -984,7 +1097,7 @@ export default function RadnikLeistungPage() {
           <p className="empty">{tr("noEntries")}</p>
         ) : (
           <div className="entryList">
-            {entries.map((row) => {
+            {entries.map((row: any) => {
               const entryFotos = getFotosForLeistung(row.id);
 
               return (
@@ -1009,7 +1122,7 @@ export default function RadnikLeistungPage() {
 
                   {entryFotos.length > 0 && (
                     <div className="miniPhotos">
-                      {entryFotos.slice(0, 4).map((foto) => (
+                      {entryFotos.slice(0, 4).map((foto: any) => (
                         <img
                           key={foto.id}
                           src={getFotoUrl(foto)}
@@ -1113,6 +1226,18 @@ export default function RadnikLeistungPage() {
           line-height: 1.45;
         }
 
+        .workerBox {
+          width: 100%;
+          box-sizing: border-box;
+          background: #064e3b;
+          color: white;
+          border: 1px solid #16a34a;
+          border-radius: 16px;
+          padding: 17px;
+          font-size: 20px;
+          font-weight: 900;
+        }
+
         .langGrid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
@@ -1131,6 +1256,16 @@ export default function RadnikLeistungPage() {
         .langGrid .active {
           background: #2563eb;
           border-color: #60a5fa;
+        }
+
+        .warningBox {
+          background: #78350f;
+          border: 1px solid #f59e0b;
+          color: #fed7aa;
+          padding: 14px;
+          border-radius: 14px;
+          font-weight: 900;
+          margin-top: 12px;
         }
 
         .positionInfo {
