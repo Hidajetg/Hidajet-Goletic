@@ -28,14 +28,13 @@ type Projekt = {
   [key: string]: any;
 };
 
-const WORKERS = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
-
 const t: Record<Lang, any> = {
   de: {
-    app: "Radnik Mobile / Arbeiter App",
+    app: "Arbeiter Mobile App",
     language: "Sprache",
-    worker: "Arbeiter",
-    selectWorker: "Arbeiter auswählen",
+    worker: "Angemeldeter Arbeiter",
+    noWorker:
+      "Kein Arbeiter angemeldet. Bitte zuerst über Login mit PIN anmelden.",
     date: "Datum",
     siteInfo: "Baustelleninfo",
     location: "Standort öffnen",
@@ -46,7 +45,6 @@ const t: Record<Lang, any> = {
     todayEntries: "Heutige Übersicht",
     noEntries: "Keine Einträge für heute.",
     hours: "Stunden",
-    quantity: "Menge",
     room: "Raum",
     position: "LV Position",
     signed: "Unterschrieben",
@@ -54,14 +52,14 @@ const t: Record<Lang, any> = {
     open: "Öffnen",
     control: "Kontrolle",
     controlText:
-      "Jeder Eintrag muss Raum, LV Position, Zeit, Menge oder Foto-Nachweis haben.",
-    chooseWorkerWarning: "Bitte zuerst Arbeiter auswählen.",
+      "Jeder Eintrag wird automatisch auf den angemeldeten Arbeiter gespeichert.",
   },
   ba: {
     app: "Radnik Mobile / unos radnika",
     language: "Jezik",
-    worker: "Radnik",
-    selectWorker: "Odaberi radnika",
+    worker: "Prijavljeni radnik",
+    noWorker:
+      "Radnik nije prijavljen. Prvo se prijavi preko Login stranice sa PIN kodom.",
     date: "Datum",
     siteInfo: "Info baustele",
     location: "Otvori lokaciju",
@@ -72,7 +70,6 @@ const t: Record<Lang, any> = {
     todayEntries: "Današnji pregled",
     noEntries: "Nema unosa za danas.",
     hours: "Sati",
-    quantity: "Količina",
     room: "Prostorija",
     position: "LV pozicija",
     signed: "Potpisano",
@@ -80,14 +77,14 @@ const t: Record<Lang, any> = {
     open: "Otvori",
     control: "Kontrola",
     controlText:
-      "Svaki unos mora imati prostoriju, LV poziciju, vrijeme, količinu ili sliku kao dokaz.",
-    chooseWorkerWarning: "Prvo odaberi radnika.",
+      "Svaki unos se automatski sprema na radnika koji je prijavljen.",
   },
   en: {
     app: "Worker Mobile App",
     language: "Language",
-    worker: "Worker",
-    selectWorker: "Select worker",
+    worker: "Logged-in worker",
+    noWorker:
+      "No worker is logged in. Please log in first with PIN on the Login page.",
     date: "Date",
     siteInfo: "Site info",
     location: "Open location",
@@ -98,7 +95,6 @@ const t: Record<Lang, any> = {
     todayEntries: "Today overview",
     noEntries: "No entries for today.",
     hours: "Hours",
-    quantity: "Quantity",
     room: "Room",
     position: "LV position",
     signed: "Signed",
@@ -106,14 +102,14 @@ const t: Record<Lang, any> = {
     open: "Open",
     control: "Control",
     controlText:
-      "Every entry must have room, LV position, time, quantity or photo proof.",
-    chooseWorkerWarning: "Please select worker first.",
+      "Every entry is automatically saved under the logged-in worker.",
   },
   uz: {
     app: "Ishchi Mobile App",
     language: "Til",
-    worker: "Ishchi",
-    selectWorker: "Ishchini tanlang",
+    worker: "Kirilgan ishchi",
+    noWorker:
+      "Ishchi tizimga kirmagan. Avval Login sahifasida PIN bilan kiring.",
     date: "Sana",
     siteInfo: "Obyekt maʼlumoti",
     location: "Lokatsiyani ochish",
@@ -124,7 +120,6 @@ const t: Record<Lang, any> = {
     todayEntries: "Bugungi nazorat",
     noEntries: "Bugun yozuv yo‘q.",
     hours: "Soat",
-    quantity: "Miqdor",
     room: "Xona",
     position: "LV pozitsiya",
     signed: "Imzolangan",
@@ -132,8 +127,7 @@ const t: Record<Lang, any> = {
     open: "Ochish",
     control: "Nazorat",
     controlText:
-      "Har bir yozuvda xona, LV pozitsiya, vaqt, miqdor yoki rasm dalili bo‘lishi kerak.",
-    chooseWorkerWarning: "Avval ishchini tanlang.",
+      "Har bir yozuv avtomatik ravishda kirgan ishchi nomiga saqlanadi.",
   },
 };
 
@@ -159,21 +153,17 @@ export default function RadnikStartPage() {
   const [errorText, setErrorText] = useState("");
 
   useEffect(() => {
-    const savedLang = (localStorage.getItem("appLanguage") || "ba") as Lang;
-    const savedWorker =
-      localStorage.getItem("workerName") ||
-      localStorage.getItem("radnik") ||
-      "";
+    const savedLang = getSavedLanguage();
+    const loggedWorker = getLoggedWorker();
 
-    if (["de", "ba", "en", "uz"].includes(savedLang)) {
-      setLang(savedLang);
+    setLang(savedLang);
+    setWorker(loggedWorker);
+
+    if (loggedWorker) {
+      saveWorkerEverywhere(loggedWorker);
     }
 
-    if (savedWorker) {
-      setWorker(savedWorker);
-    }
-
-    loadAll(savedWorker, datum);
+    loadAll(loggedWorker, datum);
   }, [projektId]);
 
   function today() {
@@ -185,6 +175,71 @@ export default function RadnikStartPage() {
     )}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
+  function getSavedLanguage(): Lang {
+    const value =
+      localStorage.getItem("appLanguage") ||
+      localStorage.getItem("lang") ||
+      localStorage.getItem("language") ||
+      "ba";
+
+    if (["de", "ba", "en", "uz"].includes(value)) {
+      return value as Lang;
+    }
+
+    return "ba";
+  }
+
+  function getLoggedWorker() {
+    const direct =
+      localStorage.getItem("worker_name") ||
+      localStorage.getItem("workerName") ||
+      localStorage.getItem("radnik") ||
+      localStorage.getItem("userName") ||
+      localStorage.getItem("name") ||
+      localStorage.getItem("worker") ||
+      localStorage.getItem("mitarbeiter") ||
+      localStorage.getItem("logged_worker") ||
+      localStorage.getItem("loggedWorker") ||
+      localStorage.getItem("current_worker") ||
+      localStorage.getItem("username") ||
+      "";
+
+    if (direct) return direct;
+
+    const jsonKeys = ["user", "currentUser", "loggedUser", "sessionUser"];
+
+    for (const key of jsonKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+
+        if (!raw) continue;
+
+        const parsed = JSON.parse(raw);
+
+        const name =
+          parsed?.worker_name ||
+          parsed?.workerName ||
+          parsed?.name ||
+          parsed?.userName ||
+          parsed?.radnik ||
+          parsed?.worker ||
+          "";
+
+        if (name) return String(name);
+      } catch {}
+    }
+
+    return "";
+  }
+
+  function saveWorkerEverywhere(name: string) {
+    localStorage.setItem("worker_name", name);
+    localStorage.setItem("workerName", name);
+    localStorage.setItem("radnik", name);
+    localStorage.setItem("userName", name);
+    localStorage.setItem("name", name);
+  }
+
   function tr(key: string) {
     return t[lang]?.[key] || t.ba[key] || key;
   }
@@ -192,13 +247,8 @@ export default function RadnikStartPage() {
   function changeLang(next: Lang) {
     setLang(next);
     localStorage.setItem("appLanguage", next);
-  }
-
-  function changeWorker(next: string) {
-    setWorker(next);
-    localStorage.setItem("workerName", next);
-    localStorage.setItem("radnik", next);
-    loadAll(next, datum);
+    localStorage.setItem("lang", next);
+    localStorage.setItem("language", next);
   }
 
   function changeDatum(next: string) {
@@ -270,7 +320,15 @@ export default function RadnikStartPage() {
   }
 
   function getWorker(row: any) {
-    return row.radnik || row.arbeiter || row.worker || row.name || "";
+    return (
+      row.radnik ||
+      row.arbeiter ||
+      row.worker ||
+      row.worker_name ||
+      row.mitarbeiter ||
+      row.name ||
+      ""
+    );
   }
 
   function getHours(row: any) {
@@ -423,6 +481,8 @@ export default function RadnikStartPage() {
     }, 0);
   }, [arbeitszeiten]);
 
+  const canOpenWorkerPages = Boolean(worker);
+
   return (
     <main className="page">
       <section className="hero">
@@ -451,15 +511,11 @@ export default function RadnikStartPage() {
 
         <label>{tr("worker")}</label>
 
-        <select value={worker} onChange={(e) => changeWorker(e.target.value)}>
-          <option value="">{tr("selectWorker")}</option>
-
-          {WORKERS.map((x) => (
-            <option key={x} value={x}>
-              {x}
-            </option>
-          ))}
-        </select>
+        {worker ? (
+          <div className="workerBox">👷 {worker}</div>
+        ) : (
+          <div className="warningBox">{tr("noWorker")}</div>
+        )}
 
         <label>{tr("date")}</label>
 
@@ -488,33 +544,57 @@ export default function RadnikStartPage() {
         )}
       </section>
 
-      {!worker && <div className="warningBox">{tr("chooseWorkerWarning")}</div>}
-
       <section className="controlBox">
         <h2>{tr("control")}</h2>
         <p>{tr("controlText")}</p>
       </section>
 
       <section className="menuGrid">
-        <Link href={`/projekte/radnik/${projektId}/arbeitszeit`}>
-          <strong>⏱️</strong>
-          <span>{tr("workTime")}</span>
-        </Link>
+        {canOpenWorkerPages ? (
+          <>
+            <Link href={`/projekte/radnik/${projektId}/arbeitszeit`}>
+              <strong>⏱️</strong>
+              <span>{tr("workTime")}</span>
+            </Link>
 
-        <Link href={`/projekte/radnik/${projektId}/leistung`}>
-          <strong>📐</strong>
-          <span>{tr("performance")}</span>
-        </Link>
+            <Link href={`/projekte/radnik/${projektId}/leistung`}>
+              <strong>📐</strong>
+              <span>{tr("performance")}</span>
+            </Link>
 
-        <Link href={`/projekte/radnik/${projektId}/regie`}>
-          <strong>📝</strong>
-          <span>{tr("regie")}</span>
-        </Link>
+            <Link href={`/projekte/radnik/${projektId}/regie`}>
+              <strong>📝</strong>
+              <span>{tr("regie")}</span>
+            </Link>
 
-        <Link href={`/projekte/radnik/${projektId}/fotos`}>
-          <strong>📸</strong>
-          <span>{tr("photos")}</span>
-        </Link>
+            <Link href={`/projekte/radnik/${projektId}/fotos`}>
+              <strong>📸</strong>
+              <span>{tr("photos")}</span>
+            </Link>
+          </>
+        ) : (
+          <>
+            <div className="disabledCard">
+              <strong>⏱️</strong>
+              <span>{tr("workTime")}</span>
+            </div>
+
+            <div className="disabledCard">
+              <strong>📐</strong>
+              <span>{tr("performance")}</span>
+            </div>
+
+            <div className="disabledCard">
+              <strong>📝</strong>
+              <span>{tr("regie")}</span>
+            </div>
+
+            <div className="disabledCard">
+              <strong>📸</strong>
+              <span>{tr("photos")}</span>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="todayBox">
@@ -639,7 +719,6 @@ export default function RadnikStartPage() {
         .controlBox,
         .todayBox,
         .menuGrid,
-        .warningBox,
         .errorBox {
           max-width: 980px;
           margin-left: auto;
@@ -686,7 +765,6 @@ export default function RadnikStartPage() {
           margin: 14px 0 7px;
         }
 
-        select,
         input {
           width: 100%;
           box-sizing: border-box;
@@ -697,6 +775,18 @@ export default function RadnikStartPage() {
           padding: 15px;
           font-size: 17px;
           outline: none;
+        }
+
+        .workerBox {
+          width: 100%;
+          box-sizing: border-box;
+          background: #064e3b;
+          color: white;
+          border: 1px solid #16a34a;
+          border-radius: 16px;
+          padding: 17px;
+          font-size: 20px;
+          font-weight: 900;
         }
 
         .langGrid {
@@ -760,7 +850,6 @@ export default function RadnikStartPage() {
           color: #fed7aa;
           padding: 14px;
           border-radius: 14px;
-          margin-bottom: 16px;
           font-weight: 900;
         }
 
@@ -771,7 +860,8 @@ export default function RadnikStartPage() {
           margin-bottom: 16px;
         }
 
-        .menuGrid a {
+        .menuGrid a,
+        .disabledCard {
           background: #111827;
           border: 1px solid #1f2937;
           border-radius: 20px;
@@ -785,11 +875,17 @@ export default function RadnikStartPage() {
           gap: 10px;
         }
 
-        .menuGrid strong {
+        .disabledCard {
+          opacity: 0.45;
+        }
+
+        .menuGrid strong,
+        .disabledCard strong {
           font-size: 36px;
         }
 
-        .menuGrid span {
+        .menuGrid span,
+        .disabledCard span {
           font-size: 21px;
           font-weight: 900;
           text-align: center;
