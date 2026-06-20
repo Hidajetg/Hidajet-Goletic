@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../../lib/supabase";
 
+const LOGO_URL = "/logo.png";
+const MOUNTAIN_BG_URL = "/planine.jpg";
+
 type Projekt = {
   id: number | string;
   name?: string | null;
@@ -48,6 +51,7 @@ export default function RegieUnterschriftPage() {
   const [projekt, setProjekt] = useState<Projekt | null>(null);
   const [regie, setRegie] = useState<any>(null);
   const [unterschrift, setUnterschrift] = useState<any>(null);
+  const [regieFotos, setRegieFotos] = useState<any[]>([]);
 
   const [regieConfig, setRegieConfig] = useState<TableConfig>({
     table: "regie",
@@ -107,7 +111,7 @@ export default function RegieUnterschriftPage() {
   }
 
   function getDate(row: any) {
-    return row?.datum || row?.date || row?.tag || row?.day || "";
+    return row?.datum || row?.date || row?.tag || row?.day || row?.created_date || "";
   }
 
   function getWorker(row: any) {
@@ -126,11 +130,11 @@ export default function RegieUnterschriftPage() {
     return (
       row?.arbeit ||
       row?.regiearbeit ||
-      row?.titel ||
       row?.title ||
+      row?.titel ||
+      row?.name ||
       row?.leistung ||
       row?.work ||
-      row?.name ||
       ""
     );
   }
@@ -139,9 +143,9 @@ export default function RegieUnterschriftPage() {
     return (
       row?.beschreibung ||
       row?.description ||
+      row?.text ||
       row?.arbeiten ||
       row?.work_done ||
-      row?.text ||
       ""
     );
   }
@@ -155,7 +159,13 @@ export default function RegieUnterschriftPage() {
   }
 
   function getPause(row: any) {
-    return row?.pause_minuten || row?.pause_minutes || row?.break_minutes || row?.pause || 0;
+    return (
+      row?.pause_minuten ||
+      row?.pause_minutes ||
+      row?.break_minutes ||
+      row?.pause ||
+      0
+    );
   }
 
   function getStoredHours(row: any) {
@@ -164,10 +174,6 @@ export default function RegieUnterschriftPage() {
 
   function getMaterial(row: any) {
     return row?.material || row?.materialien || row?.material_text || "";
-  }
-
-  function getPrice(row: any) {
-    return row?.preis || row?.price || row?.betrag || row?.amount || row?.kosten || "";
   }
 
   function getStatus(row: any) {
@@ -193,6 +199,44 @@ export default function RegieUnterschriftPage() {
     );
   }
 
+  function getSignedAt() {
+    return (
+      unterschrift?.signed_at ||
+      regie?.signed_at ||
+      regie?.unterschrieben_am ||
+      ""
+    );
+  }
+
+  function getBauleiterName() {
+    return (
+      unterschrift?.bauleiter_name ||
+      regie?.bauleiter_name ||
+      bauleiterName ||
+      getBauleiter() ||
+      ""
+    );
+  }
+
+  function getFotoUrl(row: any) {
+    return (
+      row.url ||
+      row.image_url ||
+      row.foto_url ||
+      row.photo_url ||
+      row.public_url ||
+      ""
+    );
+  }
+
+  function getFotoTitle(row: any) {
+    return row.titel || row.title || row.name || "Regie Foto";
+  }
+
+  function getFotoText(row: any) {
+    return row.beschreibung || row.description || row.notiz || row.note || "";
+  }
+
   function toNumber(value: any) {
     const n = Number(String(value || "0").replace(",", "."));
     return isNaN(n) ? 0 : n;
@@ -201,11 +245,6 @@ export default function RegieUnterschriftPage() {
   function formatHours(value: any) {
     const n = toNumber(value);
     return n.toFixed(2).replace(".", ",") + " h";
-  }
-
-  function formatMoney(value: any) {
-    const n = toNumber(value);
-    return n.toFixed(2).replace(".", ",") + " €";
   }
 
   function parseTimeToMinutes(value: string) {
@@ -253,6 +292,7 @@ export default function RegieUnterschriftPage() {
     await loadProjekt();
     await loadRegie();
     await loadUnterschrift();
+    await loadRegieFotos();
 
     setLoading(false);
   }
@@ -270,12 +310,7 @@ export default function RegieUnterschriftPage() {
       if (!error && data) {
         setProjekt(data as Projekt);
 
-        const name =
-          data.bauleiter ||
-          data.site_manager ||
-          data.leiter ||
-          "";
-
+        const name = data.bauleiter || data.site_manager || data.leiter || "";
         setBauleiterName(String(name || ""));
 
         return;
@@ -344,6 +379,21 @@ export default function RegieUnterschriftPage() {
         setBauleiterEmail(String(data.bauleiter_email));
       }
     }
+  }
+
+  async function loadRegieFotos() {
+    const { data, error } = await supabase
+      .from("regie_fotos")
+      .select("*")
+      .eq("regie_id", regieId)
+      .order("created_at", { ascending: true });
+
+    if (!error) {
+      setRegieFotos(data || []);
+      return;
+    }
+
+    setRegieFotos([]);
   }
 
   function prepareCanvas() {
@@ -558,7 +608,9 @@ export default function RegieUnterschriftPage() {
     }
 
     await loadAll();
-    setMessage("Unterschrift gespeichert. Regie Status konnte nicht vollständig aktualisiert werden.");
+    setMessage(
+      "Unterschrift gespeichert. Regie Status konnte nicht vollständig aktualisiert werden."
+    );
     setSaving(false);
   }
 
@@ -574,17 +626,17 @@ export default function RegieUnterschriftPage() {
             ← Zurück zu Regie
           </Link>
 
-          <p className="label">Regie Unterschrift</p>
+          <p className="label">Regie Unterschrift / potpis</p>
           <h1>Bauleiter Unterschrift</h1>
           <p className="subtitle">
-            {getProjektName()}
+            Potpis Bauleitera za dodatni rad · {getProjektName()}
             {getProjektOrt() ? ` · ${getProjektOrt()}` : ""}
           </p>
         </div>
 
         <div className="topButtons">
           <button className="btn gray" onClick={loadAll}>
-            Aktualisieren
+            Aktualisieren / Osvježi
           </button>
 
           <button className="btn blue" onClick={printPage}>
@@ -603,18 +655,43 @@ export default function RegieUnterschriftPage() {
       ) : (
         <>
           <section className="schein">
-            <div className="scheinHeader">
-              <div>
-                <p className="company">Regieschein</p>
-                <h2>Regiearbeiten / Zusatzarbeiten</h2>
-                <p>Nachweis für ausgeführte Regiearbeiten</p>
+            <div
+              className="brandHero"
+              style={{
+                backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.80), rgba(0,0,0,0.38)), url(${MOUNTAIN_BG_URL})`,
+              }}
+            >
+              <div className="logoBox">
+                <img src={LOGO_URL} alt="Logo" />
               </div>
 
-              <div className="scheinNumber">
+              <div>
+                <p>Regieschein</p>
+                <h2>Regiearbeiten / Zusatzarbeiten</h2>
+                <span>Dodatni radovi · {getProjektName()}</span>
+              </div>
+
+              <div className="regieNr">
                 <span>Regie Nr.</span>
                 <strong>{regieId}</strong>
               </div>
             </div>
+
+            <section className="paperIntro">
+              <div>
+                <p className="documentLabel">
+                  Nachweis für ausgeführte Regiearbeiten
+                </p>
+                <h3>Unterschrift Bauleiter</h3>
+                <p className="translation">
+                  Potpis Bauleitera za potvrdu dodatnog rada.
+                </p>
+              </div>
+
+              <div className={getSignatureImage() ? "status ok" : "status wait"}>
+                {getSignatureImage() ? "Unterschrieben" : "Wartet auf Unterschrift"}
+              </div>
+            </section>
 
             <section className="infoGrid">
               <div>
@@ -623,7 +700,7 @@ export default function RegieUnterschriftPage() {
               </div>
 
               <div>
-                <span>Ort</span>
+                <span>Ort / mjesto</span>
                 <strong>{getProjektOrt() || "-"}</strong>
               </div>
 
@@ -639,37 +716,38 @@ export default function RegieUnterschriftPage() {
 
               <div>
                 <span>Bauleiter</span>
-                <strong>{getBauleiter() || bauleiterName || "-"}</strong>
+                <strong>{getBauleiterName() || getBauleiter() || "-"}</strong>
               </div>
 
               <div>
-                <span>Datum</span>
+                <span>Datum Regie</span>
                 <strong>{formatDate(getDate(regie))}</strong>
               </div>
             </section>
 
             <section className="section">
-              <h3>Ausgeführte Regiearbeit</h3>
+              <h3>1. Ausgeführte Regiearbeit</h3>
+              <p className="sectionTranslation">Urađeni dodatni rad</p>
 
               <table>
                 <tbody>
                   <tr>
-                    <th>Arbeiter</th>
+                    <th>Arbeiter / radnik</th>
                     <td>{getWorker(regie) || "-"}</td>
                   </tr>
 
                   <tr>
-                    <th>Arbeit</th>
+                    <th>Regiearbeit / dodatni rad</th>
                     <td>{getWork(regie) || "-"}</td>
                   </tr>
 
                   <tr>
-                    <th>Beschreibung</th>
+                    <th>Beschreibung / opis</th>
                     <td className="pre">{getDescription(regie) || "-"}</td>
                   </tr>
 
                   <tr>
-                    <th>Arbeitszeit</th>
+                    <th>Arbeitszeit / vrijeme</th>
                     <td>
                       {getStart(regie) || "-"} bis {getEnd(regie) || "-"} · Pause{" "}
                       {getPause(regie) || 0} min
@@ -677,18 +755,13 @@ export default function RegieUnterschriftPage() {
                   </tr>
 
                   <tr>
-                    <th>Stunden</th>
+                    <th>Stunden / sati</th>
                     <td>{formatHours(getHours(regie))}</td>
                   </tr>
 
                   <tr>
-                    <th>Material</th>
+                    <th>Material / materijal</th>
                     <td className="pre">{getMaterial(regie) || "-"}</td>
-                  </tr>
-
-                  <tr>
-                    <th>Betrag</th>
-                    <td>{formatMoney(getPrice(regie))}</td>
                   </tr>
 
                   <tr>
@@ -702,7 +775,31 @@ export default function RegieUnterschriftPage() {
             </section>
 
             <section className="section">
-              <h3>Bestätigung</h3>
+              <h3>2. Fotos / Bilder</h3>
+              <p className="sectionTranslation">
+                Slike povezane sa ovim Regie unosom.
+              </p>
+
+              {regieFotos.length === 0 ? (
+                <div className="noPhotos">Keine Fotos vorhanden.</div>
+              ) : (
+                <div className="photoGrid">
+                  {regieFotos.map((foto) => (
+                    <div key={foto.id} className="photoItem">
+                      <img src={getFotoUrl(foto)} alt={getFotoTitle(foto)} />
+                      <div>
+                        <strong>{getFotoTitle(foto)}</strong>
+                        {getFotoText(foto) && <p>{getFotoText(foto)}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="section">
+              <h3>3. Bestätigung</h3>
+              <p className="sectionTranslation">Potvrda Bauleitera</p>
 
               <p className="confirmText">
                 Der Bauleiter bestätigt mit seiner Unterschrift, dass die oben
@@ -714,23 +811,12 @@ export default function RegieUnterschriftPage() {
                 <div className="signedBox">
                   <div>
                     <span>Name Bauleiter</span>
-                    <strong>
-                      {unterschrift?.bauleiter_name ||
-                        regie?.bauleiter_name ||
-                        bauleiterName ||
-                        "-"}
-                    </strong>
+                    <strong>{getBauleiterName() || "-"}</strong>
                   </div>
 
                   <div>
                     <span>Unterschrieben am</span>
-                    <strong>
-                      {formatDate(
-                        unterschrift?.signed_at ||
-                          regie?.signed_at ||
-                          regie?.unterschrieben_am
-                      )}
-                    </strong>
+                    <strong>{formatDate(getSignedAt())}</strong>
                   </div>
 
                   <div className="signaturePreview">
@@ -747,6 +833,8 @@ export default function RegieUnterschriftPage() {
             <h2>Auf dem Telefon unterschreiben</h2>
             <p>
               Bauleiter trägt Namen ein und unterschreibt mit Finger oder Stift.
+              <br />
+              Bauleiter upiše ime i potpiše prstom na telefonu.
             </p>
 
             <label>Name Bauleiter *</label>
@@ -763,7 +851,7 @@ export default function RegieUnterschriftPage() {
               placeholder="optional"
             />
 
-            <label>Unterschrift</label>
+            <label>Unterschrift / potpis</label>
             <div className="canvasWrap">
               <canvas
                 ref={canvasRef}
@@ -793,7 +881,12 @@ export default function RegieUnterschriftPage() {
       <style>{`
         .page {
           min-height: 100vh;
-          background: #050505;
+          background:
+            linear-gradient(rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0.92)),
+            url(${MOUNTAIN_BG_URL});
+          background-size: cover;
+          background-position: center;
+          background-attachment: fixed;
           color: white;
           padding: 28px;
           font-family: Arial, sans-serif;
@@ -811,7 +904,7 @@ export default function RegieUnterschriftPage() {
           display: inline-block;
           color: white;
           text-decoration: none;
-          background: #1f2937;
+          background: rgba(31, 41, 55, 0.9);
           border: 1px solid #374151;
           border-radius: 14px;
           padding: 11px 15px;
@@ -820,7 +913,7 @@ export default function RegieUnterschriftPage() {
         }
 
         .label {
-          color: #9ca3af;
+          color: #d1d5db;
           margin: 0 0 8px;
           font-size: 14px;
           font-weight: 800;
@@ -833,7 +926,7 @@ export default function RegieUnterschriftPage() {
         }
 
         .subtitle {
-          color: #cbd5e1;
+          color: #e5e7eb;
           margin: 12px 0 0;
           font-size: 17px;
           font-weight: 700;
@@ -909,21 +1002,92 @@ export default function RegieUnterschriftPage() {
           background: white;
           color: #111827;
           border-radius: 22px;
-          padding: 34px;
-          max-width: 1000px;
+          overflow: hidden;
+          max-width: 1050px;
           margin: 0 auto 22px;
+          box-shadow: 0 25px 90px rgba(0,0,0,0.45);
         }
 
-        .scheinHeader {
+        .brandHero {
+          min-height: 190px;
+          background-size: cover;
+          background-position: center;
+          color: white;
+          padding: 28px;
+          display: grid;
+          grid-template-columns: 140px 1fr 150px;
+          gap: 22px;
+          align-items: center;
+        }
+
+        .logoBox {
+          width: 120px;
+          height: 120px;
+          border-radius: 22px;
+          background: rgba(255,255,255,0.92);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 12px;
+        }
+
+        .logoBox img {
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: contain;
+        }
+
+        .brandHero p {
+          margin: 0 0 8px;
+          color: #d1d5db;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+
+        .brandHero h2 {
+          margin: 0;
+          font-size: 36px;
+          line-height: 1.05;
+        }
+
+        .brandHero span {
+          display: block;
+          margin-top: 10px;
+          color: #f3f4f6;
+          font-weight: 800;
+          font-size: 18px;
+        }
+
+        .regieNr {
+          text-align: right;
+        }
+
+        .regieNr span {
+          display: block;
+          font-weight: 900;
+          color: #d1d5db;
+          margin-bottom: 8px;
+        }
+
+        .regieNr strong {
+          display: inline-block;
+          border: 2px solid white;
+          border-radius: 14px;
+          padding: 12px 16px;
+          font-size: 28px;
+          background: rgba(0,0,0,0.35);
+        }
+
+        .paperIntro {
           display: flex;
           justify-content: space-between;
           gap: 20px;
-          border-bottom: 3px solid #111827;
-          padding-bottom: 20px;
-          margin-bottom: 20px;
+          padding: 24px 28px 0;
+          align-items: flex-start;
         }
 
-        .company {
+        .documentLabel {
           margin: 0 0 8px;
           color: #6b7280;
           font-weight: 900;
@@ -931,41 +1095,41 @@ export default function RegieUnterschriftPage() {
           letter-spacing: 1px;
         }
 
-        .scheinHeader h2 {
+        .paperIntro h3 {
           margin: 0;
-          font-size: 34px;
+          font-size: 30px;
         }
 
-        .scheinHeader p {
-          color: #374151;
-          margin: 10px 0 0;
+        .translation {
+          margin: 8px 0 0;
+          color: #6b7280;
           font-weight: 700;
         }
 
-        .scheinNumber {
-          text-align: right;
-        }
-
-        .scheinNumber span {
-          display: block;
-          color: #6b7280;
+        .status {
+          border-radius: 999px;
+          padding: 10px 14px;
           font-weight: 900;
-          margin-bottom: 8px;
+          white-space: nowrap;
         }
 
-        .scheinNumber strong {
-          display: inline-block;
-          border: 2px solid #111827;
-          border-radius: 12px;
-          padding: 10px 16px;
-          font-size: 24px;
+        .status.ok {
+          background: #dcfce7;
+          color: #166534;
+          border: 1px solid #16a34a;
+        }
+
+        .status.wait {
+          background: #fef3c7;
+          color: #78350f;
+          border: 1px solid #f59e0b;
         }
 
         .infoGrid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 12px;
-          margin-bottom: 24px;
+          padding: 24px 28px 0;
         }
 
         .infoGrid div,
@@ -994,14 +1158,21 @@ export default function RegieUnterschriftPage() {
         }
 
         .section {
-          margin-top: 26px;
+          margin: 28px;
+          page-break-inside: avoid;
         }
 
         .section h3 {
-          margin: 0 0 12px;
+          margin: 0 0 5px;
           font-size: 24px;
           border-bottom: 1px solid #d1d5db;
           padding-bottom: 8px;
+        }
+
+        .sectionTranslation {
+          color: #6b7280;
+          margin: 0 0 12px;
+          font-weight: 700;
         }
 
         table {
@@ -1018,13 +1189,60 @@ export default function RegieUnterschriftPage() {
         }
 
         th {
-          width: 210px;
+          width: 220px;
           background: #f3f4f6;
           font-weight: 900;
         }
 
         .pre {
           white-space: pre-wrap;
+        }
+
+        .noPhotos {
+          background: #f3f4f6;
+          border: 1px solid #d1d5db;
+          border-radius: 14px;
+          padding: 16px;
+          color: #6b7280;
+          font-weight: 900;
+        }
+
+        .photoGrid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 14px;
+        }
+
+        .photoItem {
+          border: 1px solid #d1d5db;
+          border-radius: 16px;
+          overflow: hidden;
+          background: #f9fafb;
+          page-break-inside: avoid;
+        }
+
+        .photoItem img {
+          display: block;
+          width: 100%;
+          height: 250px;
+          object-fit: cover;
+          background: #e5e7eb;
+        }
+
+        .photoItem div {
+          padding: 12px;
+        }
+
+        .photoItem strong {
+          display: block;
+          margin-bottom: 6px;
+          color: #111827;
+        }
+
+        .photoItem p {
+          margin: 0;
+          color: #4b5563;
+          line-height: 1.4;
         }
 
         .confirmText {
@@ -1065,10 +1283,10 @@ export default function RegieUnterschriftPage() {
         }
 
         .signPanel {
-          max-width: 1000px;
+          max-width: 1050px;
           margin: 0 auto;
-          background: #111827;
-          border: 1px solid #1f2937;
+          background: rgba(17, 24, 39, 0.95);
+          border: 1px solid #374151;
           border-radius: 22px;
           padding: 22px;
         }
@@ -1152,7 +1370,7 @@ export default function RegieUnterschriftPage() {
 
         @media (max-width: 900px) {
           .top,
-          .scheinHeader {
+          .paperIntro {
             display: block;
           }
 
@@ -1162,15 +1380,16 @@ export default function RegieUnterschriftPage() {
             grid-template-columns: 1fr;
           }
 
-          .scheinNumber {
-            text-align: left;
-            margin-top: 18px;
-          }
-
+          .brandHero,
           .infoGrid,
           .signedBox,
-          .signActions {
+          .signActions,
+          .photoGrid {
             grid-template-columns: 1fr;
+          }
+
+          .regieNr {
+            text-align: left;
           }
         }
 
@@ -1184,12 +1403,20 @@ export default function RegieUnterschriftPage() {
           }
 
           .schein {
-            padding: 18px;
             border-radius: 18px;
           }
 
-          .scheinHeader h2 {
-            font-size: 27px;
+          .brandHero {
+            padding: 20px;
+          }
+
+          .brandHero h2 {
+            font-size: 28px;
+          }
+
+          .logoBox {
+            width: 96px;
+            height: 96px;
           }
 
           th,
@@ -1202,8 +1429,20 @@ export default function RegieUnterschriftPage() {
             border-bottom: 0;
           }
 
+          .section {
+            margin: 20px;
+          }
+
+          .infoGrid {
+            padding: 20px 20px 0;
+          }
+
           .signPanel {
             padding: 16px;
+          }
+
+          .photoItem img {
+            height: 220px;
           }
         }
 
@@ -1223,9 +1462,19 @@ export default function RegieUnterschriftPage() {
 
           .schein {
             border-radius: 0 !important;
-            padding: 0 !important;
+            box-shadow: none !important;
             max-width: none !important;
             margin: 0 !important;
+          }
+
+          .brandHero {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          .section,
+          .photoItem {
+            page-break-inside: avoid;
           }
         }
       `}</style>
