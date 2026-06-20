@@ -50,6 +50,7 @@ const FREIGABE_LISTE = ["Wartet", "Freigegeben", "Abgelehnt"];
 
 export default function ProjektRegiePage() {
   const params = useParams();
+
   const projektId = String(params.id);
   const projektIdValue = isNaN(Number(projektId))
     ? projektId
@@ -106,11 +107,6 @@ export default function ProjektRegiePage() {
   function toNumber(value: any) {
     const n = Number(String(value || "0").replace(",", "."));
     return isNaN(n) ? 0 : n;
-  }
-
-  function formatNumber(value: any) {
-    const n = toNumber(value);
-    return n.toFixed(2).replace(".", ",").replace(",00", "");
   }
 
   function formatHours(value: any) {
@@ -227,6 +223,16 @@ export default function ProjektRegiePage() {
     return row.notiz || row.note || row.bemerkung || row.info || "";
   }
 
+  function isSigned(row: any) {
+    return Boolean(
+      row.signature_data ||
+        row.signature_url ||
+        row.signed_at ||
+        row.unterschrieben_am ||
+        String(getFreigabeStatus(row)).toLowerCase() === "freigegeben"
+    );
+  }
+
   function parseTimeToMinutes(value: string) {
     if (!value || !value.includes(":")) return 0;
 
@@ -240,7 +246,6 @@ export default function ProjektRegiePage() {
     const p = Number(pause || 0);
 
     if (!s || !e) return 0;
-
     if (e < s) e += 24 * 60;
 
     const total = e - s - p;
@@ -388,6 +393,10 @@ export default function ProjektRegiePage() {
 
   const totalMoney = useMemo(() => {
     return filtered.reduce((sum, row) => sum + toNumber(getPrice(row)), 0);
+  }, [filtered]);
+
+  const signedCount = useMemo(() => {
+    return filtered.filter((row) => isSigned(row)).length;
   }, [filtered]);
 
   const workerTotals = useMemo(() => {
@@ -689,6 +698,11 @@ export default function ProjektRegiePage() {
         </div>
 
         <div className="stat">
+          <span>Unterschrieben</span>
+          <strong>{signedCount}</strong>
+        </div>
+
+        <div className="stat">
           <span>Regie Betrag</span>
           <strong>{formatMoney(totalMoney)}</strong>
         </div>
@@ -797,14 +811,16 @@ export default function ProjektRegiePage() {
 
                 <span
                   className={
-                    getFreigabeStatus(row) === "Freigegeben"
+                    isSigned(row)
+                      ? "badge signed"
+                      : getFreigabeStatus(row) === "Freigegeben"
                       ? "badge approved"
                       : getFreigabeStatus(row) === "Abgelehnt"
                       ? "badge rejected"
                       : "badge"
                   }
                 >
-                  {getFreigabeStatus(row)}
+                  {isSigned(row) ? "Unterschrieben" : getFreigabeStatus(row)}
                 </span>
               </div>
 
@@ -843,6 +859,20 @@ export default function ProjektRegiePage() {
               )}
 
               {getNote(row) && <p className="note">{getNote(row)}</p>}
+
+              <div className="signatureLinks">
+                <Link href={`/projekte/${projektId}/regie/${row.id}/unterschrift`}>
+                  📄 Regieschein
+                </Link>
+
+                <Link href={`/projekte/${projektId}/regie/${row.id}/unterschrift`}>
+                  ✍️ Unterschrift
+                </Link>
+
+                <Link href={`/projekte/${projektId}/regie/${row.id}/qr`}>
+                  🔳 QR / PDF
+                </Link>
+              </div>
 
               <div className="actions">
                 <button onClick={() => startEdit(row)}>Bearbeiten</button>
@@ -1151,7 +1181,7 @@ export default function ProjektRegiePage() {
 
         .stats {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(4, 1fr);
           gap: 14px;
           margin-bottom: 18px;
         }
@@ -1171,7 +1201,7 @@ export default function ProjektRegiePage() {
         }
 
         .stat strong {
-          font-size: 30px;
+          font-size: 28px;
         }
 
         .toolbar {
@@ -1329,6 +1359,12 @@ export default function ProjektRegiePage() {
           border-color: #16a34a;
         }
 
+        .badge.signed {
+          background: #172554;
+          color: #bfdbfe;
+          border-color: #2563eb;
+        }
+
         .badge.rejected {
           background: #7f1d1d;
           color: #fecaca;
@@ -1370,6 +1406,32 @@ export default function ProjektRegiePage() {
           padding: 12px;
           white-space: pre-wrap;
           margin-bottom: 12px !important;
+        }
+
+        .signatureLinks {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 8px;
+          margin: 14px 0;
+        }
+
+        .signatureLinks a {
+          background: #2563eb;
+          color: white;
+          text-decoration: none;
+          text-align: center;
+          border-radius: 14px;
+          padding: 13px 8px;
+          font-weight: 900;
+          font-size: 14px;
+        }
+
+        .signatureLinks a:nth-child(2) {
+          background: #15803d;
+        }
+
+        .signatureLinks a:nth-child(3) {
+          background: #7c3aed;
         }
 
         .actions {
@@ -1526,7 +1588,8 @@ export default function ProjektRegiePage() {
           .toolbar,
           .quickGrid,
           .detailGrid,
-          .timeGrid {
+          .timeGrid,
+          .signatureLinks {
             grid-template-columns: 1fr;
           }
 
