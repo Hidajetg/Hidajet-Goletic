@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
+type Lang = "de" | "ba" | "en" | "uz";
+
 type Projekt = {
   id: number | string;
   name?: string | null;
@@ -16,38 +18,126 @@ type Projekt = {
   mjesto?: string | null;
   location?: string | null;
   adresse?: string | null;
-  auftraggeber?: string | null;
-  bauleiter?: string | null;
+  address?: string | null;
   info?: string | null;
+  beschreibung?: string | null;
+  description?: string | null;
   google_location?: string | null;
   google_maps?: string | null;
   google_maps_url?: string | null;
   [key: string]: any;
 };
 
-type TableConfig = {
-  table: string;
-  column: string;
+const WORKERS = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
+
+const t: Record<Lang, any> = {
+  de: {
+    app: "Radnik Mobile / Arbeiter App",
+    language: "Sprache",
+    worker: "Arbeiter",
+    selectWorker: "Arbeiter auswählen",
+    date: "Datum",
+    siteInfo: "Baustelleninfo",
+    location: "Standort öffnen",
+    workTime: "Arbeitszeit",
+    photos: "Fotos",
+    performance: "Leistung",
+    regie: "Regie / Zusatzarbeit",
+    todayEntries: "Heutige Übersicht",
+    noEntries: "Keine Einträge für heute.",
+    hours: "Stunden",
+    quantity: "Menge",
+    room: "Raum",
+    position: "LV Position",
+    signed: "Unterschrieben",
+    waiting: "Wartet",
+    open: "Öffnen",
+    control: "Kontrolle",
+    controlText:
+      "Jeder Eintrag muss Raum, LV Position, Zeit, Menge oder Foto-Nachweis haben.",
+    chooseWorkerWarning: "Bitte zuerst Arbeiter auswählen.",
+  },
+  ba: {
+    app: "Radnik Mobile / unos radnika",
+    language: "Jezik",
+    worker: "Radnik",
+    selectWorker: "Odaberi radnika",
+    date: "Datum",
+    siteInfo: "Info baustele",
+    location: "Otvori lokaciju",
+    workTime: "Radno vrijeme",
+    photos: "Slike",
+    performance: "Urađeni posao",
+    regie: "Regie / dodatni rad",
+    todayEntries: "Današnji pregled",
+    noEntries: "Nema unosa za danas.",
+    hours: "Sati",
+    quantity: "Količina",
+    room: "Prostorija",
+    position: "LV pozicija",
+    signed: "Potpisano",
+    waiting: "Čeka",
+    open: "Otvori",
+    control: "Kontrola",
+    controlText:
+      "Svaki unos mora imati prostoriju, LV poziciju, vrijeme, količinu ili sliku kao dokaz.",
+    chooseWorkerWarning: "Prvo odaberi radnika.",
+  },
+  en: {
+    app: "Worker Mobile App",
+    language: "Language",
+    worker: "Worker",
+    selectWorker: "Select worker",
+    date: "Date",
+    siteInfo: "Site info",
+    location: "Open location",
+    workTime: "Work time",
+    photos: "Photos",
+    performance: "Work performance",
+    regie: "Extra work / Regie",
+    todayEntries: "Today overview",
+    noEntries: "No entries for today.",
+    hours: "Hours",
+    quantity: "Quantity",
+    room: "Room",
+    position: "LV position",
+    signed: "Signed",
+    waiting: "Waiting",
+    open: "Open",
+    control: "Control",
+    controlText:
+      "Every entry must have room, LV position, time, quantity or photo proof.",
+    chooseWorkerWarning: "Please select worker first.",
+  },
+  uz: {
+    app: "Ishchi Mobile App",
+    language: "Til",
+    worker: "Ishchi",
+    selectWorker: "Ishchini tanlang",
+    date: "Sana",
+    siteInfo: "Obyekt maʼlumoti",
+    location: "Lokatsiyani ochish",
+    workTime: "Ish vaqti",
+    photos: "Rasmlar",
+    performance: "Bajarilgan ish",
+    regie: "Qo‘shimcha ish / Regie",
+    todayEntries: "Bugungi nazorat",
+    noEntries: "Bugun yozuv yo‘q.",
+    hours: "Soat",
+    quantity: "Miqdor",
+    room: "Xona",
+    position: "LV pozitsiya",
+    signed: "Imzolangan",
+    waiting: "Kutilmoqda",
+    open: "Ochish",
+    control: "Nazorat",
+    controlText:
+      "Har bir yozuvda xona, LV pozitsiya, vaqt, miqdor yoki rasm dalili bo‘lishi kerak.",
+    chooseWorkerWarning: "Avval ishchini tanlang.",
+  },
 };
 
-const RADNICI = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
-
-const GRUPPEN = [
-  "Keramika",
-  "Priprema podloge",
-  "Estrich",
-  "Hidroizolacija",
-  "Ljepilo",
-  "Schienen",
-  "Fuge",
-  "Silikoni",
-  "Terase",
-  "Dodaci",
-];
-
-const EINHEITEN = ["m²", "m", "Stk.", "kg", "Sack", "Eimer", "Pauschal"];
-
-export default function RadnikProjektMobilePage() {
+export default function RadnikStartPage() {
   const params = useParams();
 
   const projektId = String(params.id);
@@ -55,63 +145,69 @@ export default function RadnikProjektMobilePage() {
     ? projektId
     : Number(projektId);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [lang, setLang] = useState<Lang>("ba");
+  const [worker, setWorker] = useState("");
+  const [datum, setDatum] = useState(today());
 
   const [projekt, setProjekt] = useState<Projekt | null>(null);
   const [arbeitszeiten, setArbeitszeiten] = useState<any[]>([]);
   const [leistungen, setLeistungen] = useState<any[]>([]);
   const [regieRows, setRegieRows] = useState<any[]>([]);
-  const [regieFotos, setRegieFotos] = useState<any[]>([]);
+  const [fotos, setFotos] = useState<any[]>([]);
 
-  const [worker, setWorker] = useState("");
-  const [datum, setDatum] = useState(today());
-
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("17:00");
-  const [pauseMinuten, setPauseMinuten] = useState("30");
-  const [zeitNotiz, setZeitNotiz] = useState("");
-
-  const [leistungTitel, setLeistungTitel] = useState("");
-  const [leistungMenge, setLeistungMenge] = useState("");
-  const [leistungEinheit, setLeistungEinheit] = useState("m²");
-  const [leistungGruppe, setLeistungGruppe] = useState("Keramika");
-  const [leistungNotiz, setLeistungNotiz] = useState("");
-
-  const [regieArbeit, setRegieArbeit] = useState("");
-  const [regieBeschreibung, setRegieBeschreibung] = useState("");
-  const [regieMaterial, setRegieMaterial] = useState("");
-  const [regieFotoTitel, setRegieFotoTitel] = useState("");
-  const [regieFotoNotiz, setRegieFotoNotiz] = useState("");
-  const [regieFotoFiles, setRegieFotoFiles] = useState<File[]>([]);
-
-  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
 
   useEffect(() => {
+    const savedLang = (localStorage.getItem("appLanguage") || "ba") as Lang;
     const savedWorker =
       localStorage.getItem("workerName") ||
       localStorage.getItem("radnik") ||
-      localStorage.getItem("userName") ||
       "";
+
+    if (["de", "ba", "en", "uz"].includes(savedLang)) {
+      setLang(savedLang);
+    }
 
     if (savedWorker) {
       setWorker(savedWorker);
     }
 
-    loadAll();
+    loadAll(savedWorker, datum);
   }, [projektId]);
 
   function today() {
     const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
+
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function tr(key: string) {
+    return t[lang]?.[key] || t.ba[key] || key;
+  }
+
+  function changeLang(next: Lang) {
+    setLang(next);
+    localStorage.setItem("appLanguage", next);
+  }
+
+  function changeWorker(next: string) {
+    setWorker(next);
+    localStorage.setItem("workerName", next);
+    localStorage.setItem("radnik", next);
+    loadAll(next, datum);
+  }
+
+  function changeDatum(next: string) {
+    setDatum(next);
+    loadAll(worker, next);
   }
 
   function getProjektName() {
-    if (!projekt) return "Projekt";
+    if (!projekt) return `Projekt ${projektId}`;
 
     return (
       projekt.name ||
@@ -125,31 +221,42 @@ export default function RadnikProjektMobilePage() {
 
   function getProjektOrt() {
     if (!projekt) return "";
-    return projekt.ort || projekt.mjesto || projekt.location || projekt.adresse || "";
+
+    return (
+      projekt.ort ||
+      projekt.mjesto ||
+      projekt.location ||
+      projekt.adresse ||
+      projekt.address ||
+      ""
+    );
   }
 
-  function getProjektInfo() {
+  function getInfo() {
     if (!projekt) return "";
-    return projekt.info || projekt.beschreibung || projekt.description || projekt.notiz || "";
+
+    return projekt.info || projekt.beschreibung || projekt.description || "";
   }
 
-  function getGoogleLocation() {
+  function getMapUrl() {
     if (!projekt) return "";
 
     const value =
       projekt.google_location ||
       projekt.google_maps ||
       projekt.google_maps_url ||
+      projekt.adresse ||
+      projekt.address ||
       "";
 
     if (!value) return "";
 
-    if (value.startsWith("http://") || value.startsWith("https://")) {
-      return value;
+    if (String(value).startsWith("http")) {
+      return String(value);
     }
 
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      value
+      String(value)
     )}`;
   }
 
@@ -158,157 +265,42 @@ export default function RadnikProjektMobilePage() {
     return isNaN(n) ? 0 : n;
   }
 
-  function formatNumber(value: any) {
-    const n = toNumber(value);
-    return n.toFixed(2).replace(".", ",").replace(",00", "");
-  }
-
   function formatHours(value: any) {
-    const n = toNumber(value);
-    return n.toFixed(2).replace(".", ",") + " h";
-  }
-
-  function getDate(row: any) {
-    return row.datum || row.date || row.tag || row.day || row.created_date || "";
+    return `${toNumber(value).toFixed(2).replace(".", ",")} h`;
   }
 
   function getWorker(row: any) {
-    return (
-      row.radnik ||
-      row.arbeiter ||
-      row.worker ||
-      row.worker_name ||
-      row.mitarbeiter ||
-      row.name ||
-      ""
-    );
-  }
-
-  function getStart(row: any) {
-    return row.start_time || row.start || row.von || row.beginn || "";
-  }
-
-  function getEnd(row: any) {
-    return row.end_time || row.end || row.bis || row.ende || "";
-  }
-
-  function getPause(row: any) {
-    return row.pause_minuten || row.pause_minutes || row.break_minutes || row.pause || 0;
-  }
-
-  function getStoredHours(row: any) {
-    return row.stunden || row.hours || row.total_hours || row.gesamt_stunden || "";
-  }
-
-  function getTitle(row: any) {
-    return row.titel || row.title || row.name || row.leistung || row.arbeit || row.work || "";
-  }
-
-  function getDescription(row: any) {
-    return row.beschreibung || row.description || row.arbeiten || row.work_done || "";
-  }
-
-  function getMaterial(row: any) {
-    return row.material || row.materialien || row.material_text || "";
-  }
-
-  function getQuantity(row: any) {
-    return row.menge || row.quantity || row.kolicina || row.qty || "";
-  }
-
-  function getUnit(row: any) {
-    return row.einheit || row.unit || row.jedinica || "";
-  }
-
-  function getNote(row: any) {
-    return row.notiz || row.note || row.bemerkung || row.info || "";
-  }
-
-  function getFotoUrl(row: any) {
-    return row.url || row.image_url || row.foto_url || row.photo_url || row.public_url || "";
-  }
-
-  function getFotoTitle(row: any) {
-    return row.titel || row.title || row.name || "Regie Foto";
-  }
-
-  function getFotoText(row: any) {
-    return row.beschreibung || row.description || row.notiz || row.note || "";
-  }
-
-  function getFotosForRegie(regieIdValueLocal: any) {
-    return regieFotos.filter((foto) => String(foto.regie_id) === String(regieIdValueLocal));
-  }
-
-  function parseTimeToMinutes(value: string) {
-    if (!value || !value.includes(":")) return 0;
-
-    const [h, m] = value.split(":").map((x) => Number(x));
-    return h * 60 + m;
-  }
-
-  function calculateHours(start: string, end: string, pause: string | number) {
-    const s = parseTimeToMinutes(start);
-    let e = parseTimeToMinutes(end);
-    const p = Number(pause || 0);
-
-    if (!s || !e) return 0;
-
-    if (e < s) e += 24 * 60;
-
-    const total = e - s - p;
-    return Math.max(0, total / 60);
+    return row.radnik || row.arbeiter || row.worker || row.name || "";
   }
 
   function getHours(row: any) {
-    const stored = toNumber(getStoredHours(row));
-
-    if (stored > 0) return stored;
-
-    return calculateHours(getStart(row), getEnd(row), getPause(row));
+    return row.stunden || row.hours || row.total_hours || 0;
   }
 
-  async function loadAll() {
+  function getLeistungTitle(row: any) {
+    return (
+      row.arbeit ||
+      row.titel ||
+      row.title ||
+      row.leistung ||
+      row.position_titel ||
+      "Leistung"
+    );
+  }
+
+  function getRegieTitle(row: any) {
+    return row.arbeit || row.title || row.regiearbeit || row.beschreibung || "Regie";
+  }
+
+  async function loadAll(workerName = worker, dateValue = datum) {
     setLoading(true);
     setErrorText("");
-    setMessage("");
 
     await loadProjekt();
-
-    const arbeitszeitData = await loadRows([
-      { table: "arbeitszeiten", column: "projekt_id" },
-      { table: "arbeitszeiten", column: "project_id" },
-      { table: "arbeitszeiten", column: "baustelle_id" },
-      { table: "arbeitszeit", column: "projekt_id" },
-      { table: "arbeitszeit", column: "project_id" },
-      { table: "stunden", column: "projekt_id" },
-    ]);
-
-    const leistungData = await loadRows([
-      { table: "leistungen", column: "projekt_id" },
-      { table: "leistungen", column: "project_id" },
-      { table: "leistung", column: "projekt_id" },
-      { table: "leistung", column: "project_id" },
-      { table: "produktivitaet", column: "projekt_id" },
-      { table: "productivity", column: "project_id" },
-      { table: "projekt_leistung", column: "projekt_id" },
-    ]);
-
-    const regieData = await loadRows([
-      { table: "regie", column: "projekt_id" },
-      { table: "regie", column: "project_id" },
-      { table: "regiearbeiten", column: "projekt_id" },
-      { table: "projekt_regie", column: "projekt_id" },
-      { table: "zusatzarbeiten", column: "projekt_id" },
-      { table: "extra_work", column: "project_id" },
-    ]);
-
-    const regieFotoData = await loadRegieFotos();
-
-    setArbeitszeiten(arbeitszeitData);
-    setLeistungen(leistungData);
-    setRegieRows(regieData);
-    setRegieFotos(regieFotoData);
+    await loadArbeitszeiten(workerName, dateValue);
+    await loadLeistungen(workerName, dateValue);
+    await loadRegie(workerName, dateValue);
+    await loadFotos(workerName, dateValue);
 
     setLoading(false);
   }
@@ -332,844 +324,303 @@ export default function RadnikProjektMobilePage() {
     setProjekt(null);
   }
 
-  async function loadRows(configs: TableConfig[]) {
-    for (const config of configs) {
-      const { data, error } = await supabase
-        .from(config.table)
-        .select("*")
-        .eq(config.column, projektIdValue);
+  async function loadArbeitszeiten(workerName: string, dateValue: string) {
+    const { data, error } = await supabase
+      .from("arbeitszeiten")
+      .select("*")
+      .eq("projekt_id", String(projektId))
+      .eq("datum", dateValue)
+      .order("created_at", { ascending: false });
 
-      if (!error) {
-        return data || [];
-      }
-    }
-
-    return [];
-  }
-
-  async function loadRegieFotos() {
-    const configs = [
-      { column: "projekt_id", value: String(projektId) },
-      { column: "project_id", value: String(projektId) },
-      { column: "baustelle_id", value: String(projektId) },
-    ];
-
-    for (const config of configs) {
-      const { data, error } = await supabase
-        .from("regie_fotos")
-        .select("*")
-        .eq(config.column, config.value);
-
-      if (!error) {
-        return data || [];
-      }
-    }
-
-    return [];
-  }
-
-  async function insertFirstWorking(
-    configs: TableConfig[],
-    buildPayloads: (config: TableConfig) => any[]
-  ) {
-    let lastError: any = null;
-
-    for (const config of configs) {
-      const payloads = buildPayloads(config);
-
-      for (const payload of payloads) {
-        const { error } = await supabase.from(config.table).insert(payload as any);
-
-        if (!error) {
-          return true;
-        }
-
-        lastError = error;
-      }
-    }
-
-    throw new Error(lastError?.message || "Spremanje nije uspjelo.");
-  }
-
-  async function insertFirstWorkingReturnRow(
-    configs: TableConfig[],
-    buildPayloads: (config: TableConfig) => any[]
-  ) {
-    let lastError: any = null;
-
-    for (const config of configs) {
-      const payloads = buildPayloads(config);
-
-      for (const payload of payloads) {
-        const { data, error } = await supabase
-          .from(config.table)
-          .insert(payload as any)
-          .select("*")
-          .maybeSingle();
-
-        if (!error) {
-          return data;
-        }
-
-        lastError = error;
-      }
-    }
-
-    throw new Error(lastError?.message || "Spremanje nije uspjelo.");
-  }
-
-  function saveWorkerName(value: string) {
-    setWorker(value);
-    localStorage.setItem("workerName", value);
-    localStorage.setItem("radnik", value);
-  }
-
-  const todayArbeitszeit = useMemo(() => {
-    return arbeitszeiten.filter((row) => {
-      return (
-        String(getDate(row)) === String(datum) &&
-        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase()
-      );
-    });
-  }, [arbeitszeiten, datum, worker]);
-
-  const todayLeistung = useMemo(() => {
-    return leistungen.filter((row) => {
-      return (
-        String(getDate(row)) === String(datum) &&
-        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase()
-      );
-    });
-  }, [leistungen, datum, worker]);
-
-  const todayRegie = useMemo(() => {
-    return regieRows.filter((row) => {
-      return (
-        String(getDate(row)) === String(datum) &&
-        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase()
-      );
-    });
-  }, [regieRows, datum, worker]);
-
-  const todayHours = useMemo(() => {
-    return todayArbeitszeit.reduce((sum, row) => sum + getHours(row), 0);
-  }, [todayArbeitszeit]);
-
-  function arbeitszeitDuplicate() {
-    return arbeitszeiten.some((row) => {
-      return (
-        String(getDate(row)) === String(datum) &&
-        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase() &&
-        String(getStart(row)) === String(startTime) &&
-        String(getEnd(row)) === String(endTime)
-      );
-    });
-  }
-
-  async function saveArbeitszeit() {
-    if (saving) return;
-
-    if (!worker.trim()) {
-      alert("Odaberi radnika.");
+    if (error) {
+      setArbeitszeiten([]);
       return;
     }
 
-    if (arbeitszeitDuplicate()) {
-      alert("Ovaj unos vremena već postoji. Dupli unos nije dodan.");
-      return;
-    }
+    const w = String(workerName || "").toLowerCase();
 
-    setSaving(true);
-    setMessage("");
-    setErrorText("");
-
-    const hours = calculateHours(startTime, endTime, pauseMinuten);
-
-    try {
-      await insertFirstWorking(
-        [
-          { table: "arbeitszeiten", column: "projekt_id" },
-          { table: "arbeitszeiten", column: "project_id" },
-          { table: "arbeitszeiten", column: "baustelle_id" },
-          { table: "arbeitszeit", column: "projekt_id" },
-          { table: "arbeitszeit", column: "project_id" },
-          { table: "stunden", column: "projekt_id" },
-        ],
-        (config) => {
-          const base: any = {};
-          base[config.column] = projektIdValue;
-
-          return [
-            {
-              ...base,
-              datum,
-              radnik: worker.trim(),
-              start_time: startTime,
-              end_time: endTime,
-              pause_minuten: Number(pauseMinuten || 0),
-              stunden: hours,
-              notiz: zeitNotiz.trim(),
-              status: "Wartet",
-            },
-            {
-              ...base,
-              date: datum,
-              worker: worker.trim(),
-              start: startTime,
-              end: endTime,
-              break_minutes: Number(pauseMinuten || 0),
-              hours,
-              note: zeitNotiz.trim(),
-              status: "Wartet",
-            },
-            {
-              ...base,
-              datum,
-              arbeiter: worker.trim(),
-              von: startTime,
-              bis: endTime,
-              pause: Number(pauseMinuten || 0),
-              stunden: hours,
-              bemerkung: zeitNotiz.trim(),
-            },
-            {
-              ...base,
-              datum,
-              name: worker.trim(),
-              stunden: hours,
-            },
-          ];
-        }
-      );
-
-      setMessage("Arbeitszeit je spremljen. / Radno vrijeme je spremljeno.");
-      setZeitNotiz("");
-      await loadAll();
-    } catch (err: any) {
-      setErrorText("Greška kod Arbeitszeit: " + (err?.message || ""));
-    }
-
-    setSaving(false);
+    setArbeitszeiten(
+      (data || []).filter((row: any) => {
+        return !w || String(getWorker(row)).toLowerCase() === w;
+      })
+    );
   }
 
-  function leistungDuplicate() {
-    return leistungen.some((row) => {
-      return (
-        String(getDate(row)) === String(datum) &&
-        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase() &&
-        String(getTitle(row)).toLowerCase() === String(leistungTitel).toLowerCase() &&
-        toNumber(getQuantity(row)) === toNumber(leistungMenge)
-      );
-    });
+  async function loadLeistungen(workerName: string, dateValue: string) {
+    const { data, error } = await supabase
+      .from("leistungen")
+      .select("*")
+      .eq("projekt_id", String(projektId))
+      .eq("datum", dateValue)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setLeistungen([]);
+      return;
+    }
+
+    const w = String(workerName || "").toLowerCase();
+
+    setLeistungen(
+      (data || []).filter((row: any) => {
+        return !w || String(getWorker(row)).toLowerCase() === w;
+      })
+    );
   }
 
-  async function saveLeistung() {
-    if (saving) return;
+  async function loadRegie(workerName: string, dateValue: string) {
+    const { data, error } = await supabase
+      .from("regie")
+      .select("*")
+      .eq("projekt_id", String(projektId))
+      .eq("datum", dateValue)
+      .order("created_at", { ascending: false });
 
-    if (!worker.trim()) {
-      alert("Odaberi radnika.");
+    if (error) {
+      setRegieRows([]);
       return;
     }
 
-    if (!leistungTitel.trim()) {
-      alert("Upiši šta je urađeno.");
-      return;
-    }
+    const w = String(workerName || "").toLowerCase();
 
-    if (!leistungMenge.trim()) {
-      alert("Upiši količinu.");
-      return;
-    }
-
-    if (leistungDuplicate()) {
-      alert("Ovaj Leistung unos već postoji. Dupli unos nije dodan.");
-      return;
-    }
-
-    setSaving(true);
-    setMessage("");
-    setErrorText("");
-
-    try {
-      await insertFirstWorking(
-        [
-          { table: "leistungen", column: "projekt_id" },
-          { table: "leistungen", column: "project_id" },
-          { table: "leistung", column: "projekt_id" },
-          { table: "leistung", column: "project_id" },
-          { table: "produktivitaet", column: "projekt_id" },
-          { table: "productivity", column: "project_id" },
-          { table: "projekt_leistung", column: "projekt_id" },
-        ],
-        (config) => {
-          const base: any = {};
-          base[config.column] = projektIdValue;
-
-          const qty = toNumber(leistungMenge);
-
-          return [
-            {
-              ...base,
-              datum,
-              radnik: worker.trim(),
-              titel: leistungTitel.trim(),
-              gruppe: leistungGruppe,
-              menge: qty,
-              einheit: leistungEinheit,
-              notiz: leistungNotiz.trim(),
-              status: "Wartet",
-            },
-            {
-              ...base,
-              date: datum,
-              worker: worker.trim(),
-              title: leistungTitel.trim(),
-              category: leistungGruppe,
-              quantity: qty,
-              unit: leistungEinheit,
-              note: leistungNotiz.trim(),
-              status: "Wartet",
-            },
-            {
-              ...base,
-              datum,
-              arbeiter: worker.trim(),
-              leistung: leistungTitel.trim(),
-              kategorie: leistungGruppe,
-              menge: qty,
-              einheit: leistungEinheit,
-              bemerkung: leistungNotiz.trim(),
-            },
-            {
-              ...base,
-              datum,
-              name: worker.trim(),
-              title: leistungTitel.trim(),
-              quantity: qty,
-              unit: leistungEinheit,
-            },
-          ];
-        }
-      );
-
-      setMessage("Leistung je spremljen. / Urađeni posao je spremljen.");
-      setLeistungTitel("");
-      setLeistungMenge("");
-      setLeistungNotiz("");
-      await loadAll();
-    } catch (err: any) {
-      setErrorText("Greška kod Leistung: " + (err?.message || ""));
-    }
-
-    setSaving(false);
+    setRegieRows(
+      (data || []).filter((row: any) => {
+        return (
+          !w ||
+          String(row.workers_text || row.worker_names || row.radnik || "")
+            .toLowerCase()
+            .includes(w)
+        );
+      })
+    );
   }
 
-  function regieDuplicate() {
-    return regieRows.some((row) => {
-      return (
-        String(getDate(row)) === String(datum) &&
-        String(getWorker(row)).toLowerCase() === String(worker).toLowerCase() &&
-        String(getTitle(row)).toLowerCase() === String(regieArbeit).toLowerCase()
-      );
-    });
-  }
+  async function loadFotos(workerName: string, dateValue: string) {
+    const { data, error } = await supabase
+      .from("fotos")
+      .select("*")
+      .eq("projekt_id", String(projektId))
+      .eq("datum", dateValue)
+      .order("created_at", { ascending: false });
 
-  async function uploadRegieFotos(savedRegieId: number | string) {
-    if (regieFotoFiles.length === 0) return;
-
-    for (const file of regieFotoFiles) {
-      const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
-      const path = `${projektId}/regie-${savedRegieId}-${Date.now()}-${cleanName}`;
-
-      const buckets = ["regie-fotos", "fotos", "photos"];
-      let publicUrl = "";
-      let usedBucket = "";
-
-      for (const bucket of buckets) {
-        const { error } = await supabase.storage.from(bucket).upload(path, file, {
-          contentType: file.type || "image/jpeg",
-          upsert: true,
-        });
-
-        if (!error) {
-          const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-          publicUrl = data.publicUrl || "";
-          usedBucket = bucket;
-          break;
-        }
-      }
-
-      if (!publicUrl) {
-        continue;
-      }
-
-      const payload = {
-        projekt_id: String(projektId),
-        project_id: String(projektId),
-        baustelle_id: String(projektId),
-        regie_id: String(savedRegieId),
-        titel: regieFotoTitel.trim() || file.name,
-        title: regieFotoTitel.trim() || file.name,
-        beschreibung: regieFotoNotiz.trim(),
-        description: regieFotoNotiz.trim(),
-        notiz: regieFotoNotiz.trim(),
-        note: regieFotoNotiz.trim(),
-        url: publicUrl,
-        image_url: publicUrl,
-        foto_url: publicUrl,
-        photo_url: publicUrl,
-        public_url: publicUrl,
-        bucket: usedBucket,
-        path,
-        file_path: path,
-        storage_path: path,
-      };
-
-      await supabase.from("regie_fotos").insert(payload as any);
-    }
-  }
-
-  async function saveRegie() {
-    if (saving) return;
-
-    if (!worker.trim()) {
-      alert("Odaberi radnika.");
+    if (error) {
+      setFotos([]);
       return;
     }
 
-    if (!regieArbeit.trim()) {
-      alert("Upiši Regie dodatni rad.");
-      return;
-    }
+    const w = String(workerName || "").toLowerCase();
 
-    if (regieDuplicate()) {
-      alert("Ovaj Regie unos već postoji. Dupli unos nije dodan.");
-      return;
-    }
-
-    setSaving(true);
-    setMessage("");
-    setErrorText("");
-
-    const hours = calculateHours(startTime, endTime, pauseMinuten);
-
-    try {
-      const savedRow = await insertFirstWorkingReturnRow(
-        [
-          { table: "regie", column: "projekt_id" },
-          { table: "regie", column: "project_id" },
-          { table: "regiearbeiten", column: "projekt_id" },
-          { table: "projekt_regie", column: "projekt_id" },
-          { table: "zusatzarbeiten", column: "projekt_id" },
-          { table: "extra_work", column: "project_id" },
-        ],
-        (config) => {
-          const base: any = {};
-          base[config.column] = projektIdValue;
-
-          return [
-            {
-              ...base,
-              datum,
-              radnik: worker.trim(),
-              arbeit: regieArbeit.trim(),
-              beschreibung: regieBeschreibung.trim(),
-              start_time: startTime,
-              end_time: endTime,
-              pause_minuten: Number(pauseMinuten || 0),
-              stunden: hours,
-              material: regieMaterial.trim(),
-              status: "Wartet",
-              freigabe_status: "Wartet",
-            },
-            {
-              ...base,
-              date: datum,
-              worker: worker.trim(),
-              title: regieArbeit.trim(),
-              description: regieBeschreibung.trim(),
-              start: startTime,
-              end: endTime,
-              break_minutes: Number(pauseMinuten || 0),
-              hours,
-              material: regieMaterial.trim(),
-              status: "Wartet",
-              approval_status: "Wartet",
-            },
-            {
-              ...base,
-              datum,
-              arbeiter: worker.trim(),
-              regiearbeit: regieArbeit.trim(),
-              arbeiten: regieBeschreibung.trim(),
-              stunden: hours,
-              materialien: regieMaterial.trim(),
-            },
-          ];
-        }
-      );
-
-      if (savedRow?.id && regieFotoFiles.length > 0) {
-        await uploadRegieFotos(savedRow.id);
-      }
-
-      setMessage("Regie je spremljen. / Dodatni rad je spremljen.");
-      setRegieArbeit("");
-      setRegieBeschreibung("");
-      setRegieMaterial("");
-      setRegieFotoTitel("");
-      setRegieFotoNotiz("");
-      setRegieFotoFiles([]);
-      await loadAll();
-    } catch (err: any) {
-      setErrorText("Greška kod Regie: " + (err?.message || ""));
-    }
-
-    setSaving(false);
+    setFotos(
+      (data || []).filter((row: any) => {
+        return !w || String(getWorker(row)).toLowerCase() === w;
+      })
+    );
   }
+
+  const totalHours = useMemo(() => {
+    return arbeitszeiten.reduce((sum, row) => {
+      return sum + toNumber(getHours(row));
+    }, 0);
+  }, [arbeitszeiten]);
 
   return (
     <main className="page">
-      <section className="top">
-        <div>
-          <p className="label">Radnik Mobile / unos radnika</p>
-          <h1>{getProjektName()}</h1>
-          <p className="subtitle">{getProjektOrt() || "Projekt"}</p>
-        </div>
-
-        <Link className="back" href={`/projekte/${projektId}`}>
-          Admin
-        </Link>
+      <section className="hero">
+        <p className="label">{tr("app")}</p>
+        <h1>{getProjektName()}</h1>
+        <p className="subtitle">{getProjektOrt()}</p>
       </section>
 
-      {message && <div className="successBox">{message}</div>}
       {errorText && <div className="errorBox">{errorText}</div>}
 
-      <section className="workerBox">
-        <label>Radnik / Arbeiter</label>
-        <select value={worker} onChange={(e) => saveWorkerName(e.target.value)}>
-          <option value="">Odaberi ime / Name auswählen</option>
-          {RADNICI.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+      <section className="panel">
+        <label>{tr("language")}</label>
 
-        <label>Datum / datum</label>
-        <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} />
-
-        {getProjektInfo() && (
-          <div className="infoBox">
-            <b>Info Baustelle</b>
-            <p>{getProjektInfo()}</p>
-          </div>
-        )}
-
-        {getGoogleLocation() && (
-          <a className="mapBtn" href={getGoogleLocation()} target="_blank" rel="noreferrer">
-            📍 Google Standort öffnen / Otvori lokaciju
-          </a>
-        )}
-      </section>
-
-      <section className="stats">
-        <div>
-          <span>Danas sati</span>
-          <strong>{formatHours(todayHours)}</strong>
-        </div>
-
-        <div>
-          <span>Leistung</span>
-          <strong>{todayLeistung.length}</strong>
-        </div>
-
-        <div>
-          <span>Regie</span>
-          <strong>{todayRegie.length}</strong>
-        </div>
-      </section>
-
-      <section className="card">
-        <h2>Arbeitszeit</h2>
-        <p className="translate">Radno vrijeme</p>
-        <p className="hint">Standard je 08:00 - 17:00 sa 30 min pauze.</p>
-
-        <div className="timeGrid">
-          <div>
-            <label>Von / od</label>
-            <input
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label>Bis / do</label>
-            <input
-              type="time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label>Pause / pauza</label>
-            <input
-              type="number"
-              value={pauseMinuten}
-              onChange={(e) => setPauseMinuten(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="preview">
-          Stunden / sati:{" "}
-          <strong>
-            {formatHours(calculateHours(startTime, endTime, pauseMinuten))}
-          </strong>
-        </div>
-
-        <label>Notiz / napomena</label>
-        <textarea
-          value={zeitNotiz}
-          onChange={(e) => setZeitNotiz(e.target.value)}
-          placeholder="Napomena za vrijeme"
-        />
-
-        <button className="saveBtn" onClick={saveArbeitszeit} disabled={saving}>
-          {saving ? "Speichern..." : "Arbeitszeit speichern / Spremi radno vrijeme"}
-        </button>
-      </section>
-
-      <section className="card">
-        <h2>Leistung</h2>
-        <p className="translate">Urađeni posao</p>
-
-        <div className="quickGrid">
-          {[
-            "Fliesen verlegt",
-            "Abdichtung gemacht",
-            "Verfugt",
-            "Silikon gemacht",
-          ].map((text) => (
-            <button key={text} onClick={() => setLeistungTitel(text)}>
-              {text}
+        <div className="langGrid">
+          {(["de", "ba", "en", "uz"] as Lang[]).map((x) => (
+            <button
+              key={x}
+              className={lang === x ? "active" : ""}
+              onClick={() => changeLang(x)}
+              type="button"
+            >
+              {x.toUpperCase()}
             </button>
           ))}
         </div>
 
-        <label>Was wurde gemacht? / Šta je urađeno?</label>
+        <label>{tr("worker")}</label>
+
+        <select value={worker} onChange={(e) => changeWorker(e.target.value)}>
+          <option value="">{tr("selectWorker")}</option>
+
+          {WORKERS.map((x) => (
+            <option key={x} value={x}>
+              {x}
+            </option>
+          ))}
+        </select>
+
+        <label>{tr("date")}</label>
+
         <input
-          value={leistungTitel}
-          onChange={(e) => setLeistungTitel(e.target.value)}
-          placeholder="z.B. Fliesen verlegt"
+          type="date"
+          value={datum}
+          onChange={(e) => changeDatum(e.target.value)}
         />
 
-        <div className="threeGrid">
-          <div>
-            <label>Menge / količina</label>
-            <input
-              value={leistungMenge}
-              onChange={(e) => setLeistungMenge(e.target.value)}
-              inputMode="decimal"
-              placeholder="25"
-            />
+        {getInfo() && (
+          <div className="infoBox">
+            <b>{tr("siteInfo")}</b>
+            <p>{getInfo()}</p>
           </div>
+        )}
 
-          <div>
-            <label>Einheit / jedinica</label>
-            <select
-              value={leistungEinheit}
-              onChange={(e) => setLeistungEinheit(e.target.value)}
-            >
-              {EINHEITEN.map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label>Gruppe / grupa</label>
-            <select
-              value={leistungGruppe}
-              onChange={(e) => setLeistungGruppe(e.target.value)}
-            >
-              {GRUPPEN.map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <label>Notiz / napomena</label>
-        <textarea
-          value={leistungNotiz}
-          onChange={(e) => setLeistungNotiz(e.target.value)}
-          placeholder="Napomena za Leistung"
-        />
-
-        <button className="saveBtn" onClick={saveLeistung} disabled={saving}>
-          {saving ? "Speichern..." : "Leistung speichern / Spremi urađeni posao"}
-        </button>
+        {getMapUrl() && (
+          <a
+            className="mapBtn"
+            href={getMapUrl()}
+            target="_blank"
+            rel="noreferrer"
+          >
+            📍 {tr("location")}
+          </a>
+        )}
       </section>
 
-      <section className="card">
-        <h2>Regie / Zusatzarbeit</h2>
-        <p className="translate">Dodatni rad</p>
-        <p className="hint">
-          Ovdje se unosi dodatni rad koji nije u osnovnom dogovoru. Bez cijene.
-        </p>
+      {!worker && <div className="warningBox">{tr("chooseWorkerWarning")}</div>}
 
-        <div className="quickGrid">
-          {["Zusatzarbeit", "Wartezeit", "Mangel beheben", "Transport"].map(
-            (text) => (
-              <button key={text} onClick={() => setRegieArbeit(text)}>
-                {text}
-              </button>
-            )
-          )}
-        </div>
-
-        <label>Regie Arbeit / dodatni rad</label>
-        <input
-          value={regieArbeit}
-          onChange={(e) => setRegieArbeit(e.target.value)}
-          placeholder="z.B. Zusatzarbeit"
-        />
-
-        <label>Beschreibung / opis</label>
-        <textarea
-          value={regieBeschreibung}
-          onChange={(e) => setRegieBeschreibung(e.target.value)}
-          placeholder="Opis dodatnog rada"
-        />
-
-        <label>Material / materijal</label>
-        <textarea
-          value={regieMaterial}
-          onChange={(e) => setRegieMaterial(e.target.value)}
-          placeholder="Ako ima materijala, upiši ovdje"
-        />
-
-        <section className="fotoBox">
-          <h3>Fotos hinzufügen</h3>
-          <p>Dodaj slike za ovaj Regie dodatni rad.</p>
-
-          <label>Foto Titel / naziv slike</label>
-          <input
-            value={regieFotoTitel}
-            onChange={(e) => setRegieFotoTitel(e.target.value)}
-            placeholder="z.B. Vorher / Nachher"
-          />
-
-          <label>Foto Notiz / opis slike</label>
-          <textarea
-            value={regieFotoNotiz}
-            onChange={(e) => setRegieFotoNotiz(e.target.value)}
-            placeholder="Kratak opis slika"
-          />
-
-          <label>Slike / Fotos</label>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            capture="environment"
-            onChange={(e) => setRegieFotoFiles(Array.from(e.target.files || []))}
-          />
-
-          {regieFotoFiles.length > 0 && (
-            <div className="selectedFiles">
-              {regieFotoFiles.map((file) => (
-                <span key={`${file.name}-${file.size}`}>{file.name}</span>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <button className="saveBtn orange" onClick={saveRegie} disabled={saving}>
-          {saving ? "Speichern..." : "Regie speichern / Spremi dodatni rad"}
-        </button>
+      <section className="controlBox">
+        <h2>{tr("control")}</h2>
+        <p>{tr("controlText")}</p>
       </section>
 
-      <section className="photoBox">
-        <h2>Fotos</h2>
-        <p>Za opšte slike projekta otvori Foto modul projekta.</p>
+      <section className="menuGrid">
+        <Link href={`/projekte/radnik/${projektId}/arbeitszeit`}>
+          <strong>⏱️</strong>
+          <span>{tr("workTime")}</span>
+        </Link>
 
-        <Link href={`/projekte/${projektId}/fotos`}>📸 Fotos öffnen / Otvori slike</Link>
+        <Link href={`/projekte/radnik/${projektId}/leistung`}>
+          <strong>📐</strong>
+          <span>{tr("performance")}</span>
+        </Link>
+
+        <Link href={`/projekte/radnik/${projektId}/regie`}>
+          <strong>📝</strong>
+          <span>{tr("regie")}</span>
+        </Link>
+
+        <Link href={`/projekte/radnik/${projektId}/fotos`}>
+          <strong>📸</strong>
+          <span>{tr("photos")}</span>
+        </Link>
       </section>
 
       <section className="todayBox">
-        <h2>Današnji unosi</h2>
+        <div className="todayTop">
+          <h2>{tr("todayEntries")}</h2>
+          <button onClick={() => loadAll(worker, datum)} type="button">
+            {loading ? "..." : "↻"}
+          </button>
+        </div>
 
-        {loading ? (
-          <p>Učitavanje...</p>
-        ) : todayArbeitszeit.length === 0 &&
-          todayLeistung.length === 0 &&
-          todayRegie.length === 0 ? (
-          <p>Nema unosa za ovaj dan.</p>
+        <div className="stats">
+          <div>
+            <span>{tr("hours")}</span>
+            <strong>{formatHours(totalHours)}</strong>
+          </div>
+
+          <div>
+            <span>{tr("performance")}</span>
+            <strong>{leistungen.length}</strong>
+          </div>
+
+          <div>
+            <span>{tr("regie")}</span>
+            <strong>{regieRows.length}</strong>
+          </div>
+
+          <div>
+            <span>{tr("photos")}</span>
+            <strong>{fotos.length}</strong>
+          </div>
+        </div>
+
+        {!loading &&
+        arbeitszeiten.length === 0 &&
+        leistungen.length === 0 &&
+        regieRows.length === 0 &&
+        fotos.length === 0 ? (
+          <p className="empty">{tr("noEntries")}</p>
         ) : (
-          <div className="todayList">
-            {todayArbeitszeit.map((row) => (
-              <div key={`zeit-${row.id}`}>
-                <b>Arbeitszeit / radno vrijeme</b>
+          <div className="entryList">
+            {arbeitszeiten.map((row: any) => (
+              <div key={`a-${row.id}`}>
+                <b>{tr("workTime")}</b>
+
                 <span>
-                  {getStart(row)} - {getEnd(row)} · {formatHours(getHours(row))}
+                  {row.start_time || row.start || "-"} -{" "}
+                  {row.end_time || row.end || "-"} · {formatHours(getHours(row))}
                 </span>
-                {getNote(row) && <p>{getNote(row)}</p>}
+
+                <small>
+                  {tr("room")}: {row.raum_name || row.room_name || "-"} ·{" "}
+                  {tr("position")}: {row.position_nr || row.lv_nr || "-"}
+                </small>
               </div>
             ))}
 
-            {todayLeistung.map((row) => (
-              <div key={`leistung-${row.id}`}>
-                <b>Leistung / urađeni posao</b>
+            {leistungen.map((row: any) => (
+              <div key={`l-${row.id}`}>
+                <b>{tr("performance")}</b>
+
                 <span>
-                  {getTitle(row)} · {formatNumber(getQuantity(row))} {getUnit(row)}
+                  {getLeistungTitle(row)} · {row.menge || row.quantity || 0}{" "}
+                  {row.einheit || row.unit || ""}
                 </span>
-                {getNote(row) && <p>{getNote(row)}</p>}
+
+                <small>
+                  {tr("room")}: {row.raum_name || row.room_name || "-"} ·{" "}
+                  {tr("position")}: {row.position_nr || row.lv_nr || "-"}
+                </small>
               </div>
             ))}
 
-            {todayRegie.map((row) => {
-              const fotos = getFotosForRegie(row.id);
+            {regieRows.map((row: any) => (
+              <div key={`r-${row.id}`}>
+                <b>{tr("regie")}</b>
 
-              return (
-                <div key={`regie-${row.id}`}>
-                  <b>Regie / dodatni rad</b>
-                  <span>
-                    {getTitle(row)} · {formatHours(getHours(row))}
-                  </span>
+                <span>
+                  {getRegieTitle(row)} · {formatHours(row.stunden || row.hours)}
+                </span>
 
-                  {getDescription(row) && <p>{getDescription(row)}</p>}
-                  {getMaterial(row) && <p>Material: {getMaterial(row)}</p>}
+                <small>
+                  {row.locked ? tr("signed") : tr("waiting")} ·{" "}
+                  {row.workers_text || row.worker_names || row.radnik || "-"}
+                </small>
 
-                  {fotos.length > 0 && (
-                    <div className="miniPhotos">
-                      {fotos.slice(0, 4).map((foto) => (
-                        <img
-                          key={foto.id}
-                          src={getFotoUrl(foto)}
-                          alt={getFotoTitle(foto)}
-                        />
-                      ))}
-                    </div>
-                  )}
-
+                {row.public_token && (
                   <Link
-                    className="scheinLink"
-                    href={`/projekte/${projektId}/regie/${row.id}/schein`}
+                    className="miniLink"
+                    href={`/projekte/${projektId}/regie/sign/${row.public_token}`}
                   >
-                    📄 Regieschein öffnen
+                    {tr("open")}
                   </Link>
-                </div>
-              );
-            })}
+                )}
+              </div>
+            ))}
+
+            {fotos.slice(0, 6).map((row: any) => (
+              <div key={`f-${row.id}`}>
+                <b>{tr("photos")}</b>
+                <span>{row.titel || row.title || "Foto"}</span>
+                <small>
+                  {tr("room")}: {row.raum_name || row.room_name || "-"} ·{" "}
+                  {tr("position")}: {row.position_nr || row.lv_nr || "-"}
+                </small>
+              </div>
+            ))}
           </div>
         )}
       </section>
@@ -1183,16 +634,24 @@ export default function RadnikProjektMobilePage() {
           font-family: Arial, sans-serif;
         }
 
-        .top {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-          align-items: flex-start;
+        .hero,
+        .panel,
+        .controlBox,
+        .todayBox,
+        .menuGrid,
+        .warningBox,
+        .errorBox {
+          max-width: 980px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        .hero {
           margin-bottom: 16px;
         }
 
         .label {
-          color: #9ca3af;
+          color: #93c5fd;
           margin: 0 0 6px;
           font-weight: 900;
           font-size: 13px;
@@ -1200,7 +659,7 @@ export default function RadnikProjektMobilePage() {
 
         h1 {
           margin: 0;
-          font-size: 30px;
+          font-size: 32px;
           line-height: 1.05;
         }
 
@@ -1210,27 +669,14 @@ export default function RadnikProjektMobilePage() {
           font-weight: 700;
         }
 
-        .back {
-          background: #374151;
-          color: white;
-          text-decoration: none;
-          border-radius: 14px;
-          padding: 12px 14px;
-          font-weight: 900;
-          white-space: nowrap;
-        }
-
-        button,
-        a,
-        input,
-        textarea,
-        select {
-          font-family: inherit;
-        }
-
-        button,
-        a {
-          -webkit-tap-highlight-color: transparent;
+        .panel,
+        .controlBox,
+        .todayBox {
+          background: #111827;
+          border: 1px solid #1f2937;
+          border-radius: 20px;
+          padding: 16px;
+          margin-bottom: 16px;
         }
 
         label {
@@ -1240,9 +686,8 @@ export default function RadnikProjektMobilePage() {
           margin: 14px 0 7px;
         }
 
-        input,
-        textarea,
-        select {
+        select,
+        input {
           width: 100%;
           box-sizing: border-box;
           background: #030712;
@@ -1254,42 +699,24 @@ export default function RadnikProjektMobilePage() {
           outline: none;
         }
 
-        textarea {
-          min-height: 88px;
-          resize: vertical;
-          line-height: 1.45;
+        .langGrid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 10px;
         }
 
-        .workerBox,
-        .card,
-        .photoBox,
-        .todayBox {
-          background: #111827;
-          border: 1px solid #1f2937;
-          border-radius: 20px;
-          padding: 16px;
-          margin-bottom: 16px;
-        }
-
-        .card h2,
-        .photoBox h2,
-        .todayBox h2 {
-          margin: 0 0 4px;
-          font-size: 24px;
-        }
-
-        .translate {
-          margin: 0 0 10px;
-          color: #93c5fd;
+        .langGrid button {
+          background: #1f2937;
+          color: white;
+          border: 1px solid #374151;
+          border-radius: 14px;
+          padding: 14px;
           font-weight: 900;
         }
 
-        .hint,
-        .photoBox p,
-        .todayBox p {
-          color: #cbd5e1;
-          margin: 0 0 12px;
-          line-height: 1.45;
+        .langGrid .active {
+          background: #2563eb;
+          border-color: #60a5fa;
         }
 
         .infoBox {
@@ -1306,7 +733,8 @@ export default function RadnikProjektMobilePage() {
           margin-bottom: 6px;
         }
 
-        .infoBox p {
+        .infoBox p,
+        .controlBox p {
           color: #cbd5e1;
           margin: 0;
           line-height: 1.45;
@@ -1326,24 +754,86 @@ export default function RadnikProjektMobilePage() {
           margin-top: 14px;
         }
 
-        .stats {
+        .warningBox {
+          background: #78350f;
+          border: 1px solid #f59e0b;
+          color: #fed7aa;
+          padding: 14px;
+          border-radius: 14px;
+          margin-bottom: 16px;
+          font-weight: 900;
+        }
+
+        .menuGrid {
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 10px;
+          grid-template-columns: 1fr;
+          gap: 12px;
           margin-bottom: 16px;
         }
 
-        .stats div {
+        .menuGrid a {
           background: #111827;
           border: 1px solid #1f2937;
-          border-radius: 16px;
-          padding: 14px;
+          border-radius: 20px;
+          min-height: 110px;
+          color: white;
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .menuGrid strong {
+          font-size: 36px;
+        }
+
+        .menuGrid span {
+          font-size: 21px;
+          font-weight: 900;
+          text-align: center;
+        }
+
+        .todayTop {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .todayTop h2,
+        .controlBox h2 {
+          margin: 0 0 10px;
+        }
+
+        .todayTop button {
+          background: #2563eb;
+          color: white;
+          border: 0;
+          border-radius: 12px;
+          padding: 10px 14px;
+          font-weight: 900;
+        }
+
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+
+        .stats div {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          padding: 12px;
         }
 
         .stats span {
           display: block;
           color: #9ca3af;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 900;
           margin-bottom: 6px;
         }
@@ -1352,175 +842,51 @@ export default function RadnikProjektMobilePage() {
           font-size: 22px;
         }
 
-        .timeGrid,
-        .threeGrid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 0;
-        }
-
-        .quickGrid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-          margin-bottom: 12px;
-        }
-
-        .quickGrid button {
-          background: #1f2937;
-          color: white;
-          border: 1px solid #374151;
-          border-radius: 14px;
-          padding: 13px;
-          font-weight: 900;
-          font-size: 14px;
-        }
-
-        .preview {
-          margin-top: 14px;
-          background: #0b1220;
-          border: 1px solid #1f2937;
-          border-radius: 14px;
-          padding: 14px;
+        .empty {
           color: #cbd5e1;
-          font-weight: 900;
-        }
-
-        .preview strong {
-          color: #bbf7d0;
-          font-size: 22px;
-        }
-
-        .saveBtn {
-          width: 100%;
-          margin-top: 14px;
-          background: #2563eb;
-          color: white;
-          border: 0;
-          border-radius: 16px;
-          padding: 17px;
-          font-size: 17px;
-          font-weight: 900;
-        }
-
-        .saveBtn.orange {
-          background: #ea580c;
-        }
-
-        .saveBtn:disabled {
-          opacity: 0.6;
-        }
-
-        .fotoBox {
-          margin-top: 16px;
-          background: #0b1220;
-          border: 1px solid #1f2937;
-          border-radius: 18px;
-          padding: 14px;
-        }
-
-        .fotoBox h3 {
-          margin: 0 0 6px;
-          font-size: 20px;
-        }
-
-        .fotoBox p {
-          margin: 0 0 10px;
-          color: #cbd5e1;
-        }
-
-        .selectedFiles {
-          display: grid;
-          gap: 8px;
-          margin-top: 12px;
-        }
-
-        .selectedFiles span {
-          background: #111827;
-          border: 1px solid #374151;
-          color: #e5e7eb;
-          border-radius: 12px;
-          padding: 10px;
-          font-size: 13px;
           font-weight: 800;
         }
 
-        .photoBox a {
-          display: block;
-          background: #15803d;
-          color: white;
-          text-decoration: none;
-          border-radius: 16px;
-          padding: 16px;
-          text-align: center;
-          font-size: 17px;
-          font-weight: 900;
-        }
-
-        .todayList {
+        .entryList {
           display: grid;
           gap: 10px;
         }
 
-        .todayList > div {
+        .entryList > div {
           background: #0b1220;
           border: 1px solid #1f2937;
           border-radius: 14px;
           padding: 13px;
         }
 
-        .todayList b {
+        .entryList b {
           display: block;
           color: #93c5fd;
           margin-bottom: 6px;
         }
 
-        .todayList span {
+        .entryList span,
+        .entryList small {
           display: block;
           color: white;
           font-weight: 800;
+          margin-top: 4px;
         }
 
-        .todayList p {
-          margin: 8px 0 0;
+        .entryList small {
           color: #cbd5e1;
+          font-weight: 700;
         }
 
-        .miniPhotos {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 8px;
+        .miniLink {
           margin-top: 10px;
-        }
-
-        .miniPhotos img {
-          width: 100%;
-          height: 110px;
-          object-fit: cover;
-          border-radius: 12px;
-          border: 1px solid #374151;
-        }
-
-        .scheinLink {
-          display: block;
-          margin-top: 10px;
-          background: #2563eb;
+          background: #15803d;
           color: white;
-          text-align: center;
           text-decoration: none;
           border-radius: 12px;
-          padding: 12px;
+          padding: 10px 12px;
           font-weight: 900;
-        }
-
-        .successBox {
-          background: #064e3b;
-          border: 1px solid #16a34a;
-          color: white;
-          padding: 14px;
-          border-radius: 14px;
-          margin-bottom: 16px;
-          font-weight: 900;
+          display: inline-block;
         }
 
         .errorBox {
@@ -1533,41 +899,16 @@ export default function RadnikProjektMobilePage() {
           font-weight: 900;
         }
 
-        @media (min-width: 760px) {
+        @media (min-width: 780px) {
           .page {
             padding: 28px;
           }
 
-          .top {
-            max-width: 880px;
-            margin: 0 auto 18px;
-          }
-
-          .workerBox,
-          .card,
-          .photoBox,
-          .todayBox,
-          .stats {
-            max-width: 880px;
-            margin-left: auto;
-            margin-right: auto;
-          }
-
-          .timeGrid {
-            grid-template-columns: 1fr 1fr 130px;
-            gap: 12px;
-          }
-
-          .threeGrid {
-            grid-template-columns: 1fr 150px 1fr;
-            gap: 12px;
-          }
-
-          .quickGrid {
+          .menuGrid {
             grid-template-columns: repeat(4, 1fr);
           }
 
-          .miniPhotos {
+          .stats {
             grid-template-columns: repeat(4, 1fr);
           }
         }
