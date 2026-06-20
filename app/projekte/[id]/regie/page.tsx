@@ -36,7 +36,6 @@ type RegieForm = {
   pause_minuten: string;
   stunden: string;
   material: string;
-  preis: string;
   status: string;
   freigabe_status: string;
   notiz: string;
@@ -61,6 +60,7 @@ export default function ProjektRegiePage() {
 
   const [projekt, setProjekt] = useState<Projekt | null>(null);
   const [regieRows, setRegieRows] = useState<any[]>([]);
+  const [regieFotos, setRegieFotos] = useState<any[]>([]);
   const [errorText, setErrorText] = useState("");
 
   const [regieConfig, setRegieConfig] = useState<TableConfig>({
@@ -76,6 +76,10 @@ export default function ProjektRegiePage() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | string | null>(null);
 
+  const [fotoFiles, setFotoFiles] = useState<File[]>([]);
+  const [fotoTitel, setFotoTitel] = useState("");
+  const [fotoNotiz, setFotoNotiz] = useState("");
+
   const [form, setForm] = useState<RegieForm>({
     datum: today(),
     radnik: "",
@@ -86,7 +90,6 @@ export default function ProjektRegiePage() {
     pause_minuten: "30",
     stunden: "",
     material: "",
-    preis: "",
     status: "Offen",
     freigabe_status: "Wartet",
     notiz: "",
@@ -112,11 +115,6 @@ export default function ProjektRegiePage() {
   function formatHours(value: any) {
     const n = toNumber(value);
     return n.toFixed(2).replace(".", ",") + " h";
-  }
-
-  function formatMoney(value: any) {
-    const n = toNumber(value);
-    return n.toFixed(2).replace(".", ",") + " €";
   }
 
   function getProjektName() {
@@ -197,10 +195,6 @@ export default function ProjektRegiePage() {
     return row.material || row.materialien || row.material_text || "";
   }
 
-  function getPrice(row: any) {
-    return row.preis || row.price || row.betrag || row.amount || row.kosten || "";
-  }
-
   function getStatus(row: any) {
     return row.status || "Offen";
   }
@@ -221,6 +215,33 @@ export default function ProjektRegiePage() {
 
   function getNote(row: any) {
     return row.notiz || row.note || row.bemerkung || row.info || "";
+  }
+
+  function getFotoUrl(row: any) {
+    return (
+      row.url ||
+      row.image_url ||
+      row.foto_url ||
+      row.photo_url ||
+      row.public_url ||
+      ""
+    );
+  }
+
+  function getFotoTitle(row: any) {
+    return row.titel || row.title || row.name || "Regie Foto";
+  }
+
+  function getFotoText(row: any) {
+    return row.beschreibung || row.description || row.notiz || row.note || "";
+  }
+
+  function getFotosForRegie(regieIdValueLocal: any) {
+    return regieFotos
+      .filter((foto) => String(foto.regie_id) === String(regieIdValueLocal))
+      .sort((a, b) => {
+        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+      });
   }
 
   function isSigned(row: any) {
@@ -270,6 +291,10 @@ export default function ProjektRegiePage() {
 
   function resetForm() {
     setEditId(null);
+    setFotoFiles([]);
+    setFotoTitel("");
+    setFotoNotiz("");
+
     setForm({
       datum: today(),
       radnik: "",
@@ -280,7 +305,6 @@ export default function ProjektRegiePage() {
       pause_minuten: "30",
       stunden: "",
       material: "",
-      preis: "",
       status: "Offen",
       freigabe_status: "Wartet",
       notiz: "",
@@ -293,6 +317,7 @@ export default function ProjektRegiePage() {
 
     await loadProjekt();
     await loadRegie();
+    await loadRegieFotos();
 
     setLoading(false);
   }
@@ -360,8 +385,34 @@ export default function ProjektRegiePage() {
     setErrorText("Ne mogu učitati Regie. Provjeri tabelu regie i kolonu projekt_id.");
   }
 
+  async function loadRegieFotos() {
+    const configs = [
+      { column: "projekt_id", value: String(projektId) },
+      { column: "project_id", value: String(projektId) },
+      { column: "baustelle_id", value: String(projektId) },
+    ];
+
+    for (const config of configs) {
+      const { data, error } = await supabase
+        .from("regie_fotos")
+        .select("*")
+        .eq(config.column, config.value);
+
+      if (!error) {
+        setRegieFotos(data || []);
+        return;
+      }
+    }
+
+    setRegieFotos([]);
+  }
+
   const filtered = useMemo(() => {
     return regieRows.filter((row) => {
+      const fotoText = getFotosForRegie(row.id)
+        .map((foto) => `${getFotoTitle(foto)} ${getFotoText(foto)}`)
+        .join(" ");
+
       const text = `
         ${getDate(row)}
         ${getWorker(row)}
@@ -371,10 +422,10 @@ export default function ProjektRegiePage() {
         ${getEnd(row)}
         ${getHours(row)}
         ${getMaterial(row)}
-        ${getPrice(row)}
         ${getStatus(row)}
         ${getFreigabeStatus(row)}
         ${getNote(row)}
+        ${fotoText}
       `.toLowerCase();
 
       const searchOk = text.includes(search.toLowerCase());
@@ -385,19 +436,21 @@ export default function ProjektRegiePage() {
 
       return searchOk && workerOk && statusOk && freigabeOk;
     });
-  }, [regieRows, search, filterRadnik, filterStatus, filterFreigabe]);
+  }, [regieRows, regieFotos, search, filterRadnik, filterStatus, filterFreigabe]);
 
   const totalHours = useMemo(() => {
     return filtered.reduce((sum, row) => sum + getHours(row), 0);
   }, [filtered]);
 
-  const totalMoney = useMemo(() => {
-    return filtered.reduce((sum, row) => sum + toNumber(getPrice(row)), 0);
-  }, [filtered]);
-
   const signedCount = useMemo(() => {
     return filtered.filter((row) => isSigned(row)).length;
   }, [filtered]);
+
+  const fotoCount = useMemo(() => {
+    return filtered.reduce((sum, row) => {
+      return sum + getFotosForRegie(row.id).length;
+    }, 0);
+  }, [filtered, regieFotos]);
 
   const workerTotals = useMemo(() => {
     const result: { [key: string]: { worker: string; hours: number; count: number } } =
@@ -440,7 +493,6 @@ export default function ProjektRegiePage() {
     base[regieConfig.column] = projektIdValue;
 
     const hours = getFormHours();
-    const price = toNumber(values.preis);
 
     return [
       {
@@ -454,7 +506,6 @@ export default function ProjektRegiePage() {
         pause_minuten: Number(values.pause_minuten || 0),
         stunden: hours,
         material: values.material.trim(),
-        preis: price,
         status: values.status,
         freigabe_status: values.freigabe_status,
         notiz: values.notiz.trim(),
@@ -470,7 +521,6 @@ export default function ProjektRegiePage() {
         break_minutes: Number(values.pause_minuten || 0),
         hours,
         material: values.material.trim(),
-        price,
         status: values.status,
         approval_status: values.freigabe_status,
         note: values.notiz.trim(),
@@ -486,7 +536,6 @@ export default function ProjektRegiePage() {
         pause: Number(values.pause_minuten || 0),
         stunden: hours,
         materialien: values.material.trim(),
-        betrag: price,
         status: values.status,
         freigabe_status: values.freigabe_status,
         bemerkung: values.notiz.trim(),
@@ -508,6 +557,61 @@ export default function ProjektRegiePage() {
     ];
   }
 
+  async function uploadRegieFotos(savedRegieId: number | string) {
+    if (fotoFiles.length === 0) return;
+
+    for (const file of fotoFiles) {
+      const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+      const path = `${projektId}/regie-${savedRegieId}-${Date.now()}-${cleanName}`;
+
+      const buckets = ["regie-fotos", "fotos", "photos"];
+      let publicUrl = "";
+      let usedBucket = "";
+
+      for (const bucket of buckets) {
+        const { error } = await supabase.storage.from(bucket).upload(path, file, {
+          contentType: file.type || "image/jpeg",
+          upsert: true,
+        });
+
+        if (!error) {
+          const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+          publicUrl = data.publicUrl || "";
+          usedBucket = bucket;
+          break;
+        }
+      }
+
+      if (!publicUrl) {
+        continue;
+      }
+
+      const payload = {
+        projekt_id: String(projektId),
+        project_id: String(projektId),
+        baustelle_id: String(projektId),
+        regie_id: String(savedRegieId),
+        titel: fotoTitel.trim() || file.name,
+        title: fotoTitel.trim() || file.name,
+        beschreibung: fotoNotiz.trim(),
+        description: fotoNotiz.trim(),
+        notiz: fotoNotiz.trim(),
+        note: fotoNotiz.trim(),
+        url: publicUrl,
+        image_url: publicUrl,
+        foto_url: publicUrl,
+        photo_url: publicUrl,
+        public_url: publicUrl,
+        bucket: usedBucket,
+        path,
+        file_path: path,
+        storage_path: path,
+      };
+
+      await supabase.from("regie_fotos").insert(payload as any);
+    }
+  }
+
   async function saveRegie() {
     if (!form.radnik.trim()) {
       alert("Odaberi ili upiši radnika.");
@@ -515,7 +619,7 @@ export default function ProjektRegiePage() {
     }
 
     if (!form.arbeit.trim()) {
-      alert("Upiši Regie Arbeit.");
+      alert("Upiši Regie Arbeit / dodatni rad.");
       return;
     }
 
@@ -526,31 +630,63 @@ export default function ProjektRegiePage() {
 
     setSaving(true);
     let lastError: any = null;
+    let savedId: number | string | null = editId;
+    let saved = false;
 
     for (const payload of buildPayloads(form)) {
-      const query = editId
-        ? supabase.from(regieConfig.table).update(payload as any).eq("id", editId)
-        : supabase.from(regieConfig.table).insert(payload as any);
+      if (editId) {
+        const { error } = await supabase
+          .from(regieConfig.table)
+          .update(payload as any)
+          .eq("id", editId);
 
-      const { error } = await query;
+        if (!error) {
+          saved = true;
+          savedId = editId;
+          break;
+        }
 
-      if (!error) {
-        resetForm();
-        setShowForm(false);
-        setSaving(false);
-        await loadRegie();
-        return;
+        lastError = error;
+      } else {
+        const { data, error } = await supabase
+          .from(regieConfig.table)
+          .insert(payload as any)
+          .select("*")
+          .maybeSingle();
+
+        if (!error) {
+          saved = true;
+          savedId = data?.id || null;
+          break;
+        }
+
+        lastError = error;
       }
-
-      lastError = error;
     }
 
+    if (!saved) {
+      setSaving(false);
+      alert("Greška kod spremanja Regie: " + (lastError?.message || ""));
+      return;
+    }
+
+    if (savedId && fotoFiles.length > 0) {
+      await uploadRegieFotos(savedId);
+    }
+
+    resetForm();
+    setShowForm(false);
     setSaving(false);
-    alert("Greška kod spremanja Regie: " + (lastError?.message || ""));
+    await loadRegie();
+    await loadRegieFotos();
   }
 
   function quickRegie(work: string) {
     setEditId(null);
+    setFotoFiles([]);
+    setFotoTitel("");
+    setFotoNotiz("");
+
     setForm({
       datum: today(),
       radnik: "",
@@ -561,7 +697,6 @@ export default function ProjektRegiePage() {
       pause_minuten: "30",
       stunden: "",
       material: "",
-      preis: "",
       status: "Offen",
       freigabe_status: "Wartet",
       notiz: "",
@@ -572,6 +707,9 @@ export default function ProjektRegiePage() {
 
   function startEdit(row: any) {
     setEditId(row.id);
+    setFotoFiles([]);
+    setFotoTitel("");
+    setFotoNotiz("");
 
     setForm({
       datum: String(getDate(row) || today()),
@@ -583,7 +721,6 @@ export default function ProjektRegiePage() {
       pause_minuten: String(getPause(row) || "30"),
       stunden: String(getStoredHours(row) || ""),
       material: String(getMaterial(row) || ""),
-      preis: String(getPrice(row) || ""),
       status: String(getStatus(row) || "Offen"),
       freigabe_status: String(getFreigabeStatus(row) || "Wartet"),
       notiz: String(getNote(row) || ""),
@@ -633,6 +770,27 @@ export default function ProjektRegiePage() {
     alert("Greška kod Freigabe: " + (lastError?.message || ""));
   }
 
+  async function deleteFoto(foto: any) {
+    const ok = confirm("Da li želiš obrisati ovu Regie sliku?");
+
+    if (!ok) return;
+
+    if (foto.bucket && (foto.path || foto.file_path || foto.storage_path)) {
+      await supabase.storage
+        .from(foto.bucket)
+        .remove([foto.path || foto.file_path || foto.storage_path]);
+    }
+
+    const { error } = await supabase.from("regie_fotos").delete().eq("id", foto.id);
+
+    if (error) {
+      alert("Greška kod brisanja slike: " + error.message);
+      return;
+    }
+
+    await loadRegieFotos();
+  }
+
   async function deleteRegie(row: any) {
     const ok = confirm(`Da li želiš obrisati Regie: ${getWork(row)}?`);
 
@@ -649,6 +807,7 @@ export default function ProjektRegiePage() {
     }
 
     await loadRegie();
+    await loadRegieFotos();
   }
 
   return (
@@ -659,17 +818,18 @@ export default function ProjektRegiePage() {
             ← Zurück zu Projekt
           </Link>
 
-          <p className="label">Projekt Regie</p>
+          <p className="label">Projekt Regie / dodatni rad</p>
           <h1>Regie</h1>
           <p className="subtitle">
-            {getProjektName()}
+            Zusatzarbeiten · Dodatni radovi
+            {getProjektName() ? ` · ${getProjektName()}` : ""}
             {getProjektOrt() ? ` · ${getProjektOrt()}` : ""}
           </p>
         </div>
 
         <div className="topButtons">
           <button className="btn gray" onClick={loadAll}>
-            Aktualisieren
+            Aktualisieren / Osvježi
           </button>
 
           <button
@@ -679,7 +839,7 @@ export default function ProjektRegiePage() {
               setShowForm(true);
             }}
           >
-            + Regie hinzufügen
+            + Regie hinzufügen / Dodaj dodatni rad
           </button>
         </div>
       </section>
@@ -693,18 +853,18 @@ export default function ProjektRegiePage() {
         </div>
 
         <div className="stat">
-          <span>Regie Stunden</span>
+          <span>Regie Stunden / sati</span>
           <strong>{formatHours(totalHours)}</strong>
         </div>
 
         <div className="stat">
-          <span>Unterschrieben</span>
+          <span>Unterschrieben / potpisano</span>
           <strong>{signedCount}</strong>
         </div>
 
         <div className="stat">
-          <span>Regie Betrag</span>
-          <strong>{formatMoney(totalMoney)}</strong>
+          <span>Fotos / slike</span>
+          <strong>{fotoCount}</strong>
         </div>
       </section>
 
@@ -712,7 +872,7 @@ export default function ProjektRegiePage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Traži Regie, radnika, opis, material..."
+          placeholder="Traži Regie, radnika, opis, material, slike..."
         />
 
         <select
@@ -754,6 +914,7 @@ export default function ProjektRegiePage() {
 
       <section className="quickAdd">
         <h2>Brzi Regie unos</h2>
+        <p>Brzi izbor za radnike: dodatni rad koji nije u osnovnom dogovoru.</p>
 
         <div className="quickGrid">
           {[
@@ -798,94 +959,115 @@ export default function ProjektRegiePage() {
         </div>
       ) : (
         <section className="grid">
-          {filtered.map((row) => (
-            <article key={row.id} className="card">
-              <div className="cardTop">
-                <div>
-                  <h2>{getWork(row) || "Regie"}</h2>
-                  <p>
-                    {getDate(row) || "-"}
-                    {getWorker(row) ? ` · ${getWorker(row)}` : ""}
+          {filtered.map((row) => {
+            const fotos = getFotosForRegie(row.id);
+
+            return (
+              <article key={row.id} className="card">
+                <div className="cardTop">
+                  <div>
+                    <h2>{getWork(row) || "Regie"}</h2>
+                    <p>
+                      {getDate(row) || "-"}
+                      {getWorker(row) ? ` · ${getWorker(row)}` : ""}
+                    </p>
+                  </div>
+
+                  <span
+                    className={
+                      isSigned(row)
+                        ? "badge signed"
+                        : getFreigabeStatus(row) === "Freigegeben"
+                        ? "badge approved"
+                        : getFreigabeStatus(row) === "Abgelehnt"
+                        ? "badge rejected"
+                        : "badge"
+                    }
+                  >
+                    {isSigned(row) ? "Unterschrieben" : getFreigabeStatus(row)}
+                  </span>
+                </div>
+
+                <div className="detailGrid">
+                  <div>
+                    <span>Zeit / vrijeme</span>
+                    <strong>
+                      {getStart(row) || "-"} - {getEnd(row) || "-"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Stunden / sati</span>
+                    <strong>{formatHours(getHours(row))}</strong>
+                  </div>
+
+                  <div>
+                    <span>Pause / pauza</span>
+                    <strong>{getPause(row) || 0} min</strong>
+                  </div>
+
+                  <div>
+                    <span>Fotos / slike</span>
+                    <strong>{fotos.length}</strong>
+                  </div>
+                </div>
+
+                {getDescription(row) && (
+                  <p className="description">{getDescription(row)}</p>
+                )}
+
+                {getMaterial(row) && (
+                  <p className="description">
+                    <b>Material:</b> {getMaterial(row)}
                   </p>
+                )}
+
+                {getNote(row) && <p className="note">{getNote(row)}</p>}
+
+                {fotos.length > 0 && (
+                  <div className="fotoGrid">
+                    {fotos.slice(0, 6).map((foto) => (
+                      <div key={foto.id} className="fotoItem">
+                        <img src={getFotoUrl(foto)} alt={getFotoTitle(foto)} />
+                        <div>
+                          <strong>{getFotoTitle(foto)}</strong>
+                          {getFotoText(foto) && <span>{getFotoText(foto)}</span>}
+                          <button onClick={() => deleteFoto(foto)}>Löschen</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="signatureLinks">
+                  <Link href={`/projekte/${projektId}/regie/${row.id}/schein`}>
+                    📄 Regieschein
+                  </Link>
+
+                  <Link href={`/projekte/${projektId}/regie/${row.id}/unterschrift`}>
+                    ✍️ Unterschrift
+                  </Link>
+
+                  <Link href={`/projekte/${projektId}/regie/${row.id}/schein`}>
+                    🔳 QR / PDF
+                  </Link>
                 </div>
 
-                <span
-                  className={
-                    isSigned(row)
-                      ? "badge signed"
-                      : getFreigabeStatus(row) === "Freigegeben"
-                      ? "badge approved"
-                      : getFreigabeStatus(row) === "Abgelehnt"
-                      ? "badge rejected"
-                      : "badge"
-                  }
-                >
-                  {isSigned(row) ? "Unterschrieben" : getFreigabeStatus(row)}
-                </span>
-              </div>
-
-              <div className="detailGrid">
-                <div>
-                  <span>Zeit</span>
-                  <strong>
-                    {getStart(row) || "-"} - {getEnd(row) || "-"}
-                  </strong>
+                <div className="actions">
+                  <button onClick={() => startEdit(row)}>Bearbeiten</button>
+                  <button onClick={() => changeStatus(row, "Fertig")}>
+                    Fertig
+                  </button>
+                  <button onClick={() => changeFreigabe(row, "Freigegeben")}>
+                    Freigeben
+                  </button>
+                  <button className="delete" onClick={() => deleteRegie(row)}>
+                    Löschen
+                  </button>
                 </div>
-
-                <div>
-                  <span>Stunden</span>
-                  <strong>{formatHours(getHours(row))}</strong>
-                </div>
-
-                <div>
-                  <span>Pause</span>
-                  <strong>{getPause(row) || 0} min</strong>
-                </div>
-
-                <div>
-                  <span>Betrag</span>
-                  <strong>{formatMoney(getPrice(row))}</strong>
-                </div>
-              </div>
-
-              {getDescription(row) && (
-                <p className="description">{getDescription(row)}</p>
-              )}
-
-              {getMaterial(row) && (
-                <p className="description">
-                  <b>Material:</b> {getMaterial(row)}
-                </p>
-              )}
-
-              {getNote(row) && <p className="note">{getNote(row)}</p>}
-
-              <div className="signatureLinks">
-                <Link href={`/projekte/${projektId}/regie/${row.id}/unterschrift`}>
-                  📄 Regieschein
-                </Link>
-
-                <Link href={`/projekte/${projektId}/regie/${row.id}/unterschrift`}>
-                  ✍️ Unterschrift
-                </Link>
-
-                <Link href={`/projekte/${projektId}/regie/${row.id}/qr`}>
-                  🔳 QR / PDF
-                </Link>
-              </div>
-
-              <div className="actions">
-                <button onClick={() => startEdit(row)}>Bearbeiten</button>
-                <button onClick={() => changeStatus(row, "Fertig")}>Fertig</button>
-                <button onClick={() => changeFreigabe(row, "Freigegeben")}>
-                  Freigeben
-                </button>
-                <button className="delete" onClick={() => deleteRegie(row)}>
-                  Löschen
-                </button>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </section>
       )}
 
@@ -914,14 +1096,14 @@ export default function ProjektRegiePage() {
               }
             />
 
-            <label>Radnik *</label>
+            <label>Radnik / Arbeiter *</label>
             <select
               value={form.radnik}
               onChange={(e) =>
                 setForm((old) => ({ ...old, radnik: e.target.value }))
               }
             >
-              <option value="">Radnik auswählen</option>
+              <option value="">Radnik auswählen / Odaberi radnika</option>
               {RADNICI.map((worker) => (
                 <option key={worker} value={worker}>
                   {worker}
@@ -929,7 +1111,7 @@ export default function ProjektRegiePage() {
               ))}
             </select>
 
-            <label>Oder Name manuell</label>
+            <label>Oder Name manuell / ili upiši ime</label>
             <input
               value={form.radnik}
               onChange={(e) =>
@@ -938,7 +1120,7 @@ export default function ProjektRegiePage() {
               placeholder="Ime radnika"
             />
 
-            <label>Regie Arbeit *</label>
+            <label>Regie Arbeit / dodatni rad *</label>
             <input
               value={form.arbeit}
               onChange={(e) =>
@@ -947,7 +1129,7 @@ export default function ProjektRegiePage() {
               placeholder="z.B. Zusatzarbeit"
             />
 
-            <label>Beschreibung</label>
+            <label>Beschreibung / opis rada</label>
             <textarea
               value={form.beschreibung}
               onChange={(e) =>
@@ -958,7 +1140,7 @@ export default function ProjektRegiePage() {
 
             <div className="timeGrid">
               <div>
-                <label>Von</label>
+                <label>Von / od</label>
                 <input
                   type="time"
                   value={form.start_time}
@@ -969,7 +1151,7 @@ export default function ProjektRegiePage() {
               </div>
 
               <div>
-                <label>Bis</label>
+                <label>Bis / do</label>
                 <input
                   type="time"
                   value={form.end_time}
@@ -994,7 +1176,7 @@ export default function ProjektRegiePage() {
               </div>
             </div>
 
-            <label>Stunden manuell</label>
+            <label>Stunden manuell / sati ručno</label>
             <input
               value={form.stunden}
               onChange={(e) =>
@@ -1005,10 +1187,10 @@ export default function ProjektRegiePage() {
             />
 
             <div className="preview">
-              Stunden: <strong>{formatHours(getFormHours())}</strong>
+              Stunden / sati: <strong>{formatHours(getFormHours())}</strong>
             </div>
 
-            <label>Material</label>
+            <label>Material / materijal</label>
             <textarea
               value={form.material}
               onChange={(e) =>
@@ -1017,15 +1199,43 @@ export default function ProjektRegiePage() {
               placeholder="Korišteni material za Regie"
             />
 
-            <label>Betrag / Preis</label>
-            <input
-              value={form.preis}
-              onChange={(e) =>
-                setForm((old) => ({ ...old, preis: e.target.value }))
-              }
-              inputMode="decimal"
-              placeholder="z.B. 150"
-            />
+            <section className="fotoUploadBox">
+              <h3>Fotos hinzufügen / dodaj slike</h3>
+              <p>Slike će biti povezane samo sa ovim Regie unosom.</p>
+
+              <label>Foto Titel / naziv slike</label>
+              <input
+                value={fotoTitel}
+                onChange={(e) => setFotoTitel(e.target.value)}
+                placeholder="z.B. Vorher / Nachher / Mangel"
+              />
+
+              <label>Foto Notiz / opis slike</label>
+              <textarea
+                value={fotoNotiz}
+                onChange={(e) => setFotoNotiz(e.target.value)}
+                placeholder="Kratak opis slika"
+              />
+
+              <label>Slike</label>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                capture="environment"
+                onChange={(e) => setFotoFiles(Array.from(e.target.files || []))}
+              />
+
+              {fotoFiles.length > 0 && (
+                <div className="selectedFiles">
+                  {fotoFiles.map((file) => (
+                    <span key={`${file.name}-${file.size}`}>
+                      {file.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </section>
 
             <div className="twoGrid">
               <div>
@@ -1045,7 +1255,7 @@ export default function ProjektRegiePage() {
               </div>
 
               <div>
-                <label>Freigabe</label>
+                <label>Freigabe / odobrenje</label>
                 <select
                   value={form.freigabe_status}
                   onChange={(e) =>
@@ -1064,7 +1274,7 @@ export default function ProjektRegiePage() {
               </div>
             </div>
 
-            <label>Notiz</label>
+            <label>Notiz / napomena</label>
             <textarea
               value={form.notiz}
               onChange={(e) =>
@@ -1233,8 +1443,13 @@ export default function ProjektRegiePage() {
 
         .quickAdd h2,
         .summaryBox h2 {
-          margin: 0 0 12px;
+          margin: 0 0 8px;
           font-size: 22px;
+        }
+
+        .quickAdd p {
+          margin: 0 0 12px;
+          color: #cbd5e1;
         }
 
         .quickGrid {
@@ -1408,6 +1623,58 @@ export default function ProjektRegiePage() {
           margin-bottom: 12px !important;
         }
 
+        .fotoGrid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+          margin: 14px 0;
+        }
+
+        .fotoItem {
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 14px;
+          overflow: hidden;
+        }
+
+        .fotoItem img {
+          width: 100%;
+          height: 130px;
+          object-fit: cover;
+          display: block;
+          background: #030712;
+        }
+
+        .fotoItem div {
+          padding: 10px;
+        }
+
+        .fotoItem strong {
+          display: block;
+          font-size: 13px;
+          margin-bottom: 5px;
+        }
+
+        .fotoItem span {
+          display: block;
+          color: #cbd5e1;
+          font-size: 12px;
+          line-height: 1.35;
+        }
+
+        .fotoItem button {
+          margin-top: 8px;
+          width: 100%;
+          background: #dc2626;
+          color: white;
+          border: 0;
+          border-radius: 10px;
+          padding: 8px;
+          font-weight: 900;
+          cursor: pointer;
+          font-size: 12px;
+        }
+
         .signatureLinks {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -1470,7 +1737,7 @@ export default function ProjektRegiePage() {
 
         .modal {
           width: 100%;
-          max-width: 720px;
+          max-width: 760px;
           max-height: 92vh;
           overflow: auto;
           background: #111827;
@@ -1555,6 +1822,40 @@ export default function ProjektRegiePage() {
           font-size: 22px;
         }
 
+        .fotoUploadBox {
+          margin-top: 18px;
+          background: #0b1220;
+          border: 1px solid #1f2937;
+          border-radius: 18px;
+          padding: 16px;
+        }
+
+        .fotoUploadBox h3 {
+          margin: 0 0 8px;
+          font-size: 20px;
+        }
+
+        .fotoUploadBox p {
+          margin: 0 0 12px;
+          color: #cbd5e1;
+        }
+
+        .selectedFiles {
+          display: grid;
+          gap: 8px;
+          margin-top: 12px;
+        }
+
+        .selectedFiles span {
+          background: #111827;
+          border: 1px solid #374151;
+          color: #e5e7eb;
+          border-radius: 12px;
+          padding: 10px;
+          font-size: 13px;
+          font-weight: 800;
+        }
+
         .modalActions {
           display: flex;
           justify-content: flex-end;
@@ -1589,7 +1890,8 @@ export default function ProjektRegiePage() {
           .quickGrid,
           .detailGrid,
           .timeGrid,
-          .signatureLinks {
+          .signatureLinks,
+          .fotoGrid {
             grid-template-columns: 1fr;
           }
 
