@@ -24,7 +24,7 @@ type Projekt = {
   [key: string]: any;
 };
 
-const WORKERS = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
+const WORKERS = ["Arnes", "Ramiz", "Abror", "Shohruh"];
 
 const t: Record<Lang, any> = {
   de: {
