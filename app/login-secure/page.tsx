@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
 
 const LOGO_URL =
   "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/logo.png";
@@ -9,7 +8,7 @@ const LOGO_URL =
 const BACKGROUND_URL =
   "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/pozadina.png";
 
-const legacyUsers = [
+const users = [
   { id: 1, name: "Arnes", pin: "1111", role: "worker" },
   { id: 2, name: "Ramiz", pin: "2222", role: "worker" },
   { id: 3, name: "Abror", pin: "3333", role: "worker" },
@@ -19,126 +18,42 @@ const legacyUsers = [
   { id: 101, name: "Steffi", pin: "0001", role: "admin" },
 ];
 
-export default function SecureLoginPage() {
-  const [loginName, setLoginName] = useState("Hido");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+export default function LoginSecurePage() {
+  const [name, setName] = useState("Hido");
+  const [pin, setPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
 
-  function saveUserAndGoDashboard(user: any) {
-    const id = String(user.id || user.name);
-    const name = String(user.name || "");
-    const role = String(user.role || "worker");
+  function login() {
+    const foundUser = users.find(
+      (user) =>
+        user.name.toLowerCase() === name.trim().toLowerCase() &&
+        user.pin === pin
+    );
 
-    localStorage.setItem("worker_id", id);
-    localStorage.setItem("worker_name", name);
-    localStorage.setItem("worker_role", role);
+    if (!foundUser) {
+      alert("Pogrešno ime ili PIN.");
+      return;
+    }
 
-    localStorage.setItem("userName", name);
-    localStorage.setItem("user_name", name);
-    localStorage.setItem("name", name);
+    localStorage.clear();
+    sessionStorage.clear();
 
-    localStorage.setItem("role", role);
-    localStorage.setItem("userRole", role);
+    localStorage.setItem("worker_id", String(foundUser.id));
+    localStorage.setItem("worker_name", foundUser.name);
+    localStorage.setItem("worker_role", foundUser.role);
+
+    localStorage.setItem("userName", foundUser.name);
+    localStorage.setItem("user_name", foundUser.name);
+    localStorage.setItem("name", foundUser.name);
+
+    localStorage.setItem("role", foundUser.role);
+    localStorage.setItem("userRole", foundUser.role);
 
     localStorage.setItem("loggedIn", "true");
     localStorage.setItem("isLoggedIn", "true");
     localStorage.setItem("authenticated", "true");
 
-    sessionStorage.setItem("worker_id", id);
-    sessionStorage.setItem("worker_name", name);
-    sessionStorage.setItem("worker_role", role);
-    sessionStorage.setItem("userName", name);
-    sessionStorage.setItem("loggedIn", "true");
-    sessionStorage.setItem("isLoggedIn", "true");
-
-    window.location.replace("/dashboard");
-  }
-
-  function loginLegacyUser() {
-    const inputName = loginName.trim().toLowerCase();
-
-    const foundUser = legacyUsers.find(
-      (user) =>
-        user.name.toLowerCase() === inputName &&
-        String(user.pin) === String(password)
-    );
-
-    if (!foundUser) {
-      alert("Falscher Name oder falsche PIN.");
-      return false;
-    }
-
-    saveUserAndGoDashboard(foundUser);
-    return true;
-  }
-
-  async function loginSecureEmail() {
-    const { data: authData, error: authError } =
-      await supabase.auth.signInWithPassword({
-        email: loginName.trim().toLowerCase(),
-        password,
-      });
-
-    if (authError || !authData.user) {
-      alert("Falsche E-Mail-Adresse oder falsches Passwort.");
-      return;
-    }
-
-    const { data: worker, error: workerError } = await supabase
-      .from("workers")
-      .select("id, name, role, active, auth_user_id")
-      .eq("auth_user_id", authData.user.id)
-      .maybeSingle();
-
-    if (workerError) {
-      await supabase.auth.signOut();
-      alert("Fehler beim Laden des Benutzerkontos: " + workerError.message);
-      return;
-    }
-
-    if (!worker) {
-      await supabase.auth.signOut();
-      alert("Dieses Benutzerkonto ist noch keinem Mitarbeiter zugeordnet.");
-      return;
-    }
-
-    if (!worker.active) {
-      await supabase.auth.signOut();
-      alert("Dieses Benutzerkonto wurde deaktiviert.");
-      return;
-    }
-
-    saveUserAndGoDashboard(worker);
-  }
-
-  async function login() {
-    if (!loginName.trim()) {
-      alert("Bitte Name oder E-Mail-Adresse eingeben.");
-      return;
-    }
-
-    if (!password) {
-      alert("Bitte Passwort oder PIN eingeben.");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const isEmailLogin = loginName.includes("@");
-
-      if (isEmailLogin) {
-        await loginSecureEmail();
-      } else {
-        loginLegacyUser();
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-      alert("Bei der Anmeldung ist ein unerwarteter Fehler aufgetreten.");
-    } finally {
-      setLoading(false);
-    }
+    window.location.href = "/dashboard";
   }
 
   return (
@@ -153,35 +68,35 @@ export default function SecureLoginPage() {
             <p style={secureStyle}>Anmeldung</p>
           </div>
 
-          <label style={labelStyle}>Name oder E-Mail-Adresse</label>
+          <label style={labelStyle}>Ime radnika / Admin</label>
 
-          <input
-            value={loginName}
-            onChange={(event) => setLoginName(event.target.value)}
-            type="text"
-            autoComplete="username"
+          <select
+            value={name}
+            onChange={(event) => setName(event.target.value)}
             style={inputStyle}
-            placeholder="Name oder E-Mail eingeben"
-            disabled={loading}
-          />
+          >
+            {users.map((user) => (
+              <option key={user.id} value={user.name}>
+                {user.name}
+              </option>
+            ))}
+          </select>
 
-          <label style={labelStyle}>Passwort / PIN</label>
+          <label style={labelStyle}>PIN</label>
 
           <div style={passwordBoxStyle}>
             <input
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              type={showPassword ? "text" : "password"}
-              autoComplete="current-password"
+              value={pin}
+              onChange={(event) => setPin(event.target.value)}
+              type={showPin ? "text" : "password"}
               style={{
                 ...inputStyle,
                 marginBottom: 0,
                 paddingRight: "55px",
               }}
-              placeholder="Passwort oder PIN eingeben"
-              disabled={loading}
+              placeholder="Unesi PIN"
               onKeyDown={(event) => {
-                if (event.key === "Enter" && !loading) {
+                if (event.key === "Enter") {
                   login();
                 }
               }}
@@ -189,32 +104,21 @@ export default function SecureLoginPage() {
 
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
+              onClick={() => setShowPin(!showPin)}
               style={eyeButtonStyle}
-              disabled={loading}
             >
-              {showPassword ? "🙈" : "👁"}
+              {showPin ? "🙈" : "👁"}
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={login}
-            style={{
-              ...buttonStyle,
-              opacity: loading ? 0.65 : 1,
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-            disabled={loading}
-          >
-            {loading ? "ANMELDUNG..." : "ANMELDEN"}
+          <button type="button" onClick={login} style={buttonStyle}>
+            ANMELDEN
           </button>
 
           <div style={hintBoxStyle}>
-            <p style={hintTextStyle}>
-              
-            </p>
-            <p style={hintTextStyle}></p>
+            <p style={hintTextStyle}>Radnici: Arnes 1111, Ramiz 2222, Abror 3333</p>
+            <p style={hintTextStyle}>Shohruh 4444, Harun 5555</p>
+            <p style={hintTextStyle}>Admin: Hido 0000 / Steffi 0001</p>
           </div>
         </div>
       </div>
@@ -334,6 +238,7 @@ const buttonStyle: any = {
   fontSize: "20px",
   fontWeight: "bold",
   marginTop: "10px",
+  cursor: "pointer",
 };
 
 const hintBoxStyle: any = {
