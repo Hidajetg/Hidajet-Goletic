@@ -9,79 +9,111 @@ const LOGO_URL =
 const BACKGROUND_URL =
   "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/pozadina.png";
 
+const legacyUsers = [
+  { name: "Arnes", pin: "1111", role: "worker" },
+  { name: "Ramiz", pin: "2222", role: "worker" },
+  { name: "Abror", pin: "3333", role: "worker" },
+  { name: "Shohruh", pin: "4444", role: "worker" },
+  { name: "Harun", pin: "5555", role: "worker" },
+  { name: "Hido", pin: "0000", role: "admin" },
+  { name: "Steffi", pin: "0001", role: "admin" },
+];
+
 export default function SecureLoginPage() {
-  const [email, setEmail] = useState("");
+  const [loginName, setLoginName] = useState("Hido");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  function saveUserAndGoDashboard(user: any) {
+    localStorage.setItem("worker_id", String(user.id || user.name));
+    localStorage.setItem("worker_name", user.name);
+    localStorage.setItem("worker_role", user.role);
+    localStorage.setItem("userName", user.name);
+
+    window.location.href = "/dashboard";
+  }
+
+  function loginLegacyUser() {
+    const inputName = loginName.trim().toLowerCase();
+
+    const foundUser = legacyUsers.find(
+      (user) =>
+        user.name.toLowerCase() === inputName &&
+        String(user.pin) === String(password)
+    );
+
+    if (!foundUser) {
+      alert("Falscher Name oder falsche PIN.");
+      return false;
+    }
+
+    saveUserAndGoDashboard(foundUser);
+    return true;
+  }
+
+  async function loginSecureEmail() {
+    const { data: authData, error: authError } =
+      await supabase.auth.signInWithPassword({
+        email: loginName.trim().toLowerCase(),
+        password,
+      });
+
+    if (authError || !authData.user) {
+      alert("Falsche E-Mail-Adresse oder falsches Passwort.");
+      return;
+    }
+
+    const { data: worker, error: workerError } = await supabase
+      .from("workers")
+      .select("id, name, role, active, auth_user_id")
+      .eq("auth_user_id", authData.user.id)
+      .maybeSingle();
+
+    if (workerError) {
+      await supabase.auth.signOut();
+      alert("Fehler beim Laden des Benutzerkontos: " + workerError.message);
+      return;
+    }
+
+    if (!worker) {
+      await supabase.auth.signOut();
+      alert("Dieses Benutzerkonto ist noch keinem Mitarbeiter zugeordnet.");
+      return;
+    }
+
+    if (!worker.active) {
+      await supabase.auth.signOut();
+      alert("Dieses Benutzerkonto wurde deaktiviert.");
+      return;
+    }
+
+    saveUserAndGoDashboard(worker);
+  }
+
   async function login() {
-    if (!email.trim()) {
-      alert("Bitte E-Mail-Adresse eingeben.");
+    if (!loginName.trim()) {
+      alert("Bitte Name oder E-Mail-Adresse eingeben.");
       return;
     }
 
     if (!password) {
-      alert("Bitte Passwort eingeben.");
+      alert("Bitte Passwort oder PIN eingeben.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
-          password,
-        });
+      const isEmailLogin = loginName.includes("@");
 
-      if (authError || !authData.user) {
-        alert("Falsche E-Mail-Adresse oder falsches Passwort.");
-        return;
+      if (isEmailLogin) {
+        await loginSecureEmail();
+      } else {
+        loginLegacyUser();
       }
-
-      const { data: worker, error: workerError } = await supabase
-        .from("workers")
-        .select("id, name, role, active, auth_user_id")
-        .eq("auth_user_id", authData.user.id)
-        .maybeSingle();
-
-      if (workerError) {
-        await supabase.auth.signOut();
-
-        alert(
-          "Fehler beim Laden des Benutzerkontos: " + workerError.message
-        );
-
-        return;
-      }
-
-      if (!worker) {
-        await supabase.auth.signOut();
-
-        alert(
-          "Dieses Benutzerkonto ist noch keinem Mitarbeiter zugeordnet."
-        );
-
-        return;
-      }
-
-      if (!worker.active) {
-        await supabase.auth.signOut();
-
-        alert("Dieses Benutzerkonto wurde deaktiviert.");
-        return;
-      }
-
-      localStorage.setItem("worker_id", String(worker.id));
-      localStorage.setItem("worker_name", worker.name);
-      localStorage.setItem("worker_role", worker.role);
-      localStorage.setItem("userName", worker.name);
-
-      window.location.href = "/dashboard";
     } catch (error) {
       console.error("Login error:", error);
-
       alert("Bei der Anmeldung ist ein unerwarteter Fehler aufgetreten.");
     } finally {
       setLoading(false);
@@ -93,38 +125,26 @@ export default function SecureLoginPage() {
       <div style={overlayStyle}>
         <div style={boxStyle}>
           <div style={logoBoxStyle}>
-            <img
-              src={LOGO_URL}
-              alt="Solstone Logo"
-              style={logoStyle}
-            />
+            <img src={LOGO_URL} alt="Solstone Logo" style={logoStyle} />
 
-            <p style={systemStyle}>
-              Baustellen Management System
-            </p>
+            <p style={systemStyle}>Baustellen Management System</p>
 
-            <p style={secureStyle}>
-              Sichere Anmeldung
-            </p>
+            <p style={secureStyle}>Anmeldung</p>
           </div>
 
-          <label style={labelStyle}>
-            E-Mail-Adresse
-          </label>
+          <label style={labelStyle}>Name oder E-Mail-Adresse</label>
 
           <input
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            type="email"
-            autoComplete="email"
+            value={loginName}
+            onChange={(event) => setLoginName(event.target.value)}
+            type="text"
+            autoComplete="username"
             style={inputStyle}
-            placeholder="E-Mail-Adresse eingeben"
+            placeholder="Name oder E-Mail eingeben"
             disabled={loading}
           />
 
-          <label style={labelStyle}>
-            Passwort
-          </label>
+          <label style={labelStyle}>Passwort / PIN</label>
 
           <div style={passwordBoxStyle}>
             <input
@@ -137,7 +157,7 @@ export default function SecureLoginPage() {
                 marginBottom: 0,
                 paddingRight: "55px",
               }}
-              placeholder="Passwort eingeben"
+              placeholder="Passwort oder PIN eingeben"
               disabled={loading}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !loading) {
@@ -151,11 +171,6 @@ export default function SecureLoginPage() {
               onClick={() => setShowPassword(!showPassword)}
               style={eyeButtonStyle}
               disabled={loading}
-              aria-label={
-                showPassword
-                  ? "Passwort ausblenden"
-                  : "Passwort anzeigen"
-              }
             >
               {showPassword ? "🙈" : "👁"}
             </button>
@@ -171,8 +186,17 @@ export default function SecureLoginPage() {
             }}
             disabled={loading}
           >
-            {loading ? "ANMELDUNG..." : "SICHER ANMELDEN"}
+            {loading ? "ANMELDUNG..." : "ANMELDEN"}
           </button>
+
+          <div style={hintBoxStyle}>
+            <p style={hintTextStyle}>
+              Radnici se prijavljuju sa imenom i PIN-om.
+            </p>
+            <p style={hintTextStyle}>
+              Admin: Hido 0000 / Steffi 0001
+            </p>
+          </div>
         </div>
       </div>
     </main>
@@ -291,4 +315,16 @@ const buttonStyle: any = {
   fontSize: "20px",
   fontWeight: "bold",
   marginTop: "10px",
+};
+
+const hintBoxStyle: any = {
+  marginTop: "18px",
+  textAlign: "center",
+};
+
+const hintTextStyle: any = {
+  margin: "4px 0",
+  fontSize: "13px",
+  color: "#e5e7eb",
+  textShadow: "0 2px 8px rgba(0,0,0,0.9)",
 };
