@@ -22,12 +22,6 @@ const translations: any = {
     noMessages: "Aktuell gibt es keine Info-Nachrichten.",
     message: "Nachricht",
     checking: "Anmeldung wird geprüft...",
-    accountError: "Benutzerkonto konnte nicht geladen werden.",
-    accountMissing:
-      "Dieses Benutzerkonto ist keinem Mitarbeiter zugeordnet.",
-    accountDisabled: "Dieses Benutzerkonto wurde deaktiviert.",
-    unexpectedError:
-      "Bei der Prüfung der Anmeldung ist ein Fehler aufgetreten.",
   },
 
   ba: {
@@ -46,12 +40,6 @@ const translations: any = {
     noMessages: "Trenutno nema info poruka.",
     message: "poruka",
     checking: "Provjera prijave...",
-    accountError: "Korisnički račun nije moguće učitati.",
-    accountMissing:
-      "Ovaj korisnički račun nije povezan s radnikom.",
-    accountDisabled: "Ovaj korisnički račun je deaktiviran.",
-    unexpectedError:
-      "Dogodila se greška prilikom provjere prijave.",
   },
 
   uz: {
@@ -70,12 +58,6 @@ const translations: any = {
     noMessages: "Hozircha xabar yo‘q.",
     message: "xabar",
     checking: "Kirish tekshirilmoqda...",
-    accountError: "Foydalanuvchi hisobini yuklab bo‘lmadi.",
-    accountMissing:
-      "Bu foydalanuvchi hisobi xodimga biriktirilmagan.",
-    accountDisabled: "Bu foydalanuvchi hisobi o‘chirilgan.",
-    unexpectedError:
-      "Kirishni tekshirishda kutilmagan xatolik yuz berdi.",
   },
 
   en: {
@@ -94,12 +76,6 @@ const translations: any = {
     noMessages: "There are currently no info messages.",
     message: "message",
     checking: "Checking login...",
-    accountError: "The user account could not be loaded.",
-    accountMissing:
-      "This user account is not connected to an employee.",
-    accountDisabled: "This user account has been disabled.",
-    unexpectedError:
-      "An unexpected error occurred while checking the login.",
   },
 };
 
@@ -108,6 +84,7 @@ export default function DashboardPage() {
 
   const [authLoading, setAuthLoading] = useState(true);
   const [workerName, setWorkerName] = useState("");
+  const [workerId, setWorkerId] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [todayPlans, setTodayPlans] = useState<any[]>([]);
@@ -118,151 +95,84 @@ export default function DashboardPage() {
   const t = translations[lang] || translations.ba;
 
   useEffect(() => {
-    let pageActive = true;
-
     const savedLang = localStorage.getItem("lang") || "ba";
     setLang(savedLang);
 
-    async function checkSecureLogin() {
-      setAuthLoading(true);
+    checkOldLogin();
+  }, []);
 
-      try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
+  async function checkOldLogin() {
+    setAuthLoading(true);
 
-        if (!pageActive) {
-          return;
-        }
+    const storedName =
+      localStorage.getItem("worker_name") ||
+      localStorage.getItem("userName") ||
+      localStorage.getItem("name") ||
+      "";
 
-        if (userError || !user) {
-          clearStoredUser();
-          router.replace("/login-secure");
-          return;
-        }
+    const storedRole =
+      localStorage.getItem("worker_role") ||
+      localStorage.getItem("role") ||
+      localStorage.getItem("userRole") ||
+      "";
 
-        const { data: worker, error: workerError } = await supabase
-          .from("workers")
-          .select("id, name, role, active, auth_user_id")
-          .eq("auth_user_id", user.id)
-          .maybeSingle();
+    const storedId =
+      localStorage.getItem("worker_id") ||
+      localStorage.getItem("user_id") ||
+      storedName ||
+      "";
 
-        if (!pageActive) {
-          return;
-        }
-
-        if (workerError) {
-          console.error(
-            "Greška kod učitavanja korisnika:",
-            workerError
-          );
-
-          await supabase.auth.signOut();
-          clearStoredUser();
-
-          alert(
-            translations[savedLang]?.accountError ||
-              translations.ba.accountError
-          );
-
-          router.replace("/login-secure");
-          return;
-        }
-
-        if (!worker) {
-          await supabase.auth.signOut();
-          clearStoredUser();
-
-          alert(
-            translations[savedLang]?.accountMissing ||
-              translations.ba.accountMissing
-          );
-
-          router.replace("/login-secure");
-          return;
-        }
-
-        if (!worker.active) {
-          await supabase.auth.signOut();
-          clearStoredUser();
-
-          alert(
-            translations[savedLang]?.accountDisabled ||
-              translations.ba.accountDisabled
-          );
-
-          router.replace("/login-secure");
-          return;
-        }
-
-        const adminStatus = worker.role === "admin";
-
-        localStorage.setItem("worker_id", String(worker.id));
-        localStorage.setItem("worker_name", worker.name);
-        localStorage.setItem("worker_role", worker.role);
-        localStorage.setItem("userName", worker.name);
-
-        setWorkerName(worker.name);
-        setIsAdmin(adminStatus);
-
-        await Promise.all([
-          loadMessages(String(worker.id)),
-          loadTodayPlans(worker.name, adminStatus),
-          loadMaterialOrders(),
-          adminStatus ? loadCarWarnings() : Promise.resolve(),
-        ]);
-
-        if (!adminStatus) {
-          setCarWarnings([]);
-        }
-      } catch (error) {
-        console.error(
-          "Greška kod provjere sigurne prijave:",
-          error
-        );
-
-        await supabase.auth.signOut();
-        clearStoredUser();
-
-        alert(
-          translations[savedLang]?.unexpectedError ||
-            translations.ba.unexpectedError
-        );
-
-        router.replace("/login-secure");
-      } finally {
-        if (pageActive) {
-          setAuthLoading(false);
-        }
-      }
+    if (!storedName || !storedRole) {
+      router.replace("/login");
+      return;
     }
 
-    checkSecureLogin();
+    const adminStatus = storedRole === "admin";
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (
-        event === "SIGNED_OUT" ||
-        (event === "INITIAL_SESSION" && !session)
-      ) {
-        clearStoredUser();
-        router.replace("/login-secure");
-      }
-    });
+    setWorkerName(storedName);
+    setWorkerId(storedId);
+    setIsAdmin(adminStatus);
 
-    return () => {
-      pageActive = false;
-      subscription.unsubscribe();
-    };
-  }, [router]);
+    localStorage.setItem("worker_id", storedId);
+    localStorage.setItem("worker_name", storedName);
+    localStorage.setItem("worker_role", storedRole);
+    localStorage.setItem("userName", storedName);
+    localStorage.setItem("loggedIn", "true");
+    localStorage.setItem("isLoggedIn", "true");
+
+    await Promise.all([
+      loadMessages(storedId),
+      loadTodayPlans(storedName, adminStatus),
+      loadMaterialOrders(),
+      adminStatus ? loadCarWarnings() : Promise.resolve(),
+    ]);
+
+    if (!adminStatus) {
+      setCarWarnings([]);
+    }
+
+    setAuthLoading(false);
+  }
 
   function clearStoredUser() {
     localStorage.removeItem("worker_id");
     localStorage.removeItem("worker_name");
     localStorage.removeItem("worker_role");
     localStorage.removeItem("userName");
+    localStorage.removeItem("user_name");
+    localStorage.removeItem("name");
+    localStorage.removeItem("role");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("loggedIn");
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("authenticated");
+
+    sessionStorage.removeItem("worker_id");
+    sessionStorage.removeItem("worker_name");
+    sessionStorage.removeItem("worker_role");
+    sessionStorage.removeItem("userName");
+    sessionStorage.removeItem("loggedIn");
+    sessionStorage.removeItem("isLoggedIn");
   }
 
   function getTodayLocalDate() {
@@ -291,17 +201,11 @@ export default function DashboardPage() {
     const { data, error } = await supabase
       .from("info_messages")
       .select("*")
-      .or(
-        `visible_to_all.eq.true,target_worker_id.eq.${currentWorkerId}`
-      )
+      .or(`visible_to_all.eq.true,target_worker_id.eq.${currentWorkerId}`)
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error(
-        "Greška kod učitavanja info poruka:",
-        error
-      );
-
+      console.error("Greška kod učitavanja info poruka:", error);
       setMessages([]);
       return;
     }
@@ -309,10 +213,7 @@ export default function DashboardPage() {
     setMessages(data || []);
   }
 
-  async function loadTodayPlans(
-    name: string,
-    adminStatus: boolean
-  ) {
+  async function loadTodayPlans(name: string, adminStatus: boolean) {
     const today = getTodayLocalDate();
 
     let query = supabase
@@ -328,11 +229,7 @@ export default function DashboardPage() {
     const { data, error } = await query;
 
     if (error) {
-      console.error(
-        "Greška kod učitavanja kalendara:",
-        error
-      );
-
+      console.error("Greška kod učitavanja kalendara:", error);
       setTodayPlans([]);
       return;
     }
@@ -348,11 +245,7 @@ export default function DashboardPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error(
-        "Greška kod učitavanja narudžbi materijala:",
-        error
-      );
-
+      console.error("Greška kod učitavanja narudžbi materijala:", error);
       setMaterialOrders([]);
       return;
     }
@@ -373,11 +266,7 @@ export default function DashboardPage() {
       .order("registration_until", { ascending: true });
 
     if (error) {
-      console.error(
-        "Greška kod učitavanja upozorenja za vozila:",
-        error
-      );
-
+      console.error("Greška kod učitavanja upozorenja za vozila:", error);
       setCarWarnings([]);
       return;
     }
@@ -390,16 +279,9 @@ export default function DashboardPage() {
     setLang(newLang);
   }
 
-  async function logout() {
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      alert("Fehler beim Abmelden: " + error.message);
-      return;
-    }
-
+  function logout() {
     clearStoredUser();
-    router.replace("/login-secure");
+    router.replace("/login");
   }
 
   function formatDateTime(value: string) {
@@ -442,11 +324,7 @@ export default function DashboardPage() {
             key={code}
             type="button"
             onClick={() => changeLanguage(code)}
-            style={
-              lang === code
-                ? activeLangButtonStyle
-                : langButtonStyle
-            }
+            style={lang === code ? activeLangButtonStyle : langButtonStyle}
           >
             {code.toUpperCase()}
           </button>
@@ -458,18 +336,12 @@ export default function DashboardPage() {
           🏗️ {t.baustelle}
         </Link>
 
-        <Link
-          href="/projekte/radnik"
-          style={workerProjectButtonStyle}
-        >
+        <Link href="/projekte/radnik" style={workerProjectButtonStyle}>
           👷 {t.workerProjects}
         </Link>
 
         {isAdmin && (
-          <Link
-            href="/projekte"
-            style={adminProjectButtonStyle}
-          >
+          <Link href="/projekte" style={adminProjectButtonStyle}>
             📂 {t.projects}
           </Link>
         )}
@@ -480,48 +352,28 @@ export default function DashboardPage() {
 
         <Link
           href="/kalendar"
-          style={
-            todayPlans.length > 0
-              ? alertButtonStyle
-              : buttonStyle
-          }
+          style={todayPlans.length > 0 ? alertButtonStyle : buttonStyle}
         >
           📅 {t.calendar}
         </Link>
 
         <Link
           href="/auta"
-          style={
-            carWarnings.length > 0
-              ? alertButtonStyle
-              : buttonStyle
-          }
+          style={carWarnings.length > 0 ? alertButtonStyle : buttonStyle}
         >
           🚗 {t.cars}
 
           {isAdmin && carWarnings.length > 0 && (
             <>
               <br />
-
-              <small>
-                {carWarnings.length} REG. WARNUNG
-              </small>
+              <small>{carWarnings.length} REG. WARNUNG</small>
             </>
           )}
         </Link>
 
-        <Link
-          href="/info"
-          style={
-            messages.length > 0
-              ? alertButtonStyle
-              : buttonStyle
-          }
-        >
+        <Link href="/info" style={messages.length > 0 ? alertButtonStyle : buttonStyle}>
           📢 {t.info}
-
           <br />
-
           <small>
             {messages.length} {t.message}
           </small>
@@ -533,53 +385,33 @@ export default function DashboardPage() {
 
         <Link
           href="/material-orders"
-          style={
-            materialOrders.length > 0
-              ? alertButtonStyle
-              : buttonStyle
-          }
+          style={materialOrders.length > 0 ? alertButtonStyle : buttonStyle}
         >
           🧱 {t.materialOrder}
-
           <br />
-
           <small>{materialOrders.length} NEW</small>
         </Link>
 
-        <button
-          type="button"
-          onClick={logout}
-          style={logoutButtonStyle}
-        >
+        <button type="button" onClick={logout} style={logoutButtonStyle}>
           🚪 {t.logout}
         </button>
       </div>
 
       <section style={infoBoxStyle}>
-        <h2 style={infoTitleStyle}>
-          📢 {t.info}
-        </h2>
+        <h2 style={infoTitleStyle}>📢 {t.info}</h2>
 
         {messages.length === 0 ? (
-          <p style={emptyMessageStyle}>
-            {t.noMessages}
-          </p>
+          <p style={emptyMessageStyle}>{t.noMessages}</p>
         ) : (
           messages.map((message) => (
             <div key={message.id} style={messageStyle}>
               <div style={messageTopStyle}>
-                <strong>
-                  {message.sender_name || "Admin"}
-                </strong>
+                <strong>{message.sender_name || "Admin"}</strong>
 
-                <span>
-                  {formatDateTime(message.created_at)}
-                </span>
+                <span>{formatDateTime(message.created_at)}</span>
               </div>
 
-              <p style={messageTextStyle}>
-                {message.message}
-              </p>
+              <p style={messageTextStyle}>{message.message}</p>
             </div>
           ))
         )}
@@ -672,8 +504,7 @@ const activeLangButtonStyle: any = {
 
 const gridStyle: any = {
   display: "grid",
-  gridTemplateColumns:
-    "repeat(auto-fit, minmax(160px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
   gap: "10px",
 };
 
