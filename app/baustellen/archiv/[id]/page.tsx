@@ -19,6 +19,7 @@ export default function ArchivBerichtPage() {
   const [roomMaterials, setRoomMaterials] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
+  const [baustelleInfo, setBaustelleInfo] = useState<any[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   useEffect(() => {
@@ -77,6 +78,11 @@ export default function ArchivBerichtPage() {
       .eq("baustelle_id", Number(baustelleId))
       .order("datum", { ascending: true });
 
+    const { data: infoData } = await supabase
+      .from("baustelle_info")
+      .select("*")
+      .eq("baustelle_id", Number(baustelleId));
+
     const roomIds = (roomsData || []).map((r: any) => r.id);
 
     let roomMaterialData: any[] = [];
@@ -123,6 +129,7 @@ export default function ArchivBerichtPage() {
     setRoomMaterials(roomMaterialData || []);
     setMaterials(materialsData || []);
     setPhotos(photosData || []);
+    setBaustelleInfo(infoData || []);
     setLoading(false);
   }
 
@@ -327,6 +334,27 @@ export default function ArchivBerichtPage() {
     return bericht?.bericht_nr || bericht?.id || row?.regiebericht_id || "-";
   }
 
+  function getRegieWorkText(row: any) {
+    const bericht = getRegiebericht(row);
+    return (
+      row?.bemerkung ||
+      bericht?.ausgefuehrte_arbeiten ||
+      bericht?.arbeiten ||
+      bericht?.beschreibung ||
+      "-"
+    );
+  }
+
+  function getGoogleMapsUrl() {
+    const row = baustelleInfo.find((x: any) => x.type === "google_maps");
+    return row?.google_maps_url || "";
+  }
+
+  function getVisualizationUrl() {
+    const row = baustelleInfo.find((x: any) => x.type === "visualization_3d");
+    return row?.visualization_url || "";
+  }
+
   const totalHours = hours.reduce(
     (sum, h) => sum + Number(h.ukupno_sati || h.sati || 0),
     0
@@ -348,9 +376,7 @@ export default function ArchivBerichtPage() {
 
   const allWorkers = [...new Set([...workers, ...regieWorkers])];
 
-  const workDays = [
-    ...new Set(hours.map((h: any) => h.datum).filter(Boolean)),
-  ];
+  const workDays = [...new Set(hours.map((h: any) => h.datum).filter(Boolean))];
 
   const regieHoursByWorker = regieWorkers.map((workerName: any) => {
     const sum = regieHours
@@ -359,6 +385,23 @@ export default function ArchivBerichtPage() {
 
     return {
       workerName,
+      sum,
+    };
+  });
+
+  const regieHoursByBericht = regieberichte.map((bericht: any) => {
+    const rows = regieHours.filter(
+      (r: any) => Number(r.regiebericht_id) === Number(bericht.id)
+    );
+
+    const sum = rows.reduce(
+      (total, r) => total + Number(r.stunden || r.sati || r.ukupno_sati || 0),
+      0
+    );
+
+    return {
+      bericht,
+      rows,
       sum,
     };
   });
@@ -452,9 +495,27 @@ export default function ArchivBerichtPage() {
           ← Zurück zum Archiv
         </Link>
 
-        <button onClick={printPdf} style={pdfButtonStyle}>
-          📥 PDF herunterladen
-        </button>
+        <div style={topButtonRowStyle}>
+          {getGoogleMapsUrl() && (
+            <a href={getGoogleMapsUrl()} target="_blank" style={mapsButtonStyle}>
+              📍 Google Maps
+            </a>
+          )}
+
+          {getVisualizationUrl() && (
+            <a
+              href={getVisualizationUrl()}
+              target="_blank"
+              style={visualizationButtonStyle}
+            >
+              🏗️ 3D Visualisierung
+            </a>
+          )}
+
+          <button onClick={printPdf} style={pdfButtonStyle}>
+            📥 PDF herunterladen
+          </button>
+        </div>
       </div>
 
       <h1 style={titleStyle}>ABSCHLUSSBERICHT BAUSTELLE</h1>
@@ -604,6 +665,42 @@ export default function ArchivBerichtPage() {
           </div>
         )}
 
+        <h3 style={subTitleStyle}>Regiestunden pro Regiebericht</h3>
+
+        {regieHoursByBericht.length === 0 ? (
+          <p style={mutedTextStyle}>Keine Regieberichte vorhanden.</p>
+        ) : (
+          <div style={tableWrapStyle}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Bericht Nr.</th>
+                  <th style={thStyle}>Datum</th>
+                  <th style={thStyle}>Ort</th>
+                  <th style={thStyle}>Ausgeführte Arbeiten</th>
+                  <th style={thStyle}>Summe</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {regieHoursByBericht.map((item: any) => (
+                  <tr key={item.bericht.id}>
+                    <td style={tdStyle}>
+                      {item.bericht.bericht_nr || item.bericht.id}
+                    </td>
+                    <td style={tdStyle}>{formatDate(item.bericht.datum)}</td>
+                    <td style={tdStyle}>{item.bericht.ort || "-"}</td>
+                    <td style={tdStyle}>
+                      {item.bericht.ausgefuehrte_arbeiten || "-"}
+                    </td>
+                    <td style={tdStyle}>{formatNumber(item.sum)} h</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         <h3 style={subTitleStyle}>Einzelne Regieeinträge</h3>
 
         {regieHours.length === 0 ? (
@@ -619,7 +716,7 @@ export default function ArchivBerichtPage() {
                   <th style={thStyle}>Von</th>
                   <th style={thStyle}>Bis</th>
                   <th style={thStyle}>Stunden</th>
-                  <th style={thStyle}>Bemerkung</th>
+                  <th style={thStyle}>Bemerkung / Arbeit</th>
                 </tr>
               </thead>
 
@@ -632,7 +729,7 @@ export default function ArchivBerichtPage() {
                     <td style={tdStyle}>{r.von || "-"}</td>
                     <td style={tdStyle}>{r.bis || "-"}</td>
                     <td style={tdStyle}>{formatNumber(r.stunden)} h</td>
-                    <td style={tdStyle}>{r.bemerkung || "-"}</td>
+                    <td style={tdStyle}>{getRegieWorkText(r)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -723,13 +820,9 @@ export default function ArchivBerichtPage() {
                     <tbody>
                       {roomMat.map((m: any) => (
                         <tr key={m.id}>
-                          <td style={tdStyle}>
-                            {getMaterialNameFromRoomMaterial(m)}
-                          </td>
+                          <td style={tdStyle}>{getMaterialNameFromRoomMaterial(m)}</td>
                           <td style={tdStyle}>{formatNumber(m.kolicina)}</td>
-                          <td style={tdStyle}>
-                            {getMaterialUnitFromRoomMaterial(m)}
-                          </td>
+                          <td style={tdStyle}>{getMaterialUnitFromRoomMaterial(m)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -785,11 +878,7 @@ export default function ArchivBerichtPage() {
                     if (!url) return null;
 
                     return (
-                      <div
-                        key={photo.id}
-                        style={photoCardStyle}
-                        className="photo-card"
-                      >
+                      <div key={photo.id} style={photoCardStyle} className="photo-card">
                         <img
                           src={url}
                           alt={getPhotoDescription(photo) || "Foto"}
@@ -801,8 +890,7 @@ export default function ArchivBerichtPage() {
                         <div style={photoInfoStyle}>
                           <p style={photoRoomStyle}>{getRoomName(photo.room_id)}</p>
                           <p style={photoCaptionStyle}>
-                            <strong>Hinzugefügt von:</strong>{" "}
-                            {getPhotoWorker(photo)}
+                            <strong>Hinzugefügt von:</strong> {getPhotoWorker(photo)}
                           </p>
                           <p style={photoCaptionStyle}>
                             <strong>Datum:</strong>{" "}
@@ -893,6 +981,13 @@ const topBarStyle: any = {
   gap: "20px",
   alignItems: "center",
   marginBottom: "30px",
+  flexWrap: "wrap",
+};
+
+const topButtonRowStyle: any = {
+  display: "flex",
+  gap: "12px",
+  flexWrap: "wrap",
 };
 
 const backLinkStyle: any = {
@@ -909,6 +1004,29 @@ const pdfButtonStyle: any = {
   padding: "12px 20px",
   fontWeight: "bold",
   cursor: "pointer",
+  textDecoration: "none",
+};
+
+const mapsButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "10px",
+  padding: "12px 20px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  textDecoration: "none",
+};
+
+const visualizationButtonStyle: any = {
+  background: "#7c3aed",
+  color: "white",
+  border: "none",
+  borderRadius: "10px",
+  padding: "12px 20px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  textDecoration: "none",
 };
 
 const titleStyle: any = {
