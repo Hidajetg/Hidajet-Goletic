@@ -10,13 +10,13 @@ const BACKGROUND_URL =
   "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/pozadina.png";
 
 const legacyUsers = [
-  { name: "Arnes", pin: "1111", role: "worker" },
-  { name: "Ramiz", pin: "2222", role: "worker" },
-  { name: "Abror", pin: "3333", role: "worker" },
-  { name: "Shohruh", pin: "4444", role: "worker" },
-  { name: "Harun", pin: "5555", role: "worker" },
-  { name: "Hido", pin: "0000", role: "admin" },
-  { name: "Steffi", pin: "0001", role: "admin" },
+  { id: 1, name: "Arnes", pin: "1111", role: "worker" },
+  { id: 2, name: "Ramiz", pin: "2222", role: "worker" },
+  { id: 3, name: "Abror", pin: "3333", role: "worker" },
+  { id: 4, name: "Shohruh", pin: "4444", role: "worker" },
+  { id: 5, name: "Harun", pin: "5555", role: "worker" },
+  { id: 100, name: "Hido", pin: "0000", role: "admin" },
+  { id: 101, name: "Steffi", pin: "0001", role: "admin" },
 ];
 
 export default function SecureLoginPage() {
@@ -26,12 +26,33 @@ export default function SecureLoginPage() {
   const [loading, setLoading] = useState(false);
 
   function saveUserAndGoDashboard(user: any) {
-    localStorage.setItem("worker_id", String(user.id || user.name));
-    localStorage.setItem("worker_name", user.name);
-    localStorage.setItem("worker_role", user.role);
-    localStorage.setItem("userName", user.name);
+    const id = String(user.id || user.name);
+    const name = String(user.name || "");
+    const role = String(user.role || "worker");
 
-    window.location.href = "/dashboard";
+    localStorage.setItem("worker_id", id);
+    localStorage.setItem("worker_name", name);
+    localStorage.setItem("worker_role", role);
+
+    localStorage.setItem("userName", name);
+    localStorage.setItem("user_name", name);
+    localStorage.setItem("name", name);
+
+    localStorage.setItem("role", role);
+    localStorage.setItem("userRole", role);
+
+    localStorage.setItem("loggedIn", "true");
+    localStorage.setItem("isLoggedIn", "true");
+    localStorage.setItem("authenticated", "true");
+
+    sessionStorage.setItem("worker_id", id);
+    sessionStorage.setItem("worker_name", name);
+    sessionStorage.setItem("worker_role", role);
+    sessionStorage.setItem("userName", name);
+    sessionStorage.setItem("loggedIn", "true");
+    sessionStorage.setItem("isLoggedIn", "true");
+
+    window.location.replace("/dashboard");
   }
 
   function loginLegacyUser() {
@@ -193,9 +214,7 @@ export default function SecureLoginPage() {
             <p style={hintTextStyle}>
               Radnici se prijavljuju sa imenom i PIN-om.
             </p>
-            <p style={hintTextStyle}>
-              Admin: Hido 0000 / Steffi 0001
-            </p>
+            <p style={hintTextStyle}>Admin: Hido 0000 / Steffi 0001</p>
           </div>
         </div>
       </div>
