@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 
-export default function ArchivBerichtPage() {
+export default function BaustellePregledPage() {
   const params = useParams();
   const baustelleId = String(params.id);
 
@@ -19,7 +19,6 @@ export default function ArchivBerichtPage() {
   const [roomMaterials, setRoomMaterials] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
-  const [baustelleInfo, setBaustelleInfo] = useState<any[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   useEffect(() => {
@@ -59,7 +58,7 @@ export default function ArchivBerichtPage() {
       .eq("baustelle_id", Number(baustelleId))
       .order("datum", { ascending: true });
 
-    const regieberichtIds = (regieberichteData || []).map((r: any) => r.id);
+    const regieberichtIds = (regieberichteData || []).map((item: any) => item.id);
 
     let regieWorkersData: any[] = [];
 
@@ -78,35 +77,30 @@ export default function ArchivBerichtPage() {
       .eq("baustelle_id", Number(baustelleId))
       .order("datum", { ascending: true });
 
-    const { data: infoData } = await supabase
-      .from("baustelle_info")
-      .select("*")
-      .eq("baustelle_id", Number(baustelleId));
-
-    const roomIds = (roomsData || []).map((r: any) => r.id);
+    const roomIds = (roomsData || []).map((room: any) => room.id);
 
     let roomMaterialData: any[] = [];
     let photosData: any[] = [];
 
     if (roomIds.length > 0) {
-      const { data: rmData } = await supabase
+      const { data: materialData } = await supabase
         .from("room_material")
         .select("*")
         .in("room_id", roomIds);
 
-      roomMaterialData = rmData || [];
+      roomMaterialData = materialData || [];
 
-      const { data: phData } = await supabase
+      const { data: photoData } = await supabase
         .from("room_photos")
         .select("*")
         .in("room_id", roomIds)
         .order("created_at", { ascending: true });
 
-      photosData = phData || [];
+      photosData = photoData || [];
     }
 
     const materialIds = [
-      ...new Set(roomMaterialData.map((m: any) => m.material_id)),
+      ...new Set(roomMaterialData.map((item: any) => item.material_id)),
     ].filter(Boolean);
 
     let materialsData: any[] = [];
@@ -126,17 +120,22 @@ export default function ArchivBerichtPage() {
     setRegieberichte(regieberichteData || []);
     setRegieHours(regieWorkersData || []);
     setProductivity(productivityData || []);
-    setRoomMaterials(roomMaterialData || []);
-    setMaterials(materialsData || []);
-    setPhotos(photosData || []);
-    setBaustelleInfo(infoData || []);
+    setRoomMaterials(roomMaterialData);
+    setMaterials(materialsData);
+    setPhotos(photosData);
     setLoading(false);
   }
 
   function formatDate(value: string) {
-    if (!value) return "-";
+    if (!value || value === "-") return "-";
 
-    return new Date(value).toLocaleDateString("de-AT", {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+
+    return date.toLocaleDateString("de-AT", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -146,7 +145,13 @@ export default function ArchivBerichtPage() {
   function formatDateTime(value: string) {
     if (!value) return "-";
 
-    return new Date(value).toLocaleString("de-AT", {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+
+    return date.toLocaleString("de-AT", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -171,29 +176,37 @@ export default function ArchivBerichtPage() {
       devor: "Wand",
       wall: "Wand",
       wand: "Wand",
+
       pod: "Boden",
       pol: "Boden",
       floor: "Boden",
       boden: "Boden",
+
       plintus: "Sockelleiste",
       randlajsna: "Sockelleiste",
       lajsna: "Sockelleiste",
       sockelleiste: "Sockelleiste",
+
       profil: "Profil",
       profile: "Profil",
+
       schiene: "Schiene",
       "schiene / lajsna": "Schiene / Sockelleiste",
       "schiene/lajsna": "Schiene / Sockelleiste",
+
       silikon: "Silikon",
       "silikon 5 mm gacha": "Silikon 5 mm",
       "silikon 5mm gacha": "Silikon 5 mm",
       silicone: "Silikon",
+
       acryl: "Acryl",
       akril: "Acryl",
       "akril 5 mm gacha": "Acryl 5 mm",
       "akril 5mm gacha": "Acryl 5 mm",
+
       stepenice: "Stufen",
       stufen: "Stufen",
+
       fuge: "Fugen",
       fugovanje: "Fugen",
       fugen: "Fugen",
@@ -203,39 +216,49 @@ export default function ArchivBerichtPage() {
   }
 
   function getMaterialName(materialId: number) {
-    const mat = materials.find((m: any) => Number(m.id) === Number(materialId));
+    const material = materials.find(
+      (item: any) => Number(item.id) === Number(materialId)
+    );
 
-    return mat?.naziv || mat?.name || mat?.material || mat?.bezeichnung || "";
+    return (
+      material?.naziv ||
+      material?.name ||
+      material?.material ||
+      material?.bezeichnung ||
+      ""
+    );
   }
 
-  function getMaterialNameFromRoomMaterial(m: any) {
+  function getMaterialNameFromRoomMaterial(item: any) {
     const manualName =
-      m?.custom_naziv ||
-      m?.custom_name ||
-      m?.material_name ||
-      m?.naziv ||
-      m?.name ||
-      m?.material ||
-      m?.bezeichnung ||
-      m?.opis ||
-      m?.description ||
-      m?.manual_name ||
-      m?.keramika_naziv ||
-      m?.title ||
+      item?.custom_naziv ||
+      item?.custom_name ||
+      item?.material_name ||
+      item?.naziv ||
+      item?.name ||
+      item?.material ||
+      item?.bezeichnung ||
+      item?.opis ||
+      item?.description ||
+      item?.manual_name ||
+      item?.keramika_naziv ||
+      item?.title ||
       "";
 
-    const catalogName = m?.material_id ? getMaterialName(m.material_id) : "";
+    const catalogName = item?.material_id
+      ? getMaterialName(item.material_id)
+      : "";
 
     return manualName || catalogName || "Unbekannter Materialeintrag";
   }
 
-  function getMaterialUnitFromRoomMaterial(m: any) {
+  function getMaterialUnitFromRoomMaterial(item: any) {
     return (
-      m?.custom_jedinica ||
-      m?.custom_unit ||
-      m?.jedinica ||
-      m?.unit ||
-      m?.einheit ||
+      item?.custom_jedinica ||
+      item?.custom_unit ||
+      item?.jedinica ||
+      item?.unit ||
+      item?.einheit ||
       "-"
     );
   }
@@ -298,110 +321,97 @@ export default function ArchivBerichtPage() {
   }
 
   function getRoomName(roomId: number) {
-    const room = rooms.find((r: any) => Number(r.id) === Number(roomId));
+    const room = rooms.find(
+      (item: any) => Number(item.id) === Number(roomId)
+    );
+
     return room?.naziv || `Raum ${roomId}`;
   }
 
   function getHoursForRoom(roomId: number) {
-    return hours.filter((h: any) => Number(h.room_id) === Number(roomId));
+    return hours.filter(
+      (item: any) => Number(item.room_id) === Number(roomId)
+    );
   }
 
   function getProductivityForRoom(roomId: number) {
-    return productivity.filter((p: any) => Number(p.room_id) === Number(roomId));
+    return productivity.filter(
+      (item: any) => Number(item.room_id) === Number(roomId)
+    );
   }
 
   function getMaterialsForRoom(roomId: number) {
-    return roomMaterials.filter((m: any) => Number(m.room_id) === Number(roomId));
+    return roomMaterials.filter(
+      (item: any) => Number(item.room_id) === Number(roomId)
+    );
   }
 
   function getPhotosForRoom(roomId: number) {
-    return photos.filter((p: any) => Number(p.room_id) === Number(roomId));
+    return photos.filter(
+      (item: any) => Number(item.room_id) === Number(roomId)
+    );
   }
 
   function getRegiebericht(row: any) {
     return regieberichte.find(
-      (r: any) => Number(r.id) === Number(row.regiebericht_id)
+      (item: any) => Number(item.id) === Number(row.regiebericht_id)
     );
   }
 
   function getRegieDate(row: any) {
     const bericht = getRegiebericht(row);
+
     return bericht?.datum || row?.datum || row?.created_at || "";
   }
 
   function getRegieNumber(row: any) {
     const bericht = getRegiebericht(row);
+
     return bericht?.bericht_nr || bericht?.id || row?.regiebericht_id || "-";
   }
 
-  function getRegieWorkText(row: any) {
-    const bericht = getRegiebericht(row);
-    return (
-      row?.bemerkung ||
-      bericht?.ausgefuehrte_arbeiten ||
-      bericht?.arbeiten ||
-      bericht?.beschreibung ||
-      "-"
-    );
-  }
-
-  function getGoogleMapsUrl() {
-    const row = baustelleInfo.find((x: any) => x.type === "google_maps");
-    return row?.google_maps_url || "";
-  }
-
-  function getVisualizationUrl() {
-    const row = baustelleInfo.find((x: any) => x.type === "visualization_3d");
-    return row?.visualization_url || "";
-  }
-
   const totalHours = hours.reduce(
-    (sum, h) => sum + Number(h.ukupno_sati || h.sati || 0),
+    (sum, item) =>
+      sum + Number(item.ukupno_sati || item.sati || 0),
     0
   );
 
   const totalRegieHours = regieHours.reduce(
-    (sum, h) => sum + Number(h.stunden || h.sati || h.ukupno_sati || 0),
+    (sum, item) =>
+      sum + Number(item.stunden || item.sati || item.ukupno_sati || 0),
     0
   );
 
-  const startDate = hours.length > 0 ? hours[0].datum : "-";
-  const endDate = hours.length > 0 ? hours[hours.length - 1].datum : "-";
+  const totalHoursIncludingRegie = totalHours + totalRegieHours;
 
-  const workers = [...new Set(hours.map((h: any) => h.radnik).filter(Boolean))];
+  const startDate = hours.length > 0 ? hours[0].datum : "-";
+
+  const endDate =
+    hours.length > 0 ? hours[hours.length - 1].datum : "-";
+
+  const workers = [
+    ...new Set(hours.map((item: any) => item.radnik).filter(Boolean)),
+  ];
 
   const regieWorkers = [
-    ...new Set(regieHours.map((h: any) => h.worker_name).filter(Boolean)),
+    ...new Set(
+      regieHours.map((item: any) => item.worker_name).filter(Boolean)
+    ),
   ];
 
   const allWorkers = [...new Set([...workers, ...regieWorkers])];
 
-  const workDays = [...new Set(hours.map((h: any) => h.datum).filter(Boolean))];
+  const workDays = [
+    ...new Set(hours.map((item: any) => item.datum).filter(Boolean)),
+  ];
 
   const regieHoursByWorker = regieWorkers.map((workerName: any) => {
     const sum = regieHours
-      .filter((r: any) => r.worker_name === workerName)
-      .reduce((total, r) => total + Number(r.stunden || 0), 0);
+      .filter((item: any) => item.worker_name === workerName)
+      .reduce((total, item) => total + Number(item.stunden || 0), 0);
 
     return {
       workerName,
-      sum,
-    };
-  });
-
-  const regieHoursByBericht = regieberichte.map((bericht: any) => {
-    const rows = regieHours.filter(
-      (r: any) => Number(r.regiebericht_id) === Number(bericht.id)
-    );
-
-    const sum = rows.reduce(
-      (total, r) => total + Number(r.stunden || r.sati || r.ukupno_sati || 0),
-      0
-    );
-
-    return {
-      bericht,
-      rows,
       sum,
     };
   });
@@ -472,7 +482,8 @@ export default function ArchivBerichtPage() {
               font-size: 11px !important;
             }
 
-            th, td {
+            th,
+            td {
               color: black !important;
               border-color: #ccc !important;
               padding: 5px !important;
@@ -483,42 +494,56 @@ export default function ArchivBerichtPage() {
               color: black !important;
             }
 
-            h2, h3 {
+            h2,
+            h3 {
               color: black !important;
+            }
+          }
+
+          @media (max-width: 700px) {
+            .report-main {
+              padding: 16px !important;
+            }
+
+            .report-title {
+              font-size: 34px !important;
+            }
+
+            .report-topbar {
+              align-items: stretch !important;
+              flex-direction: column !important;
+            }
+
+            .report-pdf-button {
+              width: 100% !important;
             }
           }
         `}
       </style>
 
-      <div style={topBarStyle} className="no-print">
-        <Link href="/baustellen/archiv" style={backLinkStyle}>
-          ← Zurück zum Archiv
+      <div
+        style={topBarStyle}
+        className="no-print report-topbar"
+      >
+        <Link
+          href={`/baustellen/${baustelleId}`}
+          style={backLinkStyle}
+        >
+          ← Zurück zur Baustelle
         </Link>
 
-        <div style={topButtonRowStyle}>
-          {getGoogleMapsUrl() && (
-            <a href={getGoogleMapsUrl()} target="_blank" style={mapsButtonStyle}>
-              📍 Google Maps
-            </a>
-          )}
-
-          {getVisualizationUrl() && (
-            <a
-              href={getVisualizationUrl()}
-              target="_blank"
-              style={visualizationButtonStyle}
-            >
-              🏗️ 3D Visualisierung
-            </a>
-          )}
-
-          <button onClick={printPdf} style={pdfButtonStyle}>
-            📥 PDF herunterladen
-          </button>
-        </div>
+        <button
+          onClick={printPdf}
+          style={pdfButtonStyle}
+          className="report-pdf-button"
+        >
+          📥 PDF herunterladen
+        </button>
       </div>
 
-      <h1 style={titleStyle}>ABSCHLUSSBERICHT BAUSTELLE</h1>
+      <h1 style={titleStyle} className="report-title">
+        ABSCHLUSSBERICHT BAUSTELLE
+      </h1>
 
       <section style={boxStyle} className="print-box">
         <h2 style={sectionTitleStyle}>Baustellenübersicht</h2>
@@ -581,16 +606,20 @@ export default function ArchivBerichtPage() {
           <p>
             <strong>Gesamt inkl. Regie:</strong>
             <br />
-            {formatNumber(totalHours + totalRegieHours)} h
+            {formatNumber(totalHoursIncludingRegie)} h
           </p>
         </div>
       </section>
 
       <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>Gesamtübersicht Arbeitsstunden</h2>
+        <h2 style={sectionTitleStyle}>
+          Gesamtübersicht Arbeitsstunden
+        </h2>
 
         {hours.length === 0 ? (
-          <p style={mutedTextStyle}>Keine Arbeitsstunden vorhanden.</p>
+          <p style={mutedTextStyle}>
+            Keine Arbeitsstunden vorhanden.
+          </p>
         ) : (
           <div style={tableWrapStyle}>
             <table style={tableStyle}>
@@ -608,20 +637,44 @@ export default function ArchivBerichtPage() {
               </thead>
 
               <tbody>
-                {hours.map((h: any) => (
-                  <tr key={h.id}>
-                    <td style={tdStyle}>{formatDate(h.datum)}</td>
-                    <td style={tdStyle}>{h.radnik || "-"}</td>
+                {hours.map((item: any) => (
+                  <tr key={item.id}>
                     <td style={tdStyle}>
-                      {h.room_id ? getRoomName(h.room_id) : "-"}
+                      {formatDate(item.datum)}
                     </td>
-                    <td style={tdStyle}>{h.pocetak || "-"}</td>
-                    <td style={tdStyle}>{h.kraj || "-"}</td>
-                    <td style={tdStyle}>{formatNumber(h.pauza)} h</td>
+
                     <td style={tdStyle}>
-                      {formatNumber(h.ukupno_sati || h.sati)} h
+                      {item.radnik || "-"}
                     </td>
-                    <td style={tdStyle}>{h.opis_posla || "-"}</td>
+
+                    <td style={tdStyle}>
+                      {item.room_id
+                        ? getRoomName(item.room_id)
+                        : "-"}
+                    </td>
+
+                    <td style={tdStyle}>
+                      {item.pocetak || "-"}
+                    </td>
+
+                    <td style={tdStyle}>
+                      {item.kraj || "-"}
+                    </td>
+
+                    <td style={tdStyle}>
+                      {formatNumber(item.pauza)} h
+                    </td>
+
+                    <td style={tdStyle}>
+                      {formatNumber(
+                        item.ukupno_sati || item.sati
+                      )}{" "}
+                      h
+                    </td>
+
+                    <td style={tdStyle}>
+                      {item.opis_posla || "-"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -635,11 +688,13 @@ export default function ArchivBerichtPage() {
 
         <div style={regieSummaryStyle}>
           <p>
-            <strong>Gesamt Regiestunden:</strong> {formatNumber(totalRegieHours)} h
+            <strong>Gesamt Regiestunden:</strong>{" "}
+            {formatNumber(totalRegieHours)} h
           </p>
 
           <p>
-            <strong>Anzahl Regieberichte:</strong> {regieberichte.length}
+            <strong>Anzahl Regieberichte:</strong>{" "}
+            {regieberichte.length}
           </p>
         </div>
 
@@ -654,45 +709,9 @@ export default function ArchivBerichtPage() {
               </thead>
 
               <tbody>
-                {regieHoursByWorker.map((row: any) => (
-                  <tr key={row.workerName}>
-                    <td style={tdStyle}>{row.workerName}</td>
-                    <td style={tdStyle}>{formatNumber(row.sum)} h</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <h3 style={subTitleStyle}>Regiestunden pro Regiebericht</h3>
-
-        {regieHoursByBericht.length === 0 ? (
-          <p style={mutedTextStyle}>Keine Regieberichte vorhanden.</p>
-        ) : (
-          <div style={tableWrapStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Bericht Nr.</th>
-                  <th style={thStyle}>Datum</th>
-                  <th style={thStyle}>Ort</th>
-                  <th style={thStyle}>Ausgeführte Arbeiten</th>
-                  <th style={thStyle}>Summe</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {regieHoursByBericht.map((item: any) => (
-                  <tr key={item.bericht.id}>
-                    <td style={tdStyle}>
-                      {item.bericht.bericht_nr || item.bericht.id}
-                    </td>
-                    <td style={tdStyle}>{formatDate(item.bericht.datum)}</td>
-                    <td style={tdStyle}>{item.bericht.ort || "-"}</td>
-                    <td style={tdStyle}>
-                      {item.bericht.ausgefuehrte_arbeiten || "-"}
-                    </td>
+                {regieHoursByWorker.map((item: any) => (
+                  <tr key={item.workerName}>
+                    <td style={tdStyle}>{item.workerName}</td>
                     <td style={tdStyle}>{formatNumber(item.sum)} h</td>
                   </tr>
                 ))}
@@ -716,20 +735,20 @@ export default function ArchivBerichtPage() {
                   <th style={thStyle}>Von</th>
                   <th style={thStyle}>Bis</th>
                   <th style={thStyle}>Stunden</th>
-                  <th style={thStyle}>Bemerkung / Arbeit</th>
+                  <th style={thStyle}>Bemerkung</th>
                 </tr>
               </thead>
 
               <tbody>
-                {regieHours.map((r: any) => (
-                  <tr key={r.id}>
-                    <td style={tdStyle}>{getRegieNumber(r)}</td>
-                    <td style={tdStyle}>{formatDate(getRegieDate(r))}</td>
-                    <td style={tdStyle}>{r.worker_name || "-"}</td>
-                    <td style={tdStyle}>{r.von || "-"}</td>
-                    <td style={tdStyle}>{r.bis || "-"}</td>
-                    <td style={tdStyle}>{formatNumber(r.stunden)} h</td>
-                    <td style={tdStyle}>{getRegieWorkText(r)}</td>
+                {regieHours.map((item: any) => (
+                  <tr key={item.id}>
+                    <td style={tdStyle}>{getRegieNumber(item)}</td>
+                    <td style={tdStyle}>{formatDate(getRegieDate(item))}</td>
+                    <td style={tdStyle}>{item.worker_name || "-"}</td>
+                    <td style={tdStyle}>{item.von || "-"}</td>
+                    <td style={tdStyle}>{item.bis || "-"}</td>
+                    <td style={tdStyle}>{formatNumber(item.stunden)} h</td>
+                    <td style={tdStyle}>{item.bemerkung || "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -742,32 +761,46 @@ export default function ArchivBerichtPage() {
         <h2 style={sectionTitleStyle}>Raumübersicht</h2>
 
         {rooms.length === 0 && (
-          <p style={mutedTextStyle}>Keine Räume vorhanden.</p>
+          <p style={mutedTextStyle}>
+            Keine Räume vorhanden.
+          </p>
         )}
 
         {rooms.map((room: any) => {
           const roomHours = getHoursForRoom(room.id);
-          const roomProd = getProductivityForRoom(room.id);
-          const roomMat = getMaterialsForRoom(room.id);
+          const roomProductivity =
+            getProductivityForRoom(room.id);
+          const roomMaterial = getMaterialsForRoom(room.id);
           const roomPhotos = getPhotosForRoom(room.id);
 
           const roomTotalHours = roomHours.reduce(
-            (sum, h) => sum + Number(h.ukupno_sati || h.sati || 0),
+            (sum, item) =>
+              sum +
+              Number(item.ukupno_sati || item.sati || 0),
             0
           );
 
           return (
-            <div key={room.id} style={roomBoxStyle} className="print-room">
-              <h2 style={roomTitleStyle}>Raum: {room.naziv}</h2>
+            <div
+              key={room.id}
+              style={roomBoxStyle}
+              className="print-room"
+            >
+              <h2 style={roomTitleStyle}>
+                Raum: {room.naziv}
+              </h2>
 
               <h3 style={subTitleStyle}>Arbeitsstunden</h3>
 
               <p>
-                <strong>Summe Raum:</strong> {formatNumber(roomTotalHours)} h
+                <strong>Summe Raum:</strong>{" "}
+                {formatNumber(roomTotalHours)} h
               </p>
 
               {roomHours.length === 0 ? (
-                <p style={mutedTextStyle}>Keine Arbeitsstunden für diesen Raum.</p>
+                <p style={mutedTextStyle}>
+                  Keine Arbeitsstunden für diesen Raum.
+                </p>
               ) : (
                 <div style={tableWrapStyle}>
                   <table style={tableStyle}>
@@ -784,17 +817,38 @@ export default function ArchivBerichtPage() {
                     </thead>
 
                     <tbody>
-                      {roomHours.map((h: any) => (
-                        <tr key={h.id}>
-                          <td style={tdStyle}>{formatDate(h.datum)}</td>
-                          <td style={tdStyle}>{h.radnik || "-"}</td>
-                          <td style={tdStyle}>{h.pocetak || "-"}</td>
-                          <td style={tdStyle}>{h.kraj || "-"}</td>
-                          <td style={tdStyle}>{formatNumber(h.pauza)} h</td>
+                      {roomHours.map((item: any) => (
+                        <tr key={item.id}>
                           <td style={tdStyle}>
-                            {formatNumber(h.ukupno_sati || h.sati)} h
+                            {formatDate(item.datum)}
                           </td>
-                          <td style={tdStyle}>{h.opis_posla || "-"}</td>
+
+                          <td style={tdStyle}>
+                            {item.radnik || "-"}
+                          </td>
+
+                          <td style={tdStyle}>
+                            {item.pocetak || "-"}
+                          </td>
+
+                          <td style={tdStyle}>
+                            {item.kraj || "-"}
+                          </td>
+
+                          <td style={tdStyle}>
+                            {formatNumber(item.pauza)} h
+                          </td>
+
+                          <td style={tdStyle}>
+                            {formatNumber(
+                              item.ukupno_sati || item.sati
+                            )}{" "}
+                            h
+                          </td>
+
+                          <td style={tdStyle}>
+                            {item.opis_posla || "-"}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -802,10 +856,14 @@ export default function ArchivBerichtPage() {
                 </div>
               )}
 
-              <h3 style={subTitleStyle}>Materialverbrauch</h3>
+              <h3 style={subTitleStyle}>
+                Materialverbrauch
+              </h3>
 
-              {roomMat.length === 0 ? (
-                <p style={mutedTextStyle}>Kein Material für diesen Raum.</p>
+              {roomMaterial.length === 0 ? (
+                <p style={mutedTextStyle}>
+                  Kein Material für diesen Raum.
+                </p>
               ) : (
                 <div style={tableWrapStyle}>
                   <table style={tableStyle}>
@@ -818,11 +876,23 @@ export default function ArchivBerichtPage() {
                     </thead>
 
                     <tbody>
-                      {roomMat.map((m: any) => (
-                        <tr key={m.id}>
-                          <td style={tdStyle}>{getMaterialNameFromRoomMaterial(m)}</td>
-                          <td style={tdStyle}>{formatNumber(m.kolicina)}</td>
-                          <td style={tdStyle}>{getMaterialUnitFromRoomMaterial(m)}</td>
+                      {roomMaterial.map((item: any) => (
+                        <tr key={item.id}>
+                          <td style={tdStyle}>
+                            {getMaterialNameFromRoomMaterial(
+                              item
+                            )}
+                          </td>
+
+                          <td style={tdStyle}>
+                            {formatNumber(item.kolicina)}
+                          </td>
+
+                          <td style={tdStyle}>
+                            {getMaterialUnitFromRoomMaterial(
+                              item
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -830,9 +900,11 @@ export default function ArchivBerichtPage() {
                 </div>
               )}
 
-              <h3 style={subTitleStyle}>Leistungsnachweis</h3>
+              <h3 style={subTitleStyle}>
+                Leistungsnachweis
+              </h3>
 
-              {roomProd.length === 0 ? (
+              {roomProductivity.length === 0 ? (
                 <p style={mutedTextStyle}>
                   Keine Produktivitätsdaten für diesen Raum.
                 </p>
@@ -851,14 +923,31 @@ export default function ArchivBerichtPage() {
                     </thead>
 
                     <tbody>
-                      {roomProd.map((p: any) => (
-                        <tr key={p.id}>
-                          <td style={tdStyle}>{formatDate(p.datum)}</td>
-                          <td style={tdStyle}>{p.radnik || "-"}</td>
-                          <td style={tdStyle}>{translatePosition(p.pozicija)}</td>
-                          <td style={tdStyle}>{formatNumber(p.kolicina)}</td>
-                          <td style={tdStyle}>{p.jedinica || "-"}</td>
-                          <td style={tdStyle}>{p.napomena || "-"}</td>
+                      {roomProductivity.map((item: any) => (
+                        <tr key={item.id}>
+                          <td style={tdStyle}>
+                            {formatDate(item.datum)}
+                          </td>
+
+                          <td style={tdStyle}>
+                            {item.radnik || "-"}
+                          </td>
+
+                          <td style={tdStyle}>
+                            {translatePosition(item.pozicija)}
+                          </td>
+
+                          <td style={tdStyle}>
+                            {formatNumber(item.kolicina)}
+                          </td>
+
+                          <td style={tdStyle}>
+                            {item.jedinica || "-"}
+                          </td>
+
+                          <td style={tdStyle}>
+                            {item.napomena || "-"}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -866,39 +955,67 @@ export default function ArchivBerichtPage() {
                 </div>
               )}
 
-              <h3 style={subTitleStyle}>Fotodokumentation</h3>
+              <h3 style={subTitleStyle}>
+                Fotodokumentation
+              </h3>
 
               {roomPhotos.length === 0 ? (
-                <p style={mutedTextStyle}>Keine Fotos für diesen Raum.</p>
+                <p style={mutedTextStyle}>
+                  Keine Fotos für diesen Raum.
+                </p>
               ) : (
-                <div style={photoGridStyle} className="photo-grid">
+                <div
+                  style={photoGridStyle}
+                  className="photo-grid"
+                >
                   {roomPhotos.map((photo: any) => {
                     const url = getPhotoUrl(photo);
 
                     if (!url) return null;
 
                     return (
-                      <div key={photo.id} style={photoCardStyle} className="photo-card">
+                      <div
+                        key={photo.id}
+                        style={photoCardStyle}
+                        className="photo-card"
+                      >
                         <img
                           src={url}
-                          alt={getPhotoDescription(photo) || "Foto"}
+                          alt={
+                            getPhotoDescription(photo) ||
+                            "Foto"
+                          }
                           style={photoStyle}
                           className="photo-img"
-                          onClick={() => setSelectedPhoto(url)}
+                          onClick={() =>
+                            setSelectedPhoto(url)
+                          }
                         />
 
                         <div style={photoInfoStyle}>
-                          <p style={photoRoomStyle}>{getRoomName(photo.room_id)}</p>
-                          <p style={photoCaptionStyle}>
-                            <strong>Hinzugefügt von:</strong> {getPhotoWorker(photo)}
+                          <p style={photoRoomStyle}>
+                            {getRoomName(photo.room_id)}
                           </p>
+
+                          <p style={photoCaptionStyle}>
+                            <strong>
+                              Hinzugefügt von:
+                            </strong>{" "}
+                            {getPhotoWorker(photo)}
+                          </p>
+
                           <p style={photoCaptionStyle}>
                             <strong>Datum:</strong>{" "}
-                            {formatDateTime(getPhotoCreatedAt(photo))}
+                            {formatDateTime(
+                              getPhotoCreatedAt(photo)
+                            )}
                           </p>
+
                           {getPhotoDescription(photo) && (
                             <p style={photoCaptionStyle}>
-                              <strong>Beschreibung:</strong>{" "}
+                              <strong>
+                                Beschreibung:
+                              </strong>{" "}
                               {getPhotoDescription(photo)}
                             </p>
                           )}
@@ -914,23 +1031,28 @@ export default function ArchivBerichtPage() {
       </section>
 
       <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>Gesamtauswertung</h2>
+        <h2 style={sectionTitleStyle}>
+          Gesamtauswertung
+        </h2>
 
         <p>
-          <strong>Arbeitsstunden:</strong> {formatNumber(totalHours)} h
+          <strong>Arbeitsstunden:</strong>{" "}
+          {formatNumber(totalHours)} h
         </p>
 
         <p>
-          <strong>Regiestunden:</strong> {formatNumber(totalRegieHours)} h
+          <strong>Regiestunden:</strong>{" "}
+          {formatNumber(totalRegieHours)} h
         </p>
 
         <p>
           <strong>Gesamtstunden inkl. Regie:</strong>{" "}
-          {formatNumber(totalHours + totalRegieHours)} h
+          {formatNumber(totalHoursIncludingRegie)} h
         </p>
 
         <p>
-          <strong>Anzahl Mitarbeiter:</strong> {allWorkers.length}
+          <strong>Anzahl Mitarbeiter:</strong>{" "}
+          {allWorkers.length}
         </p>
 
         <p>
@@ -938,11 +1060,13 @@ export default function ArchivBerichtPage() {
         </p>
 
         <p>
-          <strong>Anzahl Arbeitstage:</strong> {workDays.length}
+          <strong>Anzahl Arbeitstage:</strong>{" "}
+          {workDays.length}
         </p>
 
         <p>
-          <strong>Anzahl Regieberichte:</strong> {regieberichte.length}
+          <strong>Anzahl Regieberichte:</strong>{" "}
+          {regieberichte.length}
         </p>
 
         <p>
@@ -961,7 +1085,11 @@ export default function ArchivBerichtPage() {
           className="no-print"
           onClick={() => setSelectedPhoto(null)}
         >
-          <img src={selectedPhoto} alt="Foto" style={modalImageStyle} />
+          <img
+            src={selectedPhoto}
+            alt="Foto"
+            style={modalImageStyle}
+          />
         </div>
       )}
     </main>
@@ -981,13 +1109,6 @@ const topBarStyle: any = {
   gap: "20px",
   alignItems: "center",
   marginBottom: "30px",
-  flexWrap: "wrap",
-};
-
-const topButtonRowStyle: any = {
-  display: "flex",
-  gap: "12px",
-  flexWrap: "wrap",
 };
 
 const backLinkStyle: any = {
@@ -1004,29 +1125,6 @@ const pdfButtonStyle: any = {
   padding: "12px 20px",
   fontWeight: "bold",
   cursor: "pointer",
-  textDecoration: "none",
-};
-
-const mapsButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "10px",
-  padding: "12px 20px",
-  fontWeight: "bold",
-  cursor: "pointer",
-  textDecoration: "none",
-};
-
-const visualizationButtonStyle: any = {
-  background: "#7c3aed",
-  color: "white",
-  border: "none",
-  borderRadius: "10px",
-  padding: "12px 20px",
-  fontWeight: "bold",
-  cursor: "pointer",
-  textDecoration: "none",
 };
 
 const titleStyle: any = {
@@ -1050,7 +1148,7 @@ const sectionTitleStyle: any = {
 
 const infoGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
   gap: "20px",
 };
 
@@ -1111,7 +1209,8 @@ const tdStyle: any = {
 
 const photoGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 260px))",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(180px, 260px))",
   gap: "16px",
   marginTop: "15px",
 };
@@ -1140,6 +1239,18 @@ const photoCaptionStyle: any = {
   marginBottom: 0,
 };
 
+const photoInfoStyle: any = {
+  marginTop: "8px",
+};
+
+const photoRoomStyle: any = {
+  color: "#f97316",
+  fontSize: "14px",
+  fontWeight: "bold",
+  marginTop: "8px",
+  marginBottom: "6px",
+};
+
 const modalOverlayStyle: any = {
   position: "fixed",
   inset: 0,
@@ -1157,16 +1268,4 @@ const modalImageStyle: any = {
   maxHeight: "90vh",
   borderRadius: "14px",
   objectFit: "contain",
-};
-
-const photoInfoStyle: any = {
-  marginTop: "8px",
-};
-
-const photoRoomStyle: any = {
-  color: "#f97316",
-  fontSize: "14px",
-  fontWeight: "bold",
-  marginTop: "8px",
-  marginBottom: "6px",
 };
