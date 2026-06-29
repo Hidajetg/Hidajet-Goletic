@@ -370,6 +370,20 @@ export default function BaustellePregledPage() {
     return bericht?.bericht_nr || bericht?.id || row?.regiebericht_id || "-";
   }
 
+  function getRegieWorkText(row: any) {
+    const bericht = getRegiebericht(row);
+
+    return (
+      bericht?.ausgefuehrte_arbeiten ||
+      bericht?.arbeiten ||
+      bericht?.beschreibung ||
+      row?.ausgefuehrte_arbeiten ||
+      row?.taetigkeit ||
+      row?.bemerkung ||
+      "-"
+    );
+  }
+
   const totalHours = hours.reduce(
     (sum, item) =>
       sum + Number(item.ukupno_sati || item.sati || 0),
@@ -735,7 +749,7 @@ export default function BaustellePregledPage() {
                   <th style={thStyle}>Von</th>
                   <th style={thStyle}>Bis</th>
                   <th style={thStyle}>Stunden</th>
-                  <th style={thStyle}>Bemerkung</th>
+                  <th style={thStyle}>Ausgeführte Arbeiten</th>
                 </tr>
               </thead>
 
@@ -748,7 +762,7 @@ export default function BaustellePregledPage() {
                     <td style={tdStyle}>{item.von || "-"}</td>
                     <td style={tdStyle}>{item.bis || "-"}</td>
                     <td style={tdStyle}>{formatNumber(item.stunden)} h</td>
-                    <td style={tdStyle}>{item.bemerkung || "-"}</td>
+                    <td style={tdStyle}>{getRegieWorkText(item)}</td>
                   </tr>
                 ))}
               </tbody>
