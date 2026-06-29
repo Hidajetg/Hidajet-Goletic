@@ -13,6 +13,8 @@ export default function ArchivBerichtPage() {
   const [baustelle, setBaustelle] = useState<any>(null);
   const [rooms, setRooms] = useState<any[]>([]);
   const [hours, setHours] = useState<any[]>([]);
+  const [regieberichte, setRegieberichte] = useState<any[]>([]);
+  const [regieHours, setRegieHours] = useState<any[]>([]);
   const [productivity, setProductivity] = useState<any[]>([]);
   const [roomMaterials, setRoomMaterials] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
@@ -49,6 +51,25 @@ export default function ArchivBerichtPage() {
       .select("*")
       .eq("baustelle_id", Number(baustelleId))
       .order("datum", { ascending: true });
+
+    const { data: regieberichteData } = await supabase
+      .from("regieberichte")
+      .select("*")
+      .eq("baustelle_id", Number(baustelleId))
+      .order("datum", { ascending: true });
+
+    const regieberichtIds = (regieberichteData || []).map((r: any) => r.id);
+
+    let regieWorkersData: any[] = [];
+
+    if (regieberichtIds.length > 0) {
+      const { data } = await supabase
+        .from("regiebericht_workers")
+        .select("*")
+        .in("regiebericht_id", regieberichtIds);
+
+      regieWorkersData = data || [];
+    }
 
     const { data: productivityData } = await supabase
       .from("produktivnost")
@@ -96,6 +117,8 @@ export default function ArchivBerichtPage() {
     setBaustelle(baustelleData);
     setRooms(roomsData || []);
     setHours(hoursData || []);
+    setRegieberichte(regieberichteData || []);
+    setRegieHours(regieWorkersData || []);
     setProductivity(productivityData || []);
     setRoomMaterials(roomMaterialData || []);
     setMaterials(materialsData || []);
@@ -141,37 +164,29 @@ export default function ArchivBerichtPage() {
       devor: "Wand",
       wall: "Wand",
       wand: "Wand",
-
       pod: "Boden",
       pol: "Boden",
       floor: "Boden",
       boden: "Boden",
-
       plintus: "Sockelleiste",
       randlajsna: "Sockelleiste",
       lajsna: "Sockelleiste",
       sockelleiste: "Sockelleiste",
-
       profil: "Profil",
       profile: "Profil",
-
       schiene: "Schiene",
       "schiene / lajsna": "Schiene / Sockelleiste",
       "schiene/lajsna": "Schiene / Sockelleiste",
-
       silikon: "Silikon",
       "silikon 5 mm gacha": "Silikon 5 mm",
       "silikon 5mm gacha": "Silikon 5 mm",
       silicone: "Silikon",
-
       acryl: "Acryl",
       akril: "Acryl",
       "akril 5 mm gacha": "Acryl 5 mm",
       "akril 5mm gacha": "Acryl 5 mm",
-
       stepenice: "Stufen",
       stufen: "Stufen",
-
       fuge: "Fugen",
       fugovanje: "Fugen",
       fugen: "Fugen",
@@ -183,13 +198,7 @@ export default function ArchivBerichtPage() {
   function getMaterialName(materialId: number) {
     const mat = materials.find((m: any) => Number(m.id) === Number(materialId));
 
-    return (
-      mat?.naziv ||
-      mat?.name ||
-      mat?.material ||
-      mat?.bezeichnung ||
-      ""
-    );
+    return mat?.naziv || mat?.name || mat?.material || mat?.bezeichnung || "";
   }
 
   function getMaterialNameFromRoomMaterial(m: any) {
@@ -262,11 +271,23 @@ export default function ArchivBerichtPage() {
   }
 
   function getPhotoCreatedAt(photo: any) {
-    return photo?.created_at || photo?.datum || photo?.date || photo?.uploaded_at || "";
+    return (
+      photo?.created_at ||
+      photo?.datum ||
+      photo?.date ||
+      photo?.uploaded_at ||
+      ""
+    );
   }
 
   function getPhotoDescription(photo: any) {
-    return photo?.opis || photo?.napomena || photo?.description || photo?.title || "";
+    return (
+      photo?.opis ||
+      photo?.napomena ||
+      photo?.description ||
+      photo?.title ||
+      ""
+    );
   }
 
   function getRoomName(roomId: number) {
@@ -290,8 +311,29 @@ export default function ArchivBerichtPage() {
     return photos.filter((p: any) => Number(p.room_id) === Number(roomId));
   }
 
+  function getRegiebericht(row: any) {
+    return regieberichte.find(
+      (r: any) => Number(r.id) === Number(row.regiebericht_id)
+    );
+  }
+
+  function getRegieDate(row: any) {
+    const bericht = getRegiebericht(row);
+    return bericht?.datum || row?.datum || row?.created_at || "";
+  }
+
+  function getRegieNumber(row: any) {
+    const bericht = getRegiebericht(row);
+    return bericht?.bericht_nr || bericht?.id || row?.regiebericht_id || "-";
+  }
+
   const totalHours = hours.reduce(
     (sum, h) => sum + Number(h.ukupno_sati || h.sati || 0),
+    0
+  );
+
+  const totalRegieHours = regieHours.reduce(
+    (sum, h) => sum + Number(h.stunden || h.sati || h.ukupno_sati || 0),
     0
   );
 
@@ -300,9 +342,26 @@ export default function ArchivBerichtPage() {
 
   const workers = [...new Set(hours.map((h: any) => h.radnik).filter(Boolean))];
 
+  const regieWorkers = [
+    ...new Set(regieHours.map((h: any) => h.worker_name).filter(Boolean)),
+  ];
+
+  const allWorkers = [...new Set([...workers, ...regieWorkers])];
+
   const workDays = [
     ...new Set(hours.map((h: any) => h.datum).filter(Boolean)),
   ];
+
+  const regieHoursByWorker = regieWorkers.map((workerName: any) => {
+    const sum = regieHours
+      .filter((r: any) => r.worker_name === workerName)
+      .reduce((total, r) => total + Number(r.stunden || 0), 0);
+
+    return {
+      workerName,
+      sum,
+    };
+  });
 
   function printPdf() {
     window.print();
@@ -443,13 +502,25 @@ export default function ArchivBerichtPage() {
           <p>
             <strong>Mitarbeiter:</strong>
             <br />
-            {workers.length > 0 ? workers.join(", ") : "-"}
+            {allWorkers.length > 0 ? allWorkers.join(", ") : "-"}
           </p>
 
           <p>
-            <strong>Gesamtstunden:</strong>
+            <strong>Arbeitsstunden:</strong>
             <br />
             {formatNumber(totalHours)} h
+          </p>
+
+          <p>
+            <strong>Regiestunden:</strong>
+            <br />
+            {formatNumber(totalRegieHours)} h
+          </p>
+
+          <p>
+            <strong>Gesamt inkl. Regie:</strong>
+            <br />
+            {formatNumber(totalHours + totalRegieHours)} h
           </p>
         </div>
       </section>
@@ -490,6 +561,78 @@ export default function ArchivBerichtPage() {
                       {formatNumber(h.ukupno_sati || h.sati)} h
                     </td>
                     <td style={tdStyle}>{h.opis_posla || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section style={boxStyle} className="print-box">
+        <h2 style={sectionTitleStyle}>Regiestunden</h2>
+
+        <div style={regieSummaryStyle}>
+          <p>
+            <strong>Gesamt Regiestunden:</strong> {formatNumber(totalRegieHours)} h
+          </p>
+
+          <p>
+            <strong>Anzahl Regieberichte:</strong> {regieberichte.length}
+          </p>
+        </div>
+
+        {regieHoursByWorker.length > 0 && (
+          <div style={tableWrapStyle}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Mitarbeiter</th>
+                  <th style={thStyle}>Regiestunden gesamt</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {regieHoursByWorker.map((row: any) => (
+                  <tr key={row.workerName}>
+                    <td style={tdStyle}>{row.workerName}</td>
+                    <td style={tdStyle}>{formatNumber(row.sum)} h</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <h3 style={subTitleStyle}>Einzelne Regieeinträge</h3>
+
+        {regieHours.length === 0 ? (
+          <p style={mutedTextStyle}>Keine Regiestunden vorhanden.</p>
+        ) : (
+          <div style={tableWrapStyle}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Bericht Nr.</th>
+                  <th style={thStyle}>Datum</th>
+                  <th style={thStyle}>Mitarbeiter</th>
+                  <th style={thStyle}>Von</th>
+                  <th style={thStyle}>Bis</th>
+                  <th style={thStyle}>Stunden</th>
+                  <th style={thStyle}>Bemerkung</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {regieHours.map((r: any) => (
+                  <tr key={r.id}>
+                    <td style={tdStyle}>{getRegieNumber(r)}</td>
+                    <td style={tdStyle}>{formatDate(getRegieDate(r))}</td>
+                    <td style={tdStyle}>{r.worker_name || "-"}</td>
+                    <td style={tdStyle}>{r.von || "-"}</td>
+                    <td style={tdStyle}>{r.bis || "-"}</td>
+                    <td style={tdStyle}>{formatNumber(r.stunden)} h</td>
+                    <td style={tdStyle}>{r.bemerkung || "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -580,9 +723,13 @@ export default function ArchivBerichtPage() {
                     <tbody>
                       {roomMat.map((m: any) => (
                         <tr key={m.id}>
-                          <td style={tdStyle}>{getMaterialNameFromRoomMaterial(m)}</td>
+                          <td style={tdStyle}>
+                            {getMaterialNameFromRoomMaterial(m)}
+                          </td>
                           <td style={tdStyle}>{formatNumber(m.kolicina)}</td>
-                          <td style={tdStyle}>{getMaterialUnitFromRoomMaterial(m)}</td>
+                          <td style={tdStyle}>
+                            {getMaterialUnitFromRoomMaterial(m)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -654,14 +801,17 @@ export default function ArchivBerichtPage() {
                         <div style={photoInfoStyle}>
                           <p style={photoRoomStyle}>{getRoomName(photo.room_id)}</p>
                           <p style={photoCaptionStyle}>
-                            <strong>Hinzugefügt von:</strong> {getPhotoWorker(photo)}
+                            <strong>Hinzugefügt von:</strong>{" "}
+                            {getPhotoWorker(photo)}
                           </p>
                           <p style={photoCaptionStyle}>
-                            <strong>Datum:</strong> {formatDateTime(getPhotoCreatedAt(photo))}
+                            <strong>Datum:</strong>{" "}
+                            {formatDateTime(getPhotoCreatedAt(photo))}
                           </p>
                           {getPhotoDescription(photo) && (
                             <p style={photoCaptionStyle}>
-                              <strong>Beschreibung:</strong> {getPhotoDescription(photo)}
+                              <strong>Beschreibung:</strong>{" "}
+                              {getPhotoDescription(photo)}
                             </p>
                           )}
                         </div>
@@ -679,11 +829,20 @@ export default function ArchivBerichtPage() {
         <h2 style={sectionTitleStyle}>Gesamtauswertung</h2>
 
         <p>
-          <strong>Gesamtstunden:</strong> {formatNumber(totalHours)} h
+          <strong>Arbeitsstunden:</strong> {formatNumber(totalHours)} h
         </p>
 
         <p>
-          <strong>Anzahl Mitarbeiter:</strong> {workers.length}
+          <strong>Regiestunden:</strong> {formatNumber(totalRegieHours)} h
+        </p>
+
+        <p>
+          <strong>Gesamtstunden inkl. Regie:</strong>{" "}
+          {formatNumber(totalHours + totalRegieHours)} h
+        </p>
+
+        <p>
+          <strong>Anzahl Mitarbeiter:</strong> {allWorkers.length}
         </p>
 
         <p>
@@ -692,6 +851,10 @@ export default function ArchivBerichtPage() {
 
         <p>
           <strong>Anzahl Arbeitstage:</strong> {workDays.length}
+        </p>
+
+        <p>
+          <strong>Anzahl Regieberichte:</strong> {regieberichte.length}
         </p>
 
         <p>
@@ -769,8 +932,15 @@ const sectionTitleStyle: any = {
 
 const infoGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
   gap: "20px",
+};
+
+const regieSummaryStyle: any = {
+  display: "flex",
+  gap: "30px",
+  flexWrap: "wrap",
+  marginBottom: "20px",
 };
 
 const roomBoxStyle: any = {
@@ -870,6 +1040,7 @@ const modalImageStyle: any = {
   borderRadius: "14px",
   objectFit: "contain",
 };
+
 const photoInfoStyle: any = {
   marginTop: "8px",
 };
