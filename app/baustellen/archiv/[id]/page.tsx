@@ -668,42 +668,6 @@ export default function ArchivBerichtPage() {
           </div>
         )}
 
-        <h3 style={subTitleStyle}>Regiestunden pro Regiebericht</h3>
-
-        {regieHoursByBericht.length === 0 ? (
-          <p style={mutedTextStyle}>Keine Regieberichte vorhanden.</p>
-        ) : (
-          <div style={tableWrapStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Bericht Nr.</th>
-                  <th style={thStyle}>Datum</th>
-                  <th style={thStyle}>Ort</th>
-                  <th style={thStyle}>Ausgeführte Arbeiten</th>
-                  <th style={thStyle}>Summe</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {regieHoursByBericht.map((item: any) => (
-                  <tr key={item.bericht.id}>
-                    <td style={tdStyle}>
-                      {item.bericht.bericht_nr || item.bericht.id}
-                    </td>
-                    <td style={tdStyle}>{formatDate(item.bericht.datum)}</td>
-                    <td style={tdStyle}>{item.bericht.ort || "-"}</td>
-                    <td style={tdStyle}>
-                      {item.bericht.ausgefuehrte_arbeiten || "-"}
-                    </td>
-                    <td style={tdStyle}>{formatNumber(item.sum)} h</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
         <h3 style={subTitleStyle}>Einzelne Regieeinträge</h3>
 
         {regieHours.length === 0 ? (
