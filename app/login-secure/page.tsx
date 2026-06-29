@@ -212,9 +212,9 @@ export default function SecureLoginPage() {
 
           <div style={hintBoxStyle}>
             <p style={hintTextStyle}>
-              Radnici se prijavljuju sa imenom i PIN-om.
+              
             </p>
-            <p style={hintTextStyle}>Admin: Hido 0000 / Steffi 0001</p>
+            <p style={hintTextStyle}></p>
           </div>
         </div>
       </div>
