@@ -115,9 +115,9 @@ export default function LoginPage() {
           </button>
 
           <div style={hintBoxStyle}>
-            <p style={hintTextStyle}>Radnici: Arnes 1111, Ramiz 2222, Abror 3333</p>
-            <p style={hintTextStyle}>Shohruh 4444, Harun 5555</p>
-            <p style={hintTextStyle}>Admin: Hido 0000 / Steffi 0001</p>
+            <p style={hintTextStyle}></p>
+            <p style={hintTextStyle}></p>
+            <p style={hintTextStyle}></p>
           </div>
         </div>
       </div>
