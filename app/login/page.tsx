@@ -70,7 +70,7 @@ export default function LoginPage() {
             <img src={LOGO_URL} alt="Solstone Logo" style={logoStyle} />
 
             <p style={systemStyle}>Baustellen Management System</p>
-            <p style={testStyle}>Testbetrieb</p>
+            <p style={testStyle}>Anmeldung</p>
           </div>
 
           <label style={labelStyle}>Name</label>
@@ -94,7 +94,11 @@ export default function LoginPage() {
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               type={showPin ? "text" : "password"}
-              style={{ ...inputStyle, marginBottom: 0, paddingRight: "55px" }}
+              style={{
+                ...inputStyle,
+                marginBottom: 0,
+                paddingRight: "55px",
+              }}
               placeholder="PIN eingeben"
               onKeyDown={(e) => {
                 if (e.key === "Enter") login();
@@ -113,12 +117,6 @@ export default function LoginPage() {
           <button onClick={login} style={buttonStyle}>
             LOGIN
           </button>
-
-          <div style={hintBoxStyle}>
-            <p style={hintTextStyle}>Radnici: Arnes 1111, Ramiz 2222, Abror 3333</p>
-            <p style={hintTextStyle}>Shohruh 4444, Harun 5555</p>
-            <p style={hintTextStyle}>Admin: Hido 0000 / Steffi 0001</p>
-          </div>
         </div>
       </div>
     </main>
@@ -184,7 +182,7 @@ const systemStyle: any = {
 const testStyle: any = {
   fontSize: "15px",
   margin: 0,
-  color: "#f97316",
+  color: "#22c55e",
   fontWeight: "bold",
   textShadow: "0 2px 8px rgba(0,0,0,0.9)",
 };
@@ -238,16 +236,4 @@ const buttonStyle: any = {
   fontWeight: "bold",
   cursor: "pointer",
   marginTop: "10px",
-};
-
-const hintBoxStyle: any = {
-  marginTop: "18px",
-  textAlign: "center",
-};
-
-const hintTextStyle: any = {
-  margin: "4px 0",
-  fontSize: "13px",
-  color: "#e5e7eb",
-  textShadow: "0 2px 8px rgba(0,0,0,0.9)",
 };
