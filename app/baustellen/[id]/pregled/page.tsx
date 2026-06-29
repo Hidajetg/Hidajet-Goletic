@@ -13,6 +13,8 @@ export default function BaustellePregledPage() {
   const [baustelle, setBaustelle] = useState<any>(null);
   const [rooms, setRooms] = useState<any[]>([]);
   const [hours, setHours] = useState<any[]>([]);
+  const [regieberichte, setRegieberichte] = useState<any[]>([]);
+  const [regieHours, setRegieHours] = useState<any[]>([]);
   const [productivity, setProductivity] = useState<any[]>([]);
   const [roomMaterials, setRoomMaterials] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
@@ -49,6 +51,25 @@ export default function BaustellePregledPage() {
       .select("*")
       .eq("baustelle_id", Number(baustelleId))
       .order("datum", { ascending: true });
+
+    const { data: regieberichteData } = await supabase
+      .from("regieberichte")
+      .select("*")
+      .eq("baustelle_id", Number(baustelleId))
+      .order("datum", { ascending: true });
+
+    const regieberichtIds = (regieberichteData || []).map((item: any) => item.id);
+
+    let regieWorkersData: any[] = [];
+
+    if (regieberichtIds.length > 0) {
+      const { data } = await supabase
+        .from("regiebericht_workers")
+        .select("*")
+        .in("regiebericht_id", regieberichtIds);
+
+      regieWorkersData = data || [];
+    }
 
     const { data: productivityData } = await supabase
       .from("produktivnost")
@@ -96,6 +117,8 @@ export default function BaustellePregledPage() {
     setBaustelle(baustelleData);
     setRooms(roomsData || []);
     setHours(hoursData || []);
+    setRegieberichte(regieberichteData || []);
+    setRegieHours(regieWorkersData || []);
     setProductivity(productivityData || []);
     setRoomMaterials(roomMaterialData);
     setMaterials(materialsData);
@@ -329,11 +352,37 @@ export default function BaustellePregledPage() {
     );
   }
 
+  function getRegiebericht(row: any) {
+    return regieberichte.find(
+      (item: any) => Number(item.id) === Number(row.regiebericht_id)
+    );
+  }
+
+  function getRegieDate(row: any) {
+    const bericht = getRegiebericht(row);
+
+    return bericht?.datum || row?.datum || row?.created_at || "";
+  }
+
+  function getRegieNumber(row: any) {
+    const bericht = getRegiebericht(row);
+
+    return bericht?.bericht_nr || bericht?.id || row?.regiebericht_id || "-";
+  }
+
   const totalHours = hours.reduce(
     (sum, item) =>
       sum + Number(item.ukupno_sati || item.sati || 0),
     0
   );
+
+  const totalRegieHours = regieHours.reduce(
+    (sum, item) =>
+      sum + Number(item.stunden || item.sati || item.ukupno_sati || 0),
+    0
+  );
+
+  const totalHoursIncludingRegie = totalHours + totalRegieHours;
 
   const startDate = hours.length > 0 ? hours[0].datum : "-";
 
@@ -344,9 +393,28 @@ export default function BaustellePregledPage() {
     ...new Set(hours.map((item: any) => item.radnik).filter(Boolean)),
   ];
 
+  const regieWorkers = [
+    ...new Set(
+      regieHours.map((item: any) => item.worker_name).filter(Boolean)
+    ),
+  ];
+
+  const allWorkers = [...new Set([...workers, ...regieWorkers])];
+
   const workDays = [
     ...new Set(hours.map((item: any) => item.datum).filter(Boolean)),
   ];
+
+  const regieHoursByWorker = regieWorkers.map((workerName: any) => {
+    const sum = regieHours
+      .filter((item: any) => item.worker_name === workerName)
+      .reduce((total, item) => total + Number(item.stunden || 0), 0);
+
+    return {
+      workerName,
+      sum,
+    };
+  });
 
   function printPdf() {
     window.print();
@@ -520,13 +588,25 @@ export default function BaustellePregledPage() {
           <p>
             <strong>Mitarbeiter:</strong>
             <br />
-            {workers.length > 0 ? workers.join(", ") : "-"}
+            {allWorkers.length > 0 ? allWorkers.join(", ") : "-"}
           </p>
 
           <p>
-            <strong>Gesamtstunden:</strong>
+            <strong>Arbeitsstunden:</strong>
             <br />
             {formatNumber(totalHours)} h
+          </p>
+
+          <p>
+            <strong>Regiestunden:</strong>
+            <br />
+            {formatNumber(totalRegieHours)} h
+          </p>
+
+          <p>
+            <strong>Gesamt inkl. Regie:</strong>
+            <br />
+            {formatNumber(totalHoursIncludingRegie)} h
           </p>
         </div>
       </section>
@@ -595,6 +675,80 @@ export default function BaustellePregledPage() {
                     <td style={tdStyle}>
                       {item.opis_posla || "-"}
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section style={boxStyle} className="print-box">
+        <h2 style={sectionTitleStyle}>Regiestunden</h2>
+
+        <div style={regieSummaryStyle}>
+          <p>
+            <strong>Gesamt Regiestunden:</strong>{" "}
+            {formatNumber(totalRegieHours)} h
+          </p>
+
+          <p>
+            <strong>Anzahl Regieberichte:</strong>{" "}
+            {regieberichte.length}
+          </p>
+        </div>
+
+        {regieHoursByWorker.length > 0 && (
+          <div style={tableWrapStyle}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Mitarbeiter</th>
+                  <th style={thStyle}>Regiestunden gesamt</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {regieHoursByWorker.map((item: any) => (
+                  <tr key={item.workerName}>
+                    <td style={tdStyle}>{item.workerName}</td>
+                    <td style={tdStyle}>{formatNumber(item.sum)} h</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <h3 style={subTitleStyle}>Einzelne Regieeinträge</h3>
+
+        {regieHours.length === 0 ? (
+          <p style={mutedTextStyle}>Keine Regiestunden vorhanden.</p>
+        ) : (
+          <div style={tableWrapStyle}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Bericht Nr.</th>
+                  <th style={thStyle}>Datum</th>
+                  <th style={thStyle}>Mitarbeiter</th>
+                  <th style={thStyle}>Von</th>
+                  <th style={thStyle}>Bis</th>
+                  <th style={thStyle}>Stunden</th>
+                  <th style={thStyle}>Bemerkung</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {regieHours.map((item: any) => (
+                  <tr key={item.id}>
+                    <td style={tdStyle}>{getRegieNumber(item)}</td>
+                    <td style={tdStyle}>{formatDate(getRegieDate(item))}</td>
+                    <td style={tdStyle}>{item.worker_name || "-"}</td>
+                    <td style={tdStyle}>{item.von || "-"}</td>
+                    <td style={tdStyle}>{item.bis || "-"}</td>
+                    <td style={tdStyle}>{formatNumber(item.stunden)} h</td>
+                    <td style={tdStyle}>{item.bemerkung || "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -882,13 +1036,23 @@ export default function BaustellePregledPage() {
         </h2>
 
         <p>
-          <strong>Gesamtstunden:</strong>{" "}
+          <strong>Arbeitsstunden:</strong>{" "}
           {formatNumber(totalHours)} h
         </p>
 
         <p>
+          <strong>Regiestunden:</strong>{" "}
+          {formatNumber(totalRegieHours)} h
+        </p>
+
+        <p>
+          <strong>Gesamtstunden inkl. Regie:</strong>{" "}
+          {formatNumber(totalHoursIncludingRegie)} h
+        </p>
+
+        <p>
           <strong>Anzahl Mitarbeiter:</strong>{" "}
-          {workers.length}
+          {allWorkers.length}
         </p>
 
         <p>
@@ -898,6 +1062,11 @@ export default function BaustellePregledPage() {
         <p>
           <strong>Anzahl Arbeitstage:</strong>{" "}
           {workDays.length}
+        </p>
+
+        <p>
+          <strong>Anzahl Regieberichte:</strong>{" "}
+          {regieberichte.length}
         </p>
 
         <p>
@@ -981,6 +1150,13 @@ const infoGridStyle: any = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
   gap: "20px",
+};
+
+const regieSummaryStyle: any = {
+  display: "flex",
+  gap: "30px",
+  flexWrap: "wrap",
+  marginBottom: "20px",
 };
 
 const roomBoxStyle: any = {
