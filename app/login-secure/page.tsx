@@ -14,46 +14,52 @@ const users = [
   { id: 3, name: "Abror", pin: "3333", role: "worker" },
   { id: 4, name: "Shohruh", pin: "4444", role: "worker" },
   { id: 5, name: "Harun", pin: "5555", role: "worker" },
-  { id: 100, name: "Hido", pin: "0000", role: "admin" },
-  { id: 101, name: "Steffi", pin: "0001", role: "admin" },
+  { id: 6, name: "Hido", pin: "0000", role: "admin" },
+  { id: 7, name: "Steffi", pin: "0001", role: "admin" },
+  { id: 8, name: "Admin", pin: "0000", role: "admin" },
 ];
 
-export default function LoginSecurePage() {
+export default function LoginPage() {
   const [name, setName] = useState("Hido");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
 
   function login() {
-    const foundUser = users.find(
-      (user) =>
-        user.name.toLowerCase() === name.trim().toLowerCase() &&
-        user.pin === pin
+    const enteredName = name.trim().toLowerCase();
+    const enteredPin = pin.trim();
+
+    const user = users.find(
+      (u) => u.name.toLowerCase() === enteredName && u.pin === enteredPin
     );
 
-    if (!foundUser) {
-      alert("Pogrešno ime ili PIN.");
+    if (!user) {
+      alert("Falscher Name oder PIN.");
       return;
     }
 
-    localStorage.clear();
-    sessionStorage.clear();
+    localStorage.setItem("worker_id", String(user.id));
+    localStorage.setItem("worker_name", user.name);
+    localStorage.setItem("worker_role", user.role);
 
-    localStorage.setItem("worker_id", String(foundUser.id));
-    localStorage.setItem("worker_name", foundUser.name);
-    localStorage.setItem("worker_role", foundUser.role);
+    localStorage.setItem("userName", user.name);
+    localStorage.setItem("user_name", user.name);
+    localStorage.setItem("name", user.name);
 
-    localStorage.setItem("userName", foundUser.name);
-    localStorage.setItem("user_name", foundUser.name);
-    localStorage.setItem("name", foundUser.name);
-
-    localStorage.setItem("role", foundUser.role);
-    localStorage.setItem("userRole", foundUser.role);
+    localStorage.setItem("role", user.role);
+    localStorage.setItem("userRole", user.role);
 
     localStorage.setItem("loggedIn", "true");
     localStorage.setItem("isLoggedIn", "true");
     localStorage.setItem("authenticated", "true");
 
-    window.location.href = "/dashboard";
+    sessionStorage.setItem("worker_id", String(user.id));
+    sessionStorage.setItem("worker_name", user.name);
+    sessionStorage.setItem("worker_role", user.role);
+    sessionStorage.setItem("userName", user.name);
+    sessionStorage.setItem("loggedIn", "true");
+    sessionStorage.setItem("isLoggedIn", "true");
+
+    window.location.replace("/dashboard");
   }
 
   return (
@@ -64,15 +70,14 @@ export default function LoginSecurePage() {
             <img src={LOGO_URL} alt="Solstone Logo" style={logoStyle} />
 
             <p style={systemStyle}>Baustellen Management System</p>
-
-            <p style={secureStyle}>Anmeldung</p>
+            <p style={testStyle}>Testbetrieb</p>
           </div>
 
-          <label style={labelStyle}>Ime radnika / Admin</label>
+          <label style={labelStyle}>Name</label>
 
           <select
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(e) => setName(e.target.value)}
             style={inputStyle}
           >
             {users.map((user) => (
@@ -84,21 +89,15 @@ export default function LoginSecurePage() {
 
           <label style={labelStyle}>PIN</label>
 
-          <div style={passwordBoxStyle}>
+          <div style={pinBoxStyle}>
             <input
               value={pin}
-              onChange={(event) => setPin(event.target.value)}
+              onChange={(e) => setPin(e.target.value)}
               type={showPin ? "text" : "password"}
-              style={{
-                ...inputStyle,
-                marginBottom: 0,
-                paddingRight: "55px",
-              }}
-              placeholder="Unesi PIN"
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  login();
-                }
+              style={{ ...inputStyle, marginBottom: 0, paddingRight: "55px" }}
+              placeholder="PIN eingeben"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") login();
               }}
             />
 
@@ -111,8 +110,8 @@ export default function LoginSecurePage() {
             </button>
           </div>
 
-          <button type="button" onClick={login} style={buttonStyle}>
-            ANMELDEN
+          <button onClick={login} style={buttonStyle}>
+            LOGIN
           </button>
 
           <div style={hintBoxStyle}>
@@ -177,15 +176,15 @@ const logoStyle: any = {
 const systemStyle: any = {
   fontSize: "18px",
   margin: "8px 0 4px 0",
-  color: "#ffffff",
+  color: "#fff",
   fontWeight: "bold",
   textShadow: "0 2px 8px rgba(0,0,0,0.9)",
 };
 
-const secureStyle: any = {
+const testStyle: any = {
   fontSize: "15px",
   margin: 0,
-  color: "#22c55e",
+  color: "#f97316",
   fontWeight: "bold",
   textShadow: "0 2px 8px rgba(0,0,0,0.9)",
 };
@@ -193,7 +192,7 @@ const secureStyle: any = {
 const labelStyle: any = {
   display: "block",
   fontWeight: "bold",
-  color: "#ffffff",
+  color: "#fff",
   textShadow: "0 2px 8px rgba(0,0,0,0.9)",
 };
 
@@ -206,12 +205,12 @@ const inputStyle: any = {
   borderRadius: "12px",
   border: "1px solid rgba(255,255,255,0.5)",
   background: "rgba(255,255,255,0.82)",
-  color: "#000000",
+  color: "#000",
   fontSize: "18px",
   outline: "none",
 };
 
-const passwordBoxStyle: any = {
+const pinBoxStyle: any = {
   position: "relative",
   marginBottom: "20px",
 };
@@ -223,7 +222,7 @@ const eyeButtonStyle: any = {
   transform: "translateY(-50%)",
   background: "transparent",
   border: "none",
-  color: "#111111",
+  color: "#111",
   cursor: "pointer",
   fontSize: "20px",
 };
@@ -232,13 +231,13 @@ const buttonStyle: any = {
   width: "100%",
   padding: "16px",
   background: "#f97316",
-  color: "#ffffff",
+  color: "white",
   border: "none",
   borderRadius: "14px",
   fontSize: "20px",
   fontWeight: "bold",
-  marginTop: "10px",
   cursor: "pointer",
+  marginTop: "10px",
 };
 
 const hintBoxStyle: any = {
