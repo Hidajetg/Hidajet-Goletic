@@ -8,27 +8,28 @@ const LOGO_URL =
 const BACKGROUND_URL =
   "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/pozadina.png";
 
+const users = [
+  { id: 1, name: "Arnes", pin: "1111", role: "worker" },
+  { id: 2, name: "Ramiz", pin: "2222", role: "worker" },
+  { id: 3, name: "Abror", pin: "3333", role: "worker" },
+  { id: 4, name: "Shohruh", pin: "4444", role: "worker" },
+  { id: 5, name: "Harun", pin: "5555", role: "worker" },
+  { id: 6, name: "Hido", pin: "0000", role: "admin" },
+  { id: 7, name: "Steffi", pin: "0001", role: "admin" },
+  { id: 8, name: "Admin", pin: "0000", role: "admin" },
+];
+
 export default function LoginPage() {
-  const [name, setName] = useState("");
+  const [name, setName] = useState("Hido");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
 
   function login() {
-    const users = [
-      { id: 1, name: "Arnes", pin: "1111", role: "worker" },
-      { id: 2, name: "Ramiz", pin: "2222", role: "worker" },
-      { id: 3, name: "Abror", pin: "3333", role: "worker" },
-      { id: 4, name: "Shohruh", pin: "4444", role: "worker" },
-      { id: 5, name: "Harun", pin: "5555", role: "worker" },
-      { id: 6, name: "Hido", pin: "0000", role: "admin" },
-      { id: 7, name: "Steffi", pin: "0001", role: "admin" },
-      { id: 8, name: "Admin", pin: "0000", role: "admin" },
-    ];
+    const enteredName = name.trim().toLowerCase();
+    const enteredPin = pin.trim();
 
     const user = users.find(
-      (u) =>
-        u.name.toLowerCase() === name.trim().toLowerCase() &&
-        u.pin === pin.trim()
+      (u) => u.name.toLowerCase() === enteredName && u.pin === enteredPin
     );
 
     if (!user) {
@@ -39,9 +40,26 @@ export default function LoginPage() {
     localStorage.setItem("worker_id", String(user.id));
     localStorage.setItem("worker_name", user.name);
     localStorage.setItem("worker_role", user.role);
-    localStorage.setItem("userName", user.name);
 
-    window.location.href = "/dashboard";
+    localStorage.setItem("userName", user.name);
+    localStorage.setItem("user_name", user.name);
+    localStorage.setItem("name", user.name);
+
+    localStorage.setItem("role", user.role);
+    localStorage.setItem("userRole", user.role);
+
+    localStorage.setItem("loggedIn", "true");
+    localStorage.setItem("isLoggedIn", "true");
+    localStorage.setItem("authenticated", "true");
+
+    sessionStorage.setItem("worker_id", String(user.id));
+    sessionStorage.setItem("worker_name", user.name);
+    sessionStorage.setItem("worker_role", user.role);
+    sessionStorage.setItem("userName", user.name);
+    sessionStorage.setItem("loggedIn", "true");
+    sessionStorage.setItem("isLoggedIn", "true");
+
+    window.location.replace("/dashboard");
   }
 
   return (
@@ -56,12 +74,18 @@ export default function LoginPage() {
           </div>
 
           <label style={labelStyle}>Name</label>
-          <input
+
+          <select
             value={name}
             onChange={(e) => setName(e.target.value)}
             style={inputStyle}
-            placeholder="Name eingeben"
-          />
+          >
+            {users.map((user) => (
+              <option key={user.id} value={user.name}>
+                {user.name}
+              </option>
+            ))}
+          </select>
 
           <label style={labelStyle}>PIN</label>
 
@@ -89,6 +113,12 @@ export default function LoginPage() {
           <button onClick={login} style={buttonStyle}>
             LOGIN
           </button>
+
+          <div style={hintBoxStyle}>
+            <p style={hintTextStyle}>Radnici: Arnes 1111, Ramiz 2222, Abror 3333</p>
+            <p style={hintTextStyle}>Shohruh 4444, Harun 5555</p>
+            <p style={hintTextStyle}>Admin: Hido 0000 / Steffi 0001</p>
+          </div>
         </div>
       </div>
     </main>
@@ -160,6 +190,7 @@ const testStyle: any = {
 };
 
 const labelStyle: any = {
+  display: "block",
   fontWeight: "bold",
   color: "#fff",
   textShadow: "0 2px 8px rgba(0,0,0,0.9)",
@@ -167,6 +198,7 @@ const labelStyle: any = {
 
 const inputStyle: any = {
   width: "100%",
+  boxSizing: "border-box",
   padding: "15px",
   marginTop: "8px",
   marginBottom: "20px",
@@ -206,4 +238,16 @@ const buttonStyle: any = {
   fontWeight: "bold",
   cursor: "pointer",
   marginTop: "10px",
+};
+
+const hintBoxStyle: any = {
+  marginTop: "18px",
+  textAlign: "center",
+};
+
+const hintTextStyle: any = {
+  margin: "4px 0",
+  fontSize: "13px",
+  color: "#e5e7eb",
+  textShadow: "0 2px 8px rgba(0,0,0,0.9)",
 };
