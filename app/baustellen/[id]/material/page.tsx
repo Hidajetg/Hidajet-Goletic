@@ -47,6 +47,15 @@ function getGroupIcon(name: string) {
   return "📦";
 }
 
+function cleanText(value: any) {
+  return String(value ?? "").trim();
+}
+
+function toNumber(value: any) {
+  const n = Number(String(value ?? "0").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default function BaustelleMaterialPage() {
   const params = useParams();
   const baustelleId = String(params.id);
@@ -134,8 +143,30 @@ export default function BaustelleMaterialPage() {
     setBaustelleMaterijal(baustelleMaterijalRes.data || []);
   }
 
-  function getMaterial(materialId: number) {
-    return materijali.find((m) => Number(m.id) === Number(materialId));
+  function getMaterial(materialId: any) {
+    if (!materialId) return null;
+
+    return (
+      materijali.find((m) => Number(m.id) === Number(materialId)) || null
+    );
+  }
+
+  function getMaterialUnit(material: any) {
+    return (
+      cleanText(material?.jedinica) ||
+      cleanText(material?.unit) ||
+      cleanText(material?.einheit) ||
+      ""
+    );
+  }
+
+  function getMaterialGroupId(material: any) {
+    return Number(
+      material?.group_id ??
+        material?.gruppe_id ??
+        material?.material_group_id ??
+        0
+    );
   }
 
   const materijaliAktivneGrupe = useMemo(() => {
@@ -144,17 +175,20 @@ export default function BaustelleMaterialPage() {
     const term = searchTerm.trim().toLowerCase();
 
     return materijali
-      .filter((m) => Number(m.group_id) === Number(aktivnaGrupa.id))
+      .filter((m) => getMaterialGroupId(m) === Number(aktivnaGrupa.id))
       .filter((m) => {
         if (!term) return true;
-        return String(m.naziv || "").toLowerCase().includes(term);
+
+        return String(m.naziv || "")
+          .toLowerCase()
+          .includes(term);
       });
   }, [aktivnaGrupa, materijali, searchTerm]);
 
   async function dodajKataloskiMaterijal(material: any) {
     const kolicina = kolicine[material.id];
 
-    if (!kolicina || Number(kolicina) <= 0) {
+    if (!kolicina || toNumber(kolicina) <= 0) {
       alert("Unesi količinu.");
       return;
     }
@@ -175,7 +209,8 @@ export default function BaustelleMaterialPage() {
       const { error } = await supabase
         .from("baustelle_material")
         .update({
-          kolicina: Number(existing.kolicina) + Number(kolicina),
+          kolicina: toNumber(existing.kolicina) + toNumber(kolicina),
+          materijal: cleanText(existing.materijal) || cleanText(material.naziv),
         })
         .eq("id", existing.id);
 
@@ -188,8 +223,10 @@ export default function BaustelleMaterialPage() {
         {
           baustelle_id: Number(baustelleId),
           material_id: Number(material.id),
-          materijal: material.naziv,
-          kolicina: Number(kolicina),
+          materijal: cleanText(material.naziv),
+          kolicina: toNumber(kolicina),
+          custom_naziv: null,
+          custom_jedinica: null,
         },
       ]);
 
@@ -208,7 +245,11 @@ export default function BaustelleMaterialPage() {
   }
 
   async function dodajKeramiku() {
-    if (!keramikaNaziv || !keramikaKolicina || Number(keramikaKolicina) <= 0) {
+    if (
+      !keramikaNaziv.trim() ||
+      !keramikaKolicina ||
+      toNumber(keramikaKolicina) <= 0
+    ) {
       alert("Unesi naziv/format keramike i količinu paketa.");
       return;
     }
@@ -220,7 +261,7 @@ export default function BaustelleMaterialPage() {
         baustelle_id: Number(baustelleId),
         material_id: null,
         materijal: naziv,
-        kolicina: Number(keramikaKolicina),
+        kolicina: toNumber(keramikaKolicina),
         custom_naziv: naziv,
         custom_jedinica: "paket",
       },
@@ -233,15 +274,16 @@ export default function BaustelleMaterialPage() {
 
     setKeramikaNaziv("");
     setKeramikaKolicina("");
+
     await loadData();
   }
 
   async function dodajDodatak() {
     if (
-      !dodatakNaziv ||
+      !dodatakNaziv.trim() ||
       !dodatakJedinica ||
       !dodatakKolicina ||
-      Number(dodatakKolicina) <= 0
+      toNumber(dodatakKolicina) <= 0
     ) {
       alert("Unesi naziv, jedinicu i količinu.");
       return;
@@ -252,7 +294,7 @@ export default function BaustelleMaterialPage() {
         baustelle_id: Number(baustelleId),
         material_id: null,
         materijal: dodatakNaziv.trim(),
-        kolicina: Number(dodatakKolicina),
+        kolicina: toNumber(dodatakKolicina),
         custom_naziv: dodatakNaziv.trim(),
         custom_jedinica: dodatakJedinica,
       },
@@ -266,15 +308,16 @@ export default function BaustelleMaterialPage() {
     setDodatakNaziv("");
     setDodatakJedinica("kom");
     setDodatakKolicina("");
+
     await loadData();
   }
 
   async function dodajSlobodniMaterijal() {
     if (
-      !slobodniNaziv ||
+      !slobodniNaziv.trim() ||
       !slobodnaJedinica ||
       !slobodnaKolicina ||
-      Number(slobodnaKolicina) <= 0
+      toNumber(slobodnaKolicina) <= 0
     ) {
       alert("Unesi naziv materijala, jedinicu i količinu.");
       return;
@@ -285,7 +328,7 @@ export default function BaustelleMaterialPage() {
         baustelle_id: Number(baustelleId),
         material_id: null,
         materijal: slobodniNaziv.trim(),
-        kolicina: Number(slobodnaKolicina),
+        kolicina: toNumber(slobodnaKolicina),
         custom_naziv: slobodniNaziv.trim(),
         custom_jedinica: slobodnaJedinica,
       },
@@ -304,7 +347,7 @@ export default function BaustelleMaterialPage() {
   }
 
   async function promijeniKolicinu(id: number, trenutna: number, promjena: number) {
-    const novaKolicina = Number(trenutna) + promjena;
+    const novaKolicina = toNumber(trenutna) + promjena;
 
     if (novaKolicina <= 0) {
       await obrisiMaterijal(id);
@@ -326,6 +369,7 @@ export default function BaustelleMaterialPage() {
 
   async function obrisiMaterijal(id: number) {
     const potvrda = confirm("Da li želiš obrisati ovaj materijal?");
+
     if (!potvrda) return;
 
     const { error } = await supabase
@@ -342,24 +386,53 @@ export default function BaustelleMaterialPage() {
   }
 
   function nazivUnosa(unos: any) {
-    if (unos.custom_naziv) return unos.custom_naziv;
-    if (unos.materijal) return unos.materijal;
+    const customNaziv = cleanText(unos?.custom_naziv);
 
-    const material = getMaterial(unos.material_id);
-    return material ? material.naziv : "Nepoznat materijal";
+    if (customNaziv) {
+      return customNaziv;
+    }
+
+    const spremljeniNaziv = cleanText(unos?.materijal);
+
+    if (spremljeniNaziv) {
+      return spremljeniNaziv;
+    }
+
+    const material = getMaterial(unos?.material_id);
+
+    const katalogNaziv =
+      cleanText(material?.naziv) ||
+      cleanText(material?.name) ||
+      cleanText(material?.title);
+
+    if (katalogNaziv) {
+      return katalogNaziv;
+    }
+
+    if (unos?.material_id) {
+      return `Materijal ID ${unos.material_id}`;
+    }
+
+    return "Materijal";
   }
 
   function jedinicaUnosa(unos: any) {
-    if (unos.custom_jedinica) return unos.custom_jedinica;
+    const customJedinica = cleanText(unos?.custom_jedinica);
 
-    const material = getMaterial(unos.material_id);
-    return material ? material.jedinica : "";
+    if (customJedinica) {
+      return customJedinica;
+    }
+
+    const material = getMaterial(unos?.material_id);
+
+    return getMaterialUnit(material);
   }
 
   function openGroup(group: any) {
     setShowKeramika(false);
     setAktivnaGrupa(group);
     setSearchTerm("");
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -367,6 +440,7 @@ export default function BaustelleMaterialPage() {
     setAktivnaGrupa(null);
     setShowKeramika(true);
     setSearchTerm("");
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -412,6 +486,7 @@ export default function BaustelleMaterialPage() {
             onChange={(e) => setSlobodnaKolicina(e.target.value)}
             placeholder="Količina"
             type="number"
+            inputMode="decimal"
             style={styles.input}
           />
 
@@ -438,7 +513,7 @@ export default function BaustelleMaterialPage() {
 
             {grupe.map((g) => {
               const broj = materijali.filter(
-                (m) => Number(m.group_id) === Number(g.id)
+                (m) => getMaterialGroupId(m) === Number(g.id)
               ).length;
 
               return (
@@ -478,6 +553,7 @@ export default function BaustelleMaterialPage() {
               onChange={(e) => setKeramikaKolicina(e.target.value)}
               placeholder="Količina paketa"
               type="number"
+              inputMode="decimal"
               style={styles.input}
             />
 
@@ -524,6 +600,7 @@ export default function BaustelleMaterialPage() {
                 onChange={(e) => setDodatakKolicina(e.target.value)}
                 placeholder="Količina"
                 type="number"
+                inputMode="decimal"
                 style={styles.input}
               />
 
@@ -550,12 +627,13 @@ export default function BaustelleMaterialPage() {
                     <div key={m.id} style={styles.materialRow}>
                       <div style={styles.materialTextBox}>
                         <strong>{m.naziv}</strong>
-                        <div style={styles.smallText}>{m.jedinica}</div>
+                        <div style={styles.smallText}>{getMaterialUnit(m)}</div>
                       </div>
 
                       <div style={styles.addArea}>
                         <input
                           type="number"
+                          inputMode="decimal"
                           placeholder="0"
                           value={kolicine[m.id] || ""}
                           onChange={(e) =>
@@ -596,6 +674,7 @@ export default function BaustelleMaterialPage() {
           <div key={m.id} style={styles.savedCard}>
             <div style={styles.savedTextBox}>
               <strong>{nazivUnosa(m)}</strong>
+
               <div style={styles.savedQuantity}>
                 {m.kolicina} {jedinicaUnosa(m)}
               </div>
@@ -638,12 +717,14 @@ const styles: any = {
     padding: "16px",
     paddingBottom: "40px",
   },
+
   backLink: {
     color: "#3b82f6",
     textDecoration: "none",
     fontWeight: "bold",
     fontSize: "14px",
   },
+
   title: {
     fontSize: "34px",
     fontWeight: "bold",
@@ -651,12 +732,14 @@ const styles: any = {
     marginBottom: "18px",
     lineHeight: "1.1",
   },
+
   box: {
     background: "#111",
     padding: "14px",
     borderRadius: "16px",
     marginBottom: "18px",
   },
+
   freeBox: {
     background: "#111",
     border: "1px solid #16a34a",
@@ -664,27 +747,32 @@ const styles: any = {
     borderRadius: "16px",
     marginBottom: "18px",
   },
+
   subtitle: {
     color: "#60a5fa",
     fontSize: "17px",
     marginTop: 0,
     marginBottom: "12px",
   },
+
   mobileHint: {
     color: "#aaa",
     fontSize: "13px",
     marginBottom: "12px",
   },
+
   freeGrid: {
     display: "grid",
     gridTemplateColumns: "1fr",
     gap: "10px",
   },
+
   groupGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(105px, 1fr))",
     gap: "9px",
   },
+
   groupCard: {
     background: "#1f1f1f",
     color: "white",
@@ -700,6 +788,7 @@ const styles: any = {
     alignItems: "center",
     gap: "5px",
   },
+
   groupCardSpecial: {
     background: "#172554",
     color: "white",
@@ -715,19 +804,23 @@ const styles: any = {
     alignItems: "center",
     gap: "5px",
   },
+
   groupIcon: {
     fontSize: "20px",
     lineHeight: "1",
   },
+
   groupName: {
     fontSize: "13px",
     fontWeight: "bold",
     lineHeight: "1.15",
   },
+
   groupCount: {
     color: "#aaa",
     fontSize: "11px",
   },
+
   backButton: {
     background: "#222",
     color: "#60a5fa",
@@ -739,6 +832,7 @@ const styles: any = {
     marginBottom: "14px",
     width: "100%",
   },
+
   groupTitle: {
     color: "#60a5fa",
     marginBottom: "14px",
@@ -746,6 +840,7 @@ const styles: any = {
     fontSize: "25px",
     lineHeight: "1.2",
   },
+
   manualBox: {
     background: "#1a1a1a",
     padding: "12px",
@@ -753,6 +848,7 @@ const styles: any = {
     display: "grid",
     gap: "10px",
   },
+
   input: {
     width: "100%",
     background: "#000",
@@ -761,7 +857,9 @@ const styles: any = {
     borderRadius: "10px",
     padding: "13px",
     fontSize: "16px",
+    boxSizing: "border-box",
   },
+
   searchInput: {
     width: "100%",
     background: "#000",
@@ -771,7 +869,9 @@ const styles: any = {
     padding: "13px",
     fontSize: "16px",
     marginBottom: "12px",
+    boxSizing: "border-box",
   },
+
   saveButton: {
     background: "#16a34a",
     color: "white",
@@ -782,10 +882,12 @@ const styles: any = {
     fontWeight: "bold",
     fontSize: "15px",
   },
+
   materialList: {
     display: "grid",
     gap: "9px",
   },
+
   materialRow: {
     background: "#1f1f1f",
     borderRadius: "12px",
@@ -795,21 +897,25 @@ const styles: any = {
     gap: "8px",
     alignItems: "center",
   },
+
   materialTextBox: {
     minWidth: 0,
     overflowWrap: "anywhere",
     fontSize: "14px",
   },
+
   smallText: {
     color: "#aaa",
     marginTop: "4px",
     fontSize: "12px",
   },
+
   addArea: {
     display: "flex",
     gap: "6px",
     alignItems: "center",
   },
+
   quantityInput: {
     width: "72px",
     background: "#000",
@@ -819,7 +925,9 @@ const styles: any = {
     padding: "11px 8px",
     fontSize: "16px",
     textAlign: "center",
+    boxSizing: "border-box",
   },
+
   addButton: {
     background: "#2563eb",
     color: "white",
@@ -831,12 +939,14 @@ const styles: any = {
     fontSize: "18px",
     minWidth: "44px",
   },
+
   emptyText: {
     color: "#aaa",
     background: "#1a1a1a",
     padding: "12px",
     borderRadius: "10px",
   },
+
   savedCard: {
     background: "#1f1f1f",
     borderRadius: "14px",
@@ -845,19 +955,23 @@ const styles: any = {
     display: "grid",
     gap: "10px",
   },
+
   savedTextBox: {
     overflowWrap: "anywhere",
   },
+
   savedQuantity: {
     color: "#60a5fa",
     marginTop: "6px",
     fontWeight: "bold",
   },
+
   buttonRow: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr 1.3fr",
     gap: "8px",
   },
+
   plusButton: {
     background: "#16a34a",
     color: "white",
@@ -868,6 +982,7 @@ const styles: any = {
     fontWeight: "bold",
     fontSize: "18px",
   },
+
   minusButton: {
     background: "#f97316",
     color: "white",
@@ -878,6 +993,7 @@ const styles: any = {
     fontWeight: "bold",
     fontSize: "18px",
   },
+
   deleteButton: {
     background: "#dc2626",
     color: "white",

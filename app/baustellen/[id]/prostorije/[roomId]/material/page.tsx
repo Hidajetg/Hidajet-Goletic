@@ -5,7 +5,19 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../../lib/supabase";
 
-const UNIT_OPTIONS = ["kom", "m", "m²", "m³", "kg", "l", "vreća", "rola", "paket", "karton", "set"];
+const UNIT_OPTIONS = [
+  "kom",
+  "m",
+  "m²",
+  "m³",
+  "kg",
+  "l",
+  "vreća",
+  "rola",
+  "paket",
+  "karton",
+  "set",
+];
 
 const DEFAULT_GROUP_ORDER = [
   "Priprema podloge",
@@ -21,6 +33,7 @@ const DEFAULT_GROUP_ORDER = [
 
 function getGroupIcon(name: string) {
   const n = String(name || "").toLowerCase();
+
   if (n.includes("priprema")) return "🧹";
   if (n.includes("estrich")) return "⬜";
   if (n.includes("hidro")) return "💧";
@@ -30,16 +43,23 @@ function getGroupIcon(name: string) {
   if (n.includes("silikoni")) return "〰️";
   if (n.includes("terase")) return "🏗️";
   if (n.includes("dodaci")) return "+";
+
   return "📦";
 }
 
 function toNumber(value: any) {
   const n = Number(String(value ?? "0").replace(",", "."));
+
   return Number.isFinite(n) ? n : 0;
+}
+
+function cleanText(value: any) {
+  return String(value ?? "").trim();
 }
 
 export default function RoomMaterialPage() {
   const params = useParams();
+
   const baustelleId = String(params.id);
   const roomId = String(params.roomId);
 
@@ -78,15 +98,19 @@ export default function RoomMaterialPage() {
       .sort((a, b) => {
         const orderA = Number(a.sort_order || 9999);
         const orderB = Number(b.sort_order || 9999);
+
         if (orderA !== orderB) return orderA - orderB;
 
         const indexA = DEFAULT_GROUP_ORDER.indexOf(a.naziv);
         const indexB = DEFAULT_GROUP_ORDER.indexOf(b.naziv);
+
         if (indexA === -1 && indexB === -1) {
           return String(a.naziv || "").localeCompare(String(b.naziv || ""));
         }
+
         if (indexA === -1) return 1;
         if (indexB === -1) return -1;
+
         return indexA - indexB;
       });
   }
@@ -101,19 +125,23 @@ export default function RoomMaterialPage() {
           .select("*")
           .eq("id", Number(baustelleId))
           .maybeSingle(),
+
         supabase
           .from("prostorije")
           .select("*")
           .eq("id", Number(roomId))
           .maybeSingle(),
+
         supabase
           .from("material_groups")
           .select("*")
           .order("sort_order", { ascending: true }),
+
         supabase
           .from("materials")
           .select("*")
           .order("naziv", { ascending: true }),
+
         supabase
           .from("room_material")
           .select("*")
@@ -156,35 +184,86 @@ export default function RoomMaterialPage() {
     setGrupe(sortGroups(grupeRes.data || []));
     setMaterijali(materijaliRes.data || []);
     setRoomMaterial(roomMaterialRes.data || []);
+
     setLoading(false);
   }
 
-  function getMaterial(materialId: number) {
-    return materijali.find((m) => Number(m.id) === Number(materialId));
+  function getMaterial(materialId: any) {
+    if (!materialId) return null;
+
+    return materijali.find((m) => Number(m.id) === Number(materialId)) || null;
   }
 
   function getMaterialUnit(material: any) {
-    return material?.jedinica || material?.unit || material?.einheit || "";
+    return (
+      cleanText(material?.jedinica) ||
+      cleanText(material?.unit) ||
+      cleanText(material?.einheit) ||
+      ""
+    );
   }
 
   function getMaterialGroupId(material: any) {
-    return Number(material?.group_id ?? material?.gruppe_id ?? material?.material_group_id ?? 0);
+    return Number(
+      material?.group_id ??
+        material?.gruppe_id ??
+        material?.material_group_id ??
+        0
+    );
+  }
+
+  function nazivUnosa(unos: any) {
+    const customNaziv = cleanText(unos?.custom_naziv);
+
+    if (customNaziv) {
+      return customNaziv;
+    }
+
+    const material = getMaterial(unos?.material_id);
+
+    const katalogNaziv =
+      cleanText(material?.naziv) ||
+      cleanText(material?.name) ||
+      cleanText(material?.title);
+
+    if (katalogNaziv) {
+      return katalogNaziv;
+    }
+
+    return "Materijal";
+  }
+
+  function jedinicaUnosa(unos: any) {
+    const customJedinica = cleanText(unos?.custom_jedinica);
+
+    if (customJedinica) {
+      return customJedinica;
+    }
+
+    const material = getMaterial(unos?.material_id);
+
+    return getMaterialUnit(material);
   }
 
   const materijaliAktivneGrupe = useMemo(() => {
     if (!aktivnaGrupa) return [];
+
     const term = searchTerm.trim().toLowerCase();
 
     return materijali
       .filter((m) => getMaterialGroupId(m) === Number(aktivnaGrupa.id))
       .filter((m) => {
         if (!term) return true;
-        return String(m.naziv || "").toLowerCase().includes(term);
+
+        return String(m.naziv || "")
+          .toLowerCase()
+          .includes(term);
       });
   }, [aktivnaGrupa, materijali, searchTerm]);
 
   function getGroupCount(groupId: number) {
-    return materijali.filter((m) => getMaterialGroupId(m) === Number(groupId)).length;
+    return materijali.filter((m) => getMaterialGroupId(m) === Number(groupId))
+      .length;
   }
 
   async function dodajKataloskiMaterijal(material: any) {
@@ -210,7 +289,9 @@ export default function RoomMaterialPage() {
     if (existing) {
       const { error } = await supabase
         .from("room_material")
-        .update({ kolicina: toNumber(existing.kolicina) + toNumber(kolicina) })
+        .update({
+          kolicina: toNumber(existing.kolicina) + toNumber(kolicina),
+        })
         .eq("id", existing.id);
 
       if (error) {
@@ -235,11 +316,16 @@ export default function RoomMaterialPage() {
     }
 
     setKolicine((prev) => ({ ...prev, [material.id]: "" }));
+
     await loadData();
   }
 
   async function dodajKeramiku() {
-    if (!keramikaNaziv.trim() || !keramikaKolicina || toNumber(keramikaKolicina) <= 0) {
+    if (
+      !keramikaNaziv.trim() ||
+      !keramikaKolicina ||
+      toNumber(keramikaKolicina) <= 0
+    ) {
       alert("Unesi naziv/format keramike i količinu paketa.");
       return;
     }
@@ -263,11 +349,17 @@ export default function RoomMaterialPage() {
 
     setKeramikaNaziv("");
     setKeramikaKolicina("");
+
     await loadData();
   }
 
   async function dodajDodatak() {
-    if (!dodatakNaziv.trim() || !dodatakJedinica || !dodatakKolicina || toNumber(dodatakKolicina) <= 0) {
+    if (
+      !dodatakNaziv.trim() ||
+      !dodatakJedinica ||
+      !dodatakKolicina ||
+      toNumber(dodatakKolicina) <= 0
+    ) {
       alert("Unesi naziv, jedinicu i količinu.");
       return;
     }
@@ -290,11 +382,17 @@ export default function RoomMaterialPage() {
     setDodatakNaziv("");
     setDodatakJedinica("kom");
     setDodatakKolicina("");
+
     await loadData();
   }
 
   async function dodajSlobodniMaterijal() {
-    if (!slobodniNaziv.trim() || !slobodnaJedinica || !slobodnaKolicina || toNumber(slobodnaKolicina) <= 0) {
+    if (
+      !slobodniNaziv.trim() ||
+      !slobodnaJedinica ||
+      !slobodnaKolicina ||
+      toNumber(slobodnaKolicina) <= 0
+    ) {
       alert("Unesi naziv materijala, jedinicu i količinu.");
       return;
     }
@@ -317,10 +415,15 @@ export default function RoomMaterialPage() {
     setSlobodniNaziv("");
     setSlobodnaJedinica("kom");
     setSlobodnaKolicina("");
+
     await loadData();
   }
 
-  async function promijeniKolicinu(id: number, trenutna: number, promjena: number) {
+  async function promijeniKolicinu(
+    id: number,
+    trenutna: number,
+    promjena: number
+  ) {
     const novaKolicina = toNumber(trenutna) + promjena;
 
     if (novaKolicina <= 0) {
@@ -343,6 +446,7 @@ export default function RoomMaterialPage() {
 
   async function obrisiMaterijal(id: number) {
     const potvrda = confirm("Da li želiš obrisati ovaj materijal?");
+
     if (!potvrda) return;
 
     const { error } = await supabase.from("room_material").delete().eq("id", id);
@@ -355,22 +459,11 @@ export default function RoomMaterialPage() {
     await loadData();
   }
 
-  function nazivUnosa(unos: any) {
-    if (unos.custom_naziv) return unos.custom_naziv;
-    const material = getMaterial(unos.material_id);
-    return material ? material.naziv : "Nepoznat materijal";
-  }
-
-  function jedinicaUnosa(unos: any) {
-    if (unos.custom_jedinica) return unos.custom_jedinica;
-    const material = getMaterial(unos.material_id);
-    return material ? getMaterialUnit(material) : "";
-  }
-
   function openGroup(group: any) {
     setShowKeramika(false);
     setAktivnaGrupa(group);
     setSearchTerm("");
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -378,6 +471,7 @@ export default function RoomMaterialPage() {
     setAktivnaGrupa(null);
     setShowKeramika(true);
     setSearchTerm("");
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -388,16 +482,23 @@ export default function RoomMaterialPage() {
   }
 
   const roomTitle = room?.naziv || room?.name || room?.title || `Raum ${roomId}`;
-  const baustelleTitle = baustelle?.naziv || baustelle?.name || `Baustelle ${baustelleId}`;
+  const baustelleTitle =
+    baustelle?.naziv || baustelle?.name || `Baustelle ${baustelleId}`;
 
   return (
     <main style={styles.page}>
-      <Link href={`/baustellen/${baustelleId}/prostorije`} style={styles.backLink}>
+      <Link
+        href={`/baustellen/${baustelleId}/prostorije`}
+        style={styles.backLink}
+      >
         ← Nazad na prostorije
       </Link>
 
       <h1 style={styles.title}>Materijal u prostoriji</h1>
-      <div style={styles.contextText}>{baustelleTitle} / {roomTitle}</div>
+
+      <div style={styles.contextText}>
+        {baustelleTitle} / {roomTitle}
+      </div>
 
       <section style={styles.freeBox}>
         <h2 style={styles.subtitle}>+ Slobodni materijal</h2>
@@ -416,7 +517,9 @@ export default function RoomMaterialPage() {
             style={styles.input}
           >
             {UNIT_OPTIONS.map((u) => (
-              <option key={u} value={u}>{u}</option>
+              <option key={u} value={u}>
+                {u}
+              </option>
             ))}
           </select>
 
@@ -429,14 +532,19 @@ export default function RoomMaterialPage() {
             style={styles.input}
           />
 
-          <button onClick={dodajSlobodniMaterijal} style={styles.saveButton}>Dodaj</button>
+          <button onClick={dodajSlobodniMaterijal} style={styles.saveButton}>
+            Dodaj
+          </button>
         </div>
       </section>
 
       {!aktivnaGrupa && !showKeramika && (
         <section style={styles.box}>
           <h2 style={styles.subtitle}>Odaberi grupu</h2>
-          <div style={styles.mobileHint}>Radnik odabere jednu grupu i vidi samo materijale iz te grupe.</div>
+
+          <div style={styles.mobileHint}>
+            Radnik odabere jednu grupu i vidi samo materijale iz te grupe.
+          </div>
 
           <div style={styles.groupGrid}>
             <button onClick={openKeramika} style={styles.groupCardSpecial}>
@@ -446,7 +554,11 @@ export default function RoomMaterialPage() {
             </button>
 
             {grupe.map((g) => (
-              <button key={g.id} onClick={() => openGroup(g)} style={styles.groupCard}>
+              <button
+                key={g.id}
+                onClick={() => openGroup(g)}
+                style={styles.groupCard}
+              >
                 <div style={styles.groupIcon}>{getGroupIcon(g.naziv)}</div>
                 <div style={styles.groupName}>{g.naziv}</div>
                 <div style={styles.groupCount}>{getGroupCount(g.id)} mat.</div>
@@ -458,7 +570,10 @@ export default function RoomMaterialPage() {
 
       {showKeramika && (
         <section style={styles.box}>
-          <button onClick={closeActiveView} style={styles.backButton}>← Nazad na grupe</button>
+          <button onClick={closeActiveView} style={styles.backButton}>
+            ← Nazad na grupe
+          </button>
+
           <h2 style={styles.groupTitle}>Keramika</h2>
 
           <div style={styles.manualBox}>
@@ -468,6 +583,7 @@ export default function RoomMaterialPage() {
               placeholder="Format / naziv keramike"
               style={styles.input}
             />
+
             <input
               value={keramikaKolicina}
               onChange={(e) => setKeramikaKolicina(e.target.value)}
@@ -476,15 +592,23 @@ export default function RoomMaterialPage() {
               inputMode="decimal"
               style={styles.input}
             />
-            <button onClick={dodajKeramiku} style={styles.saveButton}>Dodaj keramiku</button>
+
+            <button onClick={dodajKeramiku} style={styles.saveButton}>
+              Dodaj keramiku
+            </button>
           </div>
         </section>
       )}
 
       {aktivnaGrupa && (
         <section style={styles.box}>
-          <button onClick={closeActiveView} style={styles.backButton}>← Nazad na grupe</button>
-          <h2 style={styles.groupTitle}>{getGroupIcon(aktivnaGrupa.naziv)} {aktivnaGrupa.naziv}</h2>
+          <button onClick={closeActiveView} style={styles.backButton}>
+            ← Nazad na grupe
+          </button>
+
+          <h2 style={styles.groupTitle}>
+            {getGroupIcon(aktivnaGrupa.naziv)} {aktivnaGrupa.naziv}
+          </h2>
 
           {aktivnaGrupa.naziv === "Dodaci" && (
             <div style={styles.manualBox}>
@@ -494,9 +618,19 @@ export default function RoomMaterialPage() {
                 placeholder="Unesi naziv dodatka"
                 style={styles.input}
               />
-              <select value={dodatakJedinica} onChange={(e) => setDodatakJedinica(e.target.value)} style={styles.input}>
-                {UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
+
+              <select
+                value={dodatakJedinica}
+                onChange={(e) => setDodatakJedinica(e.target.value)}
+                style={styles.input}
+              >
+                {UNIT_OPTIONS.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
               </select>
+
               <input
                 value={dodatakKolicina}
                 onChange={(e) => setDodatakKolicina(e.target.value)}
@@ -505,7 +639,10 @@ export default function RoomMaterialPage() {
                 inputMode="decimal"
                 style={styles.input}
               />
-              <button onClick={dodajDodatak} style={styles.saveButton}>Dodaj dodatak</button>
+
+              <button onClick={dodajDodatak} style={styles.saveButton}>
+                Dodaj dodatak
+              </button>
             </div>
           )}
 
@@ -532,13 +669,24 @@ export default function RoomMaterialPage() {
                   <div style={styles.addInline}>
                     <input
                       value={kolicine[m.id] || ""}
-                      onChange={(e) => setKolicine((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                      onChange={(e) =>
+                        setKolicine((prev) => ({
+                          ...prev,
+                          [m.id]: e.target.value,
+                        }))
+                      }
                       placeholder="0"
                       type="number"
                       inputMode="decimal"
                       style={styles.qtyInput}
                     />
-                    <button onClick={() => dodajKataloskiMaterijal(m)} style={styles.smallSaveButton}>Dodaj</button>
+
+                    <button
+                      onClick={() => dodajKataloskiMaterijal(m)}
+                      style={styles.smallSaveButton}
+                    >
+                      Dodaj
+                    </button>
                   </div>
                 </div>
               ))}
@@ -548,7 +696,9 @@ export default function RoomMaterialPage() {
       )}
 
       <section style={styles.box}>
-        <h2 style={styles.subtitle}>Dodani materijali u prostoriji ({roomMaterial.length})</h2>
+        <h2 style={styles.subtitle}>
+          Dodani materijali u prostoriji ({roomMaterial.length})
+        </h2>
 
         {roomMaterial.length === 0 ? (
           <div style={styles.emptyBox}>Još nema unesenog materijala.</div>
@@ -562,10 +712,32 @@ export default function RoomMaterialPage() {
                 </div>
 
                 <div style={styles.qtyControls}>
-                  <button onClick={() => promijeniKolicinu(unos.id, unos.kolicina, -1)} style={styles.minusButton}>−</button>
+                  <button
+                    onClick={() =>
+                      promijeniKolicinu(unos.id, unos.kolicina, -1)
+                    }
+                    style={styles.minusButton}
+                  >
+                    −
+                  </button>
+
                   <div style={styles.qtyBadge}>{Number(unos.kolicina || 0)}</div>
-                  <button onClick={() => promijeniKolicinu(unos.id, unos.kolicina, 1)} style={styles.plusButton}>+</button>
-                  <button onClick={() => obrisiMaterijal(unos.id)} style={styles.deleteButton}>Obriši</button>
+
+                  <button
+                    onClick={() =>
+                      promijeniKolicinu(unos.id, unos.kolicina, 1)
+                    }
+                    style={styles.plusButton}
+                  >
+                    +
+                  </button>
+
+                  <button
+                    onClick={() => obrisiMaterijal(unos.id)}
+                    style={styles.deleteButton}
+                  >
+                    Obriši
+                  </button>
                 </div>
               </div>
             ))}
@@ -584,24 +756,28 @@ const styles: any = {
     padding: "16px",
     paddingBottom: "40px",
   },
+
   backLink: {
     color: "#3b82f6",
     textDecoration: "none",
     fontWeight: "bold",
     fontSize: "14px",
   },
+
   title: {
     fontSize: "34px",
     fontWeight: "bold",
     marginTop: "26px",
     marginBottom: "8px",
   },
+
   contextText: {
     color: "#ddd",
     fontSize: "14px",
     fontWeight: "bold",
     marginBottom: "18px",
   },
+
   freeBox: {
     border: "1px solid #16a34a",
     borderRadius: "16px",
@@ -609,28 +785,33 @@ const styles: any = {
     marginBottom: "18px",
     background: "#111",
   },
+
   box: {
     background: "#111",
     borderRadius: "16px",
     padding: "14px",
     marginBottom: "14px",
   },
+
   subtitle: {
     color: "#3b82f6",
     fontSize: "16px",
     marginTop: 0,
     marginBottom: "12px",
   },
+
   mobileHint: {
     color: "#aaa",
     fontSize: "12px",
     marginBottom: "12px",
   },
+
   freeGrid: {
     display: "grid",
     gridTemplateColumns: "1fr",
     gap: "10px",
   },
+
   input: {
     width: "100%",
     background: "#000",
@@ -639,7 +820,9 @@ const styles: any = {
     padding: "13px",
     borderRadius: "9px",
     fontSize: "16px",
+    boxSizing: "border-box",
   },
+
   searchInput: {
     width: "100%",
     background: "#000",
@@ -649,7 +832,9 @@ const styles: any = {
     borderRadius: "9px",
     fontSize: "16px",
     marginBottom: "12px",
+    boxSizing: "border-box",
   },
+
   saveButton: {
     width: "100%",
     background: "#16a34a",
@@ -660,12 +845,14 @@ const styles: any = {
     fontWeight: "bold",
     cursor: "pointer",
   },
+
   groupGrid: {
     display: "flex",
     gap: "8px",
     overflowX: "auto",
     paddingBottom: "4px",
   },
+
   groupCard: {
     minWidth: "82px",
     width: "82px",
@@ -678,6 +865,7 @@ const styles: any = {
     cursor: "pointer",
     textAlign: "center",
   },
+
   groupCardSpecial: {
     minWidth: "82px",
     width: "82px",
@@ -690,21 +878,25 @@ const styles: any = {
     cursor: "pointer",
     textAlign: "center",
   },
+
   groupIcon: {
     fontSize: "18px",
     lineHeight: "20px",
     marginBottom: "3px",
   },
+
   groupName: {
     fontSize: "11px",
     fontWeight: "bold",
     lineHeight: "13px",
   },
+
   groupCount: {
     fontSize: "9px",
     color: "#ddd",
     marginTop: "2px",
   },
+
   backButton: {
     background: "#2563eb",
     color: "white",
@@ -715,22 +907,26 @@ const styles: any = {
     cursor: "pointer",
     marginBottom: "12px",
   },
+
   groupTitle: {
     color: "#f97316",
     fontSize: "24px",
     marginTop: 0,
     marginBottom: "12px",
   },
+
   manualBox: {
     display: "grid",
     gridTemplateColumns: "1fr",
     gap: "10px",
     marginBottom: "12px",
   },
+
   materialList: {
     display: "grid",
     gap: "8px",
   },
+
   materialRow: {
     background: "#222",
     borderRadius: "10px",
@@ -740,16 +936,19 @@ const styles: any = {
     gap: "10px",
     alignItems: "center",
   },
+
   materialInfo: {
     display: "grid",
     gap: "4px",
     fontSize: "14px",
   },
+
   addInline: {
     display: "flex",
     gap: "6px",
     alignItems: "center",
   },
+
   qtyInput: {
     width: "76px",
     background: "#000",
@@ -758,7 +957,9 @@ const styles: any = {
     padding: "10px",
     borderRadius: "8px",
     fontSize: "16px",
+    boxSizing: "border-box",
   },
+
   smallSaveButton: {
     background: "#16a34a",
     color: "white",
@@ -768,16 +969,19 @@ const styles: any = {
     fontWeight: "bold",
     cursor: "pointer",
   },
+
   emptyBox: {
     background: "#1a1a1a",
     borderRadius: "10px",
     padding: "14px",
     color: "#ddd",
   },
+
   addedList: {
     display: "grid",
     gap: "8px",
   },
+
   addedRow: {
     background: "#222",
     borderRadius: "10px",
@@ -787,11 +991,13 @@ const styles: any = {
     gap: "10px",
     alignItems: "center",
   },
+
   addedInfo: {
     display: "grid",
     gap: "4px",
     fontSize: "14px",
   },
+
   qtyControls: {
     display: "flex",
     gap: "6px",
@@ -799,6 +1005,7 @@ const styles: any = {
     flexWrap: "wrap",
     justifyContent: "flex-end",
   },
+
   minusButton: {
     background: "#374151",
     color: "white",
@@ -809,6 +1016,7 @@ const styles: any = {
     fontWeight: "bold",
     cursor: "pointer",
   },
+
   plusButton: {
     background: "#16a34a",
     color: "white",
@@ -819,6 +1027,7 @@ const styles: any = {
     fontWeight: "bold",
     cursor: "pointer",
   },
+
   qtyBadge: {
     minWidth: "54px",
     textAlign: "center",
@@ -828,6 +1037,7 @@ const styles: any = {
     padding: "8px",
     fontWeight: "bold",
   },
+
   deleteButton: {
     background: "#dc2626",
     color: "white",
