@@ -5,6 +5,10 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 
+const FIRMA = "Nocker & Bernardi GmbH / Stone Boutique";
+const FIRMA_ADRESA = "Innweg 3, A-6170 Zirl";
+const POTPIS = "Hidajet Goletić";
+
 const PDF_BUCKET = "pdf-assets";
 const PDF_LOGO_TOP = "gore.png";
 const PDF_SIDE_IMAGE = "strana.png";
@@ -20,7 +24,9 @@ export default function ArchivBerichtPage() {
   const [hours, setHours] = useState<any[]>([]);
   const [regieberichte, setRegieberichte] = useState<any[]>([]);
   const [regieHours, setRegieHours] = useState<any[]>([]);
-  const [regieberichtPhotos, setRegieberichtPhotos] = useState<any[]>([]);
+  const [regieRooms, setRegieRooms] = useState<any[]>([]);
+  const [regieMaterials, setRegieMaterials] = useState<any[]>([]);
+  const [regiePhotos, setRegiePhotos] = useState<any[]>([]);
   const [productivity, setProductivity] = useState<any[]>([]);
   const [roomMaterials, setRoomMaterials] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
@@ -84,6 +90,8 @@ export default function ArchivBerichtPage() {
     const regieberichtIds = (regieberichteData || []).map((r: any) => r.id);
 
     let regieWorkersData: any[] = [];
+    let regieRoomsData: any[] = [];
+    let regieMaterialsData: any[] = [];
     let regiePhotosData: any[] = [];
 
     if (regieberichtIds.length > 0) {
@@ -94,13 +102,27 @@ export default function ArchivBerichtPage() {
 
       regieWorkersData = workersData || [];
 
-      const { data: photosData } = await supabase
+      const { data: roomsRegieData } = await supabase
+        .from("regiebericht_rooms")
+        .select("*")
+        .in("regiebericht_id", regieberichtIds);
+
+      regieRoomsData = roomsRegieData || [];
+
+      const { data: materialsRegieData } = await supabase
+        .from("regiebericht_materials")
+        .select("*")
+        .in("regiebericht_id", regieberichtIds);
+
+      regieMaterialsData = materialsRegieData || [];
+
+      const { data: photosRegieData } = await supabase
         .from("regiebericht_photos")
         .select("*")
         .in("regiebericht_id", regieberichtIds)
         .order("id", { ascending: true });
 
-      regiePhotosData = photosData || [];
+      regiePhotosData = photosRegieData || [];
     }
 
     const { data: productivityData } = await supabase
@@ -156,7 +178,9 @@ export default function ArchivBerichtPage() {
     setHours(hoursData || []);
     setRegieberichte(regieberichteData || []);
     setRegieHours(regieWorkersData || []);
-    setRegieberichtPhotos(regiePhotosData || []);
+    setRegieRooms(regieRoomsData || []);
+    setRegieMaterials(regieMaterialsData || []);
+    setRegiePhotos(regiePhotosData || []);
     setProductivity(productivityData || []);
     setRoomMaterials(roomMaterialData || []);
     setMaterials(materialsData || []);
@@ -192,6 +216,19 @@ export default function ArchivBerichtPage() {
       minimumFractionDigits: 1,
       maximumFractionDigits: 2,
     });
+  }
+
+  function toNumberValue(value: any) {
+    if (value === null || value === undefined || value === "") return 0;
+
+    const cleaned = String(value)
+      .replace(",", ".")
+      .replace(/[^0-9.-]/g, "");
+
+    const numberValue = Number(cleaned);
+
+    if (Number.isNaN(numberValue)) return 0;
+    return numberValue;
   }
 
   function translatePosition(position: string) {
@@ -236,7 +273,6 @@ export default function ArchivBerichtPage() {
 
   function getMaterialName(materialId: number) {
     const mat = materials.find((m: any) => Number(m.id) === Number(materialId));
-
     return mat?.naziv || mat?.name || mat?.material || mat?.bezeichnung || "";
   }
 
@@ -380,25 +416,6 @@ export default function ArchivBerichtPage() {
     );
   }
 
-  function getRegieberichtNumberFromBericht(bericht: any) {
-    return bericht?.bericht_nr || bericht?.nummer || bericht?.id || "-";
-  }
-
-  function getRegieberichtOrtFromBericht(bericht: any) {
-    return bericht?.ort || bericht?.place || bericht?.location || baustelle?.lokacija || "-";
-  }
-
-  function getRegieberichtWorkTextFromBericht(bericht: any) {
-    return (
-      bericht?.ausgefuehrte_arbeiten ||
-      bericht?.arbeiten ||
-      bericht?.beschreibung ||
-      bericht?.taetigkeit ||
-      bericht?.bemerkung ||
-      "Keine Beschreibung eingetragen."
-    );
-  }
-
   function getRegieberichtRows(berichtId: number) {
     return regieHours.filter(
       (row: any) => Number(row.regiebericht_id) === Number(berichtId)
@@ -413,8 +430,51 @@ export default function ArchivBerichtPage() {
     );
   }
 
-  function getRegieberichtBauteile(bericht: any) {
+  function getRegieberichtRooms(berichtId: number) {
+    return regieRooms.filter((r: any) => Number(r.regiebericht_id) === Number(berichtId));
+  }
+
+  function getRegieberichtMaterials(berichtId: number) {
+    return regieMaterials.filter((m: any) => Number(m.regiebericht_id) === Number(berichtId));
+  }
+
+  function getRegieberichtPhotos(berichtId: number) {
+    return regiePhotos
+      .filter((p: any) => Number(p.regiebericht_id) === Number(berichtId))
+      .filter((p: any) => {
+        const url = getPhotoUrl(p);
+        return url && !String(url).toLowerCase().split("?")[0].endsWith(".pdf");
+      });
+  }
+
+  function getRegieberichtNumber(bericht: any) {
+    return bericht?.bericht_nr || bericht?.nummer || bericht?.id || "-";
+  }
+
+  function getRegieberichtOrt(bericht: any) {
+    return bericht?.ort || bericht?.place || bericht?.location || baustelle?.lokacija || "-";
+  }
+
+  function getRegieberichtWorkText(bericht: any) {
     return (
+      bericht?.ausgefuehrte_arbeiten ||
+      bericht?.arbeiten ||
+      bericht?.beschreibung ||
+      bericht?.taetigkeit ||
+      bericht?.bemerkung ||
+      "Keine Beschreibung eingetragen."
+    );
+  }
+
+  function getRegieberichtRoomText(berichtId: number, bericht: any) {
+    const rows = getRegieberichtRooms(berichtId);
+    const roomText = rows
+      .map((r: any) => r.room_name || r.raum || r.name || "")
+      .filter(Boolean)
+      .join(", ");
+
+    return (
+      roomText ||
       bericht?.bauteile_raeume ||
       bericht?.bauteile ||
       bericht?.raeume ||
@@ -424,37 +484,33 @@ export default function ArchivBerichtPage() {
     );
   }
 
-  function getRegieberichtPhotoUrl(photo: any) {
-    return photo?.photo_url || photo?.url || photo?.image_url || photo?.public_url || "";
-  }
-
-  function isPdfUrl(url: string) {
-    return String(url || "").toLowerCase().split("?")[0].endsWith(".pdf");
-  }
-
-  function getRegieberichtPhotosForBericht(berichtId: number) {
-    return regieberichtPhotos
-      .filter((p: any) => Number(p.regiebericht_id) === Number(berichtId))
-      .filter((p: any) => {
-        const url = getRegieberichtPhotoUrl(p);
-        return url && !isPdfUrl(url);
-      });
-  }
-
-  function getAuftraggeberValue() {
-    return baustelle?.auftraggeber || baustelle?.kunde || baustelle?.client || "-";
-  }
-
-  function getAuftragnehmerValue() {
+  function getAuftraggeberValue(bericht: any) {
     return (
-      baustelle?.auftragnehmer ||
-      baustelle?.firma ||
-      "Nocker & Bernardi GmbH / Stone Boutique"
+      bericht?.auftraggeber ||
+      baustelle?.auftraggeber ||
+      baustelle?.kunde ||
+      baustelle?.client ||
+      "-"
     );
   }
 
-  function getBauleiterValue() {
-    return baustelle?.bauleiter || baustelle?.leiter || baustelle?.bauleiter_vertreter || "-";
+  function getAuftragnehmerValue(bericht: any) {
+    return (
+      bericht?.auftragnehmer ||
+      baustelle?.auftragnehmer ||
+      baustelle?.firma ||
+      FIRMA
+    );
+  }
+
+  function getBauleiterValue(bericht: any) {
+    return (
+      bericht?.bauleiter ||
+      baustelle?.bauleiter ||
+      baustelle?.leiter ||
+      baustelle?.bauleiter_vertreter ||
+      "-"
+    );
   }
 
   function getGoogleMapsUrl() {
@@ -543,12 +599,16 @@ export default function ArchivBerichtPage() {
           @media print {
             body {
               background: white !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
 
             main {
               background: white !important;
               color: black !important;
               padding: 20px !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
 
             .no-print {
@@ -557,221 +617,6 @@ export default function ArchivBerichtPage() {
 
             .print-only {
               display: block !important;
-            }
-
-            .regie-form-page {
-              page: regieLandscape;
-              background: white !important;
-              color: black !important;
-              page-break-before: always !important;
-              page-break-after: always !important;
-              width: 287mm !important;
-              height: 200mm !important;
-              min-height: 200mm !important;
-              padding: 6mm !important;
-              margin: 0 !important;
-              font-family: Arial, sans-serif !important;
-              box-sizing: border-box !important;
-              overflow: hidden !important;
-              position: relative !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-
-            .regie-form-bg {
-              position: absolute !important;
-              left: 0 !important;
-              top: 0 !important;
-              width: 100% !important;
-              height: 100% !important;
-              object-fit: cover !important;
-              object-position: center center !important;
-              opacity: 0.48 !important;
-              z-index: 1 !important;
-              pointer-events: none !important;
-            }
-
-            .regie-form-side {
-              position: absolute !important;
-              left: 0 !important;
-              top: 0 !important;
-              width: 86px !important;
-              height: 100% !important;
-              object-fit: cover !important;
-              object-position: center !important;
-              opacity: 0.30 !important;
-              z-index: 1 !important;
-              pointer-events: none !important;
-              border-right: 2px solid rgba(249, 115, 22, 0.35) !important;
-            }
-
-            .regie-form-content {
-              position: relative !important;
-              z-index: 3 !important;
-            }
-
-            .regie-form-header {
-              display: flex !important;
-              justify-content: space-between !important;
-              align-items: flex-start !important;
-              border-bottom: 2px solid #163b8f !important;
-              padding-bottom: 7px !important;
-              margin-bottom: 7px !important;
-            }
-
-            .regie-form-logo-img {
-              width: 140px !important;
-              height: 48px !important;
-              object-fit: contain !important;
-              object-position: left center !important;
-              display: block !important;
-            }
-
-            .regie-form-logo {
-              color: #ff6600 !important;
-              font-size: 20px !important;
-              line-height: 18px !important;
-              font-weight: 900 !important;
-              letter-spacing: 1px !important;
-            }
-
-            .regie-form-title {
-              color: #163b8f !important;
-              font-size: 30px !important;
-              font-weight: 900 !important;
-              margin: 0 !important;
-            }
-
-            .regie-form-small {
-              color: black !important;
-              font-size: 11px !important;
-              margin: 2px 0 !important;
-            }
-
-            .regie-form-grid {
-              display: grid !important;
-              grid-template-columns: 1.15fr 0.9fr 1fr 1.2fr 1fr 1.15fr !important;
-              gap: 5px !important;
-              margin-bottom: 8px !important;
-            }
-
-            .regie-form-box {
-              border: 1px solid #b8c7e6 !important;
-              border-radius: 5px !important;
-              min-height: 48px !important;
-              padding: 6px !important;
-              color: black !important;
-              box-sizing: border-box !important;
-              font-size: 11px !important;
-              background: rgba(255, 255, 255, 0.44) !important;
-            }
-
-            .regie-form-label {
-              color: #163b8f !important;
-              font-weight: 800 !important;
-              font-size: 10px !important;
-              text-transform: uppercase !important;
-              margin-bottom: 4px !important;
-            }
-
-            .regie-form-main {
-              display: grid !important;
-              grid-template-columns: 1.25fr 0.92fr !important;
-              gap: 8px !important;
-            }
-
-            .regie-form-work {
-              border: 1px solid #b8c7e6 !important;
-              border-radius: 5px !important;
-              min-height: 112px !important;
-              padding: 8px !important;
-              white-space: pre-wrap !important;
-              color: black !important;
-              font-size: 12px !important;
-              background: rgba(255, 255, 255, 0.44) !important;
-            }
-
-            .regie-form-workers {
-              border: 1px solid #b8c7e6 !important;
-              border-radius: 5px !important;
-              min-height: 112px !important;
-              padding: 8px !important;
-              color: black !important;
-              background: rgba(255, 255, 255, 0.44) !important;
-            }
-
-            .regie-form-workers table {
-              width: 100% !important;
-              border-collapse: collapse !important;
-              font-size: 10px !important;
-              color: black !important;
-            }
-
-            .regie-form-workers th {
-              color: #163b8f !important;
-              border-bottom: 1px solid #b8c7e6 !important;
-              text-align: left !important;
-              padding: 4px !important;
-            }
-
-            .regie-form-workers td {
-              color: black !important;
-              border-bottom: 1px solid #d8e0f2 !important;
-              padding: 4px !important;
-            }
-
-            .regie-form-photo-grid {
-              display: grid !important;
-              grid-template-columns: 1fr 1fr !important;
-              gap: 6px !important;
-            }
-
-            .regie-form-photo {
-              border: 1px dashed #b8c7e6 !important;
-              border-radius: 5px !important;
-              height: 236px !important;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              color: #6b7aa8 !important;
-              margin-bottom: 0 !important;
-              font-size: 12px !important;
-              background: rgba(255, 255, 255, 0.50) !important;
-              overflow: hidden !important;
-              box-sizing: border-box !important;
-            }
-
-            .regie-form-photo img {
-              width: 100% !important;
-              height: 100% !important;
-              object-fit: contain !important;
-              object-position: center !important;
-              display: block !important;
-              background: white !important;
-            }
-
-            .regie-form-material {
-              border: 1px solid #b8c7e6 !important;
-              border-radius: 5px !important;
-              min-height: 90px !important;
-              padding: 8px !important;
-              margin-top: 8px !important;
-              background: rgba(255, 255, 255, 0.44) !important;
-            }
-
-            .regie-form-signature {
-              margin-top: 12px !important;
-              display: grid !important;
-              grid-template-columns: 1fr 1fr !important;
-              gap: 14px !important;
-              color: black !important;
-              font-size: 11px !important;
-            }
-
-            .regie-sign-line {
-              border-top: 1px solid black !important;
-              padding-top: 8px !important;
-              min-height: 35px !important;
             }
 
             .print-box {
@@ -803,6 +648,32 @@ export default function ArchivBerichtPage() {
             .photo-img {
               height: 120px !important;
               object-fit: cover !important;
+            }
+
+            .regie-landscape-page {
+              page: regieLandscape;
+              background: white !important;
+              color: black !important;
+              page-break-before: always !important;
+              page-break-after: always !important;
+              width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            .regie-landscape-page .print-sheet {
+              width: 100% !important;
+              min-height: auto !important;
+              box-shadow: none !important;
+              border: none !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              page-break-inside: avoid !important;
+              page-break-after: avoid !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
 
             table {
@@ -1257,19 +1128,23 @@ export default function ArchivBerichtPage() {
       </section>
 
       <section className="print-only">
-        {sortedRegieberichte.length > 0 &&
-          sortedRegieberichte.map((bericht: any, index: number) => {
-            const rows = getRegieberichtRows(bericht.id);
-            const total = getRegieberichtTotalHours(bericht.id);
-            const regiePhotosForThisBericht = getRegieberichtPhotosForBericht(bericht.id);
+        {sortedRegieberichte.map((bericht: any, index: number) => {
+          const rows = getRegieberichtRows(bericht.id);
+          const matRows = getRegieberichtMaterials(bericht.id);
+          const photoRows = getRegieberichtPhotos(bericht.id);
+          const total = getRegieberichtTotalHours(bericht.id);
 
-            return (
-              <div key={bericht.id || index} className="regie-form-page">
+          return (
+            <section
+              key={bericht.id || index}
+              className="regie-landscape-page"
+            >
+              <div className="print-sheet" style={styles.printSheet}>
                 {mountainBgUrl && (
                   <img
                     src={mountainBgUrl}
                     alt=""
-                    className="regie-form-bg"
+                    style={styles.mountainBackground}
                     onError={(e) => {
                       const img = e.currentTarget as HTMLImageElement;
                       img.style.display = "none";
@@ -1281,186 +1156,297 @@ export default function ArchivBerichtPage() {
                   <img
                     src={sideImageUrl}
                     alt=""
-                    className="regie-form-side"
+                    style={styles.sidePaperImage}
                     onError={(e) => {
                       const img = e.currentTarget as HTMLImageElement;
+                      const step = img.dataset.step || "0";
+
+                      if (step === "0") {
+                        img.dataset.step = "1";
+                        img.src = getStoragePublicUrl("Strana.png");
+                        return;
+                      }
+
+                      if (step === "1") {
+                        img.dataset.step = "2";
+                        img.src = getStoragePublicUrl("strana.heic");
+                        return;
+                      }
+
+                      if (step === "2") {
+                        img.dataset.step = "3";
+                        img.src = getStoragePublicUrl("Strana.heic");
+                        return;
+                      }
+
+                      if (step === "3") {
+                        img.dataset.step = "4";
+                        img.src = getStoragePublicUrl("srtana.heic");
+                        return;
+                      }
+
                       img.style.display = "none";
                     }}
                   />
                 )}
 
-                <div className="regie-form-content">
-                  <div className="regie-form-header">
-                    <div>
-                      {logoTopUrl ? (
-                        <img
-                          src={logoTopUrl}
-                          alt="Stone Boutique"
-                          className="regie-form-logo-img"
-                          onError={(e) => {
-                            const img = e.currentTarget as HTMLImageElement;
-                            img.style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <div className="regie-form-logo">
-                          STONE
-                          <br />
-                          BOUTIQUE
-                        </div>
+                <div style={styles.printContent}>
+                  <div style={styles.printHeader}>
+                    <div style={styles.titleWithLogo}>
+                      {logoTopUrl && (
+                        <>
+                          <img
+                            src={logoTopUrl}
+                            alt="Stone Boutique"
+                            style={styles.headerLogo}
+                            onError={(e) => {
+                              const img = e.currentTarget as HTMLImageElement;
+                              const step = img.dataset.step || "0";
+
+                              if (step === "0") {
+                                img.dataset.step = "1";
+                                img.src = getStoragePublicUrl("Gore.png");
+                                return;
+                              }
+
+                              if (step === "1") {
+                                img.dataset.step = "2";
+                                img.src = getStoragePublicUrl("gore.heic");
+                                return;
+                              }
+
+                              if (step === "2") {
+                                img.dataset.step = "3";
+                                img.src = getStoragePublicUrl("Gore.heic");
+                                return;
+                              }
+
+                              img.style.display = "none";
+                              const next = img.nextElementSibling as HTMLElement | null;
+                              if (next) next.style.display = "block";
+                            }}
+                          />
+
+                          <div style={styles.logoFallback}>
+                            <div style={styles.logoFallbackOrange}>STONE BOUTIQUE</div>
+                            <div style={styles.logoFallbackSmall}>
+                              Nocker & Bernardi GmbH
+                            </div>
+                          </div>
+                        </>
                       )}
-                      <p className="regie-form-small">Nocker & Bernardi GmbH</p>
-                    </div>
 
-                    <div>
-                      <h1 className="regie-form-title">REGIEBERICHT</h1>
-                      <p className="regie-form-small">Tagesbericht / Regiearbeit</p>
-                    </div>
-
-                    <div>
-                      <p className="regie-form-small">
-                        <strong>Nr.:</strong> {getRegieberichtNumberFromBericht(bericht)}
-                      </p>
-                      <p className="regie-form-small">
-                        <strong>Datum:</strong> {formatDate(bericht.datum)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="regie-form-grid">
-                    <div className="regie-form-box">
-                      <div className="regie-form-label">Baustelle</div>
-                      {baustelle?.naziv || "-"}
-                    </div>
-
-                    <div className="regie-form-box">
-                      <div className="regie-form-label">Ort</div>
-                      {getRegieberichtOrtFromBericht(bericht)}
-                    </div>
-
-                    <div className="regie-form-box">
-                      <div className="regie-form-label">Auftraggeber</div>
-                      {getAuftraggeberValue()}
-                    </div>
-
-                    <div className="regie-form-box">
-                      <div className="regie-form-label">Auftragnehmer</div>
-                      {getAuftragnehmerValue()}
-                    </div>
-
-                    <div className="regie-form-box">
-                      <div className="regie-form-label">Bauleiter / Vertreter</div>
-                      {getBauleiterValue()}
-                    </div>
-
-                    <div className="regie-form-box">
-                      <div className="regie-form-label">Bauteile / Räume</div>
-                      {getRegieberichtBauteile(bericht)}
-                    </div>
-                  </div>
-
-                  <div className="regie-form-main">
-                    <div>
-                      <div className="regie-form-work">
-                        <div className="regie-form-label">Ausgeführte Arbeiten</div>
-                        {getRegieberichtWorkTextFromBericht(bericht)}
+                      <div>
+                        <div style={styles.documentTitle}>REGIEBERICHT</div>
+                        <div style={styles.documentSub}>
+                          Tagesbericht / Regiearbeit
+                        </div>
                       </div>
+                    </div>
 
-                      <div className="regie-form-workers">
-                        <div className="regie-form-label">Arbeitskräfte</div>
-                        <div style={{ textAlign: "right", fontWeight: "bold", marginBottom: "4px" }}>
-                          Gesamt: {formatNumber(total)} h
+                    <div style={styles.headerRight}>
+                      <div>
+                        <strong>Nr.:</strong> {getRegieberichtNumber(bericht)}
+                      </div>
+                      <div>
+                        <strong>Datum:</strong> {formatDate(bericht.datum)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={styles.metaGrid}>
+                    <div style={styles.metaBox}>
+                      <div style={styles.metaLabel}>Baustelle</div>
+                      <div style={styles.metaValue}>{baustelle?.naziv || "-"}</div>
+                    </div>
+
+                    <div style={styles.metaBox}>
+                      <div style={styles.metaLabel}>Ort</div>
+                      <div style={styles.metaValue}>{getRegieberichtOrt(bericht)}</div>
+                    </div>
+
+                    <div style={styles.metaBox}>
+                      <div style={styles.metaLabel}>Auftraggeber</div>
+                      <div style={styles.metaValue}>{getAuftraggeberValue(bericht)}</div>
+                    </div>
+
+                    <div style={styles.metaBox}>
+                      <div style={styles.metaLabel}>Auftragnehmer</div>
+                      <div style={styles.metaValue}>
+                        {getAuftragnehmerValue(bericht)}
+                        <br />
+                        {FIRMA_ADRESA}
+                      </div>
+                    </div>
+
+                    <div style={styles.metaBox}>
+                      <div style={styles.metaLabel}>Bauleiter / Vertreter</div>
+                      <div style={styles.metaValue}>{getBauleiterValue(bericht)}</div>
+                    </div>
+
+                    <div style={styles.metaBox}>
+                      <div style={styles.metaLabel}>Bauteile / Räume</div>
+                      <div style={styles.metaValue}>
+                        {getRegieberichtRoomText(bericht.id, bericht)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={styles.printMainGrid}>
+                    <div style={styles.leftColumn}>
+                      <section style={styles.printBlock}>
+                        <h2 style={styles.printBlockTitle}>Ausgeführte Arbeiten</h2>
+                        <div style={styles.workText}>
+                          {getRegieberichtWorkText(bericht)}
+                        </div>
+                      </section>
+
+                      <section style={styles.printBlock}>
+                        <div style={styles.blockHeaderRow}>
+                          <h2 style={styles.printBlockTitle}>Arbeitskräfte</h2>
+                          <strong>Gesamt: {formatNumber(total)} h</strong>
                         </div>
 
-                        {rows.length === 0 ? (
-                          <p className="regie-form-small">Keine Arbeitskräfte eingetragen.</p>
-                        ) : (
-                          <table>
-                            <thead>
-                              <tr>
-                                <th>Mitarbeiter</th>
-                                <th>von</th>
-                                <th>bis</th>
-                                <th>Pause</th>
-                                <th>Std.</th>
-                                <th>Bemerkung</th>
-                              </tr>
-                            </thead>
-
-                            <tbody>
-                              {rows.map((row: any) => (
-                                <tr key={row.id}>
-                                  <td>{row.worker_name || row.radnik || "-"}</td>
-                                  <td>{row.von || row.pocetak || "-"}</td>
-                                  <td>{row.bis || row.kraj || "-"}</td>
-                                  <td>{formatNumber(row.pause || row.pauza || 0)}</td>
-                                  <td>{formatNumber(row.stunden || row.sati || row.ukupno_sati)}</td>
-                                  <td>{row.bemerkung || row.notiz || ""}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </div>
-
-                      <div className="regie-form-material">
-                        <div className="regie-form-label">Material / Geräte / Sonstiges</div>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
+                        <table style={styles.cleanTable}>
                           <thead>
                             <tr>
-                              <th style={{ textAlign: "left", color: "#163b8f", borderBottom: "1px solid #b8c7e6" }}>Bezeichnung</th>
-                              <th style={{ textAlign: "left", color: "#163b8f", borderBottom: "1px solid #b8c7e6" }}>Menge</th>
-                              <th style={{ textAlign: "left", color: "#163b8f", borderBottom: "1px solid #b8c7e6" }}>EH</th>
+                              <th style={styles.cleanTh}>Mitarbeiter</th>
+                              <th style={styles.cleanTh}>von</th>
+                              <th style={styles.cleanTh}>bis</th>
+                              <th style={styles.cleanTh}>Pause</th>
+                              <th style={styles.cleanTh}>Std.</th>
+                              <th style={styles.cleanTh}>Bemerkung</th>
                             </tr>
                           </thead>
+
                           <tbody>
-                            <tr>
-                              <td style={{ padding: "5px 0" }}>Kein Material eingetragen.</td>
-                              <td></td>
-                              <td></td>
-                            </tr>
+                            {rows.length === 0 ? (
+                              <tr>
+                                <td style={styles.cleanTd} colSpan={6}>
+                                  Keine Arbeitskräfte eingetragen.
+                                </td>
+                              </tr>
+                            ) : (
+                              rows.map((w: any, rowIndex: number) => (
+                                <tr key={w.id || rowIndex}>
+                                  <td style={styles.cleanTd}>
+                                    {w.worker_name || w.radnik || "-"}
+                                  </td>
+                                  <td style={styles.cleanTd}>
+                                    {w.von || w.pocetak || "-"}
+                                  </td>
+                                  <td style={styles.cleanTd}>
+                                    {w.bis || w.kraj || "-"}
+                                  </td>
+                                  <td style={styles.cleanTd}>
+                                    {formatNumber(w.pause || w.pauza || 0)} h
+                                  </td>
+                                  <td style={styles.cleanTd}>
+                                    {formatNumber(w.stunden || w.sati || w.ukupno_sati)} h
+                                  </td>
+                                  <td style={styles.cleanTd}>
+                                    {w.bemerkung || w.notiz || "-"}
+                                  </td>
+                                </tr>
+                              ))
+                            )}
                           </tbody>
                         </table>
-                      </div>
+                      </section>
+
+                      <section style={styles.printBlock}>
+                        <h2 style={styles.printBlockTitle}>Material / Geräte / Sonstiges</h2>
+
+                        <table style={styles.cleanTable}>
+                          <thead>
+                            <tr>
+                              <th style={styles.cleanTh}>Bezeichnung</th>
+                              <th style={styles.cleanTh}>Menge</th>
+                              <th style={styles.cleanTh}>EH</th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {matRows.length === 0 ? (
+                              <tr>
+                                <td style={styles.cleanTd} colSpan={3}>
+                                  Kein Material eingetragen.
+                                </td>
+                              </tr>
+                            ) : (
+                              matRows.map((m: any, matIndex: number) => (
+                                <tr key={m.id || matIndex}>
+                                  <td style={styles.cleanTd}>
+                                    {m.bezeichnung || m.material_name || m.name || "-"}
+                                  </td>
+                                  <td style={styles.cleanTd}>
+                                    {formatNumber(m.menge || m.kolicina || 0)}
+                                  </td>
+                                  <td style={styles.cleanTd}>
+                                    {m.einheit || m.unit || "-"}
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </section>
                     </div>
 
-                    <div>
-                      <div className="regie-form-box" style={{ minHeight: "270px" }}>
-                        <div className="regie-form-label">Fotodokumentation</div>
+                    <div style={styles.rightColumn}>
+                      <section style={styles.photoPrintBlock}>
+                        <h2 style={styles.printBlockTitle}>Fotodokumentation</h2>
 
-                        <div className="regie-form-photo-grid">
+                        <div style={styles.printPhotoGrid}>
                           {Array.from({ length: 2 }).map((_, photoIndex) => {
-                            const photo = regiePhotosForThisBericht[photoIndex];
-                            const url = photo ? getRegieberichtPhotoUrl(photo) : "";
+                            const photo = photoRows[photoIndex];
+                            const url = photo ? getPhotoUrl(photo) : "";
+
+                            if (!url) {
+                              return (
+                                <div key={photoIndex} style={styles.emptyPhoto}>
+                                  Foto {photoIndex + 1}
+                                </div>
+                              );
+                            }
 
                             return (
-                              <div key={photoIndex} className="regie-form-photo">
-                                {url ? (
-                                  <img src={url} alt={`Foto ${photoIndex + 1}`} />
-                                ) : (
-                                  <>Foto {photoIndex + 1}</>
+                              <div key={photoIndex} style={styles.printPhotoCard}>
+                                <img
+                                  src={url}
+                                  alt={`Foto ${photoIndex + 1}`}
+                                  style={styles.printPhoto}
+                                />
+
+                                {photo.note && (
+                                  <div style={styles.photoCaption}>{photo.note}</div>
                                 )}
                               </div>
                             );
                           })}
                         </div>
-                      </div>
+                      </section>
 
-                      <div className="regie-form-signature">
-                        <div className="regie-sign-line">
-                          Auftragnehmer: Hidajet Goletić
+                      <section style={styles.signatureBlock}>
+                        <div style={styles.signatureItem}>
+                          <div style={styles.signatureLine}></div>
+                          <strong>Auftragnehmer: {POTPIS}</strong>
                         </div>
 
-                        <div className="regie-sign-line">
-                          Auftraggeber / Vertreter: {getBauleiterValue()}
+                        <div style={styles.signatureItem}>
+                          <div style={styles.signatureLine}></div>
+                          <strong>
+                            Auftraggeber / Vertreter: {getBauleiterValue(bericht)}
+                          </strong>
                         </div>
-                      </div>
+                      </section>
                     </div>
                   </div>
                 </div>
               </div>
-            );
-          })}
+            </section>
+          );
+        })}
       </section>
 
       {selectedPhoto && (
@@ -1677,4 +1663,248 @@ const photoRoomStyle: any = {
   fontWeight: "bold",
   marginTop: "8px",
   marginBottom: "6px",
+};
+
+const styles: any = {
+  printSheet: {
+    background: "#fff",
+    color: "#111",
+    WebkitPrintColorAdjust: "exact",
+    printColorAdjust: "exact",
+    maxWidth: "1100px",
+    margin: "30px auto",
+    padding: "14px",
+    borderRadius: "8px",
+    boxShadow: "0 10px 35px rgba(0,0,0,0.35)",
+    fontFamily: "Arial, sans-serif",
+    position: "relative",
+    overflow: "hidden",
+  },
+  printContent: {
+    position: "relative",
+    zIndex: 3,
+    WebkitPrintColorAdjust: "exact",
+    printColorAdjust: "exact",
+  },
+  mountainBackground: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "center center",
+    opacity: 0.48,
+    zIndex: 1,
+    pointerEvents: "none",
+  },
+  sidePaperImage: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: "86px",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "center",
+    opacity: 0.30,
+    zIndex: 1,
+    pointerEvents: "none",
+    borderRight: "2px solid rgba(249, 115, 22, 0.35)",
+  },
+  titleWithLogo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "20px",
+  },
+  headerLogo: {
+    width: "140px",
+    height: "48px",
+    objectFit: "contain",
+    objectPosition: "left center",
+    display: "block",
+  },
+  logoFallback: {
+    display: "none",
+    width: "140px",
+    minWidth: "145px",
+    borderLeft: "4px solid #f97316",
+    paddingLeft: "10px",
+    lineHeight: "1.1",
+  },
+  logoFallbackOrange: {
+    color: "#f97316",
+    fontWeight: "900",
+    fontSize: "15px",
+    letterSpacing: "1px",
+  },
+  logoFallbackSmall: {
+    color: "#111",
+    fontWeight: "700",
+    fontSize: "9px",
+    marginTop: "4px",
+  },
+  printHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    borderBottom: "2px solid #1e3a8a",
+    paddingBottom: "6px",
+    marginBottom: "7px",
+  },
+  documentTitle: {
+    color: "#1e3a8a",
+    fontSize: "26px",
+    fontWeight: "bold",
+    letterSpacing: "1px",
+  },
+  documentSub: {
+    color: "#555",
+    fontSize: "12px",
+    marginTop: "2px",
+  },
+  headerRight: {
+    textAlign: "right",
+    fontSize: "13px",
+    lineHeight: "1.6",
+  },
+  metaGrid: {
+    display: "grid",
+    gridTemplateColumns: "1.2fr 0.7fr 1fr 1.2fr 1fr 1.2fr",
+    gap: "6px",
+    marginBottom: "7px",
+  },
+  metaBox: {
+    background: "rgba(255, 255, 255, 0.44)",
+    border: "1px solid #d8dee9",
+    borderRadius: "6px",
+    padding: "6px",
+    minHeight: "42px",
+  },
+  metaLabel: {
+    color: "#1e3a8a",
+    fontSize: "10px",
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    marginBottom: "3px",
+  },
+  metaValue: {
+    fontSize: "12px",
+    lineHeight: "1.25",
+    whiteSpace: "pre-wrap",
+  },
+  printMainGrid: {
+    display: "grid",
+    gridTemplateColumns: "1.32fr 0.98fr",
+    gap: "7px",
+  },
+  leftColumn: {
+    display: "grid",
+    gap: "6px",
+  },
+  rightColumn: {
+    display: "grid",
+    gap: "6px",
+  },
+  printBlock: {
+    border: "1px solid #d8dee9",
+    borderRadius: "7px",
+    padding: "6px",
+    background: "rgba(255, 255, 255, 0.44)",
+  },
+  printBlockTitle: {
+    fontSize: "13px",
+    color: "#1e3a8a",
+    margin: "0 0 6px 0",
+    textTransform: "uppercase",
+    letterSpacing: "0.4px",
+  },
+  blockHeaderRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "7px",
+  },
+  workText: {
+    minHeight: "80px",
+    whiteSpace: "pre-wrap",
+    fontSize: "12px",
+    lineHeight: "1.45",
+  },
+  cleanTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "11px",
+  },
+  cleanTh: {
+    textAlign: "left",
+    padding: "5px",
+    background: "rgba(239, 246, 255, 0.48)",
+    color: "#1e3a8a",
+    borderBottom: "1px solid #cbd5e1",
+  },
+  cleanTd: {
+    padding: "5px",
+    borderBottom: "1px solid #e5e7eb",
+    verticalAlign: "top",
+  },
+  photoPrintBlock: {
+    border: "1px solid #d8dee9",
+    borderRadius: "7px",
+    padding: "6px",
+    background: "rgba(255, 255, 255, 0.38)",
+  },
+  printPhotoGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "6px",
+    alignItems: "stretch",
+  },
+  printPhotoCard: {
+    border: "1px solid #e5e7eb",
+    borderRadius: "7px",
+    padding: "5px",
+    background: "rgba(248, 250, 252, 0.34)",
+  },
+  printPhoto: {
+    width: "100%",
+    height: "300px",
+    objectFit: "contain",
+    objectPosition: "center",
+    background: "#fff",
+    borderRadius: "5px",
+    display: "block",
+  },
+  photoCaption: {
+    fontSize: "10px",
+    color: "#555",
+    marginTop: "4px",
+  },
+  emptyPhoto: {
+    height: "300px",
+    border: "1px dashed #cbd5e1",
+    borderRadius: "7px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#94a3b8",
+    background: "rgba(248, 250, 252, 0.30)",
+    fontSize: "13px",
+  },
+  signatureBlock: {
+    border: "1px solid #d8dee9",
+    borderRadius: "7px",
+    padding: "12px",
+    background: "rgba(255, 255, 255, 0.38)",
+    display: "grid",
+    gap: "25px",
+    alignContent: "end",
+  },
+  signatureItem: {
+    fontSize: "11px",
+  },
+  signatureLine: {
+    borderTop: "1px solid #111",
+    marginBottom: "6px",
+    paddingTop: "6px",
+  },
 };
