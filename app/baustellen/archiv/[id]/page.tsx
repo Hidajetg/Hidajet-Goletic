@@ -14,9 +14,100 @@ const PDF_LOGO_TOP = "gore.png";
 const PDF_SIDE_IMAGE = "strana.png";
 const PDF_MOUNTAIN_BG = "pozadina.png";
 
+const ADMIN_NAMES = [
+  "hido",
+  "steffi",
+  "admin",
+  "hidajet",
+  "hidajet goletic",
+  "hidajet goletić",
+];
+
+function getLoggedUserFromLocalStorage() {
+  if (typeof window === "undefined") return null;
+
+  const keys = [
+    "currentWorker",
+    "worker",
+    "loggedWorker",
+    "selectedWorker",
+    "currentUser",
+    "loggedUser",
+    "user",
+    "userName",
+    "workerName",
+    "name",
+    "loginUser",
+    "baustelle_user",
+    "stone_user",
+    "app_user",
+  ];
+
+  for (const key of keys) {
+    const value = localStorage.getItem(key);
+    if (!value) continue;
+
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+
+    const value = localStorage.getItem(key);
+    if (!value) continue;
+
+    try {
+      const parsed = JSON.parse(value);
+      if (isAdminUser(parsed)) return parsed;
+    } catch {
+      if (isAdminUser(value)) return value;
+    }
+  }
+
+  return null;
+}
+
+function isAdminUser(user: any) {
+  if (!user) return false;
+
+  if (typeof user === "string") {
+    return ADMIN_NAMES.includes(user.trim().toLowerCase());
+  }
+
+  const role = String(user.role || user.rolle || user.tip || "").toLowerCase();
+
+  const name = String(
+    user.name ||
+      user.worker_name ||
+      user.radnik ||
+      user.username ||
+      user.userName ||
+      user.displayName ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+  return (
+    role === "admin" ||
+    role === "administrator" ||
+    user.is_admin === true ||
+    user.admin === true ||
+    ADMIN_NAMES.includes(name)
+  );
+}
+
 export default function ArchivBerichtPage() {
   const params = useParams();
   const baustelleId = String(params.id);
+
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [baustelle, setBaustelle] = useState<any>(null);
@@ -39,6 +130,17 @@ export default function ArchivBerichtPage() {
   const [mountainBgUrl, setMountainBgUrl] = useState("");
 
   useEffect(() => {
+    const loggedUser = getLoggedUserFromLocalStorage();
+    const adminOk = isAdminUser(loggedUser);
+
+    setIsAdmin(adminOk);
+    setAccessChecked(true);
+
+    if (!adminOk) {
+      setLoading(false);
+      return;
+    }
+
     loadPdfImages();
     loadReport();
   }, []);
@@ -570,6 +672,28 @@ export default function ArchivBerichtPage() {
     window.print();
   }
 
+  if (!accessChecked) {
+    return (
+      <main style={mainStyle}>
+        <p>Zugriff wird geprüft...</p>
+      </main>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <main style={mainStyle}>
+        <div style={boxStyle}>
+          <h1 style={{ color: "#dc2626" }}>Kein Zugriff</h1>
+          <p>Der Archivbereich ist nur für Admins sichtbar.</p>
+          <Link href="/dashboard" style={backLinkStyle}>
+            ← Zurück zum Dashboard
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   if (loading) {
     return (
       <main style={mainStyle}>
@@ -654,26 +778,36 @@ export default function ArchivBerichtPage() {
               page: regieLandscape;
               background: white !important;
               color: black !important;
+              break-before: page !important;
+              break-after: page !important;
               page-break-before: always !important;
               page-break-after: always !important;
-              width: 100% !important;
+              width: 287mm !important;
+              min-height: 200mm !important;
               margin: 0 !important;
               padding: 0 !important;
+              overflow: hidden !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
 
             .regie-landscape-page .print-sheet {
-              width: 100% !important;
-              min-height: auto !important;
+              width: 287mm !important;
+              height: 200mm !important;
+              max-width: none !important;
+              min-height: 200mm !important;
               box-shadow: none !important;
               border: none !important;
+              border-radius: 0 !important;
               margin: 0 !important;
-              padding: 0 !important;
+              padding: 14px !important;
+              box-sizing: border-box !important;
               page-break-inside: avoid !important;
               page-break-after: avoid !important;
+              break-inside: avoid !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
+              transform: none !important;
             }
 
             table {
