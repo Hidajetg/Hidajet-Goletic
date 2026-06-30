@@ -317,7 +317,7 @@ export default function ArchivSingleRegieberichtPage() {
 
   const totalHours = useMemo(() => {
     return workers.reduce((sum, row) => {
-return sum + toNumberValue(getField(row, ["stunden", "total", "gesamt"], "0"));
+      return sum + toNumberValue(getField(row, ["stunden", "total", "gesamt"], "0"));
     }, 0);
   }, [workers]);
 
@@ -627,7 +627,7 @@ return sum + toNumberValue(getField(row, ["stunden", "total", "gesamt"], "0"));
                             </td>
                             <td style={styles.tdSmall}>
                               {formatNumber(
-                               getField(m, ["menge", "quantity", "kolicina"], "0")
+                                getField(m, ["menge", "quantity", "kolicina"], 0)
                               )}
                             </td>
                             <td style={styles.tdSmall}>
