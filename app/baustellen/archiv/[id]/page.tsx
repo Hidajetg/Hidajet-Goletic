@@ -348,6 +348,39 @@ export default function ArchivBerichtPage() {
     );
   }
 
+  function getRegieberichtNumber(bericht: any) {
+    return bericht?.bericht_nr || bericht?.nummer || bericht?.id || "-";
+  }
+
+  function getRegieberichtOrt(bericht: any) {
+    return bericht?.ort || bericht?.place || bericht?.location || baustelle?.ort || "-";
+  }
+
+  function getRegieberichtWorkText(bericht: any) {
+    return (
+      bericht?.ausgefuehrte_arbeiten ||
+      bericht?.arbeiten ||
+      bericht?.beschreibung ||
+      bericht?.taetigkeit ||
+      bericht?.bemerkung ||
+      "-"
+    );
+  }
+
+  function getRegieberichtRows(berichtId: number) {
+    return regieHours.filter(
+      (row: any) => Number(row.regiebericht_id) === Number(berichtId)
+    );
+  }
+
+  function getRegieberichtTotalHours(berichtId: number) {
+    return getRegieberichtRows(berichtId).reduce(
+      (sum: number, row: any) =>
+        sum + Number(row.stunden || row.sati || row.ukupno_sati || 0),
+      0
+    );
+  }
+
   function getGoogleMapsUrl() {
     const row = baustelleInfo.find((x: any) => x.type === "google_maps");
     return row?.google_maps_url || "";
@@ -464,6 +497,14 @@ export default function ArchivBerichtPage() {
               border: 1px solid #ddd !important;
               padding: 6px !important;
               page-break-inside: avoid;
+            }
+
+            .print-regie-block {
+              background: white !important;
+              color: black !important;
+              border: 1px solid #ddd !important;
+              page-break-inside: avoid;
+              break-inside: avoid;
             }
 
             .photo-img {
@@ -922,6 +963,80 @@ export default function ArchivBerichtPage() {
         </p>
       </section>
 
+      <section style={boxStyle} className="print-box">
+        <h2 style={sectionTitleStyle}>Regieberichte / Režijski blokovi</h2>
+
+        {regieberichte.length === 0 ? (
+          <p style={mutedTextStyle}>Keine Regieberichte vorhanden.</p>
+        ) : (
+          regieberichte.map((bericht: any, index: number) => {
+            const rows = getRegieberichtRows(bericht.id);
+            const sum = getRegieberichtTotalHours(bericht.id);
+
+            return (
+              <div
+                key={bericht.id || index}
+                style={regieBlockStyle}
+                className="print-regie-block"
+              >
+                <h3 style={regieBlockTitleStyle}>
+                  Regiebericht Nr. {getRegieberichtNumber(bericht)}
+                </h3>
+
+                <div style={regieHeaderGridStyle}>
+                  <p>
+                    <strong>Datum:</strong> {formatDate(bericht.datum)}
+                  </p>
+
+                  <p>
+                    <strong>Ort:</strong> {getRegieberichtOrt(bericht)}
+                  </p>
+
+                  <p>
+                    <strong>Gesamtstunden:</strong> {formatNumber(sum)} h
+                  </p>
+                </div>
+
+                <div style={regieWorkTextStyle}>
+                  <strong>Ausgeführte Arbeiten:</strong>
+                  <p>{getRegieberichtWorkText(bericht)}</p>
+                </div>
+
+                {rows.length === 0 ? (
+                  <p style={mutedTextStyle}>Keine Mitarbeiterzeiten vorhanden.</p>
+                ) : (
+                  <div style={tableWrapStyle}>
+                    <table style={tableStyle}>
+                      <thead>
+                        <tr>
+                          <th style={thStyle}>Mitarbeiter</th>
+                          <th style={thStyle}>Von</th>
+                          <th style={thStyle}>Bis</th>
+                          <th style={thStyle}>Stunden</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {rows.map((row: any) => (
+                          <tr key={row.id}>
+                            <td style={tdStyle}>{row.worker_name || row.radnik || "-"}</td>
+                            <td style={tdStyle}>{row.von || row.pocetak || "-"}</td>
+                            <td style={tdStyle}>{row.bis || row.kraj || "-"}</td>
+                            <td style={tdStyle}>
+                              {formatNumber(row.stunden || row.sati || row.ukupno_sati)} h
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </section>
+
       {selectedPhoto && (
         <div
           style={modalOverlayStyle}
@@ -1105,6 +1220,36 @@ const photoCaptionStyle: any = {
   fontSize: "13px",
   marginTop: "8px",
   marginBottom: 0,
+};
+
+const regieBlockStyle: any = {
+  background: "#000",
+  border: "1px solid #333",
+  borderRadius: "16px",
+  padding: "18px",
+  marginBottom: "22px",
+};
+
+const regieBlockTitleStyle: any = {
+  fontSize: "22px",
+  color: "#f97316",
+  marginBottom: "14px",
+};
+
+const regieHeaderGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gap: "10px",
+  marginBottom: "14px",
+};
+
+const regieWorkTextStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "12px",
+  padding: "12px",
+  marginBottom: "14px",
+  whiteSpace: "pre-wrap",
 };
 
 const modalOverlayStyle: any = {
