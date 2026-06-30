@@ -1506,13 +1506,18 @@ export default function RegieberichtPage() {
               <h2 style={styles.printBlockTitle}>Fotodokumentation</h2>
 
               <div style={styles.printPhotoGrid}>
-                {getImagePhotos().length === 0 ? (
-                  <>
-                    <div style={styles.emptyPhoto}>Foto 1</div>
-                    <div style={styles.emptyPhoto}>Foto 2</div>
-                  </>
-                ) : (
-                  getImagePhotos().slice(0, 2).map((p, index) => (
+                {Array.from({ length: 2 }).map((_, index) => {
+                  const p = getImagePhotos()[index];
+
+                  if (!p) {
+                    return (
+                      <div key={index} style={styles.emptyPhoto}>
+                        Foto {index + 1}
+                      </div>
+                    );
+                  }
+
+                  return (
                     <div key={index} style={styles.printPhotoCard}>
                       <img
                         src={p.preview}
@@ -1522,8 +1527,8 @@ export default function RegieberichtPage() {
 
                       {p.note && <div style={styles.photoCaption}>{p.note}</div>}
                     </div>
-                  ))
-                )}
+                  );
+                })}
               </div>
             </section>
 
@@ -2161,8 +2166,9 @@ const styles: any = {
   },
   printPhotoGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     gap: "6px",
+    alignItems: "stretch",
   },
   printPhotoCard: {
     border: "1px solid #e5e7eb",
@@ -2172,7 +2178,7 @@ const styles: any = {
   },
   printPhoto: {
     width: "100%",
-    height: "210px",
+    height: "300px",
     objectFit: "contain",
     objectPosition: "center",
     background: "#fff",
@@ -2185,7 +2191,7 @@ const styles: any = {
     marginTop: "4px",
   },
   emptyPhoto: {
-    height: "210px",
+    height: "300px",
     border: "1px dashed #cbd5e1",
     borderRadius: "7px",
     display: "flex",
@@ -2256,10 +2262,8 @@ const styles: any = {
   },
   attachmentPreviewImage: {
     width: "100%",
-    height: "180px",
-    objectFit: "contain",
-    objectPosition: "center",
-    background: "#fff",
+    height: "120px",
+    objectFit: "cover",
     borderRadius: "8px",
     display: "block",
     marginBottom: "8px",
