@@ -548,7 +548,7 @@ export default function ArchivPage() {
                               </Link>
 
                               <Link
-                                href={`/baustellen/${b.id}/regiebericht`}
+                                href={`/baustellen/archiv/${b.id}/regieberichte`}
                                 style={regieButtonStyle}
                               >
                                 🧾 Regieberichte separat
