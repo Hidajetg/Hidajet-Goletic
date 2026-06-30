@@ -348,22 +348,23 @@ export default function ArchivBerichtPage() {
     );
   }
 
-  function getRegieberichtNumber(bericht: any) {
+
+  function getRegieberichtNumberFromBericht(bericht: any) {
     return bericht?.bericht_nr || bericht?.nummer || bericht?.id || "-";
   }
 
-  function getRegieberichtOrt(bericht: any) {
-    return bericht?.ort || bericht?.place || bericht?.location || baustelle?.ort || "-";
+  function getRegieberichtOrtFromBericht(bericht: any) {
+    return bericht?.ort || bericht?.place || bericht?.location || baustelle?.lokacija || "-";
   }
 
-  function getRegieberichtWorkText(bericht: any) {
+  function getRegieberichtWorkTextFromBericht(bericht: any) {
     return (
       bericht?.ausgefuehrte_arbeiten ||
       bericht?.arbeiten ||
       bericht?.beschreibung ||
       bericht?.taetigkeit ||
       bericht?.bemerkung ||
-      "-"
+      "Keine Beschreibung eingetragen."
     );
   }
 
@@ -379,6 +380,33 @@ export default function ArchivBerichtPage() {
         sum + Number(row.stunden || row.sati || row.ukupno_sati || 0),
       0
     );
+  }
+
+  function getRegieberichtBauteile(bericht: any) {
+    return (
+      bericht?.bauteile_raeume ||
+      bericht?.bauteile ||
+      bericht?.raeume ||
+      bericht?.raum ||
+      bericht?.room_name ||
+      "-"
+    );
+  }
+
+  function getAuftraggeberValue() {
+    return baustelle?.auftraggeber || baustelle?.kunde || baustelle?.client || "-";
+  }
+
+  function getAuftragnehmerValue() {
+    return (
+      baustelle?.auftragnehmer ||
+      baustelle?.firma ||
+      "Nocker & Bernardi GmbH / Stone Boutique"
+    );
+  }
+
+  function getBauleiterValue() {
+    return baustelle?.bauleiter || baustelle?.leiter || baustelle?.bauleiter_vertreter || "-";
   }
 
   function getGoogleMapsUrl() {
@@ -442,6 +470,16 @@ export default function ArchivBerichtPage() {
     };
   });
 
+
+  const sortedRegieberichte = [...regieberichte].sort((a: any, b: any) => {
+    const aNr = Number(String(a?.bericht_nr || a?.nummer || a?.id || 0).replace(/\D/g, ""));
+    const bNr = Number(String(b?.bericht_nr || b?.nummer || b?.id || 0).replace(/\D/g, ""));
+
+    if (aNr !== bNr) return aNr - bNr;
+
+    return String(a?.datum || "").localeCompare(String(b?.datum || ""));
+  });
+
   function printPdf() {
     window.print();
   }
@@ -458,6 +496,10 @@ export default function ArchivBerichtPage() {
     <main style={mainStyle}>
       <style>
         {`
+          .print-only {
+            display: none;
+          }
+
           @media print {
             body {
               background: white !important;
@@ -471,6 +513,158 @@ export default function ArchivBerichtPage() {
 
             .no-print {
               display: none !important;
+            }
+
+
+            .print-only {
+              display: block !important;
+            }
+
+            .regie-form-page {
+              background: white !important;
+              color: black !important;
+              page-break-before: always;
+              page-break-after: always;
+              width: 100% !important;
+              min-height: 720px !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              font-family: Arial, sans-serif !important;
+              box-sizing: border-box !important;
+            }
+
+            .regie-form-header {
+              display: flex !important;
+              justify-content: space-between !important;
+              align-items: flex-start !important;
+              border-bottom: 2px solid #163b8f !important;
+              padding-bottom: 8px !important;
+              margin-bottom: 8px !important;
+            }
+
+            .regie-form-logo {
+              color: #ff6600 !important;
+              font-size: 20px !important;
+              line-height: 18px !important;
+              font-weight: 900 !important;
+              letter-spacing: 1px !important;
+            }
+
+            .regie-form-title {
+              color: #163b8f !important;
+              font-size: 30px !important;
+              font-weight: 900 !important;
+              margin: 0 !important;
+            }
+
+            .regie-form-small {
+              color: black !important;
+              font-size: 11px !important;
+              margin: 2px 0 !important;
+            }
+
+            .regie-form-grid {
+              display: grid !important;
+              grid-template-columns: 1.15fr 0.9fr 1fr 1.2fr 1fr 1.15fr !important;
+              gap: 5px !important;
+              margin-bottom: 8px !important;
+            }
+
+            .regie-form-box {
+              border: 1px solid #b8c7e6 !important;
+              border-radius: 5px !important;
+              min-height: 48px !important;
+              padding: 6px !important;
+              color: black !important;
+              box-sizing: border-box !important;
+              font-size: 11px !important;
+            }
+
+            .regie-form-label {
+              color: #163b8f !important;
+              font-weight: 800 !important;
+              font-size: 10px !important;
+              text-transform: uppercase !important;
+              margin-bottom: 4px !important;
+            }
+
+            .regie-form-main {
+              display: grid !important;
+              grid-template-columns: 1.25fr 0.92fr !important;
+              gap: 8px !important;
+            }
+
+            .regie-form-work {
+              border: 1px solid #b8c7e6 !important;
+              border-radius: 5px !important;
+              min-height: 112px !important;
+              padding: 8px !important;
+              white-space: pre-wrap !important;
+              color: black !important;
+              font-size: 12px !important;
+            }
+
+            .regie-form-workers {
+              border: 1px solid #b8c7e6 !important;
+              border-radius: 5px !important;
+              min-height: 112px !important;
+              padding: 8px !important;
+              color: black !important;
+            }
+
+            .regie-form-workers table {
+              width: 100% !important;
+              border-collapse: collapse !important;
+              font-size: 10px !important;
+              color: black !important;
+            }
+
+            .regie-form-workers th {
+              color: #163b8f !important;
+              border-bottom: 1px solid #b8c7e6 !important;
+              text-align: left !important;
+              padding: 4px !important;
+            }
+
+            .regie-form-workers td {
+              color: black !important;
+              border-bottom: 1px solid #d8e0f2 !important;
+              padding: 4px !important;
+            }
+
+            .regie-form-photo {
+              border: 1px dashed #b8c7e6 !important;
+              border-radius: 5px !important;
+              height: 122px !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              color: #6b7aa8 !important;
+              margin-bottom: 6px !important;
+              font-size: 12px !important;
+            }
+
+            .regie-form-material {
+              border: 1px solid #b8c7e6 !important;
+              border-radius: 5px !important;
+              min-height: 90px !important;
+              padding: 8px !important;
+              margin-top: 8px !important;
+            }
+
+            .regie-form-signature {
+              margin-top: 16px !important;
+              display: grid !important;
+              grid-template-columns: 1fr 1fr !important;
+              gap: 14px !important;
+              color: black !important;
+              font-size: 11px !important;
+            }
+
+            .regie-sign-line {
+              border-top: 1px solid black !important;
+              padding-top: 8px !important;
+              min-height: 35px !important;
             }
 
             .print-box {
@@ -497,14 +691,6 @@ export default function ArchivBerichtPage() {
               border: 1px solid #ddd !important;
               padding: 6px !important;
               page-break-inside: avoid;
-            }
-
-            .print-regie-block {
-              background: white !important;
-              color: black !important;
-              border: 1px solid #ddd !important;
-              page-break-inside: avoid;
-              break-inside: avoid;
             }
 
             .photo-img {
@@ -963,78 +1149,153 @@ export default function ArchivBerichtPage() {
         </p>
       </section>
 
-      <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>Regieberichte / Režijski blokovi</h2>
-
-        {regieberichte.length === 0 ? (
-          <p style={mutedTextStyle}>Keine Regieberichte vorhanden.</p>
-        ) : (
-          regieberichte.map((bericht: any, index: number) => {
+      <section className="print-only">
+        {sortedRegieberichte.length > 0 &&
+          sortedRegieberichte.map((bericht: any, index: number) => {
             const rows = getRegieberichtRows(bericht.id);
-            const sum = getRegieberichtTotalHours(bericht.id);
+            const total = getRegieberichtTotalHours(bericht.id);
 
             return (
-              <div
-                key={bericht.id || index}
-                style={regieBlockStyle}
-                className="print-regie-block"
-              >
-                <h3 style={regieBlockTitleStyle}>
-                  Regiebericht Nr. {getRegieberichtNumber(bericht)}
-                </h3>
-
-                <div style={regieHeaderGridStyle}>
-                  <p>
-                    <strong>Datum:</strong> {formatDate(bericht.datum)}
-                  </p>
-
-                  <p>
-                    <strong>Ort:</strong> {getRegieberichtOrt(bericht)}
-                  </p>
-
-                  <p>
-                    <strong>Gesamtstunden:</strong> {formatNumber(sum)} h
-                  </p>
-                </div>
-
-                <div style={regieWorkTextStyle}>
-                  <strong>Ausgeführte Arbeiten:</strong>
-                  <p>{getRegieberichtWorkText(bericht)}</p>
-                </div>
-
-                {rows.length === 0 ? (
-                  <p style={mutedTextStyle}>Keine Mitarbeiterzeiten vorhanden.</p>
-                ) : (
-                  <div style={tableWrapStyle}>
-                    <table style={tableStyle}>
-                      <thead>
-                        <tr>
-                          <th style={thStyle}>Mitarbeiter</th>
-                          <th style={thStyle}>Von</th>
-                          <th style={thStyle}>Bis</th>
-                          <th style={thStyle}>Stunden</th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {rows.map((row: any) => (
-                          <tr key={row.id}>
-                            <td style={tdStyle}>{row.worker_name || row.radnik || "-"}</td>
-                            <td style={tdStyle}>{row.von || row.pocetak || "-"}</td>
-                            <td style={tdStyle}>{row.bis || row.kraj || "-"}</td>
-                            <td style={tdStyle}>
-                              {formatNumber(row.stunden || row.sati || row.ukupno_sati)} h
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              <div key={bericht.id || index} className="regie-form-page">
+                <div className="regie-form-header">
+                  <div>
+                    <div className="regie-form-logo">STONE<br />BOUTIQUE</div>
+                    <p className="regie-form-small">Nocker & Bernardi GmbH</p>
                   </div>
-                )}
+
+                  <div>
+                    <h1 className="regie-form-title">REGIEBERICHT</h1>
+                    <p className="regie-form-small">Tagesbericht / Regiearbeit</p>
+                  </div>
+
+                  <div>
+                    <p className="regie-form-small">
+                      <strong>Nr.:</strong> {getRegieberichtNumberFromBericht(bericht)}
+                    </p>
+                    <p className="regie-form-small">
+                      <strong>Datum:</strong> {formatDate(bericht.datum)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="regie-form-grid">
+                  <div className="regie-form-box">
+                    <div className="regie-form-label">Baustelle</div>
+                    {baustelle?.naziv || "-"}
+                  </div>
+
+                  <div className="regie-form-box">
+                    <div className="regie-form-label">Ort</div>
+                    {getRegieberichtOrtFromBericht(bericht)}
+                  </div>
+
+                  <div className="regie-form-box">
+                    <div className="regie-form-label">Auftraggeber</div>
+                    {getAuftraggeberValue()}
+                  </div>
+
+                  <div className="regie-form-box">
+                    <div className="regie-form-label">Auftragnehmer</div>
+                    {getAuftragnehmerValue()}
+                  </div>
+
+                  <div className="regie-form-box">
+                    <div className="regie-form-label">Bauleiter / Vertreter</div>
+                    {getBauleiterValue()}
+                  </div>
+
+                  <div className="regie-form-box">
+                    <div className="regie-form-label">Bauteile / Räume</div>
+                    {getRegieberichtBauteile(bericht)}
+                  </div>
+                </div>
+
+                <div className="regie-form-main">
+                  <div>
+                    <div className="regie-form-work">
+                      <div className="regie-form-label">Ausgeführte Arbeiten</div>
+                      {getRegieberichtWorkTextFromBericht(bericht)}
+                    </div>
+
+                    <div className="regie-form-workers">
+                      <div className="regie-form-label">Arbeitskräfte</div>
+                      <div style={{ textAlign: "right", fontWeight: "bold", marginBottom: "4px" }}>
+                        Gesamt: {formatNumber(total)} h
+                      </div>
+
+                      {rows.length === 0 ? (
+                        <p className="regie-form-small">Keine Arbeitskräfte eingetragen.</p>
+                      ) : (
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Mitarbeiter</th>
+                              <th>von</th>
+                              <th>bis</th>
+                              <th>Pause</th>
+                              <th>Std.</th>
+                              <th>Bemerkung</th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {rows.map((row: any) => (
+                              <tr key={row.id}>
+                                <td>{row.worker_name || row.radnik || "-"}</td>
+                                <td>{row.von || row.pocetak || "-"}</td>
+                                <td>{row.bis || row.kraj || "-"}</td>
+                                <td>{formatNumber(row.pause || row.pauza || 0)}</td>
+                                <td>{formatNumber(row.stunden || row.sati || row.ukupno_sati)}</td>
+                                <td>{row.bemerkung || row.notiz || ""}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+
+                    <div className="regie-form-material">
+                      <div className="regie-form-label">Material / Geräte / Sonstiges</div>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: "left", color: "#163b8f", borderBottom: "1px solid #b8c7e6" }}>Bezeichnung</th>
+                            <th style={{ textAlign: "left", color: "#163b8f", borderBottom: "1px solid #b8c7e6" }}>Menge</th>
+                            <th style={{ textAlign: "left", color: "#163b8f", borderBottom: "1px solid #b8c7e6" }}>EH</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td style={{ padding: "5px 0" }}>Kein Material eingetragen.</td>
+                            <td></td>
+                            <td></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="regie-form-box" style={{ minHeight: "270px" }}>
+                      <div className="regie-form-label">Fotodokumentation</div>
+                      <div className="regie-form-photo">Foto 1</div>
+                      <div className="regie-form-photo">Foto 2</div>
+                    </div>
+
+                    <div className="regie-form-signature">
+                      <div className="regie-sign-line">
+                        Auftragnehmer: Hidajet Goletić
+                      </div>
+
+                      <div className="regie-sign-line">
+                        Auftraggeber / Vertreter: {getBauleiterValue()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             );
-          })
-        )}
+          })}
       </section>
 
       {selectedPhoto && (
@@ -1220,36 +1481,6 @@ const photoCaptionStyle: any = {
   fontSize: "13px",
   marginTop: "8px",
   marginBottom: 0,
-};
-
-const regieBlockStyle: any = {
-  background: "#000",
-  border: "1px solid #333",
-  borderRadius: "16px",
-  padding: "18px",
-  marginBottom: "22px",
-};
-
-const regieBlockTitleStyle: any = {
-  fontSize: "22px",
-  color: "#f97316",
-  marginBottom: "14px",
-};
-
-const regieHeaderGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "10px",
-  marginBottom: "14px",
-};
-
-const regieWorkTextStyle: any = {
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: "12px",
-  padding: "12px",
-  marginBottom: "14px",
-  whiteSpace: "pre-wrap",
 };
 
 const modalOverlayStyle: any = {
