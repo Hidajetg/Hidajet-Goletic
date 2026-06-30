@@ -5,6 +5,11 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 
+const PDF_BUCKET = "pdf-assets";
+const PDF_LOGO_TOP = "gore.png";
+const PDF_SIDE_IMAGE = "strana.png";
+const PDF_MOUNTAIN_BG = "pozadina.png";
+
 export default function ArchivBerichtPage() {
   const params = useParams();
   const baustelleId = String(params.id);
@@ -15,6 +20,7 @@ export default function ArchivBerichtPage() {
   const [hours, setHours] = useState<any[]>([]);
   const [regieberichte, setRegieberichte] = useState<any[]>([]);
   const [regieHours, setRegieHours] = useState<any[]>([]);
+  const [regieberichtPhotos, setRegieberichtPhotos] = useState<any[]>([]);
   const [productivity, setProductivity] = useState<any[]>([]);
   const [roomMaterials, setRoomMaterials] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
@@ -22,9 +28,25 @@ export default function ArchivBerichtPage() {
   const [baustelleInfo, setBaustelleInfo] = useState<any[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
+  const [logoTopUrl, setLogoTopUrl] = useState("");
+  const [sideImageUrl, setSideImageUrl] = useState("");
+  const [mountainBgUrl, setMountainBgUrl] = useState("");
+
   useEffect(() => {
+    loadPdfImages();
     loadReport();
   }, []);
+
+  function getStoragePublicUrl(fileName: string) {
+    const url = supabase.storage.from(PDF_BUCKET).getPublicUrl(fileName).data.publicUrl;
+    return `${url}?v=${Date.now()}`;
+  }
+
+  function loadPdfImages() {
+    setLogoTopUrl(getStoragePublicUrl(PDF_LOGO_TOP));
+    setSideImageUrl(getStoragePublicUrl(PDF_SIDE_IMAGE));
+    setMountainBgUrl(getStoragePublicUrl(PDF_MOUNTAIN_BG));
+  }
 
   async function loadReport() {
     setLoading(true);
@@ -62,14 +84,23 @@ export default function ArchivBerichtPage() {
     const regieberichtIds = (regieberichteData || []).map((r: any) => r.id);
 
     let regieWorkersData: any[] = [];
+    let regiePhotosData: any[] = [];
 
     if (regieberichtIds.length > 0) {
-      const { data } = await supabase
+      const { data: workersData } = await supabase
         .from("regiebericht_workers")
         .select("*")
         .in("regiebericht_id", regieberichtIds);
 
-      regieWorkersData = data || [];
+      regieWorkersData = workersData || [];
+
+      const { data: photosData } = await supabase
+        .from("regiebericht_photos")
+        .select("*")
+        .in("regiebericht_id", regieberichtIds)
+        .order("id", { ascending: true });
+
+      regiePhotosData = photosData || [];
     }
 
     const { data: productivityData } = await supabase
@@ -125,6 +156,7 @@ export default function ArchivBerichtPage() {
     setHours(hoursData || []);
     setRegieberichte(regieberichteData || []);
     setRegieHours(regieWorkersData || []);
+    setRegieberichtPhotos(regiePhotosData || []);
     setProductivity(productivityData || []);
     setRoomMaterials(roomMaterialData || []);
     setMaterials(materialsData || []);
@@ -348,7 +380,6 @@ export default function ArchivBerichtPage() {
     );
   }
 
-
   function getRegieberichtNumberFromBericht(bericht: any) {
     return bericht?.bericht_nr || bericht?.nummer || bericht?.id || "-";
   }
@@ -391,6 +422,23 @@ export default function ArchivBerichtPage() {
       bericht?.room_name ||
       "-"
     );
+  }
+
+  function getRegieberichtPhotoUrl(photo: any) {
+    return photo?.photo_url || photo?.url || photo?.image_url || photo?.public_url || "";
+  }
+
+  function isPdfUrl(url: string) {
+    return String(url || "").toLowerCase().split("?")[0].endsWith(".pdf");
+  }
+
+  function getRegieberichtPhotosForBericht(berichtId: number) {
+    return regieberichtPhotos
+      .filter((p: any) => Number(p.regiebericht_id) === Number(berichtId))
+      .filter((p: any) => {
+        const url = getRegieberichtPhotoUrl(p);
+        return url && !isPdfUrl(url);
+      });
   }
 
   function getAuftraggeberValue() {
@@ -453,24 +501,6 @@ export default function ArchivBerichtPage() {
     };
   });
 
-  const regieHoursByBericht = regieberichte.map((bericht: any) => {
-    const rows = regieHours.filter(
-      (r: any) => Number(r.regiebericht_id) === Number(bericht.id)
-    );
-
-    const sum = rows.reduce(
-      (total, r) => total + Number(r.stunden || r.sati || r.ukupno_sati || 0),
-      0
-    );
-
-    return {
-      bericht,
-      rows,
-      sum,
-    };
-  });
-
-
   const sortedRegieberichte = [...regieberichte].sort((a: any, b: any) => {
     const aNr = Number(String(a?.bericht_nr || a?.nummer || a?.id || 0).replace(/\D/g, ""));
     const bNr = Number(String(b?.bericht_nr || b?.nummer || b?.id || 0).replace(/\D/g, ""));
@@ -500,6 +530,16 @@ export default function ArchivBerichtPage() {
             display: none;
           }
 
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+
+          @page regieLandscape {
+            size: A4 landscape;
+            margin: 5mm;
+          }
+
           @media print {
             body {
               background: white !important;
@@ -515,22 +555,59 @@ export default function ArchivBerichtPage() {
               display: none !important;
             }
 
-
             .print-only {
               display: block !important;
             }
 
             .regie-form-page {
+              page: regieLandscape;
               background: white !important;
               color: black !important;
-              page-break-before: always;
-              page-break-after: always;
-              width: 100% !important;
-              min-height: 720px !important;
-              padding: 0 !important;
+              page-break-before: always !important;
+              page-break-after: always !important;
+              width: 287mm !important;
+              height: 200mm !important;
+              min-height: 200mm !important;
+              padding: 6mm !important;
               margin: 0 !important;
               font-family: Arial, sans-serif !important;
               box-sizing: border-box !important;
+              overflow: hidden !important;
+              position: relative !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            .regie-form-bg {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              height: 100% !important;
+              object-fit: cover !important;
+              object-position: center center !important;
+              opacity: 0.48 !important;
+              z-index: 1 !important;
+              pointer-events: none !important;
+            }
+
+            .regie-form-side {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 86px !important;
+              height: 100% !important;
+              object-fit: cover !important;
+              object-position: center !important;
+              opacity: 0.30 !important;
+              z-index: 1 !important;
+              pointer-events: none !important;
+              border-right: 2px solid rgba(249, 115, 22, 0.35) !important;
+            }
+
+            .regie-form-content {
+              position: relative !important;
+              z-index: 3 !important;
             }
 
             .regie-form-header {
@@ -538,8 +615,16 @@ export default function ArchivBerichtPage() {
               justify-content: space-between !important;
               align-items: flex-start !important;
               border-bottom: 2px solid #163b8f !important;
-              padding-bottom: 8px !important;
-              margin-bottom: 8px !important;
+              padding-bottom: 7px !important;
+              margin-bottom: 7px !important;
+            }
+
+            .regie-form-logo-img {
+              width: 140px !important;
+              height: 48px !important;
+              object-fit: contain !important;
+              object-position: left center !important;
+              display: block !important;
             }
 
             .regie-form-logo {
@@ -578,6 +663,7 @@ export default function ArchivBerichtPage() {
               color: black !important;
               box-sizing: border-box !important;
               font-size: 11px !important;
+              background: rgba(255, 255, 255, 0.44) !important;
             }
 
             .regie-form-label {
@@ -602,6 +688,7 @@ export default function ArchivBerichtPage() {
               white-space: pre-wrap !important;
               color: black !important;
               font-size: 12px !important;
+              background: rgba(255, 255, 255, 0.44) !important;
             }
 
             .regie-form-workers {
@@ -610,6 +697,7 @@ export default function ArchivBerichtPage() {
               min-height: 112px !important;
               padding: 8px !important;
               color: black !important;
+              background: rgba(255, 255, 255, 0.44) !important;
             }
 
             .regie-form-workers table {
@@ -632,16 +720,34 @@ export default function ArchivBerichtPage() {
               padding: 4px !important;
             }
 
+            .regie-form-photo-grid {
+              display: grid !important;
+              grid-template-columns: 1fr 1fr !important;
+              gap: 6px !important;
+            }
+
             .regie-form-photo {
               border: 1px dashed #b8c7e6 !important;
               border-radius: 5px !important;
-              height: 122px !important;
+              height: 236px !important;
               display: flex !important;
               align-items: center !important;
               justify-content: center !important;
               color: #6b7aa8 !important;
-              margin-bottom: 6px !important;
+              margin-bottom: 0 !important;
               font-size: 12px !important;
+              background: rgba(255, 255, 255, 0.50) !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+
+            .regie-form-photo img {
+              width: 100% !important;
+              height: 100% !important;
+              object-fit: contain !important;
+              object-position: center !important;
+              display: block !important;
+              background: white !important;
             }
 
             .regie-form-material {
@@ -650,10 +756,11 @@ export default function ArchivBerichtPage() {
               min-height: 90px !important;
               padding: 8px !important;
               margin-top: 8px !important;
+              background: rgba(255, 255, 255, 0.44) !important;
             }
 
             .regie-form-signature {
-              margin-top: 16px !important;
+              margin-top: 12px !important;
               display: grid !important;
               grid-template-columns: 1fr 1fr !important;
               gap: 14px !important;
@@ -1154,141 +1261,199 @@ export default function ArchivBerichtPage() {
           sortedRegieberichte.map((bericht: any, index: number) => {
             const rows = getRegieberichtRows(bericht.id);
             const total = getRegieberichtTotalHours(bericht.id);
+            const regiePhotosForThisBericht = getRegieberichtPhotosForBericht(bericht.id);
 
             return (
               <div key={bericht.id || index} className="regie-form-page">
-                <div className="regie-form-header">
-                  <div>
-                    <div className="regie-form-logo">STONE<br />BOUTIQUE</div>
-                    <p className="regie-form-small">Nocker & Bernardi GmbH</p>
-                  </div>
+                {mountainBgUrl && (
+                  <img
+                    src={mountainBgUrl}
+                    alt=""
+                    className="regie-form-bg"
+                    onError={(e) => {
+                      const img = e.currentTarget as HTMLImageElement;
+                      img.style.display = "none";
+                    }}
+                  />
+                )}
 
-                  <div>
-                    <h1 className="regie-form-title">REGIEBERICHT</h1>
-                    <p className="regie-form-small">Tagesbericht / Regiearbeit</p>
-                  </div>
+                {sideImageUrl && (
+                  <img
+                    src={sideImageUrl}
+                    alt=""
+                    className="regie-form-side"
+                    onError={(e) => {
+                      const img = e.currentTarget as HTMLImageElement;
+                      img.style.display = "none";
+                    }}
+                  />
+                )}
 
-                  <div>
-                    <p className="regie-form-small">
-                      <strong>Nr.:</strong> {getRegieberichtNumberFromBericht(bericht)}
-                    </p>
-                    <p className="regie-form-small">
-                      <strong>Datum:</strong> {formatDate(bericht.datum)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="regie-form-grid">
-                  <div className="regie-form-box">
-                    <div className="regie-form-label">Baustelle</div>
-                    {baustelle?.naziv || "-"}
-                  </div>
-
-                  <div className="regie-form-box">
-                    <div className="regie-form-label">Ort</div>
-                    {getRegieberichtOrtFromBericht(bericht)}
-                  </div>
-
-                  <div className="regie-form-box">
-                    <div className="regie-form-label">Auftraggeber</div>
-                    {getAuftraggeberValue()}
-                  </div>
-
-                  <div className="regie-form-box">
-                    <div className="regie-form-label">Auftragnehmer</div>
-                    {getAuftragnehmerValue()}
-                  </div>
-
-                  <div className="regie-form-box">
-                    <div className="regie-form-label">Bauleiter / Vertreter</div>
-                    {getBauleiterValue()}
-                  </div>
-
-                  <div className="regie-form-box">
-                    <div className="regie-form-label">Bauteile / Räume</div>
-                    {getRegieberichtBauteile(bericht)}
-                  </div>
-                </div>
-
-                <div className="regie-form-main">
-                  <div>
-                    <div className="regie-form-work">
-                      <div className="regie-form-label">Ausgeführte Arbeiten</div>
-                      {getRegieberichtWorkTextFromBericht(bericht)}
+                <div className="regie-form-content">
+                  <div className="regie-form-header">
+                    <div>
+                      {logoTopUrl ? (
+                        <img
+                          src={logoTopUrl}
+                          alt="Stone Boutique"
+                          className="regie-form-logo-img"
+                          onError={(e) => {
+                            const img = e.currentTarget as HTMLImageElement;
+                            img.style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="regie-form-logo">
+                          STONE
+                          <br />
+                          BOUTIQUE
+                        </div>
+                      )}
+                      <p className="regie-form-small">Nocker & Bernardi GmbH</p>
                     </div>
 
-                    <div className="regie-form-workers">
-                      <div className="regie-form-label">Arbeitskräfte</div>
-                      <div style={{ textAlign: "right", fontWeight: "bold", marginBottom: "4px" }}>
-                        Gesamt: {formatNumber(total)} h
+                    <div>
+                      <h1 className="regie-form-title">REGIEBERICHT</h1>
+                      <p className="regie-form-small">Tagesbericht / Regiearbeit</p>
+                    </div>
+
+                    <div>
+                      <p className="regie-form-small">
+                        <strong>Nr.:</strong> {getRegieberichtNumberFromBericht(bericht)}
+                      </p>
+                      <p className="regie-form-small">
+                        <strong>Datum:</strong> {formatDate(bericht.datum)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="regie-form-grid">
+                    <div className="regie-form-box">
+                      <div className="regie-form-label">Baustelle</div>
+                      {baustelle?.naziv || "-"}
+                    </div>
+
+                    <div className="regie-form-box">
+                      <div className="regie-form-label">Ort</div>
+                      {getRegieberichtOrtFromBericht(bericht)}
+                    </div>
+
+                    <div className="regie-form-box">
+                      <div className="regie-form-label">Auftraggeber</div>
+                      {getAuftraggeberValue()}
+                    </div>
+
+                    <div className="regie-form-box">
+                      <div className="regie-form-label">Auftragnehmer</div>
+                      {getAuftragnehmerValue()}
+                    </div>
+
+                    <div className="regie-form-box">
+                      <div className="regie-form-label">Bauleiter / Vertreter</div>
+                      {getBauleiterValue()}
+                    </div>
+
+                    <div className="regie-form-box">
+                      <div className="regie-form-label">Bauteile / Räume</div>
+                      {getRegieberichtBauteile(bericht)}
+                    </div>
+                  </div>
+
+                  <div className="regie-form-main">
+                    <div>
+                      <div className="regie-form-work">
+                        <div className="regie-form-label">Ausgeführte Arbeiten</div>
+                        {getRegieberichtWorkTextFromBericht(bericht)}
                       </div>
 
-                      {rows.length === 0 ? (
-                        <p className="regie-form-small">Keine Arbeitskräfte eingetragen.</p>
-                      ) : (
-                        <table>
+                      <div className="regie-form-workers">
+                        <div className="regie-form-label">Arbeitskräfte</div>
+                        <div style={{ textAlign: "right", fontWeight: "bold", marginBottom: "4px" }}>
+                          Gesamt: {formatNumber(total)} h
+                        </div>
+
+                        {rows.length === 0 ? (
+                          <p className="regie-form-small">Keine Arbeitskräfte eingetragen.</p>
+                        ) : (
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Mitarbeiter</th>
+                                <th>von</th>
+                                <th>bis</th>
+                                <th>Pause</th>
+                                <th>Std.</th>
+                                <th>Bemerkung</th>
+                              </tr>
+                            </thead>
+
+                            <tbody>
+                              {rows.map((row: any) => (
+                                <tr key={row.id}>
+                                  <td>{row.worker_name || row.radnik || "-"}</td>
+                                  <td>{row.von || row.pocetak || "-"}</td>
+                                  <td>{row.bis || row.kraj || "-"}</td>
+                                  <td>{formatNumber(row.pause || row.pauza || 0)}</td>
+                                  <td>{formatNumber(row.stunden || row.sati || row.ukupno_sati)}</td>
+                                  <td>{row.bemerkung || row.notiz || ""}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+
+                      <div className="regie-form-material">
+                        <div className="regie-form-label">Material / Geräte / Sonstiges</div>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
                           <thead>
                             <tr>
-                              <th>Mitarbeiter</th>
-                              <th>von</th>
-                              <th>bis</th>
-                              <th>Pause</th>
-                              <th>Std.</th>
-                              <th>Bemerkung</th>
+                              <th style={{ textAlign: "left", color: "#163b8f", borderBottom: "1px solid #b8c7e6" }}>Bezeichnung</th>
+                              <th style={{ textAlign: "left", color: "#163b8f", borderBottom: "1px solid #b8c7e6" }}>Menge</th>
+                              <th style={{ textAlign: "left", color: "#163b8f", borderBottom: "1px solid #b8c7e6" }}>EH</th>
                             </tr>
                           </thead>
-
                           <tbody>
-                            {rows.map((row: any) => (
-                              <tr key={row.id}>
-                                <td>{row.worker_name || row.radnik || "-"}</td>
-                                <td>{row.von || row.pocetak || "-"}</td>
-                                <td>{row.bis || row.kraj || "-"}</td>
-                                <td>{formatNumber(row.pause || row.pauza || 0)}</td>
-                                <td>{formatNumber(row.stunden || row.sati || row.ukupno_sati)}</td>
-                                <td>{row.bemerkung || row.notiz || ""}</td>
-                              </tr>
-                            ))}
+                            <tr>
+                              <td style={{ padding: "5px 0" }}>Kein Material eingetragen.</td>
+                              <td></td>
+                              <td></td>
+                            </tr>
                           </tbody>
                         </table>
-                      )}
+                      </div>
                     </div>
 
-                    <div className="regie-form-material">
-                      <div className="regie-form-label">Material / Geräte / Sonstiges</div>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
-                        <thead>
-                          <tr>
-                            <th style={{ textAlign: "left", color: "#163b8f", borderBottom: "1px solid #b8c7e6" }}>Bezeichnung</th>
-                            <th style={{ textAlign: "left", color: "#163b8f", borderBottom: "1px solid #b8c7e6" }}>Menge</th>
-                            <th style={{ textAlign: "left", color: "#163b8f", borderBottom: "1px solid #b8c7e6" }}>EH</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td style={{ padding: "5px 0" }}>Kein Material eingetragen.</td>
-                            <td></td>
-                            <td></td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                    <div>
+                      <div className="regie-form-box" style={{ minHeight: "270px" }}>
+                        <div className="regie-form-label">Fotodokumentation</div>
 
-                  <div>
-                    <div className="regie-form-box" style={{ minHeight: "270px" }}>
-                      <div className="regie-form-label">Fotodokumentation</div>
-                      <div className="regie-form-photo">Foto 1</div>
-                      <div className="regie-form-photo">Foto 2</div>
-                    </div>
+                        <div className="regie-form-photo-grid">
+                          {Array.from({ length: 2 }).map((_, photoIndex) => {
+                            const photo = regiePhotosForThisBericht[photoIndex];
+                            const url = photo ? getRegieberichtPhotoUrl(photo) : "";
 
-                    <div className="regie-form-signature">
-                      <div className="regie-sign-line">
-                        Auftragnehmer: Hidajet Goletić
+                            return (
+                              <div key={photoIndex} className="regie-form-photo">
+                                {url ? (
+                                  <img src={url} alt={`Foto ${photoIndex + 1}`} />
+                                ) : (
+                                  <>Foto {photoIndex + 1}</>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
 
-                      <div className="regie-sign-line">
-                        Auftraggeber / Vertreter: {getBauleiterValue()}
+                      <div className="regie-form-signature">
+                        <div className="regie-sign-line">
+                          Auftragnehmer: Hidajet Goletić
+                        </div>
+
+                        <div className="regie-sign-line">
+                          Auftraggeber / Vertreter: {getBauleiterValue()}
+                        </div>
                       </div>
                     </div>
                   </div>
