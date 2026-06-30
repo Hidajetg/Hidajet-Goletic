@@ -135,16 +135,20 @@ function toNumberValue(value: any) {
   return numberValue;
 }
 
-function getField(row: any, fields: string[], fallback = "-") {
+function getField(row: any, fields: string[], fallback: any = "-"): any {
   for (const field of fields) {
-    if (row && row[field] !== null && row[field] !== undefined && row[field] !== "") {
+    if (
+      row &&
+      row[field] !== null &&
+      row[field] !== undefined &&
+      row[field] !== ""
+    ) {
       return row[field];
     }
   }
 
   return fallback;
 }
-
 function getStoragePublicUrl(bucket: string, path: string) {
   if (!path) return "";
 
@@ -208,7 +212,7 @@ function getPhotoUrl(row: any) {
 export default function ArchivSingleRegieberichtPage() {
   const params = useParams();
   const baustelleId = String(params.id);
-  const regieId = String(params.regieId);
+  const regieId = String((params as any).regieId || (params as any).regieid || "");
 
   const [accessChecked, setAccessChecked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -313,7 +317,7 @@ export default function ArchivSingleRegieberichtPage() {
 
   const totalHours = useMemo(() => {
     return workers.reduce((sum, row) => {
-      return sum + toNumberValue(getField(row, ["stunden", "total", "gesamt"], 0));
+return sum + toNumberValue(getField(row, ["stunden", "total", "gesamt"], "0"));
     }, 0);
   }, [workers]);
 
@@ -623,7 +627,7 @@ export default function ArchivSingleRegieberichtPage() {
                             </td>
                             <td style={styles.tdSmall}>
                               {formatNumber(
-                                getField(m, ["menge", "quantity", "kolicina"], 0)
+                               getField(m, ["menge", "quantity", "kolicina"], "0")
                               )}
                             </td>
                             <td style={styles.tdSmall}>
