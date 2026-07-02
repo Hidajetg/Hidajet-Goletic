@@ -681,13 +681,6 @@ export default function ArchivBerichtPage() {
             </div>
           )}
         </div>
-
-        <div style={paperFooterStyle}>
-          <div style={paperFooterLabelStyle}>powered by</div>
-          <div style={paperFooterBrandStyle}>
-            Stone<span style={paperFooterAccentBStyle}>B</span>outique
-          </div>
-        </div>
       </>
     );
   }
@@ -782,11 +775,6 @@ export default function ArchivBerichtPage() {
             margin: 10mm;
           }
 
-          @page regieLandscape {
-            size: A4 landscape;
-            margin: 5mm;
-          }
-
           @media print {
             body {
               background: white !important;
@@ -804,10 +792,6 @@ export default function ArchivBerichtPage() {
 
             .no-print {
               display: none !important;
-            }
-
-            .print-only {
-              display: block !important;
             }
 
             .print-box {
@@ -843,45 +827,6 @@ export default function ArchivBerichtPage() {
             .photo-img {
               height: 120px !important;
               object-fit: cover !important;
-            }
-
-            .regie-landscape-page {
-              page: regieLandscape;
-              background: white !important;
-              color: black !important;
-              break-after: page !important;
-              page-break-after: always !important;
-              width: 287mm !important;
-              min-height: 200mm !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              overflow: hidden !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-
-            .regie-landscape-page:first-child {
-              break-before: auto !important;
-              page-break-before: auto !important;
-            }
-
-            .regie-landscape-page .print-sheet {
-              width: 287mm !important;
-              height: 200mm !important;
-              max-width: none !important;
-              min-height: 200mm !important;
-              box-shadow: none !important;
-              border: none !important;
-              border-radius: 0 !important;
-              margin: 0 !important;
-              padding: 14px !important;
-              box-sizing: border-box !important;
-              page-break-inside: avoid !important;
-              page-break-after: avoid !important;
-              break-inside: avoid !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-              transform: none !important;
             }
 
             table {
@@ -929,14 +874,14 @@ export default function ArchivBerichtPage() {
           )}
 
           <button onClick={printPdf} style={pdfButtonStyle}>
-            📥 Regieberichte herunterladen
+            📥 PDF herunterladen
           </button>
         </div>
       </div>
 
-      <h1 style={titleStyle} className="no-print">ABSCHLUSSBERICHT BAUSTELLE</h1>
+      <h1 style={titleStyle}>ABSCHLUSSBERICHT BAUSTELLE</h1>
 
-      <section style={boxStyle} className="print-box no-print">
+      <section style={boxStyle} className="print-box">
         {renderPaperBranding()}
         <div style={paperContentStyle}>
           <h2 style={sectionTitleStyle}>Baustellenübersicht</h2>
@@ -993,7 +938,7 @@ export default function ArchivBerichtPage() {
         </div>
       </section>
 
-      <section style={boxStyle} className="print-box no-print">
+      <section style={boxStyle} className="print-box">
         {renderPaperBranding()}
         <div style={paperContentStyle}>
           <h2 style={sectionTitleStyle}>Gesamtübersicht Arbeitsstunden</h2>
@@ -1040,7 +985,7 @@ export default function ArchivBerichtPage() {
         </div>
       </section>
 
-      <section style={boxStyle} className="print-box no-print">
+      <section style={boxStyle} className="print-box">
         {renderPaperBranding()}
         <div style={paperContentStyle}>
           <h2 style={sectionTitleStyle}>Raumübersicht</h2>
@@ -1221,7 +1166,7 @@ export default function ArchivBerichtPage() {
         </div>
       </section>
 
-      <section style={boxStyle} className="print-box no-print">
+      <section style={boxStyle} className="print-box">
         {renderPaperBranding()}
         <div style={paperContentStyle}>
           <h2 style={sectionTitleStyle}>Gesamtauswertung</h2>
@@ -1243,10 +1188,6 @@ export default function ArchivBerichtPage() {
         </p>
 
         <p>
-          <strong>Anzahl Regieberichte:</strong> {regieberichte.length}
-        </p>
-
-        <p>
           <strong>Anzahl Fotos:</strong> {photos.length}
         </p>
 
@@ -1257,279 +1198,6 @@ export default function ArchivBerichtPage() {
         </div>
       </section>
 
-      <section className="print-only">
-        {sortedRegieberichte.map((bericht: any, index: number) => {
-          const matRows = getRegieberichtMaterials(bericht.id);
-          const photoRows = getRegieberichtPhotos(bericht.id);
-
-          return (
-            <section
-              key={bericht.id || index}
-              className="regie-landscape-page"
-            >
-              <div className="print-sheet" style={styles.printSheet}>
-                {mountainBgUrl && (
-                  <img
-                    src={mountainBgUrl}
-                    alt=""
-                    style={styles.mountainBackground}
-                    onError={(e) => {
-                      const img = e.currentTarget as HTMLImageElement;
-                      img.style.display = "none";
-                    }}
-                  />
-                )}
-
-                {sideImageUrl && (
-                  <img
-                    src={sideImageUrl}
-                    alt=""
-                    style={styles.sidePaperImage}
-                    onError={(e) => {
-                      const img = e.currentTarget as HTMLImageElement;
-                      const step = img.dataset.step || "0";
-
-                      if (step === "0") {
-                        img.dataset.step = "1";
-                        img.src = getStoragePublicUrl("Strana.png");
-                        return;
-                      }
-
-                      if (step === "1") {
-                        img.dataset.step = "2";
-                        img.src = getStoragePublicUrl("strana.heic");
-                        return;
-                      }
-
-                      if (step === "2") {
-                        img.dataset.step = "3";
-                        img.src = getStoragePublicUrl("Strana.heic");
-                        return;
-                      }
-
-                      if (step === "3") {
-                        img.dataset.step = "4";
-                        img.src = getStoragePublicUrl("srtana.heic");
-                        return;
-                      }
-
-                      img.style.display = "none";
-                    }}
-                  />
-                )}
-
-                <div style={styles.printContent}>
-                  <div style={styles.printHeader}>
-                    <div style={styles.titleWithLogo}>
-                      {logoTopUrl && (
-                        <>
-                          <img
-                            src={logoTopUrl}
-                            alt="Stone Boutique"
-                            style={styles.headerLogo}
-                            onError={(e) => {
-                              const img = e.currentTarget as HTMLImageElement;
-                              const step = img.dataset.step || "0";
-
-                              if (step === "0") {
-                                img.dataset.step = "1";
-                                img.src = getStoragePublicUrl("Gore.png");
-                                return;
-                              }
-
-                              if (step === "1") {
-                                img.dataset.step = "2";
-                                img.src = getStoragePublicUrl("gore.heic");
-                                return;
-                              }
-
-                              if (step === "2") {
-                                img.dataset.step = "3";
-                                img.src = getStoragePublicUrl("Gore.heic");
-                                return;
-                              }
-
-                              img.style.display = "none";
-                              const next = img.nextElementSibling as HTMLElement | null;
-                              if (next) next.style.display = "block";
-                            }}
-                          />
-
-                          <div style={styles.logoFallback}>
-                            <div style={styles.logoFallbackOrange}>STONE BOUTIQUE</div>
-                            <div style={styles.logoFallbackSmall}>
-                              Nocker & Bernardi GmbH
-                            </div>
-                          </div>
-                        </>
-                      )}
-
-                      <div>
-                        <div style={styles.documentTitle}>REGIEBERICHT</div>
-                        <div style={styles.documentSub}>
-                          Tagesbericht / Regiearbeit
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={styles.headerRight}>
-                      <div>
-                        <strong>Nr.:</strong> {getRegieberichtNumber(bericht)}
-                      </div>
-                      <div>
-                        <strong>Datum:</strong> {formatDate(bericht.datum)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={styles.metaGrid}>
-                    <div style={styles.metaBox}>
-                      <div style={styles.metaLabel}>Baustelle</div>
-                      <div style={styles.metaValue}>{baustelle?.naziv || "-"}</div>
-                    </div>
-
-                    <div style={styles.metaBox}>
-                      <div style={styles.metaLabel}>Ort</div>
-                      <div style={styles.metaValue}>{getRegieberichtOrt(bericht)}</div>
-                    </div>
-
-                    <div style={styles.metaBox}>
-                      <div style={styles.metaLabel}>Auftraggeber</div>
-                      <div style={styles.metaValue}>{getAuftraggeberValue(bericht)}</div>
-                    </div>
-
-                    <div style={styles.metaBox}>
-                      <div style={styles.metaLabel}>Auftragnehmer</div>
-                      <div style={styles.metaValue}>
-                        {getAuftragnehmerValue(bericht)}
-                        <br />
-                        {FIRMA_ADRESA}
-                      </div>
-                    </div>
-
-                    <div style={styles.metaBox}>
-                      <div style={styles.metaLabel}>Bauleiter / Vertreter</div>
-                      <div style={styles.metaValue}>{getBauleiterValue(bericht)}</div>
-                    </div>
-
-                    <div style={styles.metaBox}>
-                      <div style={styles.metaLabel}>Bauteile / Räume</div>
-                      <div style={styles.metaValue}>
-                        {getRegieberichtRoomText(bericht.id, bericht)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={styles.printMainGrid}>
-                    <div style={styles.leftColumn}>
-                      <section style={styles.printBlock}>
-                        <h2 style={styles.printBlockTitle}>Ausgeführte Arbeiten</h2>
-                        <div style={styles.workText}>
-                          {getRegieberichtWorkText(bericht)}
-                        </div>
-                      </section>
-
-                      <section style={styles.printBlock}>
-                        <h2 style={styles.printBlockTitle}>Material / Geräte / Sonstiges</h2>
-
-                        <table style={styles.cleanTable}>
-                          <thead>
-                            <tr>
-                              <th style={styles.cleanTh}>Bezeichnung</th>
-                              <th style={styles.cleanTh}>Menge</th>
-                              <th style={styles.cleanTh}>EH</th>
-                            </tr>
-                          </thead>
-
-                          <tbody>
-                            {matRows.length === 0 ? (
-                              <tr>
-                                <td style={styles.cleanTd} colSpan={3}>
-                                  Kein Material eingetragen.
-                                </td>
-                              </tr>
-                            ) : (
-                              matRows.map((m: any, matIndex: number) => (
-                                <tr key={m.id || matIndex}>
-                                  <td style={styles.cleanTd}>
-                                    {m.bezeichnung || m.material_name || m.name || "-"}
-                                  </td>
-                                  <td style={styles.cleanTd}>
-                                    {formatNumber(m.menge || m.kolicina || 0)}
-                                  </td>
-                                  <td style={styles.cleanTd}>
-                                    {m.einheit || m.unit || "-"}
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </section>
-                    </div>
-
-                    <div style={styles.rightColumn}>
-                      <section style={styles.photoPrintBlock}>
-                        <h2 style={styles.printBlockTitle}>Fotodokumentation</h2>
-
-                        <div style={styles.printPhotoGrid}>
-                          {Array.from({ length: 2 }).map((_, photoIndex) => {
-                            const photo = photoRows[photoIndex];
-                            const url = photo ? getPhotoUrl(photo) : "";
-
-                            if (!url) {
-                              return (
-                                <div key={photoIndex} style={styles.emptyPhoto}>
-                                  Foto {photoIndex + 1}
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <div key={photoIndex} style={styles.printPhotoCard}>
-                                <img
-                                  src={url}
-                                  alt={`Foto ${photoIndex + 1}`}
-                                  style={styles.printPhoto}
-                                />
-
-                                {photo.note && (
-                                  <div style={styles.photoCaption}>{photo.note}</div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </section>
-
-                      <section style={styles.signatureBlock}>
-                        <div style={styles.signatureItem}>
-                          <div style={styles.signatureLine}></div>
-                          <strong>Auftragnehmer: {POTPIS}</strong>
-                        </div>
-
-                        <div style={styles.signatureItem}>
-                          <div style={styles.signatureLine}></div>
-                          <strong>
-                            Auftraggeber / Vertreter: {getBauleiterValue(bericht)}
-                          </strong>
-                        </div>
-                      </section>
-                    </div>
-                  </div>
-
-                  <div style={styles.poweredByFooter}>
-                    <div style={styles.poweredByLabel}>powered by</div>
-                    <div style={styles.poweredByBrand}>
-                      Stone<span style={styles.poweredByAccentB}>B</span>outique
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          );
-        })}
-      </section>
 
       {selectedPhoto && (
         <div
@@ -1832,44 +1500,6 @@ const paperBrandFallbackSmallStyle: any = {
   marginTop: "4px",
 };
 
-const paperFooterStyle: any = {
-  position: "absolute",
-  right: "20px",
-  bottom: "14px",
-  zIndex: 4,
-  textAlign: "right",
-  background: "rgba(255,255,255,0.82)",
-  border: "1px solid rgba(30,58,138,0.15)",
-  borderRadius: "12px",
-  padding: "4px 7px",
-  lineHeight: 1.05,
-};
-
-const paperFooterLabelStyle: any = {
-  fontSize: "8px",
-  color: "#6b7280",
-  textTransform: "uppercase",
-  letterSpacing: "0.4px",
-};
-
-const paperFooterBrandStyle: any = {
-  color: "#1e3a8a",
-  fontWeight: "800",
-  fontSize: "14px",
-  display: "flex",
-  alignItems: "baseline",
-  justifyContent: "flex-end",
-  gap: "1px",
-};
-
-const paperFooterAccentBStyle: any = {
-  display: "inline-block",
-  color: "#f97316",
-  fontWeight: "900",
-  fontSize: "20px",
-  transform: "skew(-14deg) rotate(-8deg) translateY(1px)",
-  transformOrigin: "bottom center",
-};
 
 const styles: any = {
   printSheet: {
@@ -2112,40 +1742,5 @@ const styles: any = {
     borderTop: "1px solid #111",
     marginBottom: "6px",
     paddingTop: "6px",
-  },
-  poweredByFooter: {
-    position: "absolute",
-    right: "14px",
-    bottom: "10px",
-    zIndex: 4,
-    textAlign: "right",
-    background: "rgba(255,255,255,0.86)",
-    border: "1px solid rgba(30,58,138,0.18)",
-    borderRadius: "12px",
-    padding: "4px 7px",
-    lineHeight: 1.05,
-  },
-  poweredByLabel: {
-    fontSize: "8px",
-    color: "#6b7280",
-    textTransform: "uppercase",
-    letterSpacing: "0.4px",
-  },
-  poweredByBrand: {
-    color: "#1e3a8a",
-    fontWeight: "800",
-    fontSize: "14px",
-    display: "flex",
-    alignItems: "baseline",
-    justifyContent: "flex-end",
-    gap: "1px",
-  },
-  poweredByAccentB: {
-    display: "inline-block",
-    color: "#f97316",
-    fontWeight: "900",
-    fontSize: "20px",
-    transform: "skew(-14deg) rotate(-8deg) translateY(1px)",
-    transformOrigin: "bottom center",
   },
 };
