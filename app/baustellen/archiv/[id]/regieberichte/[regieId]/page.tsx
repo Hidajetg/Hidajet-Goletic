@@ -120,7 +120,6 @@ export default function ArchivSingleRegieberichtPage() {
   const [ort, setOrt] = useState("");
   const [arbeiten, setArbeiten] = useState("");
   const [selectedRooms, setSelectedRooms] = useState<any[]>([]);
-  const [workerRows, setWorkerRows] = useState<any[]>([]);
   const [materialRows, setMaterialRows] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
 
@@ -153,19 +152,6 @@ export default function ArchivSingleRegieberichtPage() {
     setLogoTopUrl(getStoragePublicUrl(PDF_LOGO_TOP));
     setSideImageUrl(getStoragePublicUrl(PDF_SIDE_IMAGE));
     setMountainBgUrl(getStoragePublicUrl(PDF_MOUNTAIN_BG));
-  }
-
-  function toNumberValue(value: any) {
-    if (value === null || value === undefined || value === "") return 0;
-
-    const cleaned = String(value)
-      .replace(",", ".")
-      .replace(/[^0-9.-]/g, "");
-
-    const numberValue = Number(cleaned);
-
-    if (Number.isNaN(numberValue)) return 0;
-    return numberValue;
   }
 
   function isPdfUrl(url: string) {
@@ -243,10 +229,6 @@ export default function ArchivSingleRegieberichtPage() {
       .select("*")
       .eq("regiebericht_id", Number(regieId));
 
-    const workersRes = await supabase
-      .from("regiebericht_workers")
-      .select("*")
-      .eq("regiebericht_id", Number(regieId));
 
     const materialsRes = await supabase
       .from("regiebericht_materials")
@@ -262,17 +244,6 @@ export default function ArchivSingleRegieberichtPage() {
       (roomsRes.data || []).map((r: any) => ({
         room_id: r.room_id,
         room_name: r.room_name,
-      }))
-    );
-
-    setWorkerRows(
-      (workersRes.data || []).map((w: any) => ({
-        worker_name: w.worker_name,
-        von: w.von,
-        bis: w.bis,
-        pause: w.pause ?? 0,
-        stunden: toNumberValue(w.stunden),
-        bemerkung: w.bemerkung,
       }))
     );
 
@@ -307,11 +278,6 @@ export default function ArchivSingleRegieberichtPage() {
   function exportPrint() {
     window.print();
   }
-
-  const gesamtStunden = workerRows.reduce(
-    (sum, row) => sum + toNumberValue(row.stunden),
-    0
-  );
 
   if (!accessChecked) {
     return (
@@ -522,48 +488,6 @@ export default function ArchivSingleRegieberichtPage() {
               <div style={styles.workText}>
                 {arbeiten || "Keine Beschreibung eingetragen."}
               </div>
-            </section>
-
-            <section style={styles.printBlock}>
-              <div style={styles.blockHeaderRow}>
-                <h2 style={styles.printBlockTitle}>Arbeitskräfte</h2>
-                <strong>Gesamt: {gesamtStunden.toFixed(2)} h</strong>
-              </div>
-
-              <table style={styles.cleanTable}>
-                <thead>
-                  <tr>
-                    <th style={styles.cleanTh}>Mitarbeiter</th>
-                    <th style={styles.cleanTh}>von</th>
-                    <th style={styles.cleanTh}>bis</th>
-                    <th style={styles.cleanTh}>Pause</th>
-                    <th style={styles.cleanTh}>Std.</th>
-                    <th style={styles.cleanTh}>Bemerkung</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {workerRows.length === 0 ? (
-                    <tr>
-                      <td style={styles.cleanTd} colSpan={6}>
-                        Keine Arbeitskräfte eingetragen.
-                      </td>
-                    </tr>
-                  ) : (
-                    workerRows.map((w, index) => (
-                      <tr key={index}>
-                        <td style={styles.cleanTd}>{w.worker_name}</td>
-                        <td style={styles.cleanTd}>{w.von}</td>
-                        <td style={styles.cleanTd}>{w.bis}</td>
-                        <td style={styles.cleanTd}>{w.pause ?? 0} h</td>
-                        <td style={styles.cleanTd}>{w.stunden}</td>
-                        <td style={styles.cleanTd}>{w.bemerkung || "-"}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-
             </section>
 
             <section style={styles.printBlock}>
@@ -1218,7 +1142,7 @@ const styles: any = {
     gap: "7px",
   },
   workText: {
-    minHeight: "80px",
+    minHeight: "180px",
     whiteSpace: "pre-wrap",
     fontSize: "12px",
     lineHeight: "1.45",
