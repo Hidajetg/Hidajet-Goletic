@@ -9,6 +9,10 @@ const FIRMA = "Nocker & Bernardi GmbH / Stone Boutique";
 const FIRMA_ADRESA = "Innweg 3, A-6170 Zirl";
 const POTPIS = "Hidajet Goletić";
 
+const PDF_BUCKET = "pdf-assets";
+const PDF_LOGO_TOP = "gore.png";
+const PDF_MOUNTAIN_BG = "pozadina.png";
+
 const ADMIN_NAMES = [
   "hido",
   "steffi",
@@ -127,22 +131,6 @@ function toNumberValue(value: any) {
   return numberValue;
 }
 
-function getPhotoUrl(photo: any) {
-  return (
-    photo?.photo_url ||
-    photo?.url ||
-    photo?.image_url ||
-    photo?.public_url ||
-    photo?.bild_url ||
-    photo?.foto_url ||
-    ""
-  );
-}
-
-function getPhotoNote(photo: any) {
-  return photo?.note || photo?.opis || photo?.beschreibung || photo?.description || "";
-}
-
 export default function ArchivRegieberichtePage() {
   const params = useParams();
   const baustelleId = String(params.id);
@@ -153,6 +141,9 @@ export default function ArchivRegieberichtePage() {
   const [loading, setLoading] = useState(true);
   const [baustelle, setBaustelle] = useState<any>(null);
   const [berichte, setBerichte] = useState<any[]>([]);
+
+  const [logoTopUrl, setLogoTopUrl] = useState("");
+  const [mountainBgUrl, setMountainBgUrl] = useState("");
 
   useEffect(() => {
     const loggedUser = getLoggedUserFromLocalStorage();
@@ -166,8 +157,30 @@ export default function ArchivRegieberichtePage() {
       return;
     }
 
+    loadPdfImages();
     loadData();
   }, []);
+
+  function getStoragePublicUrl(fileName: string) {
+    const url = supabase.storage.from(PDF_BUCKET).getPublicUrl(fileName).data.publicUrl;
+    return `${url}?v=${Date.now()}`;
+  }
+
+  function loadPdfImages() {
+    setLogoTopUrl(getStoragePublicUrl(PDF_LOGO_TOP));
+    setMountainBgUrl(getStoragePublicUrl(PDF_MOUNTAIN_BG));
+  }
+
+  function printAllRegieberichte() {
+    if (berichte.length === 0) {
+      alert("Keine Regieberichte vorhanden.");
+      return;
+    }
+
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  }
 
   async function loadData() {
     setLoading(true);
@@ -203,23 +216,33 @@ export default function ArchivRegieberichtePage() {
 
     let workerRows: any[] = [];
     let roomRows: any[] = [];
-    let photoRows: any[] = [];
     let materialRows: any[] = [];
+    let photoRows: any[] = [];
 
     if (ids.length > 0) {
       const { data: workersData } = await supabase
         .from("regiebericht_workers")
         .select("*")
-        .in("regiebericht_id", ids);
+        .in("regiebericht_id", ids)
+        .order("id", { ascending: true });
 
       workerRows = workersData || [];
 
       const { data: roomsData } = await supabase
         .from("regiebericht_rooms")
         .select("*")
-        .in("regiebericht_id", ids);
+        .in("regiebericht_id", ids)
+        .order("id", { ascending: true });
 
       roomRows = roomsData || [];
+
+      const { data: materialsData } = await supabase
+        .from("regiebericht_materials")
+        .select("*")
+        .in("regiebericht_id", ids)
+        .order("id", { ascending: true });
+
+      materialRows = materialsData || [];
 
       const { data: photosData } = await supabase
         .from("regiebericht_photos")
@@ -228,13 +251,6 @@ export default function ArchivRegieberichtePage() {
         .order("id", { ascending: true });
 
       photoRows = photosData || [];
-
-      const { data: materialsData } = await supabase
-        .from("regiebericht_materials")
-        .select("*")
-        .in("regiebericht_id", ids);
-
-      materialRows = materialsData || [];
     }
 
     const withDetails = (berichtData || []).map((bericht: any) => {
@@ -246,16 +262,20 @@ export default function ArchivRegieberichtePage() {
         (r: any) => Number(r.regiebericht_id) === Number(bericht.id)
       );
 
-      const photosForBericht = photoRows.filter(
-        (p: any) => Number(p.regiebericht_id) === Number(bericht.id)
-      );
-
       const materialsForBericht = materialRows.filter(
         (m: any) => Number(m.regiebericht_id) === Number(bericht.id)
       );
 
+      const photosForBericht = photoRows
+        .filter((p: any) => Number(p.regiebericht_id) === Number(bericht.id))
+        .filter((p: any) => {
+          const url = getPhotoUrl(p);
+          return url && !String(url).toLowerCase().split("?")[0].endsWith(".pdf");
+        });
+
       const totalHours = workersForBericht.reduce(
-        (sum: number, row: any) => sum + toNumberValue(row.stunden || row.sati || row.ukupno_sati),
+        (sum: number, row: any) =>
+          sum + toNumberValue(row.stunden || row.sati || row.ukupno_sati),
         0
       );
 
@@ -276,8 +296,8 @@ export default function ArchivRegieberichtePage() {
         ...bericht,
         workers: workersForBericht,
         rooms: roomsForBericht,
-        photos: photosForBericht,
         materials: materialsForBericht,
+        photos: photosForBericht,
         totalHours,
         workersText,
         roomsText,
@@ -288,17 +308,16 @@ export default function ArchivRegieberichtePage() {
     setLoading(false);
   }
 
-  function printAllRegieberichte() {
-    if (loading) return;
-
-    if (berichte.length === 0) {
-      alert("Keine Regieberichte vorhanden.");
-      return;
-    }
-
-    setTimeout(() => {
-      window.print();
-    }, 100);
+  function getPhotoUrl(photo: any) {
+    return (
+      photo?.photo_url ||
+      photo?.url ||
+      photo?.image_url ||
+      photo?.public_url ||
+      photo?.bild_url ||
+      photo?.foto_url ||
+      ""
+    );
   }
 
   function getRegieberichtNumber(bericht: any) {
@@ -306,29 +325,387 @@ export default function ArchivRegieberichtePage() {
   }
 
   function getRegieberichtOrt(bericht: any) {
-    return bericht?.ort || baustelle?.lokacija || "-";
+    return bericht?.ort || bericht?.place || bericht?.location || baustelle?.lokacija || "-";
   }
 
-  function getAuftraggeberValue(bericht: any) {
-    return bericht?.auftraggeber || baustelle?.auftraggeber || baustelle?.kunde || "-";
-  }
-
-  function getAuftragnehmerValue(bericht: any) {
-    return bericht?.auftragnehmer || baustelle?.auftragnehmer || baustelle?.firma || FIRMA;
-  }
-
-  function getBauleiterValue(bericht: any) {
-    return bericht?.bauleiter || baustelle?.bauleiter || baustelle?.leiter || "-";
-  }
-
-  function getWorkText(bericht: any) {
+  function getRegieberichtWorkText(bericht: any) {
     return (
       bericht?.ausgefuehrte_arbeiten ||
       bericht?.arbeiten ||
       bericht?.beschreibung ||
       bericht?.taetigkeit ||
       bericht?.bemerkung ||
+      "Keine Beschreibung eingetragen."
+    );
+  }
+
+  function getRegieberichtRoomText(bericht: any) {
+    return (
+      bericht?.roomsText ||
+      bericht?.bauteile_raeume ||
+      bericht?.bauteile ||
+      bericht?.raeume ||
+      bericht?.raum ||
+      bericht?.room_name ||
       "-"
+    );
+  }
+
+  function getAuftraggeberValue(bericht: any) {
+    return (
+      bericht?.auftraggeber ||
+      baustelle?.auftraggeber ||
+      baustelle?.kunde ||
+      baustelle?.client ||
+      "-"
+    );
+  }
+
+  function getAuftragnehmerValue(bericht: any) {
+    return (
+      bericht?.auftragnehmer ||
+      baustelle?.auftragnehmer ||
+      baustelle?.firma ||
+      FIRMA
+    );
+  }
+
+  function getBauleiterValue(bericht: any) {
+    return (
+      bericht?.bauleiter ||
+      baustelle?.bauleiter ||
+      baustelle?.leiter ||
+      baustelle?.bauleiter_vertreter ||
+      "-"
+    );
+  }
+
+  function getMaterialName(row: any) {
+    return (
+      row?.bezeichnung ||
+      row?.material_name ||
+      row?.name ||
+      row?.naziv ||
+      row?.material ||
+      "-"
+    );
+  }
+
+  function getMaterialAmount(row: any) {
+    return row?.menge || row?.kolicina || row?.quantity || 0;
+  }
+
+  function getMaterialUnit(row: any) {
+    return row?.einheit || row?.unit || row?.jedinica || "-";
+  }
+
+  function handleMountainError(e: any) {
+    const img = e.currentTarget as HTMLImageElement;
+    const step = img.dataset.step || "0";
+
+    if (step === "0") {
+      img.dataset.step = "1";
+      img.src = getStoragePublicUrl("Pozadina.png");
+      return;
+    }
+
+    if (step === "1") {
+      img.dataset.step = "2";
+      img.src = getStoragePublicUrl("pozadina.jpg");
+      return;
+    }
+
+    if (step === "2") {
+      img.dataset.step = "3";
+      img.src = getStoragePublicUrl("planine.png");
+      return;
+    }
+
+    if (step === "3") {
+      img.dataset.step = "4";
+      img.src = getStoragePublicUrl("Planine.png");
+      return;
+    }
+
+    img.style.display = "none";
+  }
+
+  function handleLogoError(e: any) {
+    const img = e.currentTarget as HTMLImageElement;
+    const step = img.dataset.step || "0";
+
+    if (step === "0") {
+      img.dataset.step = "1";
+      img.src = getStoragePublicUrl("Gore.png");
+      return;
+    }
+
+    if (step === "1") {
+      img.dataset.step = "2";
+      img.src = getStoragePublicUrl("gore.heic");
+      return;
+    }
+
+    if (step === "2") {
+      img.dataset.step = "3";
+      img.src = getStoragePublicUrl("Gore.heic");
+      return;
+    }
+
+    img.style.display = "none";
+    const next = img.nextElementSibling as HTMLElement | null;
+    if (next) next.style.display = "block";
+  }
+
+  function renderPrintSheet(bericht: any, index: number) {
+    const photos = bericht.photos || [];
+    const workers = bericht.workers || [];
+    const materials = bericht.materials || [];
+
+    return (
+      <section
+        key={bericht.id || index}
+        className="regie-print-sheet"
+        style={styles.printSheet}
+      >
+        {mountainBgUrl && (
+          <img
+            src={mountainBgUrl}
+            alt=""
+            style={styles.mountainBackground}
+            onError={handleMountainError}
+          />
+        )}
+
+        <div style={styles.whiteSoftLayer}></div>
+
+        <div style={styles.printContent}>
+          <div style={styles.printHeader}>
+            <div style={styles.titleWithLogo}>
+              {logoTopUrl && (
+                <>
+                  <img
+                    src={logoTopUrl}
+                    alt="Stone Boutique"
+                    style={styles.headerLogo}
+                    onError={handleLogoError}
+                  />
+
+                  <div style={styles.logoFallback}>
+                    <div style={styles.logoFallbackOrange}>STONE BOUTIQUE</div>
+                    <div style={styles.logoFallbackSmall}>
+                      Nocker & Bernardi GmbH
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {!logoTopUrl && (
+                <div style={{ ...styles.logoFallback, display: "block" }}>
+                  <div style={styles.logoFallbackOrange}>STONE BOUTIQUE</div>
+                  <div style={styles.logoFallbackSmall}>
+                    Nocker & Bernardi GmbH
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <div style={styles.documentTitle}>REGIEBERICHT</div>
+                <div style={styles.documentSub}>Tagesbericht / Regiearbeit</div>
+              </div>
+            </div>
+
+            <div style={styles.headerRight}>
+              <div>
+                <strong>Nr.:</strong> {getRegieberichtNumber(bericht)}
+              </div>
+              <div>
+                <strong>Datum:</strong> {formatDate(bericht.datum)}
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.metaGrid}>
+            <div style={styles.metaBox}>
+              <div style={styles.metaLabel}>Baustelle</div>
+              <div style={styles.metaValue}>{baustelle?.naziv || "-"}</div>
+            </div>
+
+            <div style={styles.metaBox}>
+              <div style={styles.metaLabel}>Ort</div>
+              <div style={styles.metaValue}>{getRegieberichtOrt(bericht)}</div>
+            </div>
+
+            <div style={styles.metaBox}>
+              <div style={styles.metaLabel}>Auftraggeber</div>
+              <div style={styles.metaValue}>{getAuftraggeberValue(bericht)}</div>
+            </div>
+
+            <div style={styles.metaBox}>
+              <div style={styles.metaLabel}>Auftragnehmer</div>
+              <div style={styles.metaValue}>
+                {getAuftragnehmerValue(bericht)}
+                <br />
+                {FIRMA_ADRESA}
+              </div>
+            </div>
+
+            <div style={styles.metaBox}>
+              <div style={styles.metaLabel}>Bauleiter / Vertreter</div>
+              <div style={styles.metaValue}>{getBauleiterValue(bericht)}</div>
+            </div>
+
+            <div style={styles.metaBox}>
+              <div style={styles.metaLabel}>Bauteile / Räume</div>
+              <div style={styles.metaValue}>{getRegieberichtRoomText(bericht)}</div>
+            </div>
+          </div>
+
+          <div style={styles.printMainGrid}>
+            <div style={styles.leftColumn}>
+              <section style={styles.printBlock}>
+                <h2 style={styles.printBlockTitle}>Ausgeführte Arbeiten</h2>
+                <div style={styles.workText}>{getRegieberichtWorkText(bericht)}</div>
+              </section>
+
+              <section style={styles.printBlock}>
+                <div style={styles.blockHeaderRow}>
+                  <h2 style={styles.printBlockTitle}>Arbeitskräfte</h2>
+                  <strong>Gesamt: {formatNumber(bericht.totalHours)} h</strong>
+                </div>
+
+                <table style={styles.cleanTable}>
+                  <thead>
+                    <tr>
+                      <th style={styles.cleanTh}>Mitarbeiter</th>
+                      <th style={styles.cleanTh}>von</th>
+                      <th style={styles.cleanTh}>bis</th>
+                      <th style={styles.cleanTh}>Pause</th>
+                      <th style={styles.cleanTh}>Std.</th>
+                      <th style={styles.cleanTh}>Bemerkung</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {workers.length === 0 ? (
+                      <tr>
+                        <td style={styles.cleanTd} colSpan={6}>
+                          Keine Arbeitskräfte eingetragen.
+                        </td>
+                      </tr>
+                    ) : (
+                      workers.map((w: any, rowIndex: number) => (
+                        <tr key={w.id || rowIndex}>
+                          <td style={styles.cleanTd}>
+                            {w.worker_name || w.radnik || w.name || "-"}
+                          </td>
+                          <td style={styles.cleanTd}>{w.von || w.pocetak || "-"}</td>
+                          <td style={styles.cleanTd}>{w.bis || w.kraj || "-"}</td>
+                          <td style={styles.cleanTd}>
+                            {formatNumber(w.pause || w.pauza || 0)} h
+                          </td>
+                          <td style={styles.cleanTd}>
+                            {formatNumber(
+                              w.stunden || w.sati || w.ukupno_sati || 0
+                            )}{" "}
+                            h
+                          </td>
+                          <td style={styles.cleanTd}>{w.bemerkung || w.notiz || "-"}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </section>
+
+              <section style={styles.printBlock}>
+                <h2 style={styles.printBlockTitle}>Material / Geräte / Sonstiges</h2>
+
+                <table style={styles.cleanTable}>
+                  <thead>
+                    <tr>
+                      <th style={styles.cleanTh}>Bezeichnung</th>
+                      <th style={styles.cleanTh}>Menge</th>
+                      <th style={styles.cleanTh}>EH</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {materials.length === 0 ? (
+                      <tr>
+                        <td style={styles.cleanTd} colSpan={3}>
+                          Kein Material eingetragen.
+                        </td>
+                      </tr>
+                    ) : (
+                      materials.map((m: any, matIndex: number) => (
+                        <tr key={m.id || matIndex}>
+                          <td style={styles.cleanTd}>{getMaterialName(m)}</td>
+                          <td style={styles.cleanTd}>
+                            {formatNumber(getMaterialAmount(m))}
+                          </td>
+                          <td style={styles.cleanTd}>{getMaterialUnit(m)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </section>
+            </div>
+
+            <div style={styles.rightColumn}>
+              <section style={styles.photoPrintBlock}>
+                <h2 style={styles.printBlockTitle}>Fotodokumentation</h2>
+
+                <div style={styles.printPhotoGrid}>
+                  {Array.from({ length: 2 }).map((_, photoIndex) => {
+                    const photo = photos[photoIndex];
+                    const url = photo ? getPhotoUrl(photo) : "";
+
+                    if (!url) {
+                      return (
+                        <div key={photoIndex} style={styles.emptyPhoto}>
+                          Foto {photoIndex + 1}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={photoIndex} style={styles.printPhotoCard}>
+                        <img
+                          src={url}
+                          alt={`Foto ${photoIndex + 1}`}
+                          style={styles.printPhoto}
+                        />
+
+                        {(photo.note || photo.bemerkung || photo.description) && (
+                          <div style={styles.photoCaption}>
+                            {photo.note || photo.bemerkung || photo.description}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section style={styles.signatureBlock}>
+                <div style={styles.signatureItem}>
+                  <div style={styles.signatureLine}></div>
+                  <strong>Auftragnehmer: {POTPIS}</strong>
+                </div>
+
+                <div style={styles.signatureItem}>
+                  <div style={styles.signatureLine}></div>
+                  <strong>
+                    Auftraggeber / Vertreter: {getBauleiterValue(bericht)}
+                  </strong>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </section>
     );
   }
 
@@ -359,17 +736,20 @@ export default function ArchivRegieberichtePage() {
     <main style={mainStyle}>
       <style>
         {`
-          .regie-print-only {
+          .print-only {
             display: none;
           }
 
           @page {
             size: A4 landscape;
-            margin: 7mm;
+            margin: 5mm;
           }
 
           @media print {
+            html,
             body {
+              margin: 0 !important;
+              padding: 0 !important;
               background: white !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
@@ -384,30 +764,47 @@ export default function ArchivRegieberichtePage() {
               print-color-adjust: exact !important;
             }
 
-            .screen-only {
+            .no-print {
               display: none !important;
             }
 
-            .regie-print-only {
+            .print-only {
               display: block !important;
             }
 
-            .regie-print-page {
-              page-break-after: always !important;
-              break-after: page !important;
+            .regie-print-sheet {
+              width: 287mm !important;
+              height: 200mm !important;
+              min-height: 200mm !important;
+              max-height: 200mm !important;
+              margin: 0 !important;
+              padding: 14px !important;
+              box-sizing: border-box !important;
+              overflow: hidden !important;
               page-break-inside: avoid !important;
               break-inside: avoid !important;
+              page-break-after: always !important;
+              break-after: page !important;
+              box-shadow: none !important;
+              border: none !important;
+              border-radius: 0 !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
 
-            .regie-print-page:last-child {
+            .regie-print-sheet:last-child {
               page-break-after: auto !important;
               break-after: auto !important;
+            }
+
+            table {
+              font-size: 11px !important;
             }
           }
         `}
       </style>
 
-      <div className="screen-only">
+      <div className="no-print">
         <div style={topBarStyle}>
           <Link href="/baustellen/archiv" style={backLinkStyle}>
             ← Zurück zum Archiv
@@ -417,14 +814,9 @@ export default function ArchivRegieberichtePage() {
             <button
               type="button"
               onClick={printAllRegieberichte}
-              style={{
-                ...exportAllButtonStyle,
-                opacity: loading || berichte.length === 0 ? 0.6 : 1,
-                cursor: loading || berichte.length === 0 ? "not-allowed" : "pointer",
-              }}
-              disabled={loading || berichte.length === 0}
+              style={exportAllButtonStyle}
             >
-              📥 Export all / Alle Regieberichte drucken
+              📥 Export all / Alle drucken
             </button>
 
             <Link
@@ -444,8 +836,8 @@ export default function ArchivRegieberichtePage() {
           <p style={mutedTextStyle}>Ort: {baustelle?.lokacija || "-"}</p>
 
           <p style={mutedTextStyle}>
-            Mit Export all werden alle Regieberichte zusammen gedruckt oder als PDF gespeichert.
-            Einzelne Regieberichte können weiterhin separat geöffnet werden.
+            Mit Export all werden alle Regieberichte auf einmal als A4-Landscape
+            gedruckt.
           </p>
         </section>
 
@@ -543,219 +935,10 @@ export default function ArchivRegieberichtePage() {
         )}
       </div>
 
-      <section className="regie-print-only">
-        {berichte.map((bericht: any) => {
-          const photoRows = (bericht.photos || [])
-            .filter((photo: any) => {
-              const url = getPhotoUrl(photo);
-              return url && !String(url).toLowerCase().split("?")[0].endsWith(".pdf");
-            })
-            .slice(0, 2);
-
-          return (
-            <section
-              key={bericht.id}
-              className="regie-print-page"
-              style={printPageStyle}
-            >
-              <div style={printHeaderStyle}>
-                <div style={logoBoxStyle}>
-                  <div style={logoMainStyle}>STONE BOUTIQUE</div>
-                  <div style={logoSubStyle}>Nocker & Bernardi GmbH</div>
-                </div>
-
-                <div>
-                  <div style={printTitleStyle}>REGIEBERICHT</div>
-                  <div style={printSubTitleStyle}>Tagesbericht / Regiearbeit</div>
-                </div>
-
-                <div style={printHeaderRightStyle}>
-                  <div>
-                    <strong>Nr.:</strong> {getRegieberichtNumber(bericht)}
-                  </div>
-                  <div>
-                    <strong>Datum:</strong> {formatDate(bericht.datum)}
-                  </div>
-                </div>
-              </div>
-
-              <div style={printMetaGridStyle}>
-                <div style={printMetaBoxStyle}>
-                  <div style={printMetaLabelStyle}>Baustelle</div>
-                  <div style={printMetaValueStyle}>{baustelle?.naziv || "-"}</div>
-                </div>
-
-                <div style={printMetaBoxStyle}>
-                  <div style={printMetaLabelStyle}>Ort</div>
-                  <div style={printMetaValueStyle}>{getRegieberichtOrt(bericht)}</div>
-                </div>
-
-                <div style={printMetaBoxStyle}>
-                  <div style={printMetaLabelStyle}>Auftraggeber</div>
-                  <div style={printMetaValueStyle}>{getAuftraggeberValue(bericht)}</div>
-                </div>
-
-                <div style={printMetaBoxStyle}>
-                  <div style={printMetaLabelStyle}>Auftragnehmer</div>
-                  <div style={printMetaValueStyle}>
-                    {getAuftragnehmerValue(bericht)}
-                    <br />
-                    {FIRMA_ADRESA}
-                  </div>
-                </div>
-
-                <div style={printMetaBoxStyle}>
-                  <div style={printMetaLabelStyle}>Bauleiter / Vertreter</div>
-                  <div style={printMetaValueStyle}>{getBauleiterValue(bericht)}</div>
-                </div>
-
-                <div style={printMetaBoxStyle}>
-                  <div style={printMetaLabelStyle}>Bauteile / Räume</div>
-                  <div style={printMetaValueStyle}>{bericht.roomsText || bericht.raum || "-"}</div>
-                </div>
-              </div>
-
-              <div style={printMainGridStyle}>
-                <div style={printLeftColumnStyle}>
-                  <section style={printBlockStyle}>
-                    <h2 style={printBlockTitleStyle}>Ausgeführte Arbeiten</h2>
-                    <div style={printWorkTextStyle}>{getWorkText(bericht)}</div>
-                  </section>
-
-                  <section style={printBlockStyle}>
-                    <div style={printBlockHeaderRowStyle}>
-                      <h2 style={printBlockTitleStyle}>Arbeitskräfte</h2>
-                      <strong>Gesamt: {formatNumber(bericht.totalHours)} h</strong>
-                    </div>
-
-                    <table style={printTableStyle}>
-                      <thead>
-                        <tr>
-                          <th style={printThStyle}>Mitarbeiter</th>
-                          <th style={printThStyle}>von</th>
-                          <th style={printThStyle}>bis</th>
-                          <th style={printThStyle}>Pause</th>
-                          <th style={printThStyle}>Std.</th>
-                          <th style={printThStyle}>Bemerkung</th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {bericht.workers.length === 0 ? (
-                          <tr>
-                            <td style={printTdStyle} colSpan={6}>
-                              Keine Arbeitskräfte eingetragen.
-                            </td>
-                          </tr>
-                        ) : (
-                          bericht.workers.map((worker: any, index: number) => (
-                            <tr key={worker.id || index}>
-                              <td style={printTdStyle}>
-                                {worker.worker_name || worker.radnik || "-"}
-                              </td>
-                              <td style={printTdStyle}>{worker.von || worker.pocetak || "-"}</td>
-                              <td style={printTdStyle}>{worker.bis || worker.kraj || "-"}</td>
-                              <td style={printTdStyle}>
-                                {formatNumber(worker.pause || worker.pauza || 0)} h
-                              </td>
-                              <td style={printTdStyle}>
-                                {formatNumber(worker.stunden || worker.sati || worker.ukupno_sati)} h
-                              </td>
-                              <td style={printTdStyle}>{worker.bemerkung || worker.notiz || "-"}</td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </section>
-
-                  <section style={printBlockStyle}>
-                    <h2 style={printBlockTitleStyle}>Material / Geräte / Sonstiges</h2>
-
-                    <table style={printTableStyle}>
-                      <thead>
-                        <tr>
-                          <th style={printThStyle}>Bezeichnung</th>
-                          <th style={printThStyle}>Menge</th>
-                          <th style={printThStyle}>EH</th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {bericht.materials.length === 0 ? (
-                          <tr>
-                            <td style={printTdStyle} colSpan={3}>
-                              Kein Material eingetragen.
-                            </td>
-                          </tr>
-                        ) : (
-                          bericht.materials.map((material: any, index: number) => (
-                            <tr key={material.id || index}>
-                              <td style={printTdStyle}>
-                                {material.bezeichnung || material.material_name || material.name || "-"}
-                              </td>
-                              <td style={printTdStyle}>
-                                {formatNumber(material.menge || material.kolicina || 0)}
-                              </td>
-                              <td style={printTdStyle}>{material.einheit || material.unit || "-"}</td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </section>
-                </div>
-
-                <div style={printRightColumnStyle}>
-                  <section style={printPhotoBlockStyle}>
-                    <h2 style={printBlockTitleStyle}>Fotodokumentation</h2>
-
-                    <div style={printPhotoGridStyle}>
-                      {Array.from({ length: 2 }).map((_, index) => {
-                        const photo = photoRows[index];
-                        const url = photo ? getPhotoUrl(photo) : "";
-
-                        if (!url) {
-                          return (
-                            <div key={index} style={printEmptyPhotoStyle}>
-                              Foto {index + 1}
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div key={photo.id || index} style={printPhotoCardStyle}>
-                            <img
-                              src={url}
-                              alt={`Foto ${index + 1}`}
-                              style={printPhotoStyle}
-                            />
-
-                            {getPhotoNote(photo) && (
-                              <div style={printPhotoCaptionStyle}>{getPhotoNote(photo)}</div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  <section style={printSignatureBlockStyle}>
-                    <div style={printSignatureItemStyle}>
-                      <div style={printSignatureLineStyle}></div>
-                      <strong>Auftragnehmer: {POTPIS}</strong>
-                    </div>
-
-                    <div style={printSignatureItemStyle}>
-                      <div style={printSignatureLineStyle}></div>
-                      <strong>Auftraggeber / Vertreter: {getBauleiterValue(bericht)}</strong>
-                    </div>
-                  </section>
-                </div>
-              </div>
-            </section>
-          );
-        })}
+      <section className="print-only">
+        {berichte.map((bericht: any, index: number) =>
+          renderPrintSheet(bericht, index)
+        )}
       </section>
     </main>
   );
@@ -780,8 +963,8 @@ const topBarStyle: any = {
 const topButtonRowStyle: any = {
   display: "flex",
   gap: "12px",
-  alignItems: "center",
   flexWrap: "wrap",
+  alignItems: "center",
 };
 
 const backLinkStyle: any = {
@@ -790,8 +973,8 @@ const backLinkStyle: any = {
   fontWeight: "bold",
 };
 
-const exportAllButtonStyle: any = {
-  background: "#16a34a",
+const abschlussButtonStyle: any = {
+  background: "#2563eb",
   color: "white",
   textDecoration: "none",
   border: "none",
@@ -801,8 +984,8 @@ const exportAllButtonStyle: any = {
   fontWeight: "bold",
 };
 
-const abschlussButtonStyle: any = {
-  background: "#2563eb",
+const exportAllButtonStyle: any = {
+  background: "#16a34a",
   color: "white",
   textDecoration: "none",
   border: "none",
@@ -940,225 +1123,235 @@ const editButtonStyle: any = {
   fontWeight: "bold",
 };
 
-const printPageStyle: any = {
-  width: "283mm",
-  minHeight: "196mm",
-  boxSizing: "border-box",
-  background: "#fff",
-  color: "#111",
-  padding: "10mm",
-  fontFamily: "Arial, sans-serif",
-  overflow: "hidden",
-  position: "relative",
-};
-
-const printHeaderStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "150px 1fr 130px",
-  gap: "18px",
-  alignItems: "start",
-  borderBottom: "3px solid #1e3a8a",
-  paddingBottom: "8px",
-  marginBottom: "10px",
-};
-
-const logoBoxStyle: any = {
-  borderLeft: "5px solid #f97316",
-  paddingLeft: "10px",
-  lineHeight: 1.05,
-};
-
-const logoMainStyle: any = {
-  color: "#f97316",
-  fontWeight: "900",
-  fontSize: "18px",
-  letterSpacing: "1px",
-};
-
-const logoSubStyle: any = {
-  color: "#111",
-  fontWeight: "700",
-  fontSize: "9px",
-  marginTop: "5px",
-};
-
-const printTitleStyle: any = {
-  color: "#1e3a8a",
-  fontSize: "31px",
-  fontWeight: "900",
-  letterSpacing: "1px",
-};
-
-const printSubTitleStyle: any = {
-  color: "#555",
-  fontSize: "12px",
-  marginTop: "4px",
-};
-
-const printHeaderRightStyle: any = {
-  textAlign: "right",
-  fontSize: "13px",
-  lineHeight: 1.6,
-};
-
-const printMetaGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1.2fr 0.7fr 1fr 1.25fr 1fr 1.1fr",
-  gap: "7px",
-  marginBottom: "10px",
-};
-
-const printMetaBoxStyle: any = {
-  border: "1px solid #cbd5e1",
-  borderRadius: "7px",
-  padding: "7px",
-  minHeight: "48px",
-  background: "#fff",
-};
-
-const printMetaLabelStyle: any = {
-  color: "#1e3a8a",
-  fontSize: "10px",
-  fontWeight: "900",
-  textTransform: "uppercase",
-  marginBottom: "4px",
-};
-
-const printMetaValueStyle: any = {
-  fontSize: "12px",
-  lineHeight: 1.25,
-  whiteSpace: "pre-wrap",
-};
-
-const printMainGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "1.35fr 0.9fr",
-  gap: "9px",
-};
-
-const printLeftColumnStyle: any = {
-  display: "grid",
-  gap: "8px",
-};
-
-const printRightColumnStyle: any = {
-  display: "grid",
-  gap: "8px",
-};
-
-const printBlockStyle: any = {
-  border: "1px solid #cbd5e1",
-  borderRadius: "8px",
-  padding: "8px",
-  background: "#fff",
-};
-
-const printBlockTitleStyle: any = {
-  fontSize: "13px",
-  color: "#1e3a8a",
-  margin: "0 0 7px 0",
-  textTransform: "uppercase",
-  letterSpacing: "0.4px",
-};
-
-const printBlockHeaderRowStyle: any = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "8px",
-};
-
-const printWorkTextStyle: any = {
-  minHeight: "70px",
-  whiteSpace: "pre-wrap",
-  fontSize: "12px",
-  lineHeight: 1.45,
-};
-
-const printTableStyle: any = {
-  width: "100%",
-  borderCollapse: "collapse",
-  fontSize: "11px",
-};
-
-const printThStyle: any = {
-  textAlign: "left",
-  padding: "5px",
-  background: "#f1f5f9",
-  color: "#1e3a8a",
-  borderBottom: "1px solid #cbd5e1",
-};
-
-const printTdStyle: any = {
-  padding: "5px",
-  borderBottom: "1px solid #e5e7eb",
-  verticalAlign: "top",
-};
-
-const printPhotoBlockStyle: any = {
-  border: "1px solid #cbd5e1",
-  borderRadius: "8px",
-  padding: "8px",
-  background: "#fff",
-};
-
-const printPhotoGridStyle: any = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "7px",
-};
-
-const printPhotoCardStyle: any = {
-  border: "1px solid #e5e7eb",
-  borderRadius: "7px",
-  padding: "5px",
-  background: "#fff",
-};
-
-const printPhotoStyle: any = {
-  width: "100%",
-  height: "285px",
-  objectFit: "contain",
-  objectPosition: "center",
-  background: "#fff",
-  borderRadius: "5px",
-  display: "block",
-};
-
-const printPhotoCaptionStyle: any = {
-  fontSize: "10px",
-  color: "#555",
-  marginTop: "4px",
-};
-
-const printEmptyPhotoStyle: any = {
-  height: "285px",
-  border: "1px dashed #cbd5e1",
-  borderRadius: "7px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "#94a3b8",
-  background: "#f8fafc",
-  fontSize: "13px",
-};
-
-const printSignatureBlockStyle: any = {
-  border: "1px solid #cbd5e1",
-  borderRadius: "8px",
-  padding: "14px",
-  background: "#fff",
-  display: "grid",
-  gap: "25px",
-  alignContent: "end",
-};
-
-const printSignatureItemStyle: any = {
-  fontSize: "11px",
-};
-
-const printSignatureLineStyle: any = {
-  borderTop: "1px solid #111",
-  marginBottom: "6px",
-  paddingTop: "6px",
+const styles: any = {
+  printSheet: {
+    background: "#fff",
+    color: "#111",
+    WebkitPrintColorAdjust: "exact",
+    printColorAdjust: "exact",
+    fontFamily: "Arial, sans-serif",
+    position: "relative",
+    overflow: "hidden",
+  },
+  mountainBackground: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "center center",
+    opacity: 0.34,
+    zIndex: 1,
+    pointerEvents: "none",
+  },
+  whiteSoftLayer: {
+    position: "absolute",
+    inset: 0,
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.70), rgba(255,255,255,0.58))",
+    zIndex: 2,
+    pointerEvents: "none",
+  },
+  printContent: {
+    position: "relative",
+    zIndex: 3,
+    WebkitPrintColorAdjust: "exact",
+    printColorAdjust: "exact",
+  },
+  titleWithLogo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "18px",
+  },
+  headerLogo: {
+    width: "118px",
+    height: "40px",
+    objectFit: "contain",
+    objectPosition: "left center",
+    display: "block",
+  },
+  logoFallback: {
+    display: "none",
+    width: "118px",
+    minWidth: "118px",
+    borderLeft: "4px solid #f97316",
+    paddingLeft: "9px",
+    lineHeight: "1.1",
+  },
+  logoFallbackOrange: {
+    color: "#f97316",
+    fontWeight: "900",
+    fontSize: "13px",
+    letterSpacing: "1px",
+  },
+  logoFallbackSmall: {
+    color: "#111",
+    fontWeight: "700",
+    fontSize: "8px",
+    marginTop: "3px",
+  },
+  printHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    borderBottom: "2px solid #1e3a8a",
+    paddingBottom: "7px",
+    marginBottom: "8px",
+  },
+  documentTitle: {
+    color: "#1e3a8a",
+    fontSize: "27px",
+    fontWeight: "bold",
+    letterSpacing: "1px",
+  },
+  documentSub: {
+    color: "#555",
+    fontSize: "12px",
+    marginTop: "3px",
+  },
+  headerRight: {
+    textAlign: "right",
+    fontSize: "13px",
+    lineHeight: "1.6",
+  },
+  metaGrid: {
+    display: "grid",
+    gridTemplateColumns: "1.2fr 0.7fr 1fr 1.2fr 1fr 1.2fr",
+    gap: "7px",
+    marginBottom: "8px",
+  },
+  metaBox: {
+    background: "rgba(255, 255, 255, 0.58)",
+    border: "1px solid #d8dee9",
+    borderRadius: "6px",
+    padding: "7px",
+    minHeight: "45px",
+  },
+  metaLabel: {
+    color: "#1e3a8a",
+    fontSize: "10px",
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    marginBottom: "4px",
+  },
+  metaValue: {
+    fontSize: "12px",
+    lineHeight: "1.25",
+    whiteSpace: "pre-wrap",
+  },
+  printMainGrid: {
+    display: "grid",
+    gridTemplateColumns: "1.35fr 0.98fr",
+    gap: "8px",
+  },
+  leftColumn: {
+    display: "grid",
+    gap: "7px",
+  },
+  rightColumn: {
+    display: "grid",
+    gap: "7px",
+  },
+  printBlock: {
+    border: "1px solid #d8dee9",
+    borderRadius: "7px",
+    padding: "7px",
+    background: "rgba(255, 255, 255, 0.58)",
+  },
+  printBlockTitle: {
+    fontSize: "13px",
+    color: "#1e3a8a",
+    margin: "0 0 6px 0",
+    textTransform: "uppercase",
+    letterSpacing: "0.4px",
+  },
+  blockHeaderRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "7px",
+  },
+  workText: {
+    minHeight: "78px",
+    whiteSpace: "pre-wrap",
+    fontSize: "12px",
+    lineHeight: "1.45",
+  },
+  cleanTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "11px",
+  },
+  cleanTh: {
+    textAlign: "left",
+    padding: "5px",
+    background: "rgba(239, 246, 255, 0.65)",
+    color: "#1e3a8a",
+    borderBottom: "1px solid #cbd5e1",
+  },
+  cleanTd: {
+    padding: "5px",
+    borderBottom: "1px solid #e5e7eb",
+    verticalAlign: "top",
+  },
+  photoPrintBlock: {
+    border: "1px solid #d8dee9",
+    borderRadius: "7px",
+    padding: "7px",
+    background: "rgba(255, 255, 255, 0.54)",
+  },
+  printPhotoGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "7px",
+    alignItems: "stretch",
+  },
+  printPhotoCard: {
+    border: "1px solid #e5e7eb",
+    borderRadius: "7px",
+    padding: "5px",
+    background: "rgba(248, 250, 252, 0.55)",
+  },
+  printPhoto: {
+    width: "100%",
+    height: "300px",
+    objectFit: "contain",
+    objectPosition: "center",
+    background: "rgba(255,255,255,0.65)",
+    borderRadius: "5px",
+    display: "block",
+  },
+  photoCaption: {
+    fontSize: "10px",
+    color: "#555",
+    marginTop: "4px",
+  },
+  emptyPhoto: {
+    height: "300px",
+    border: "1px dashed #cbd5e1",
+    borderRadius: "7px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#94a3b8",
+    background: "rgba(248, 250, 252, 0.50)",
+    fontSize: "13px",
+  },
+  signatureBlock: {
+    border: "1px solid #d8dee9",
+    borderRadius: "7px",
+    padding: "12px",
+    background: "rgba(255, 255, 255, 0.58)",
+    display: "grid",
+    gap: "25px",
+    alignContent: "end",
+  },
+  signatureItem: {
+    fontSize: "11px",
+  },
+  signatureLine: {
+    borderTop: "1px solid #111",
+    marginBottom: "6px",
+    paddingTop: "6px",
+  },
 };
