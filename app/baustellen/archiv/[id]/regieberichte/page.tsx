@@ -11,6 +11,7 @@ const POTPIS = "Hidajet Goletić";
 
 const PDF_BUCKET = "pdf-assets";
 const PDF_LOGO_TOP = "gore.png";
+const PDF_SIDE_IMAGE = "strana.png";
 const PDF_MOUNTAIN_BG = "pozadina.png";
 
 const ADMIN_NAMES = [
@@ -143,6 +144,7 @@ export default function ArchivRegieberichtePage() {
   const [berichte, setBerichte] = useState<any[]>([]);
 
   const [logoTopUrl, setLogoTopUrl] = useState("");
+  const [sideImageUrl, setSideImageUrl] = useState("");
   const [mountainBgUrl, setMountainBgUrl] = useState("");
 
   useEffect(() => {
@@ -168,18 +170,8 @@ export default function ArchivRegieberichtePage() {
 
   function loadPdfImages() {
     setLogoTopUrl(getStoragePublicUrl(PDF_LOGO_TOP));
+    setSideImageUrl(getStoragePublicUrl(PDF_SIDE_IMAGE));
     setMountainBgUrl(getStoragePublicUrl(PDF_MOUNTAIN_BG));
-  }
-
-  function printAllRegieberichte() {
-    if (berichte.length === 0) {
-      alert("Keine Regieberichte vorhanden.");
-      return;
-    }
-
-    setTimeout(() => {
-      window.print();
-    }, 150);
   }
 
   async function loadData() {
@@ -212,43 +204,59 @@ export default function ArchivRegieberichtePage() {
       return;
     }
 
-    const ids = (berichtData || []).map((b: any) => b.id);
+    const berichtIds = (berichtData || []).map((b: any) => b.id);
 
     let workerRows: any[] = [];
     let roomRows: any[] = [];
     let materialRows: any[] = [];
     let photoRows: any[] = [];
 
-    if (ids.length > 0) {
-      const { data: workersData } = await supabase
+    if (berichtIds.length > 0) {
+      const { data: workersData, error: workersError } = await supabase
         .from("regiebericht_workers")
         .select("*")
-        .in("regiebericht_id", ids)
+        .in("regiebericht_id", berichtIds)
         .order("id", { ascending: true });
+
+      if (workersError) {
+        alert("LOAD REGIE WORKERS: " + workersError.message);
+      }
 
       workerRows = workersData || [];
 
-      const { data: roomsData } = await supabase
+      const { data: roomsData, error: roomsError } = await supabase
         .from("regiebericht_rooms")
         .select("*")
-        .in("regiebericht_id", ids)
+        .in("regiebericht_id", berichtIds)
         .order("id", { ascending: true });
+
+      if (roomsError) {
+        alert("LOAD REGIE ROOMS: " + roomsError.message);
+      }
 
       roomRows = roomsData || [];
 
-      const { data: materialsData } = await supabase
+      const { data: materialsData, error: materialsError } = await supabase
         .from("regiebericht_materials")
         .select("*")
-        .in("regiebericht_id", ids)
+        .in("regiebericht_id", berichtIds)
         .order("id", { ascending: true });
+
+      if (materialsError) {
+        alert("LOAD REGIE MATERIALS: " + materialsError.message);
+      }
 
       materialRows = materialsData || [];
 
-      const { data: photosData } = await supabase
+      const { data: photosData, error: photosError } = await supabase
         .from("regiebericht_photos")
         .select("*")
-        .in("regiebericht_id", ids)
+        .in("regiebericht_id", berichtIds)
         .order("id", { ascending: true });
+
+      if (photosError) {
+        alert("LOAD REGIE PHOTOS: " + photosError.message);
+      }
 
       photoRows = photosData || [];
     }
@@ -268,10 +276,14 @@ export default function ArchivRegieberichtePage() {
 
       const photosForBericht = photoRows
         .filter((p: any) => Number(p.regiebericht_id) === Number(bericht.id))
-        .filter((p: any) => {
-          const url = getPhotoUrl(p);
-          return url && !String(url).toLowerCase().split("?")[0].endsWith(".pdf");
-        });
+        .map((p: any) => ({
+          ...p,
+          preview: getPhotoUrl(p),
+          photo_url: getPhotoUrl(p),
+          note: p.note || p.bemerkung || p.description || "",
+          kind: isPdfUrl(getPhotoUrl(p)) ? "pdf" : "image",
+          file_name: getFileNameFromUrl(getPhotoUrl(p)),
+        }));
 
       const totalHours = workersForBericht.reduce(
         (sum: number, row: any) =>
@@ -308,6 +320,31 @@ export default function ArchivRegieberichtePage() {
     setLoading(false);
   }
 
+  function exportAllPrint() {
+    if (berichte.length === 0) {
+      alert("Keine Regieberichte vorhanden.");
+      return;
+    }
+
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  }
+
+  function isPdfUrl(url: string) {
+    return String(url || "").toLowerCase().split("?")[0].endsWith(".pdf");
+  }
+
+  function getFileNameFromUrl(url: string) {
+    try {
+      const cleanUrl = String(url || "").split("?")[0];
+      const lastPart = cleanUrl.split("/").pop() || "Datei";
+      return decodeURIComponent(lastPart);
+    } catch {
+      return "Datei";
+    }
+  }
+
   function getPhotoUrl(photo: any) {
     return (
       photo?.photo_url ||
@@ -318,6 +355,14 @@ export default function ArchivRegieberichtePage() {
       photo?.foto_url ||
       ""
     );
+  }
+
+  function getImagePhotos(bericht: any) {
+    return (bericht?.photos || []).filter((p: any) => p.kind !== "pdf" && getPhotoUrl(p));
+  }
+
+  function getPdfAttachments(bericht: any) {
+    return (bericht?.photos || []).filter((p: any) => p.kind === "pdf");
   }
 
   function getRegieberichtNumber(bericht: any) {
@@ -401,29 +446,34 @@ export default function ArchivRegieberichtePage() {
 
   function handleMountainError(e: any) {
     const img = e.currentTarget as HTMLImageElement;
+    img.style.display = "none";
+  }
+
+  function handleSideImageError(e: any) {
+    const img = e.currentTarget as HTMLImageElement;
     const step = img.dataset.step || "0";
 
     if (step === "0") {
       img.dataset.step = "1";
-      img.src = getStoragePublicUrl("Pozadina.png");
+      img.src = getStoragePublicUrl("Strana.png");
       return;
     }
 
     if (step === "1") {
       img.dataset.step = "2";
-      img.src = getStoragePublicUrl("pozadina.jpg");
+      img.src = getStoragePublicUrl("strana.heic");
       return;
     }
 
     if (step === "2") {
       img.dataset.step = "3";
-      img.src = getStoragePublicUrl("planine.png");
+      img.src = getStoragePublicUrl("Strana.heic");
       return;
     }
 
     if (step === "3") {
       img.dataset.step = "4";
-      img.src = getStoragePublicUrl("Planine.png");
+      img.src = getStoragePublicUrl("srtana.heic");
       return;
     }
 
@@ -457,15 +507,20 @@ export default function ArchivRegieberichtePage() {
     if (next) next.style.display = "block";
   }
 
-  function renderPrintSheet(bericht: any, index: number) {
-    const photos = bericht.photos || [];
-    const workers = bericht.workers || [];
-    const materials = bericht.materials || [];
+  function renderRegieberichtPrintSheet(bericht: any, berichtIndex: number) {
+    const imagePhotos = getImagePhotos(bericht);
+    const workerRows = bericht.workers || [];
+    const materialRows = bericht.materials || [];
+    const gesamtStunden = workerRows.reduce(
+      (sum: number, row: any) =>
+        sum + toNumberValue(row.stunden || row.sati || row.ukupno_sati),
+      0
+    );
 
     return (
       <section
-        key={bericht.id || index}
-        className="regie-print-sheet"
+        key={`bericht-${bericht.id || berichtIndex}`}
+        className="print-sheet export-regie-sheet"
         style={styles.printSheet}
       >
         {mountainBgUrl && (
@@ -477,21 +532,50 @@ export default function ArchivRegieberichtePage() {
           />
         )}
 
-        <div style={styles.whiteSoftLayer}></div>
+        {sideImageUrl && (
+          <img
+            src={sideImageUrl}
+            alt=""
+            style={styles.sidePaperImage}
+            onError={handleSideImageError}
+          />
+        )}
 
         <div style={styles.printContent}>
           <div style={styles.printHeader}>
             <div style={styles.titleWithLogo}>
-              <div style={{ ...styles.logoFallback, display: "block" }}>
-                <div style={styles.logoFallbackOrange}>STONE BOUTIQUE</div>
-                <div style={styles.logoFallbackSmall}>
-                  Nocker & Bernardi GmbH
+              {logoTopUrl && (
+                <>
+                  <img
+                    src={logoTopUrl}
+                    alt="Stone Boutique"
+                    style={styles.headerLogo}
+                    onError={handleLogoError}
+                  />
+
+                  <div style={styles.logoFallback}>
+                    <div style={styles.logoFallbackOrange}>STONE BOUTIQUE</div>
+                    <div style={styles.logoFallbackSmall}>
+                      Nocker & Bernardi GmbH
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {!logoTopUrl && (
+                <div style={{ ...styles.logoFallback, display: "block" }}>
+                  <div style={styles.logoFallbackOrange}>STONE BOUTIQUE</div>
+                  <div style={styles.logoFallbackSmall}>
+                    Nocker & Bernardi GmbH
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <div style={styles.documentTitle}>REGIEBERICHT</div>
-                <div style={styles.documentSub}>Tagesbericht / Regiearbeit</div>
+                <div style={styles.documentSub}>
+                  Tagesbericht / Regiearbeit
+                </div>
               </div>
             </div>
 
@@ -545,7 +629,56 @@ export default function ArchivRegieberichtePage() {
             <div style={styles.leftColumn}>
               <section style={styles.printBlock}>
                 <h2 style={styles.printBlockTitle}>Ausgeführte Arbeiten</h2>
-                <div style={styles.workText}>{getRegieberichtWorkText(bericht)}</div>
+                <div style={styles.workText}>
+                  {getRegieberichtWorkText(bericht)}
+                </div>
+              </section>
+
+              <section style={styles.printBlock}>
+                <div style={styles.blockHeaderRow}>
+                  <h2 style={styles.printBlockTitle}>Arbeitskräfte</h2>
+                  <strong>Gesamt: {formatNumber(gesamtStunden)} h</strong>
+                </div>
+
+                <table style={styles.cleanTable}>
+                  <thead>
+                    <tr>
+                      <th style={styles.cleanTh}>Mitarbeiter</th>
+                      <th style={styles.cleanTh}>von</th>
+                      <th style={styles.cleanTh}>bis</th>
+                      <th style={styles.cleanTh}>Pause</th>
+                      <th style={styles.cleanTh}>Std.</th>
+                      <th style={styles.cleanTh}>Bemerkung</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {workerRows.length === 0 ? (
+                      <tr>
+                        <td style={styles.cleanTd} colSpan={6}>
+                          Keine Arbeitskräfte eingetragen.
+                        </td>
+                      </tr>
+                    ) : (
+                      workerRows.map((w: any, index: number) => (
+                        <tr key={w.id || index}>
+                          <td style={styles.cleanTd}>
+                            {w.worker_name || w.radnik || w.name || "-"}
+                          </td>
+                          <td style={styles.cleanTd}>{w.von || w.pocetak || "-"}</td>
+                          <td style={styles.cleanTd}>{w.bis || w.kraj || "-"}</td>
+                          <td style={styles.cleanTd}>
+                            {formatNumber(w.pause || w.pauza || 0)} h
+                          </td>
+                          <td style={styles.cleanTd}>
+                            {formatNumber(w.stunden || w.sati || w.ukupno_sati || 0)}
+                          </td>
+                          <td style={styles.cleanTd}>{w.bemerkung || w.notiz || "-"}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </section>
 
               <section style={styles.printBlock}>
@@ -561,15 +694,15 @@ export default function ArchivRegieberichtePage() {
                   </thead>
 
                   <tbody>
-                    {materials.length === 0 ? (
+                    {materialRows.length === 0 ? (
                       <tr>
                         <td style={styles.cleanTd} colSpan={3}>
                           Kein Material eingetragen.
                         </td>
                       </tr>
                     ) : (
-                      materials.map((m: any, matIndex: number) => (
-                        <tr key={m.id || matIndex}>
+                      materialRows.map((m: any, index: number) => (
+                        <tr key={m.id || index}>
                           <td style={styles.cleanTd}>{getMaterialName(m)}</td>
                           <td style={styles.cleanTd}>
                             {formatNumber(getMaterialAmount(m))}
@@ -588,31 +721,26 @@ export default function ArchivRegieberichtePage() {
                 <h2 style={styles.printBlockTitle}>Fotodokumentation</h2>
 
                 <div style={styles.printPhotoGrid}>
-                  {Array.from({ length: 2 }).map((_, photoIndex) => {
-                    const photo = photos[photoIndex];
-                    const url = photo ? getPhotoUrl(photo) : "";
+                  {Array.from({ length: 2 }).map((_, index) => {
+                    const p = imagePhotos[index];
 
-                    if (!url) {
+                    if (!p) {
                       return (
-                        <div key={photoIndex} style={styles.emptyPhoto}>
-                          Foto {photoIndex + 1}
+                        <div key={index} style={styles.emptyPhoto}>
+                          Foto {index + 1}
                         </div>
                       );
                     }
 
                     return (
-                      <div key={photoIndex} style={styles.printPhotoCard}>
+                      <div key={index} style={styles.printPhotoCard}>
                         <img
-                          src={url}
-                          alt={`Foto ${photoIndex + 1}`}
+                          src={getPhotoUrl(p)}
+                          alt={`Foto ${index + 1}`}
                           style={styles.printPhoto}
                         />
 
-                        {(photo.note || photo.bemerkung || photo.description) && (
-                          <div style={styles.photoCaption}>
-                            {photo.note || photo.bemerkung || photo.description}
-                          </div>
-                        )}
+                        {p.note && <div style={styles.photoCaption}>{p.note}</div>}
                       </div>
                     );
                   })}
@@ -639,9 +767,85 @@ export default function ArchivRegieberichtePage() {
     );
   }
 
+  function renderPhotoBeilagen(bericht: any, berichtIndex: number) {
+    return getImagePhotos(bericht)
+      .slice(2)
+      .map((p: any, index: number) => (
+        <section
+          key={`image-beilage-${bericht.id || berichtIndex}-${index}`}
+          className="print-sheet beilage-sheet"
+          style={styles.beilageSheet}
+        >
+          <div style={styles.beilageHeader}>
+            <div>
+              <strong>REGIEBERICHT Nr. {getRegieberichtNumber(bericht)}</strong>
+              <br />
+              Fotobeilage {index + 1}
+            </div>
+            <div>{formatDate(bericht.datum)}</div>
+          </div>
+
+          <div style={styles.beilageTitle}>Fotodokumentation / Beilage</div>
+
+          <img
+            src={getPhotoUrl(p)}
+            alt={`Fotobeilage ${index + 1}`}
+            style={styles.beilageImage}
+          />
+
+          {p.note && <div style={styles.beilageNote}>{p.note}</div>}
+        </section>
+      ));
+  }
+
+  function renderPdfBeilagen(bericht: any, berichtIndex: number) {
+    const pdfs = getPdfAttachments(bericht);
+
+    if (pdfs.length === 0) return null;
+
+    return (
+      <section
+        key={`pdf-beilage-${bericht.id || berichtIndex}`}
+        className="print-sheet beilage-sheet"
+        style={styles.beilageSheet}
+      >
+        <div style={styles.beilageHeader}>
+          <div>
+            <strong>REGIEBERICHT Nr. {getRegieberichtNumber(bericht)}</strong>
+            <br />
+            PDF-Beilagen
+          </div>
+          <div>{formatDate(bericht.datum)}</div>
+        </div>
+
+        <div style={styles.beilageTitle}>PDF-Beilagen / Rechnungen / Lieferscheine</div>
+
+        <div style={styles.pdfList}>
+          {pdfs.map((p: any, index: number) => (
+            <div key={index} style={styles.pdfListItem}>
+              <strong>PDF {index + 1}:</strong> {p.file_name || "Beilage"}
+              {p.note ? <div style={styles.pdfNote}>{p.note}</div> : null}
+              {getPhotoUrl(p) ? (
+                <a
+                  className="no-print"
+                  href={getPhotoUrl(p)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={styles.pdfLink}
+                >
+                  PDF öffnen
+                </a>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   if (!accessChecked) {
     return (
-      <main style={mainStyle}>
+      <main style={pageStyle}>
         <p>Zugriff wird geprüft...</p>
       </main>
     );
@@ -649,7 +853,7 @@ export default function ArchivRegieberichtePage() {
 
   if (!isAdmin) {
     return (
-      <main style={mainStyle}>
+      <main style={pageStyle}>
         <Link href="/baustellen" style={backLinkStyle}>
           ← Zurück zu Baustellen
         </Link>
@@ -663,77 +867,7 @@ export default function ArchivRegieberichtePage() {
   }
 
   return (
-    <main style={mainStyle}>
-      <style>
-        {`
-          .print-only {
-            display: none;
-          }
-
-          @page {
-            size: A4 landscape;
-            margin: 5mm;
-          }
-
-          @media print {
-            html,
-            body {
-              margin: 0 !important;
-              padding: 0 !important;
-              background: white !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-
-            main {
-              background: white !important;
-              color: black !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-
-            .no-print {
-              display: none !important;
-            }
-
-            .print-only {
-              display: block !important;
-            }
-
-            .regie-print-sheet {
-              width: 287mm !important;
-              height: 200mm !important;
-              min-height: 200mm !important;
-              max-height: 200mm !important;
-              margin: 0 !important;
-              padding: 14px !important;
-              box-sizing: border-box !important;
-              overflow: hidden !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-              page-break-after: always !important;
-              break-after: page !important;
-              box-shadow: none !important;
-              border: none !important;
-              border-radius: 0 !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-
-            .regie-print-sheet:last-child {
-              page-break-after: auto !important;
-              break-after: auto !important;
-            }
-
-            table {
-              font-size: 11px !important;
-            }
-          }
-        `}
-      </style>
-
+    <main style={pageStyle}>
       <div className="no-print">
         <div style={topBarStyle}>
           <Link href="/baustellen/archiv" style={backLinkStyle}>
@@ -741,12 +875,8 @@ export default function ArchivRegieberichtePage() {
           </Link>
 
           <div style={topButtonRowStyle}>
-            <button
-              type="button"
-              onClick={printAllRegieberichte}
-              style={exportAllButtonStyle}
-            >
-              📥 Export all / Alle drucken
+            <button onClick={exportAllPrint} style={exportAllButtonStyle}>
+              📥 Export all / Alle Regieberichte drucken
             </button>
 
             <Link
@@ -766,8 +896,8 @@ export default function ArchivRegieberichtePage() {
           <p style={mutedTextStyle}>Ort: {baustelle?.lokacija || "-"}</p>
 
           <p style={mutedTextStyle}>
-            Mit Export all werden alle Regieberichte auf einmal als A4-Landscape
-            gedruckt.
+            Export all benutzt jetzt exakt den gleichen Regiebericht-Look wie
+            das Regiebericht-Modul.
           </p>
         </section>
 
@@ -833,7 +963,7 @@ export default function ArchivRegieberichtePage() {
                   <p>
                     <strong>Fotos:</strong>
                     <br />
-                    {bericht.photos.length}
+                    {getImagePhotos(bericht).length}
                   </p>
                 </div>
 
@@ -866,15 +996,76 @@ export default function ArchivRegieberichtePage() {
       </div>
 
       <section className="print-only">
-        {berichte.map((bericht: any, index: number) =>
-          renderPrintSheet(bericht, index)
-        )}
+        {berichte.map((bericht: any, index: number) => (
+          <div key={`print-group-${bericht.id || index}`}>
+            {renderRegieberichtPrintSheet(bericht, index)}
+            {renderPhotoBeilagen(bericht, index)}
+            {renderPdfBeilagen(bericht, index)}
+          </div>
+        ))}
       </section>
+
+      <style>{`
+        .print-only {
+          display: none;
+        }
+
+        @page {
+          size: A4 landscape;
+          margin: 5mm;
+        }
+
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+
+          .print-only {
+            display: block !important;
+          }
+
+          body {
+            background: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          main {
+            background: white !important;
+            color: black !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .print-sheet {
+            width: 100% !important;
+            min-height: auto !important;
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            page-break-inside: avoid !important;
+            page-break-after: always !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .print-sheet:last-child {
+            page-break-after: auto !important;
+          }
+
+          .beilage-sheet {
+            page-break-before: always !important;
+            page-break-after: always !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }
 
-const mainStyle: any = {
+const pageStyle: any = {
   background: "#000",
   minHeight: "100vh",
   color: "white",
@@ -894,7 +1085,6 @@ const topButtonRowStyle: any = {
   display: "flex",
   gap: "12px",
   flexWrap: "wrap",
-  alignItems: "center",
 };
 
 const backLinkStyle: any = {
@@ -1059,28 +1249,14 @@ const styles: any = {
     color: "#111",
     WebkitPrintColorAdjust: "exact",
     printColorAdjust: "exact",
+    maxWidth: "1100px",
+    margin: "30px auto",
+    padding: "14px",
+    borderRadius: "8px",
+    boxShadow: "0 10px 35px rgba(0,0,0,0.35)",
     fontFamily: "Arial, sans-serif",
     position: "relative",
     overflow: "hidden",
-  },
-  mountainBackground: {
-    position: "absolute",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    objectPosition: "center center",
-    opacity: 0.34,
-    zIndex: 1,
-    pointerEvents: "none",
-  },
-  whiteSoftLayer: {
-    position: "absolute",
-    inset: 0,
-    background:
-      "linear-gradient(180deg, rgba(255,255,255,0.70), rgba(255,255,255,0.58))",
-    zIndex: 2,
-    pointerEvents: "none",
   },
   printContent: {
     position: "relative",
@@ -1088,56 +1264,95 @@ const styles: any = {
     WebkitPrintColorAdjust: "exact",
     printColorAdjust: "exact",
   },
+  logoTopBox: {
+    height: "70px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: "4px",
+  },
+  logoTopImage: {
+    maxWidth: "360px",
+    width: "45%",
+    maxHeight: "68px",
+    objectFit: "contain",
+    display: "block",
+  },
+  mountainBackground: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "center center",
+    opacity: 0.48,
+    zIndex: 1,
+    pointerEvents: "none",
+  },
+  sidePaperImage: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: "86px",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "center",
+    opacity: 0.30,
+    zIndex: 1,
+    pointerEvents: "none",
+    borderRight: "2px solid rgba(249, 115, 22, 0.35)",
+  },
   titleWithLogo: {
     display: "flex",
     alignItems: "center",
-    gap: "18px",
+    gap: "20px",
   },
   headerLogo: {
-    width: "118px",
-    height: "40px",
+    width: "140px",
+    height: "48px",
     objectFit: "contain",
     objectPosition: "left center",
     display: "block",
   },
   logoFallback: {
     display: "none",
-    width: "118px",
-    minWidth: "118px",
+    width: "140px",
+    minWidth: "145px",
     borderLeft: "4px solid #f97316",
-    paddingLeft: "9px",
+    paddingLeft: "10px",
     lineHeight: "1.1",
   },
   logoFallbackOrange: {
     color: "#f97316",
     fontWeight: "900",
-    fontSize: "13px",
+    fontSize: "15px",
     letterSpacing: "1px",
   },
   logoFallbackSmall: {
     color: "#111",
     fontWeight: "700",
-    fontSize: "8px",
-    marginTop: "3px",
+    fontSize: "9px",
+    marginTop: "4px",
   },
   printHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
     borderBottom: "2px solid #1e3a8a",
-    paddingBottom: "7px",
-    marginBottom: "8px",
+    paddingBottom: "6px",
+    marginBottom: "7px",
   },
   documentTitle: {
     color: "#1e3a8a",
-    fontSize: "27px",
+    fontSize: "26px",
     fontWeight: "bold",
     letterSpacing: "1px",
   },
   documentSub: {
     color: "#555",
     fontSize: "12px",
-    marginTop: "3px",
+    marginTop: "2px",
   },
   headerRight: {
     textAlign: "right",
@@ -1147,22 +1362,22 @@ const styles: any = {
   metaGrid: {
     display: "grid",
     gridTemplateColumns: "1.2fr 0.7fr 1fr 1.2fr 1fr 1.2fr",
-    gap: "7px",
-    marginBottom: "8px",
+    gap: "6px",
+    marginBottom: "7px",
   },
   metaBox: {
-    background: "rgba(255, 255, 255, 0.58)",
+    background: "rgba(255, 255, 255, 0.44)",
     border: "1px solid #d8dee9",
     borderRadius: "6px",
-    padding: "7px",
-    minHeight: "45px",
+    padding: "6px",
+    minHeight: "42px",
   },
   metaLabel: {
     color: "#1e3a8a",
     fontSize: "10px",
     fontWeight: "bold",
     textTransform: "uppercase",
-    marginBottom: "4px",
+    marginBottom: "3px",
   },
   metaValue: {
     fontSize: "12px",
@@ -1171,22 +1386,22 @@ const styles: any = {
   },
   printMainGrid: {
     display: "grid",
-    gridTemplateColumns: "1.35fr 0.98fr",
-    gap: "8px",
+    gridTemplateColumns: "1.32fr 0.98fr",
+    gap: "7px",
   },
   leftColumn: {
     display: "grid",
-    gap: "7px",
+    gap: "6px",
   },
   rightColumn: {
     display: "grid",
-    gap: "7px",
+    gap: "6px",
   },
   printBlock: {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
-    padding: "7px",
-    background: "rgba(255, 255, 255, 0.58)",
+    padding: "6px",
+    background: "rgba(255, 255, 255, 0.44)",
   },
   printBlockTitle: {
     fontSize: "13px",
@@ -1202,7 +1417,7 @@ const styles: any = {
     gap: "7px",
   },
   workText: {
-    minHeight: "210px",
+    minHeight: "80px",
     whiteSpace: "pre-wrap",
     fontSize: "12px",
     lineHeight: "1.45",
@@ -1215,7 +1430,7 @@ const styles: any = {
   cleanTh: {
     textAlign: "left",
     padding: "5px",
-    background: "rgba(239, 246, 255, 0.65)",
+    background: "rgba(239, 246, 255, 0.48)",
     color: "#1e3a8a",
     borderBottom: "1px solid #cbd5e1",
   },
@@ -1224,30 +1439,36 @@ const styles: any = {
     borderBottom: "1px solid #e5e7eb",
     verticalAlign: "top",
   },
+  editList: {
+    display: "flex",
+    gap: "6px",
+    flexWrap: "wrap",
+    marginTop: "10px",
+  },
   photoPrintBlock: {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
-    padding: "7px",
-    background: "rgba(255, 255, 255, 0.54)",
+    padding: "6px",
+    background: "rgba(255, 255, 255, 0.38)",
   },
   printPhotoGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: "7px",
+    gap: "6px",
     alignItems: "stretch",
   },
   printPhotoCard: {
     border: "1px solid #e5e7eb",
     borderRadius: "7px",
     padding: "5px",
-    background: "rgba(248, 250, 252, 0.55)",
+    background: "rgba(248, 250, 252, 0.34)",
   },
   printPhoto: {
     width: "100%",
     height: "300px",
     objectFit: "contain",
     objectPosition: "center",
-    background: "rgba(255,255,255,0.65)",
+    background: "#fff",
     borderRadius: "5px",
     display: "block",
   },
@@ -1264,14 +1485,23 @@ const styles: any = {
     alignItems: "center",
     justifyContent: "center",
     color: "#94a3b8",
-    background: "rgba(248, 250, 252, 0.50)",
+    background: "rgba(248, 250, 252, 0.30)",
     fontSize: "13px",
+  },
+  photoRemoveButton: {
+    marginTop: "5px",
+    background: "#dc2626",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    padding: "6px 8px",
+    cursor: "pointer",
   },
   signatureBlock: {
     border: "1px solid #d8dee9",
     borderRadius: "7px",
     padding: "12px",
-    background: "rgba(255, 255, 255, 0.58)",
+    background: "rgba(255, 255, 255, 0.38)",
     display: "grid",
     gap: "25px",
     alignContent: "end",
@@ -1283,5 +1513,120 @@ const styles: any = {
     borderTop: "1px solid #111",
     marginBottom: "6px",
     paddingTop: "6px",
+  },
+  listTitleRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "16px",
+    flexWrap: "wrap",
+  },
+  listTotalBadge: {
+    background: "#14532d",
+    color: "white",
+    border: "1px solid #22c55e",
+    borderRadius: "12px",
+    padding: "12px 18px",
+    fontSize: "20px",
+    fontWeight: "bold",
+  },
+  attachmentPreviewGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "12px",
+    marginTop: "16px",
+  },
+  attachmentPreviewCard: {
+    background: "#1a1a1a",
+    border: "1px solid #333",
+    borderRadius: "12px",
+    padding: "10px",
+  },
+  attachmentPreviewTitle: {
+    color: "#60a5fa",
+    fontWeight: "bold",
+    marginBottom: "8px",
+  },
+  attachmentPreviewImage: {
+    width: "100%",
+    height: "120px",
+    objectFit: "cover",
+    borderRadius: "8px",
+    display: "block",
+    marginBottom: "8px",
+  },
+  pdfPreviewBox: {
+    minHeight: "80px",
+    background: "#222",
+    border: "1px dashed #555",
+    borderRadius: "8px",
+    padding: "12px",
+    color: "#ddd",
+    marginBottom: "8px",
+    display: "flex",
+    alignItems: "center",
+  },
+  beilageSheet: {
+    background: "#fff",
+    color: "#111",
+    maxWidth: "1100px",
+    minHeight: "760px",
+    margin: "30px auto",
+    padding: "22px",
+    borderRadius: "8px",
+    boxShadow: "0 10px 35px rgba(0,0,0,0.35)",
+    fontFamily: "Arial, sans-serif",
+    WebkitPrintColorAdjust: "exact",
+    printColorAdjust: "exact",
+  },
+  beilageHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    borderBottom: "2px solid #1e3a8a",
+    paddingBottom: "10px",
+    marginBottom: "18px",
+    color: "#1e3a8a",
+  },
+  beilageTitle: {
+    color: "#f97316",
+    fontSize: "24px",
+    fontWeight: "bold",
+    marginBottom: "18px",
+    textTransform: "uppercase",
+  },
+  beilageImage: {
+    width: "100%",
+    maxHeight: "620px",
+    objectFit: "contain",
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    display: "block",
+  },
+  beilageNote: {
+    marginTop: "12px",
+    fontSize: "14px",
+    color: "#333",
+  },
+  pdfList: {
+    display: "grid",
+    gap: "12px",
+  },
+  pdfListItem: {
+    border: "1px solid #d8dee9",
+    borderRadius: "8px",
+    padding: "14px",
+    background: "#f8fafc",
+    fontSize: "14px",
+  },
+  pdfNote: {
+    marginTop: "6px",
+    color: "#555",
+  },
+  pdfLink: {
+    display: "inline-block",
+    marginTop: "8px",
+    color: "#2563eb",
+    fontWeight: "bold",
   },
 };
