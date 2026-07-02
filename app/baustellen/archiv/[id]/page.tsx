@@ -625,6 +625,73 @@ export default function ArchivBerichtPage() {
     return row?.visualization_url || "";
   }
 
+  function renderPaperBranding(useSideStrip = false) {
+    return (
+      <>
+        {mountainBgUrl && (
+          <img
+            src={mountainBgUrl}
+            alt=""
+            style={paperMountainStyle}
+            onError={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              img.style.display = "none";
+            }}
+          />
+        )}
+
+        <div style={paperOverlayStyle}></div>
+
+        {useSideStrip && sideImageUrl && (
+          <img
+            src={sideImageUrl}
+            alt=""
+            style={paperSideStripStyle}
+            onError={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              img.style.display = "none";
+            }}
+          />
+        )}
+
+        <div style={paperBrandBadgeStyle}>
+          {logoTopUrl ? (
+            <>
+              <img
+                src={logoTopUrl}
+                alt="Stone Boutique"
+                style={paperBrandLogoStyle}
+                onError={(e) => {
+                  const img = e.currentTarget as HTMLImageElement;
+                  img.style.display = "none";
+                  const next = img.nextElementSibling as HTMLElement | null;
+                  if (next) next.style.display = "block";
+                }}
+              />
+
+              <div style={{ ...paperBrandFallbackStyle, display: "none" }}>
+                <div style={paperBrandFallbackOrangeStyle}>STONE BOUTIQUE</div>
+                <div style={paperBrandFallbackSmallStyle}>Nocker & Bernardi GmbH</div>
+              </div>
+            </>
+          ) : (
+            <div style={paperBrandFallbackStyle}>
+              <div style={paperBrandFallbackOrangeStyle}>STONE BOUTIQUE</div>
+              <div style={paperBrandFallbackSmallStyle}>Nocker & Bernardi GmbH</div>
+            </div>
+          )}
+        </div>
+
+        <div style={paperFooterStyle}>
+          <div style={paperFooterLabelStyle}>powered by</div>
+          <div style={paperFooterBrandStyle}>
+            Stone<span style={paperFooterAccentBStyle}>B</span>outique
+          </div>
+        </div>
+      </>
+    );
+  }
+
   const totalHours = hours.reduce(
     (sum, h) => sum + Number(h.ukupno_sati || h.sati || 0),
     0
@@ -644,7 +711,7 @@ export default function ArchivBerichtPage() {
     ...new Set(regieHours.map((h: any) => h.worker_name).filter(Boolean)),
   ];
 
-  const allWorkers = [...new Set([...workers, ...regieWorkers])];
+  const allWorkers = [...new Set(workers)];
 
   const workDays = [...new Set(hours.map((h: any) => h.datum).filter(Boolean))];
 
@@ -748,6 +815,8 @@ export default function ArchivBerichtPage() {
               color: black !important;
               border: 1px solid #ddd !important;
               page-break-inside: avoid;
+              position: relative !important;
+              overflow: hidden !important;
             }
 
             .print-room {
@@ -755,6 +824,8 @@ export default function ArchivBerichtPage() {
               color: black !important;
               border: 1px solid #ddd !important;
               page-break-inside: avoid;
+              position: relative !important;
+              overflow: hidden !important;
             }
 
             .photo-grid {
@@ -863,7 +934,9 @@ export default function ArchivBerichtPage() {
       <h1 style={titleStyle}>ABSCHLUSSBERICHT BAUSTELLE</h1>
 
       <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>Baustellenübersicht</h2>
+        {renderPaperBranding()}
+        <div style={paperContentStyle}>
+          <h2 style={sectionTitleStyle}>Baustellenübersicht</h2>
 
         <div style={infoGridStyle}>
           <p>
@@ -913,23 +986,14 @@ export default function ArchivBerichtPage() {
             <br />
             {formatNumber(totalHours)} h
           </p>
-
-          <p>
-            <strong>Regiestunden:</strong>
-            <br />
-            {formatNumber(totalRegieHours)} h
-          </p>
-
-          <p>
-            <strong>Gesamt inkl. Regie:</strong>
-            <br />
-            {formatNumber(totalHours + totalRegieHours)} h
-          </p>
+        </div>
         </div>
       </section>
 
       <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>Gesamtübersicht Arbeitsstunden</h2>
+        {renderPaperBranding()}
+        <div style={paperContentStyle}>
+          <h2 style={sectionTitleStyle}>Gesamtübersicht Arbeitsstunden</h2>
 
         {hours.length === 0 ? (
           <p style={mutedTextStyle}>Keine Arbeitsstunden vorhanden.</p>
@@ -970,82 +1034,13 @@ export default function ArchivBerichtPage() {
             </table>
           </div>
         )}
-      </section>
-
-      <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>Regiestunden</h2>
-
-        <div style={regieSummaryStyle}>
-          <p>
-            <strong>Gesamt Regiestunden:</strong> {formatNumber(totalRegieHours)} h
-          </p>
-
-          <p>
-            <strong>Anzahl Regieberichte:</strong> {regieberichte.length}
-          </p>
         </div>
-
-        {regieHoursByWorker.length > 0 && (
-          <div style={tableWrapStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Mitarbeiter</th>
-                  <th style={thStyle}>Regiestunden gesamt</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {regieHoursByWorker.map((row: any) => (
-                  <tr key={row.workerName}>
-                    <td style={tdStyle}>{row.workerName}</td>
-                    <td style={tdStyle}>{formatNumber(row.sum)} h</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <h3 style={subTitleStyle}>Einzelne Regieeinträge</h3>
-
-        {regieHours.length === 0 ? (
-          <p style={mutedTextStyle}>Keine Regiestunden vorhanden.</p>
-        ) : (
-          <div style={tableWrapStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Bericht Nr.</th>
-                  <th style={thStyle}>Datum</th>
-                  <th style={thStyle}>Mitarbeiter</th>
-                  <th style={thStyle}>Von</th>
-                  <th style={thStyle}>Bis</th>
-                  <th style={thStyle}>Stunden</th>
-                  <th style={thStyle}>Ausgeführte Arbeiten</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {regieHours.map((r: any) => (
-                  <tr key={r.id}>
-                    <td style={tdStyle}>{getRegieNumber(r)}</td>
-                    <td style={tdStyle}>{formatDate(getRegieDate(r))}</td>
-                    <td style={tdStyle}>{r.worker_name || "-"}</td>
-                    <td style={tdStyle}>{r.von || "-"}</td>
-                    <td style={tdStyle}>{r.bis || "-"}</td>
-                    <td style={tdStyle}>{formatNumber(r.stunden)} h</td>
-                    <td style={tdStyle}>{getRegieWorkText(r)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
 
       <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>Raumübersicht</h2>
+        {renderPaperBranding()}
+        <div style={paperContentStyle}>
+          <h2 style={sectionTitleStyle}>Raumübersicht</h2>
 
         {rooms.length === 0 && (
           <p style={mutedTextStyle}>Keine Räume vorhanden.</p>
@@ -1064,7 +1059,9 @@ export default function ArchivBerichtPage() {
 
           return (
             <div key={room.id} style={roomBoxStyle} className="print-room">
-              <h2 style={roomTitleStyle}>Raum: {room.naziv}</h2>
+              {renderPaperBranding()}
+              <div style={paperContentStyle}>
+                <h2 style={roomTitleStyle}>Raum: {room.naziv}</h2>
 
               <h3 style={subTitleStyle}>Arbeitsstunden</h3>
 
@@ -1214,25 +1211,20 @@ export default function ArchivBerichtPage() {
                   })}
                 </div>
               )}
+              </div>
             </div>
           );
         })}
+        </div>
       </section>
 
       <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>Gesamtauswertung</h2>
+        {renderPaperBranding()}
+        <div style={paperContentStyle}>
+          <h2 style={sectionTitleStyle}>Gesamtauswertung</h2>
 
         <p>
           <strong>Arbeitsstunden:</strong> {formatNumber(totalHours)} h
-        </p>
-
-        <p>
-          <strong>Regiestunden:</strong> {formatNumber(totalRegieHours)} h
-        </p>
-
-        <p>
-          <strong>Gesamtstunden inkl. Regie:</strong>{" "}
-          {formatNumber(totalHours + totalRegieHours)} h
         </p>
 
         <p>
@@ -1259,14 +1251,13 @@ export default function ArchivBerichtPage() {
           <strong>Bericht erstellt am:</strong>{" "}
           {new Date().toLocaleDateString("de-AT")}
         </p>
+        </div>
       </section>
 
       <section className="print-only">
         {sortedRegieberichte.map((bericht: any, index: number) => {
-          const rows = getRegieberichtRows(bericht.id);
           const matRows = getRegieberichtMaterials(bericht.id);
           const photoRows = getRegieberichtPhotos(bericht.id);
-          const total = getRegieberichtTotalHours(bericht.id);
 
           return (
             <section
@@ -1436,59 +1427,6 @@ export default function ArchivBerichtPage() {
                       </section>
 
                       <section style={styles.printBlock}>
-                        <div style={styles.blockHeaderRow}>
-                          <h2 style={styles.printBlockTitle}>Arbeitskräfte</h2>
-                          <strong>Gesamt: {formatNumber(total)} h</strong>
-                        </div>
-
-                        <table style={styles.cleanTable}>
-                          <thead>
-                            <tr>
-                              <th style={styles.cleanTh}>Mitarbeiter</th>
-                              <th style={styles.cleanTh}>von</th>
-                              <th style={styles.cleanTh}>bis</th>
-                              <th style={styles.cleanTh}>Pause</th>
-                              <th style={styles.cleanTh}>Std.</th>
-                              <th style={styles.cleanTh}>Bemerkung</th>
-                            </tr>
-                          </thead>
-
-                          <tbody>
-                            {rows.length === 0 ? (
-                              <tr>
-                                <td style={styles.cleanTd} colSpan={6}>
-                                  Keine Arbeitskräfte eingetragen.
-                                </td>
-                              </tr>
-                            ) : (
-                              rows.map((w: any, rowIndex: number) => (
-                                <tr key={w.id || rowIndex}>
-                                  <td style={styles.cleanTd}>
-                                    {w.worker_name || w.radnik || "-"}
-                                  </td>
-                                  <td style={styles.cleanTd}>
-                                    {w.von || w.pocetak || "-"}
-                                  </td>
-                                  <td style={styles.cleanTd}>
-                                    {w.bis || w.kraj || "-"}
-                                  </td>
-                                  <td style={styles.cleanTd}>
-                                    {formatNumber(w.pause || w.pauza || 0)} h
-                                  </td>
-                                  <td style={styles.cleanTd}>
-                                    {formatNumber(w.stunden || w.sati || w.ukupno_sati)} h
-                                  </td>
-                                  <td style={styles.cleanTd}>
-                                    {w.bemerkung || w.notiz || "-"}
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </section>
-
-                      <section style={styles.printBlock}>
                         <h2 style={styles.printBlockTitle}>Material / Geräte / Sonstiges</h2>
 
                         <table style={styles.cleanTable}>
@@ -1574,6 +1512,13 @@ export default function ArchivBerichtPage() {
                           </strong>
                         </div>
                       </section>
+                    </div>
+                  </div>
+
+                  <div style={styles.poweredByFooter}>
+                    <div style={styles.poweredByLabel}>powered by</div>
+                    <div style={styles.poweredByBrand}>
+                      Stone<span style={styles.poweredByAccentB}>B</span>outique
                     </div>
                   </div>
                 </div>
@@ -1666,8 +1611,11 @@ const titleStyle: any = {
 const boxStyle: any = {
   background: "#111",
   padding: "25px",
+  paddingBottom: "70px",
   borderRadius: "20px",
   marginBottom: "30px",
+  position: "relative",
+  overflow: "hidden",
 };
 
 const sectionTitleStyle: any = {
@@ -1693,8 +1641,11 @@ const roomBoxStyle: any = {
   background: "#000",
   border: "1px solid #333",
   padding: "25px",
+  paddingBottom: "70px",
   borderRadius: "18px",
   marginBottom: "30px",
+  position: "relative",
+  overflow: "hidden",
 };
 
 const roomTitleStyle: any = {
@@ -1797,6 +1748,124 @@ const photoRoomStyle: any = {
   fontWeight: "bold",
   marginTop: "8px",
   marginBottom: "6px",
+};
+
+const paperContentStyle: any = {
+  position: "relative",
+  zIndex: 3,
+};
+
+const paperMountainStyle: any = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  objectPosition: "center center",
+  opacity: 0.12,
+  zIndex: 0,
+  pointerEvents: "none",
+};
+
+const paperOverlayStyle: any = {
+  position: "absolute",
+  inset: 0,
+  background:
+    "linear-gradient(180deg, rgba(249,115,22,0.06) 0%, rgba(255,255,255,0) 28%, rgba(30,58,138,0.04) 100%)",
+  zIndex: 1,
+  pointerEvents: "none",
+};
+
+const paperSideStripStyle: any = {
+  position: "absolute",
+  left: 0,
+  top: 0,
+  width: "76px",
+  height: "100%",
+  objectFit: "cover",
+  opacity: 0.15,
+  zIndex: 1,
+  pointerEvents: "none",
+  borderRight: "1px solid rgba(249,115,22,0.15)",
+};
+
+const paperBrandBadgeStyle: any = {
+  position: "absolute",
+  top: "16px",
+  right: "18px",
+  zIndex: 4,
+  background: "rgba(255,255,255,0.86)",
+  border: "1px solid rgba(249,115,22,0.28)",
+  borderRadius: "14px",
+  padding: "8px 12px",
+  boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+};
+
+const paperBrandLogoStyle: any = {
+  width: "136px",
+  height: "42px",
+  objectFit: "contain",
+  display: "block",
+};
+
+const paperBrandFallbackStyle: any = {
+  minWidth: "136px",
+  borderLeft: "4px solid #f97316",
+  paddingLeft: "10px",
+  lineHeight: "1.05",
+};
+
+const paperBrandFallbackOrangeStyle: any = {
+  color: "#f97316",
+  fontWeight: "900",
+  fontSize: "14px",
+  letterSpacing: "0.9px",
+};
+
+const paperBrandFallbackSmallStyle: any = {
+  color: "#111",
+  fontWeight: "700",
+  fontSize: "9px",
+  marginTop: "4px",
+};
+
+const paperFooterStyle: any = {
+  position: "absolute",
+  right: "20px",
+  bottom: "14px",
+  zIndex: 4,
+  textAlign: "right",
+  background: "rgba(255,255,255,0.82)",
+  border: "1px solid rgba(30,58,138,0.15)",
+  borderRadius: "12px",
+  padding: "6px 10px",
+  lineHeight: 1.05,
+};
+
+const paperFooterLabelStyle: any = {
+  fontSize: "10px",
+  color: "#6b7280",
+  textTransform: "uppercase",
+  letterSpacing: "0.4px",
+};
+
+const paperFooterBrandStyle: any = {
+  color: "#1e3a8a",
+  fontWeight: "800",
+  fontSize: "18px",
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "flex-end",
+  gap: "1px",
+};
+
+const paperFooterAccentBStyle: any = {
+  display: "inline-block",
+  color: "#f97316",
+  fontWeight: "900",
+  fontSize: "25px",
+  transform: "skew(-14deg) rotate(-8deg) translateY(1px)",
+  transformOrigin: "bottom center",
 };
 
 const styles: any = {
@@ -2040,5 +2109,40 @@ const styles: any = {
     borderTop: "1px solid #111",
     marginBottom: "6px",
     paddingTop: "6px",
+  },
+  poweredByFooter: {
+    position: "absolute",
+    right: "14px",
+    bottom: "10px",
+    zIndex: 4,
+    textAlign: "right",
+    background: "rgba(255,255,255,0.86)",
+    border: "1px solid rgba(30,58,138,0.18)",
+    borderRadius: "12px",
+    padding: "6px 10px",
+    lineHeight: 1.05,
+  },
+  poweredByLabel: {
+    fontSize: "10px",
+    color: "#6b7280",
+    textTransform: "uppercase",
+    letterSpacing: "0.4px",
+  },
+  poweredByBrand: {
+    color: "#1e3a8a",
+    fontWeight: "800",
+    fontSize: "18px",
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "flex-end",
+    gap: "1px",
+  },
+  poweredByAccentB: {
+    display: "inline-block",
+    color: "#f97316",
+    fontWeight: "900",
+    fontSize: "25px",
+    transform: "skew(-14deg) rotate(-8deg) translateY(1px)",
+    transformOrigin: "bottom center",
   },
 };
