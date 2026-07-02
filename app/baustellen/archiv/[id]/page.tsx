@@ -849,9 +849,7 @@ export default function ArchivBerichtPage() {
               page: regieLandscape;
               background: white !important;
               color: black !important;
-              break-before: page !important;
               break-after: page !important;
-              page-break-before: always !important;
               page-break-after: always !important;
               width: 287mm !important;
               min-height: 200mm !important;
@@ -860,6 +858,11 @@ export default function ArchivBerichtPage() {
               overflow: hidden !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
+            }
+
+            .regie-landscape-page:first-child {
+              break-before: auto !important;
+              page-break-before: auto !important;
             }
 
             .regie-landscape-page .print-sheet {
@@ -926,14 +929,14 @@ export default function ArchivBerichtPage() {
           )}
 
           <button onClick={printPdf} style={pdfButtonStyle}>
-            📥 PDF herunterladen
+            📥 Regieberichte herunterladen
           </button>
         </div>
       </div>
 
-      <h1 style={titleStyle}>ABSCHLUSSBERICHT BAUSTELLE</h1>
+      <h1 style={titleStyle} className="no-print">ABSCHLUSSBERICHT BAUSTELLE</h1>
 
-      <section style={boxStyle} className="print-box">
+      <section style={boxStyle} className="print-box no-print">
         {renderPaperBranding()}
         <div style={paperContentStyle}>
           <h2 style={sectionTitleStyle}>Baustellenübersicht</h2>
@@ -990,7 +993,7 @@ export default function ArchivBerichtPage() {
         </div>
       </section>
 
-      <section style={boxStyle} className="print-box">
+      <section style={boxStyle} className="print-box no-print">
         {renderPaperBranding()}
         <div style={paperContentStyle}>
           <h2 style={sectionTitleStyle}>Gesamtübersicht Arbeitsstunden</h2>
@@ -1037,7 +1040,7 @@ export default function ArchivBerichtPage() {
         </div>
       </section>
 
-      <section style={boxStyle} className="print-box">
+      <section style={boxStyle} className="print-box no-print">
         {renderPaperBranding()}
         <div style={paperContentStyle}>
           <h2 style={sectionTitleStyle}>Raumübersicht</h2>
@@ -1218,7 +1221,7 @@ export default function ArchivBerichtPage() {
         </div>
       </section>
 
-      <section style={boxStyle} className="print-box">
+      <section style={boxStyle} className="print-box no-print">
         {renderPaperBranding()}
         <div style={paperContentStyle}>
           <h2 style={sectionTitleStyle}>Gesamtauswertung</h2>
@@ -1744,7 +1747,7 @@ const photoInfoStyle: any = {
 
 const photoRoomStyle: any = {
   color: "#f97316",
-  fontSize: "14px",
+  fontSize: "12px",
   fontWeight: "bold",
   marginTop: "8px",
   marginBottom: "6px",
@@ -1797,19 +1800,19 @@ const paperBrandBadgeStyle: any = {
   background: "rgba(255,255,255,0.86)",
   border: "1px solid rgba(249,115,22,0.28)",
   borderRadius: "14px",
-  padding: "8px 12px",
+  padding: "6px 9px",
   boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
 };
 
 const paperBrandLogoStyle: any = {
-  width: "136px",
-  height: "42px",
+  width: "112px",
+  height: "34px",
   objectFit: "contain",
   display: "block",
 };
 
 const paperBrandFallbackStyle: any = {
-  minWidth: "136px",
+  minWidth: "112px",
   borderLeft: "4px solid #f97316",
   paddingLeft: "10px",
   lineHeight: "1.05",
@@ -1818,14 +1821,14 @@ const paperBrandFallbackStyle: any = {
 const paperBrandFallbackOrangeStyle: any = {
   color: "#f97316",
   fontWeight: "900",
-  fontSize: "14px",
+  fontSize: "12px",
   letterSpacing: "0.9px",
 };
 
 const paperBrandFallbackSmallStyle: any = {
   color: "#111",
   fontWeight: "700",
-  fontSize: "9px",
+  fontSize: "8px",
   marginTop: "4px",
 };
 
@@ -1838,12 +1841,12 @@ const paperFooterStyle: any = {
   background: "rgba(255,255,255,0.82)",
   border: "1px solid rgba(30,58,138,0.15)",
   borderRadius: "12px",
-  padding: "6px 10px",
+  padding: "4px 7px",
   lineHeight: 1.05,
 };
 
 const paperFooterLabelStyle: any = {
-  fontSize: "10px",
+  fontSize: "8px",
   color: "#6b7280",
   textTransform: "uppercase",
   letterSpacing: "0.4px",
@@ -1852,7 +1855,7 @@ const paperFooterLabelStyle: any = {
 const paperFooterBrandStyle: any = {
   color: "#1e3a8a",
   fontWeight: "800",
-  fontSize: "18px",
+  fontSize: "14px",
   display: "flex",
   alignItems: "baseline",
   justifyContent: "flex-end",
@@ -1863,7 +1866,7 @@ const paperFooterAccentBStyle: any = {
   display: "inline-block",
   color: "#f97316",
   fontWeight: "900",
-  fontSize: "25px",
+  fontSize: "20px",
   transform: "skew(-14deg) rotate(-8deg) translateY(1px)",
   transformOrigin: "bottom center",
 };
@@ -1920,15 +1923,15 @@ const styles: any = {
     gap: "20px",
   },
   headerLogo: {
-    width: "140px",
-    height: "48px",
+    width: "118px",
+    height: "40px",
     objectFit: "contain",
     objectPosition: "left center",
     display: "block",
   },
   logoFallback: {
     display: "none",
-    width: "140px",
+    width: "118px",
     minWidth: "145px",
     borderLeft: "4px solid #f97316",
     paddingLeft: "10px",
@@ -1943,7 +1946,7 @@ const styles: any = {
   logoFallbackSmall: {
     color: "#111",
     fontWeight: "700",
-    fontSize: "9px",
+    fontSize: "8px",
     marginTop: "4px",
   },
   printHeader: {
@@ -1985,7 +1988,7 @@ const styles: any = {
   },
   metaLabel: {
     color: "#1e3a8a",
-    fontSize: "10px",
+    fontSize: "8px",
     fontWeight: "bold",
     textTransform: "uppercase",
     marginBottom: "3px",
@@ -2078,7 +2081,7 @@ const styles: any = {
     display: "block",
   },
   photoCaption: {
-    fontSize: "10px",
+    fontSize: "8px",
     color: "#555",
     marginTop: "4px",
   },
@@ -2119,11 +2122,11 @@ const styles: any = {
     background: "rgba(255,255,255,0.86)",
     border: "1px solid rgba(30,58,138,0.18)",
     borderRadius: "12px",
-    padding: "6px 10px",
+    padding: "4px 7px",
     lineHeight: 1.05,
   },
   poweredByLabel: {
-    fontSize: "10px",
+    fontSize: "8px",
     color: "#6b7280",
     textTransform: "uppercase",
     letterSpacing: "0.4px",
@@ -2131,7 +2134,7 @@ const styles: any = {
   poweredByBrand: {
     color: "#1e3a8a",
     fontWeight: "800",
-    fontSize: "18px",
+    fontSize: "14px",
     display: "flex",
     alignItems: "baseline",
     justifyContent: "flex-end",
@@ -2141,7 +2144,7 @@ const styles: any = {
     display: "inline-block",
     color: "#f97316",
     fontWeight: "900",
-    fontSize: "25px",
+    fontSize: "20px",
     transform: "skew(-14deg) rotate(-8deg) translateY(1px)",
     transformOrigin: "bottom center",
   },
