@@ -934,6 +934,18 @@ export default function ArchivBerichtPage() {
             <br />
             {formatNumber(totalHours)} h
           </p>
+
+          <p>
+            <strong>Regiestunden:</strong>
+            <br />
+            {formatNumber(totalRegieHours)} h
+          </p>
+
+          <p>
+            <strong>Gesamt inkl. Regie:</strong>
+            <br />
+            {formatNumber(totalHours + totalRegieHours)} h
+          </p>
         </div>
         </div>
       </section>
@@ -982,6 +994,82 @@ export default function ArchivBerichtPage() {
             </table>
           </div>
         )}
+        </div>
+      </section>
+
+
+      <section style={boxStyle} className="print-box">
+        {renderPaperBranding()}
+        <div style={paperContentStyle}>
+          <h2 style={sectionTitleStyle}>Regiestunden</h2>
+
+          <div style={regieSummaryStyle}>
+            <p>
+              <strong>Gesamt Regiestunden:</strong> {formatNumber(totalRegieHours)} h
+            </p>
+
+            <p>
+              <strong>Anzahl Regieberichte:</strong> {regieberichte.length}
+            </p>
+          </div>
+
+          {regieHoursByWorker.length > 0 && (
+            <div style={tableWrapStyle}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Mitarbeiter</th>
+                    <th style={thStyle}>Regiestunden gesamt</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {regieHoursByWorker.map((row: any) => (
+                    <tr key={row.workerName}>
+                      <td style={tdStyle}>{row.workerName}</td>
+                      <td style={tdStyle}>{formatNumber(row.sum)} h</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <h3 style={subTitleStyle}>Einzelne Regieeinträge</h3>
+
+          {regieHours.length === 0 ? (
+            <p style={mutedTextStyle}>Keine Regiestunden vorhanden.</p>
+          ) : (
+            <div style={tableWrapStyle}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Bericht Nr.</th>
+                    <th style={thStyle}>Datum</th>
+                    <th style={thStyle}>Mitarbeiter</th>
+                    <th style={thStyle}>Von</th>
+                    <th style={thStyle}>Bis</th>
+                    <th style={thStyle}>Stunden</th>
+                    <th style={thStyle}>Ausgeführte Arbeiten</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {regieHours.map((r: any) => (
+                    <tr key={r.id}>
+                      <td style={tdStyle}>{getRegieNumber(r)}</td>
+                      <td style={tdStyle}>{formatDate(getRegieDate(r))}</td>
+                      <td style={tdStyle}>{r.worker_name || "-"}</td>
+                      <td style={tdStyle}>{r.von || "-"}</td>
+                      <td style={tdStyle}>{r.bis || "-"}</td>
+                      <td style={tdStyle}>{formatNumber(r.stunden)} h</td>
+                      <td style={tdStyle}>{getRegieWorkText(r)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </section>
 
@@ -1173,6 +1261,15 @@ export default function ArchivBerichtPage() {
 
         <p>
           <strong>Arbeitsstunden:</strong> {formatNumber(totalHours)} h
+        </p>
+
+        <p>
+          <strong>Regiestunden:</strong> {formatNumber(totalRegieHours)} h
+        </p>
+
+        <p>
+          <strong>Gesamtstunden inkl. Regie:</strong>{" "}
+          {formatNumber(totalHours + totalRegieHours)} h
         </p>
 
         <p>
