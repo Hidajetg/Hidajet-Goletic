@@ -482,32 +482,12 @@ export default function ArchivRegieberichtePage() {
         <div style={styles.printContent}>
           <div style={styles.printHeader}>
             <div style={styles.titleWithLogo}>
-              {logoTopUrl && (
-                <>
-                  <img
-                    src={logoTopUrl}
-                    alt="Stone Boutique"
-                    style={styles.headerLogo}
-                    onError={handleLogoError}
-                  />
-
-                  <div style={styles.logoFallback}>
-                    <div style={styles.logoFallbackOrange}>STONE BOUTIQUE</div>
-                    <div style={styles.logoFallbackSmall}>
-                      Nocker & Bernardi GmbH
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {!logoTopUrl && (
-                <div style={{ ...styles.logoFallback, display: "block" }}>
-                  <div style={styles.logoFallbackOrange}>STONE BOUTIQUE</div>
-                  <div style={styles.logoFallbackSmall}>
-                    Nocker & Bernardi GmbH
-                  </div>
+              <div style={{ ...styles.logoFallback, display: "block" }}>
+                <div style={styles.logoFallbackOrange}>STONE BOUTIQUE</div>
+                <div style={styles.logoFallbackSmall}>
+                  Nocker & Bernardi GmbH
                 </div>
-              )}
+              </div>
 
               <div>
                 <div style={styles.documentTitle}>REGIEBERICHT</div>
@@ -566,56 +546,6 @@ export default function ArchivRegieberichtePage() {
               <section style={styles.printBlock}>
                 <h2 style={styles.printBlockTitle}>Ausgeführte Arbeiten</h2>
                 <div style={styles.workText}>{getRegieberichtWorkText(bericht)}</div>
-              </section>
-
-              <section style={styles.printBlock}>
-                <div style={styles.blockHeaderRow}>
-                  <h2 style={styles.printBlockTitle}>Arbeitskräfte</h2>
-                  <strong>Gesamt: {formatNumber(bericht.totalHours)} h</strong>
-                </div>
-
-                <table style={styles.cleanTable}>
-                  <thead>
-                    <tr>
-                      <th style={styles.cleanTh}>Mitarbeiter</th>
-                      <th style={styles.cleanTh}>von</th>
-                      <th style={styles.cleanTh}>bis</th>
-                      <th style={styles.cleanTh}>Pause</th>
-                      <th style={styles.cleanTh}>Std.</th>
-                      <th style={styles.cleanTh}>Bemerkung</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {workers.length === 0 ? (
-                      <tr>
-                        <td style={styles.cleanTd} colSpan={6}>
-                          Keine Arbeitskräfte eingetragen.
-                        </td>
-                      </tr>
-                    ) : (
-                      workers.map((w: any, rowIndex: number) => (
-                        <tr key={w.id || rowIndex}>
-                          <td style={styles.cleanTd}>
-                            {w.worker_name || w.radnik || w.name || "-"}
-                          </td>
-                          <td style={styles.cleanTd}>{w.von || w.pocetak || "-"}</td>
-                          <td style={styles.cleanTd}>{w.bis || w.kraj || "-"}</td>
-                          <td style={styles.cleanTd}>
-                            {formatNumber(w.pause || w.pauza || 0)} h
-                          </td>
-                          <td style={styles.cleanTd}>
-                            {formatNumber(
-                              w.stunden || w.sati || w.ukupno_sati || 0
-                            )}{" "}
-                            h
-                          </td>
-                          <td style={styles.cleanTd}>{w.bemerkung || w.notiz || "-"}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
               </section>
 
               <section style={styles.printBlock}>
@@ -1272,7 +1202,7 @@ const styles: any = {
     gap: "7px",
   },
   workText: {
-    minHeight: "78px",
+    minHeight: "210px",
     whiteSpace: "pre-wrap",
     fontSize: "12px",
     lineHeight: "1.45",
