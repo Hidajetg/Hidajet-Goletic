@@ -183,6 +183,35 @@ export default function ArchivBerichtPage() {
       .eq("baustelle_id", Number(baustelleId))
       .order("datum", { ascending: true });
 
+    const workerIds = [
+      ...new Set((hoursData || []).map((h: any) => h.worker_id).filter(Boolean)),
+    ];
+
+    let workersData: any[] = [];
+
+    if (workerIds.length > 0) {
+      const { data } = await supabase
+        .from("workers")
+        .select("id, name")
+        .in("id", workerIds);
+
+      workersData = data || [];
+    }
+
+    const workerNameById = new Map(
+      workersData.map((w: any) => [Number(w.id), w.name])
+    );
+
+    const hoursWithFullWorkerNames = (hoursData || []).map((h: any) => ({
+      ...h,
+      worker_full_name:
+        workerNameById.get(Number(h.worker_id)) ||
+        h.radnik ||
+        h.worker_name ||
+        h.worker ||
+        "",
+    }));
+
     const { data: regieberichteData } = await supabase
       .from("regieberichte")
       .select("*")
@@ -277,7 +306,7 @@ export default function ArchivBerichtPage() {
 
     setBaustelle(baustelleData);
     setRooms(roomsData || []);
-    setHours(hoursData || []);
+    setHours(hoursWithFullWorkerNames || []);
     setRegieberichte(regieberichteData || []);
     setRegieHours(regieWorkersData || []);
     setRegieRooms(regieRoomsData || []);
@@ -470,6 +499,18 @@ export default function ArchivBerichtPage() {
   function getRoomName(roomId: number) {
     const room = rooms.find((r: any) => Number(r.id) === Number(roomId));
     return room?.naziv || `Raum ${roomId}`;
+  }
+
+  function getHourWorkerName(hour: any) {
+    return (
+      hour?.worker_full_name ||
+      hour?.workers?.name ||
+      hour?.worker?.name ||
+      hour?.radnik ||
+      hour?.worker_name ||
+      hour?.worker ||
+      "-"
+    );
   }
 
   function getHoursForRoom(roomId: number) {
@@ -698,7 +739,7 @@ export default function ArchivBerichtPage() {
   const startDate = hours.length > 0 ? hours[0].datum : "-";
   const endDate = hours.length > 0 ? hours[hours.length - 1].datum : "-";
 
-  const workers = [...new Set(hours.map((h: any) => h.radnik).filter(Boolean))];
+  const workers = [...new Set(hours.map((h: any) => getHourWorkerName(h)).filter((name: any) => name && name !== "-"))];
 
   const regieWorkers = [
     ...new Set(regieHours.map((h: any) => h.worker_name).filter(Boolean)),
@@ -977,7 +1018,7 @@ export default function ArchivBerichtPage() {
                 {hours.map((h: any) => (
                   <tr key={h.id}>
                     <td style={tdStyle}>{formatDate(h.datum)}</td>
-                    <td style={tdStyle}>{h.radnik || "-"}</td>
+                    <td style={tdStyle}>{getHourWorkerName(h)}</td>
                     <td style={tdStyle}>
                       {h.room_id ? getRoomName(h.room_id) : "-"}
                     </td>
@@ -1126,7 +1167,7 @@ export default function ArchivBerichtPage() {
                       {roomHours.map((h: any) => (
                         <tr key={h.id}>
                           <td style={tdStyle}>{formatDate(h.datum)}</td>
-                          <td style={tdStyle}>{h.radnik || "-"}</td>
+                          <td style={tdStyle}>{getHourWorkerName(h)}</td>
                           <td style={tdStyle}>{h.pocetak || "-"}</td>
                           <td style={tdStyle}>{h.kraj || "-"}</td>
                           <td style={tdStyle}>{formatNumber(h.pauza)} h</td>
