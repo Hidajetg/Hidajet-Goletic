@@ -1611,9 +1611,7 @@ export default function ArchivBerichtPage() {
         </p>
 
         <p>
-          <strong>Bericht erstellt am:</strong>{" "}
-          {new Date().toLocaleDateString("de-AT")}
-        </p>
+
 
         {renderReportLogo("report-logo-last")}
         </div>
