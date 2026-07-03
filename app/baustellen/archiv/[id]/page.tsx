@@ -887,7 +887,7 @@ export default function ArchivBerichtPage() {
               margin: 0 !important;
               background: transparent !important;
               color: black !important;
-              padding: 22mm 8mm 8mm 8mm !important;
+              padding: 7mm 8mm 8mm 8mm !important;
               overflow-x: hidden !important;
               position: relative !important;
               -webkit-print-color-adjust: exact !important;
@@ -908,7 +908,7 @@ export default function ArchivBerichtPage() {
               height: 297mm !important;
               object-fit: cover !important;
               object-position: center center !important;
-              opacity: 0.24 !important;
+              opacity: 0.34 !important;
               z-index: 0 !important;
               pointer-events: none !important;
             }
@@ -919,11 +919,12 @@ export default function ArchivBerichtPage() {
 
             .print-page-one-logo {
               display: flex !important;
-              position: absolute !important;
-              left: 10mm !important;
-              top: 8mm !important;
+              position: relative !important;
+              left: auto !important;
+              top: auto !important;
               width: 46mm !important;
-              height: 15mm !important;
+              height: 12mm !important;
+              margin: 0 0 3mm 0 !important;
               align-items: flex-start !important;
               justify-content: flex-start !important;
               z-index: 60 !important;
@@ -1832,7 +1833,7 @@ const paperMountainStyle: any = {
   height: "100%",
   objectFit: "cover",
   objectPosition: "center center",
-  opacity: 0.12,
+  opacity: 0.18,
   zIndex: 0,
   pointerEvents: "none",
 };
@@ -1929,7 +1930,7 @@ const styles: any = {
     height: "100%",
     objectFit: "cover",
     objectPosition: "center center",
-    opacity: 0.48,
+    opacity: 0.56,
     zIndex: 1,
     pointerEvents: "none",
   },
