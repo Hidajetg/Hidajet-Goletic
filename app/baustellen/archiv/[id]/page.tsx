@@ -857,8 +857,8 @@ export default function ArchivBerichtPage() {
           }
 
           @page {
-            size: A4 portrait;
-            margin: 0;
+            size: 210mm 297mm !important;
+            margin: 0 !important;
           }
 
           @media print {
@@ -867,15 +867,20 @@ export default function ArchivBerichtPage() {
             }
 
             html,
-            body {
+            body,
+            #__next {
               width: 210mm !important;
               max-width: 210mm !important;
-              min-width: 0 !important;
+              min-width: 210mm !important;
+              height: auto !important;
               min-height: 297mm !important;
               margin: 0 !important;
               padding: 0 !important;
               overflow-x: hidden !important;
+              overflow-y: visible !important;
               background: transparent !important;
+              transform: none !important;
+              zoom: 1 !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
@@ -883,13 +888,18 @@ export default function ArchivBerichtPage() {
             main {
               width: 210mm !important;
               max-width: 210mm !important;
-              min-width: 0 !important;
+              min-width: 210mm !important;
+              height: auto !important;
+              min-height: 297mm !important;
               margin: 0 !important;
               background: transparent !important;
               color: black !important;
               padding: 7mm 8mm 8mm 8mm !important;
               overflow-x: hidden !important;
+              overflow-y: visible !important;
               position: relative !important;
+              transform: none !important;
+              zoom: 1 !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
@@ -897,6 +907,21 @@ export default function ArchivBerichtPage() {
             main > *:not(.print-fixed-page-bg):not(.print-fixed-logo) {
               position: relative !important;
               z-index: 2 !important;
+            }
+
+            section,
+            .print-box,
+            .print-room,
+            table,
+            .photo-grid {
+              max-width: 194mm !important;
+            }
+
+            @supports (-webkit-print-color-adjust: exact) {
+              @page {
+                size: 210mm 297mm !important;
+                margin: 0 !important;
+              }
             }
 
             .print-fixed-page-bg {
@@ -908,7 +933,7 @@ export default function ArchivBerichtPage() {
               height: 297mm !important;
               object-fit: cover !important;
               object-position: center center !important;
-              opacity: 0.34 !important;
+              opacity: 0.42 !important;
               z-index: 0 !important;
               pointer-events: none !important;
             }
