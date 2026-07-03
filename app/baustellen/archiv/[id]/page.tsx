@@ -529,6 +529,15 @@ export default function ArchivBerichtPage() {
     return photos.filter((p: any) => Number(p.room_id) === Number(roomId));
   }
 
+  function roomHasReportContent(roomId: number) {
+    return (
+      getHoursForRoom(roomId).length > 0 ||
+      getProductivityForRoom(roomId).length > 0 ||
+      getMaterialsForRoom(roomId).length > 0 ||
+      getPhotosForRoom(roomId).length > 0
+    );
+  }
+
   function getRegiebericht(row: any) {
     return regieberichte.find(
       (r: any) => Number(r.id) === Number(row.regiebericht_id)
@@ -673,6 +682,7 @@ export default function ArchivBerichtPage() {
           <img
             src={mountainBgUrl}
             alt=""
+            className="paper-mountain-inline"
             style={paperMountainStyle}
             onError={(e) => {
               const img = e.currentTarget as HTMLImageElement;
@@ -681,12 +691,13 @@ export default function ArchivBerichtPage() {
           />
         )}
 
-        <div style={paperOverlayStyle}></div>
+        <div className="paper-overlay-inline" style={paperOverlayStyle}></div>
 
         {useSideStrip && sideImageUrl && (
           <img
             src={sideImageUrl}
             alt=""
+            className="paper-side-strip-inline"
             style={paperSideStripStyle}
             onError={(e) => {
               const img = e.currentTarget as HTMLImageElement;
@@ -695,7 +706,7 @@ export default function ArchivBerichtPage() {
           />
         )}
 
-        <div style={paperBrandBadgeStyle}>
+        <div className="paper-brand-badge-inline" style={paperBrandBadgeStyle}>
           {logoTopUrl ? (
             <>
               <img
@@ -746,6 +757,8 @@ export default function ArchivBerichtPage() {
   ];
 
   const allWorkers = [...new Set(workers)];
+  const hasPrintableRegie = totalRegieHours > 0;
+  const roomsForReport = rooms.filter((room: any) => roomHasReportContent(room.id));
 
   const workDays = [...new Set(hours.map((h: any) => h.datum).filter(Boolean))];
 
@@ -807,28 +820,89 @@ export default function ArchivBerichtPage() {
     <main style={mainStyle}>
       <style>
         {`
-          .print-only {
+          .print-only,
+          .print-fixed-page-bg,
+          .print-fixed-logo {
             display: none;
           }
 
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 0;
           }
 
           @media print {
+            * {
+              box-sizing: border-box !important;
+            }
+
+            html,
             body {
-              background: white !important;
+              width: 210mm !important;
+              max-width: 210mm !important;
+              min-width: 0 !important;
+              min-height: 297mm !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              overflow-x: hidden !important;
+              background: transparent !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
 
             main {
-              background: white !important;
+              width: 210mm !important;
+              max-width: 210mm !important;
+              min-width: 0 !important;
+              margin: 0 !important;
+              background: transparent !important;
               color: black !important;
-              padding: 20px !important;
+              padding: 22mm 8mm 8mm 8mm !important;
+              overflow-x: hidden !important;
+              position: relative !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
+            }
+
+            main > *:not(.print-fixed-page-bg):not(.print-fixed-logo) {
+              position: relative !important;
+              z-index: 2 !important;
+            }
+
+            .print-fixed-page-bg {
+              display: block !important;
+              position: fixed !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 210mm !important;
+              height: 297mm !important;
+              object-fit: cover !important;
+              object-position: center center !important;
+              opacity: 0.24 !important;
+              z-index: 0 !important;
+              pointer-events: none !important;
+            }
+
+            .print-fixed-logo {
+              display: block !important;
+              position: fixed !important;
+              left: 8mm !important;
+              top: 7mm !important;
+              width: 38mm !important;
+              height: auto !important;
+              max-height: 14mm !important;
+              object-fit: contain !important;
+              object-position: left top !important;
+              z-index: 50 !important;
+              background: transparent !important;
+              pointer-events: none !important;
+            }
+
+            .paper-mountain-inline,
+            .paper-overlay-inline,
+            .paper-side-strip-inline,
+            .paper-brand-badge-inline {
+              display: none !important;
             }
 
             .no-print {
@@ -836,21 +910,92 @@ export default function ArchivBerichtPage() {
             }
 
             .print-box {
-              background: white !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              margin: 0 0 5mm 0 !important;
+              padding: 5mm !important;
+              padding-bottom: 5mm !important;
+              background: rgba(255, 255, 255, 0.34) !important;
               color: black !important;
-              border: 1px solid #ddd !important;
-              page-break-inside: avoid;
+              border: 1px solid rgba(120, 120, 120, 0.35) !important;
+              border-radius: 0 !important;
+              page-break-inside: auto !important;
+              break-inside: auto !important;
+              page-break-before: auto !important;
+              break-before: auto !important;
               position: relative !important;
-              overflow: hidden !important;
+              overflow: visible !important;
+              box-shadow: none !important;
             }
 
             .print-room {
-              background: white !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              margin: 0 0 4mm 0 !important;
+              padding: 4mm !important;
+              padding-bottom: 4mm !important;
+              background: rgba(255, 255, 255, 0.26) !important;
               color: black !important;
-              border: 1px solid #ddd !important;
-              page-break-inside: avoid;
+              border: 1px solid rgba(120, 120, 120, 0.35) !important;
+              border-radius: 0 !important;
+              page-break-inside: auto !important;
+              break-inside: auto !important;
               position: relative !important;
-              overflow: hidden !important;
+              overflow: visible !important;
+              box-shadow: none !important;
+            }
+
+            .room-overview-print {
+              page-break-before: auto !important;
+              break-before: auto !important;
+              page-break-inside: auto !important;
+              break-inside: auto !important;
+              padding-top: 4mm !important;
+            }
+
+            h1 {
+              display: none !important;
+            }
+
+            h2 {
+              font-size: 19px !important;
+              margin-top: 0 !important;
+              margin-bottom: 4mm !important;
+              color: #1f2937 !important;
+              break-after: avoid !important;
+              page-break-after: avoid !important;
+            }
+
+            h3 {
+              font-size: 15px !important;
+              margin-top: 4mm !important;
+              margin-bottom: 2mm !important;
+              color: #1f2937 !important;
+              break-after: avoid !important;
+              page-break-after: avoid !important;
+            }
+
+            p {
+              margin-top: 0 !important;
+              margin-bottom: 2.5mm !important;
+            }
+
+            table {
+              page-break-inside: auto !important;
+              break-inside: auto !important;
+              background: rgba(255, 255, 255, 0.42) !important;
+            }
+
+            thead {
+              display: table-header-group !important;
+            }
+
+            tr,
+            .photo-card {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
             }
 
             .photo-grid {
@@ -871,13 +1016,22 @@ export default function ArchivBerichtPage() {
             }
 
             table {
-              font-size: 11px !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              table-layout: fixed !important;
+              font-size: 10px !important;
             }
 
             th, td {
               color: black !important;
               border-color: #ccc !important;
-              padding: 5px !important;
+              padding: 4px !important;
+              word-break: break-word !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            img {
+              max-width: 100% !important;
             }
 
             h1 {
@@ -891,6 +1045,32 @@ export default function ArchivBerichtPage() {
           }
         `}
       </style>
+
+      {mountainBgUrl && (
+        <img
+          src={mountainBgUrl}
+          alt=""
+          className="print-fixed-page-bg"
+          style={printFixedPageBgStyle}
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            img.style.display = "none";
+          }}
+        />
+      )}
+
+      {logoTopUrl && (
+        <img
+          src={logoTopUrl}
+          alt="Stone Boutique"
+          className="print-fixed-logo"
+          style={printFixedLogoStyle}
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            img.style.display = "none";
+          }}
+        />
+      )}
 
       <div style={topBarStyle} className="no-print">
         <Link href="/baustellen/archiv" style={backLinkStyle}>
@@ -976,17 +1156,21 @@ export default function ArchivBerichtPage() {
             {formatNumber(totalHours)} h
           </p>
 
-          <p>
-            <strong>Regiestunden:</strong>
-            <br />
-            {formatNumber(totalRegieHours)} h
-          </p>
+          {hasPrintableRegie && (
+            <>
+              <p>
+                <strong>Regiestunden:</strong>
+                <br />
+                {formatNumber(totalRegieHours)} h
+              </p>
 
-          <p>
-            <strong>Gesamt inkl. Regie:</strong>
-            <br />
-            {formatNumber(totalHours + totalRegieHours)} h
-          </p>
+              <p>
+                <strong>Gesamt inkl. Regie:</strong>
+                <br />
+                {formatNumber(totalHours + totalRegieHours)} h
+              </p>
+            </>
+          )}
         </div>
         </div>
       </section>
@@ -1039,10 +1223,11 @@ export default function ArchivBerichtPage() {
       </section>
 
 
-      <section style={boxStyle} className="print-box">
-        {renderPaperBranding()}
-        <div style={paperContentStyle}>
-          <h2 style={sectionTitleStyle}>Regiestunden</h2>
+      {hasPrintableRegie && (
+        <section style={boxStyle} className="print-box">
+          {renderPaperBranding()}
+          <div style={paperContentStyle}>
+            <h2 style={sectionTitleStyle}>Regiestunden</h2>
 
           <div style={regieSummaryStyle}>
             <p>
@@ -1111,19 +1296,20 @@ export default function ArchivBerichtPage() {
               </table>
             </div>
           )}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
 
-      <section style={boxStyle} className="print-box">
+      <section style={boxStyle} className="print-box room-overview-print">
         {renderPaperBranding()}
         <div style={paperContentStyle}>
           <h2 style={sectionTitleStyle}>Raumübersicht</h2>
 
-        {rooms.length === 0 && (
-          <p style={mutedTextStyle}>Keine Räume vorhanden.</p>
+        {roomsForReport.length === 0 && (
+          <p style={mutedTextStyle}>Keine Räume mit Berichtsdaten vorhanden.</p>
         )}
 
-        {rooms.map((room: any) => {
+        {roomsForReport.map((room: any) => {
           const roomHours = getHoursForRoom(room.id);
           const roomProd = getProductivityForRoom(room.id);
           const roomMat = getMaterialsForRoom(room.id);
@@ -1304,14 +1490,18 @@ export default function ArchivBerichtPage() {
           <strong>Arbeitsstunden:</strong> {formatNumber(totalHours)} h
         </p>
 
-        <p>
-          <strong>Regiestunden:</strong> {formatNumber(totalRegieHours)} h
-        </p>
+        {hasPrintableRegie && (
+          <>
+            <p>
+              <strong>Regiestunden:</strong> {formatNumber(totalRegieHours)} h
+            </p>
 
-        <p>
-          <strong>Gesamtstunden inkl. Regie:</strong>{" "}
-          {formatNumber(totalHours + totalRegieHours)} h
-        </p>
+            <p>
+              <strong>Gesamtstunden inkl. Regie:</strong>{" "}
+              {formatNumber(totalHours + totalRegieHours)} h
+            </p>
+          </>
+        )}
 
         <p>
           <strong>Anzahl Mitarbeiter:</strong> {allWorkers.length}
@@ -1559,6 +1749,14 @@ const photoRoomStyle: any = {
   marginBottom: "6px",
 };
 
+const printFixedPageBgStyle: any = {
+  display: "none",
+};
+
+const printFixedLogoStyle: any = {
+  display: "none",
+};
+
 const paperContentStyle: any = {
   position: "relative",
   zIndex: 3,
@@ -1600,14 +1798,14 @@ const paperSideStripStyle: any = {
 
 const paperBrandBadgeStyle: any = {
   position: "absolute",
-  top: "16px",
-  right: "18px",
+  top: "14px",
+  left: "18px",
   zIndex: 4,
-  background: "rgba(255,255,255,0.86)",
-  border: "1px solid rgba(249,115,22,0.28)",
-  borderRadius: "14px",
-  padding: "6px 9px",
-  boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+  background: "transparent",
+  border: "none",
+  borderRadius: 0,
+  padding: 0,
+  boxShadow: "none",
 };
 
 const paperBrandLogoStyle: any = {
