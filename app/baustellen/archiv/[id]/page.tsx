@@ -737,6 +737,34 @@ export default function ArchivBerichtPage() {
     );
   }
 
+  function renderReportLogo(className = "") {
+    return (
+      <div className={`report-logo-wrap ${className}`}>
+        {logoTopUrl && (
+          <img
+            src={logoTopUrl}
+            alt=""
+            className="report-logo-img"
+            onError={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              img.style.display = "none";
+              const fallback = img.nextElementSibling as HTMLElement | null;
+              if (fallback) fallback.style.display = "block";
+            }}
+          />
+        )}
+
+        <div
+          className="report-logo-fallback"
+          style={{ display: logoTopUrl ? "none" : "block" }}
+        >
+          <div className="report-logo-fallback-orange">STONE BOUTIQUE</div>
+          <div className="report-logo-fallback-small">Nocker & Bernardi GmbH</div>
+        </div>
+      </div>
+    );
+  }
+
   const totalHours = hours.reduce(
     (sum, h) => sum + Number(h.ukupno_sati || h.sati || 0),
     0
@@ -822,7 +850,9 @@ export default function ArchivBerichtPage() {
         {`
           .print-only,
           .print-fixed-page-bg,
-          .print-fixed-logo {
+          .print-fixed-logo,
+          .print-page-one-logo,
+          .report-logo-wrap {
             display: none;
           }
 
@@ -884,18 +914,63 @@ export default function ArchivBerichtPage() {
             }
 
             .print-fixed-logo {
-              display: block !important;
-              position: fixed !important;
-              left: 8mm !important;
-              top: 7mm !important;
-              width: 38mm !important;
-              height: auto !important;
-              max-height: 14mm !important;
-              object-fit: contain !important;
-              object-position: left top !important;
-              z-index: 50 !important;
-              background: transparent !important;
+              display: none !important;
+            }
+
+            .print-page-one-logo {
+              display: flex !important;
+              position: absolute !important;
+              left: 10mm !important;
+              top: 8mm !important;
+              width: 46mm !important;
+              height: 15mm !important;
+              align-items: flex-start !important;
+              justify-content: flex-start !important;
+              z-index: 60 !important;
               pointer-events: none !important;
+            }
+
+            .report-logo-last {
+              display: flex !important;
+              justify-content: flex-end !important;
+              align-items: center !important;
+              margin-top: 8mm !important;
+              width: 100% !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+
+            .report-logo-img {
+              display: block !important;
+              width: 42mm !important;
+              max-width: 42mm !important;
+              height: auto !important;
+              max-height: 16mm !important;
+              object-fit: contain !important;
+              object-position: left center !important;
+              background: transparent !important;
+            }
+
+            .report-logo-fallback {
+              min-width: 40mm !important;
+              border-left: 1.4mm solid #f97316 !important;
+              padding-left: 3mm !important;
+              line-height: 1.05 !important;
+              background: transparent !important;
+            }
+
+            .report-logo-fallback-orange {
+              color: #f97316 !important;
+              font-weight: 900 !important;
+              font-size: 12px !important;
+              letter-spacing: 0.8px !important;
+            }
+
+            .report-logo-fallback-small {
+              color: #111 !important;
+              font-weight: 700 !important;
+              font-size: 8px !important;
+              margin-top: 3px !important;
             }
 
             .paper-mountain-inline,
@@ -1046,6 +1121,8 @@ export default function ArchivBerichtPage() {
         `}
       </style>
 
+      {renderReportLogo("print-page-one-logo")}
+
       {mountainBgUrl && (
         <img
           src={mountainBgUrl}
@@ -1059,18 +1136,6 @@ export default function ArchivBerichtPage() {
         />
       )}
 
-      {logoTopUrl && (
-        <img
-          src={logoTopUrl}
-          alt="Stone Boutique"
-          className="print-fixed-logo"
-          style={printFixedLogoStyle}
-          onError={(e) => {
-            const img = e.currentTarget as HTMLImageElement;
-            img.style.display = "none";
-          }}
-        />
-      )}
 
       <div style={topBarStyle} className="no-print">
         <Link href="/baustellen/archiv" style={backLinkStyle}>
@@ -1523,6 +1588,8 @@ export default function ArchivBerichtPage() {
           <strong>Bericht erstellt am:</strong>{" "}
           {new Date().toLocaleDateString("de-AT")}
         </p>
+
+        {renderReportLogo("report-logo-last")}
         </div>
       </section>
 
@@ -1750,10 +1817,6 @@ const photoRoomStyle: any = {
 };
 
 const printFixedPageBgStyle: any = {
-  display: "none",
-};
-
-const printFixedLogoStyle: any = {
   display: "none",
 };
 
