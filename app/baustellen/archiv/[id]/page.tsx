@@ -1610,9 +1610,6 @@ export default function ArchivBerichtPage() {
           <strong>Anzahl Fotos:</strong> {photos.length}
         </p>
 
-        <p>
-
-
         {renderReportLogo("report-logo-last")}
         </div>
       </section>
