@@ -29,21 +29,50 @@ const DEFAULT_GROUP_ORDER = [
   "Slobodni materijal",
 ];
 
+const GROUP_LABELS_DE: Record<string, string> = {
+  Keramika: "Fliesen",
+  "Priprema podloge": "Untergrundvorbereitung",
+  Estrich: "Estrich",
+  Hidroizolacija: "Abdichtung",
+  Ljepilo: "Kleber",
+  Schienen: "Schienen",
+  Fuge: "Fugen",
+  Silikoni: "Silikone",
+  Terase: "Terrassen",
+  Dodaci: "Zubehör",
+  "Slobodni materijal": "Freies Material",
+};
+
+const UNIT_LABELS_DE: Record<string, string> = {
+  kom: "Stk.",
+  vreća: "Sack",
+  vreca: "Sack",
+  rola: "Rolle",
+  paket: "Paket",
+  karton: "Karton",
+  set: "Set",
+  l: "l",
+  kg: "kg",
+  m: "m",
+  "m²": "m²",
+  "m2": "m²",
+  "m³": "m³",
+  "m3": "m³",
+  "-": "-",
+};
+
 const UNIT_OPTIONS = [
-  "kom",
+  "Stk.",
   "m",
   "m²",
   "m³",
   "kg",
   "l",
-  "vreća",
-  "rola",
-  "paket",
-  "karton",
-  "set",
-  "Stk.",
   "Sack",
+  "Rolle",
+  "Paket",
   "Karton",
+  "Set",
   "-",
 ];
 
@@ -79,20 +108,31 @@ function normalizeKey(value: any) {
   return cleanText(value).toLowerCase().replace(/\s+/g, " ");
 }
 
+function displayGroupName(value: any) {
+  const name = cleanText(value);
+  return GROUP_LABELS_DE[name] || name || "Gruppe";
+}
+
+function displayUnit(value: any) {
+  const unit = cleanText(value);
+  if (!unit) return "-";
+  return UNIT_LABELS_DE[unit] || UNIT_LABELS_DE[unit.toLowerCase()] || unit;
+}
+
 function getGroupIcon(name: string) {
   const n = cleanText(name).toLowerCase();
 
-  if (n.includes("keramika")) return "▧";
-  if (n.includes("priprema")) return "🧹";
+  if (n.includes("keramika") || n.includes("fliesen")) return "▧";
+  if (n.includes("priprema") || n.includes("untergrund")) return "🧹";
   if (n.includes("estrich")) return "⬜";
-  if (n.includes("hidro")) return "💧";
-  if (n.includes("ljepilo")) return "🪣";
+  if (n.includes("hidro") || n.includes("abdichtung")) return "💧";
+  if (n.includes("ljepilo") || n.includes("kleber")) return "🪣";
   if (n.includes("schienen")) return "📏";
-  if (n.includes("fuge")) return "▦";
-  if (n.includes("silikoni")) return "〰️";
-  if (n.includes("terase")) return "🏗️";
-  if (n.includes("dodaci")) return "+";
-  if (n.includes("slobodni")) return "📦";
+  if (n.includes("fuge") || n.includes("fugen")) return "▦";
+  if (n.includes("silikoni") || n.includes("silikone") || n.includes("silikon")) return "〰️";
+  if (n.includes("terase") || n.includes("terrassen")) return "🏗️";
+  if (n.includes("dodaci") || n.includes("zubehör")) return "+";
+  if (n.includes("slobodni") || n.includes("freies")) return "📦";
 
   return "📦";
 }
@@ -203,13 +243,26 @@ function getMaterialNameFromCatalog(material: any) {
       material?.bezeichnung ||
       material?.title ||
       material?.produkt ||
-      material?.product
+      material?.product ||
+      material?.artikel ||
+      material?.artikel_name ||
+      material?.material_naziv ||
+      material?.material_title ||
+      material?.beschreibung ||
+      material?.description
   );
 }
 
 function getMaterialUnitFromCatalog(material: any) {
   return cleanText(
-    material?.jedinica || material?.unit || material?.einheit || material?.me || material?.unit_name || "-"
+    material?.jedinica ||
+      material?.unit ||
+      material?.einheit ||
+      material?.me ||
+      material?.unit_name ||
+      material?.jedinica_mjere ||
+      material?.unit_label ||
+      "-"
   );
 }
 
@@ -236,7 +289,7 @@ function getMaterialSignature(material: any) {
 }
 
 function getGroupName(group: any) {
-  return cleanText(group?.naziv || group?.name || group?.title || "Grupa");
+  return cleanText(group?.naziv || group?.name || group?.title || "Gruppe");
 }
 
 
@@ -244,10 +297,25 @@ function getBaustelleIdFromMaterialRow(row: any) {
   return Number(
     row?.baustelle_id ??
       row?.baustellen_id ??
+      row?.baustelleId ??
       row?.projekt_id ??
       row?.project_id ??
       row?.projectId ??
+      row?.projektId ??
       0
+  );
+}
+
+function getBaustelleNameFromMaterialRow(row: any) {
+  return cleanText(
+    row?.baustelle_name ||
+      row?.baustelle ||
+      row?.projekt_name ||
+      row?.projekt ||
+      row?.project_name ||
+      row?.project ||
+      row?.building_site_name ||
+      ""
   );
 }
 
@@ -271,8 +339,12 @@ function mergeBaustelleRows(existing: any[], incoming: any[], source: string) {
   return Array.from(map.values());
 }
 
-function getBaustelleName(baustelle: any) {
-  if (!baustelle) return "Baustelle nije pronađena";
+function getBaustelleName(baustelle: any, fallbackId?: any, fallbackName?: string) {
+  if (!baustelle) {
+    if (fallbackName) return fallbackName;
+    if (fallbackId) return `Baustelle ID ${fallbackId}`;
+    return "Baustelle nicht gefunden";
+  }
 
   const name = cleanText(
     baustelle.name ||
@@ -299,7 +371,7 @@ function getBaustelleName(baustelle: any) {
 }
 
 function getBaustelleStatus(baustelle: any) {
-  if (!baustelle) return "Nepoznato";
+  if (!baustelle) return "Unbekannt";
 
   const raw = cleanText(
     baustelle?.status ||
@@ -318,7 +390,7 @@ function getBaustelleStatus(baustelle: any) {
     raw.includes("fertig") ||
     raw.includes("abgeschlossen");
 
-  return archived ? "Arhiv" : "Aktivno";
+  return archived ? "Archiv" : "Aktiv";
 }
 
 export default function AdminMaterialPage() {
@@ -356,6 +428,12 @@ export default function AdminMaterialPage() {
     loadData();
   }, []);
 
+  async function loadOptionalBaustellen(tableName: string, ids: number[]) {
+    const res = await supabase.from(tableName).select("*").in("id", ids);
+    if (res.error) return [];
+    return res.data || [];
+  }
+
   async function loadData() {
     setLoading(true);
 
@@ -365,7 +443,7 @@ export default function AdminMaterialPage() {
       .order("sort_order", { ascending: true });
 
     if (groupsRes.error) {
-      alert("Greška kod učitavanja grupa materijala: " + groupsRes.error.message);
+      alert("Fehler beim Laden der Materialgruppen: " + groupsRes.error.message);
       setLoading(false);
       return;
     }
@@ -376,7 +454,7 @@ export default function AdminMaterialPage() {
       .order("naziv", { ascending: true });
 
     if (materialsRes.error) {
-      alert("Greška kod učitavanja materijala: " + materialsRes.error.message);
+      alert("Fehler beim Laden der Materialien: " + materialsRes.error.message);
       setLoading(false);
       return;
     }
@@ -392,7 +470,7 @@ export default function AdminMaterialPage() {
       .order("id", { ascending: false });
 
     if (usedRes.error) {
-      alert("Greška kod učitavanja utrošenog materijala: " + usedRes.error.message);
+      alert("Fehler beim Laden des Materialverbrauchs: " + usedRes.error.message);
       setLoading(false);
       return;
     }
@@ -404,36 +482,19 @@ export default function AdminMaterialPage() {
     let baustellenData: any[] = [];
 
     if (baustelleIds.length > 0) {
-      const baustellenRes = await supabase
-        .from("baustellen")
-        .select("*")
-        .in("id", baustelleIds);
+      const lookupTables = [
+        "baustellen",
+        "projekte",
+        "archiv",
+        "archiv_baustellen",
+        "baustellen_archiv",
+      ];
 
-      if (!baustellenRes.error) {
-        baustellenData = mergeBaustelleRows(baustellenData, baustellenRes.data || [], "baustellen");
-      }
-
-      const projekteRes = await supabase
-        .from("projekte")
-        .select("*")
-        .in("id", baustelleIds);
-
-      if (!projekteRes.error) {
-        baustellenData = mergeBaustelleRows(baustellenData, projekteRes.data || [], "projekte");
-      }
-
-      if (baustellenData.length === 0 && baustellenRes.error && projekteRes.error) {
-        alert(
-          "Greška kod učitavanja Baustella/Projekata: " +
-            baustellenRes.error.message +
-            " / " +
-            projekteRes.error.message
-        );
-        setLoading(false);
-        return;
+      for (const tableName of lookupTables) {
+        const rows = await loadOptionalBaustellen(tableName, baustelleIds);
+        baustellenData = mergeBaustelleRows(baustellenData, rows, tableName);
       }
     }
-
     const sortedGroups = sortGroups(groupsRes.data || []);
 
     setGroups(sortedGroups);
@@ -449,14 +510,24 @@ export default function AdminMaterialPage() {
     setLoading(false);
   }
 
+  function materialMatchesId(material: any, id: any) {
+    const numericId = Number(id);
+    return [
+      material?.id,
+      material?.material_id,
+      material?.materialId,
+      material?.catalog_id,
+      material?.material_catalog_id,
+      material?.artikel_id,
+    ].some((value) => Number(value) === numericId);
+  }
+
   function getMaterialById(id: any) {
     if (!id) return null;
 
-    const numericId = Number(id);
-
     return (
-      materials.find((m: any) => Number(m.id) === numericId) ||
-      materialCatalog.find((m: any) => Number(m.id) === numericId) ||
+      materials.find((m: any) => materialMatchesId(m, id)) ||
+      materialCatalog.find((m: any) => materialMatchesId(m, id)) ||
       null
     );
   }
@@ -474,7 +545,19 @@ export default function AdminMaterialPage() {
     if (customName) return customName;
 
     const savedName = cleanText(
-      row?.materijal || row?.material || row?.material_name || row?.naziv || row?.name
+      row?.materijal ||
+        row?.material ||
+        row?.material_name ||
+        row?.material_naziv ||
+        row?.naziv ||
+        row?.name ||
+        row?.bezeichnung ||
+        row?.artikel ||
+        row?.artikel_name ||
+        row?.produkt ||
+        row?.product ||
+        row?.description ||
+        row?.beschreibung
     );
     if (savedName) return savedName;
 
@@ -483,9 +566,9 @@ export default function AdminMaterialPage() {
     const catalogName = getMaterialNameFromCatalog(catalog);
 
     if (catalogName) return catalogName;
-    if (materialId) return `Materijal ID ${materialId}`;
+    if (materialId) return `Material ID ${materialId}`;
 
-    return "Materijal";
+    return "Material";
   }
 
   function getUnitFromUsedMaterial(row: any) {
@@ -501,13 +584,23 @@ export default function AdminMaterialPage() {
   }
 
   function getGroupFromUsedMaterial(row: any) {
+    const directGroupName = cleanText(row?.group_name || row?.gruppe || row?.grupa || row?.category || row?.kategorija);
+    if (directGroupName) return directGroupName;
+
+    const directGroupId = Number(
+      row?.group_id ?? row?.gruppe_id ?? row?.material_group_id ?? row?.material_gruppe_id ?? row?.category_id ?? 0
+    );
+    const directGroup = directGroupId ? getGroupById(directGroupId) : null;
+    const directGroupLabel = getGroupName(directGroup);
+    if (directGroupLabel && directGroupLabel !== "Gruppe") return directGroupLabel;
+
     const materialId = getUsedMaterialId(row);
     const catalog = materialId ? getMaterialById(materialId) : null;
     const groupId = getMaterialGroupId(catalog);
     const group = groupId ? getGroupById(groupId) : null;
     const groupName = getGroupName(group);
 
-    if (groupName && groupName !== "Grupa") return groupName;
+    if (groupName && groupName !== "Gruppe") return groupName;
 
     const name = getNameFromUsedMaterial(row).toLowerCase();
 
@@ -551,6 +644,7 @@ export default function AdminMaterialPage() {
 
       const baustelleId = getBaustelleIdFromMaterialRow(row);
       const baustelle = getBaustelleById(baustelleId);
+      const baustelleNameFromRow = getBaustelleNameFromMaterialRow(row);
       const item = map.get(key);
 
       item.total += quantity;
@@ -560,7 +654,7 @@ export default function AdminMaterialPage() {
       item.details.push({
         id: row.id,
         baustelleId,
-        baustelleName: getBaustelleName(baustelle),
+        baustelleName: getBaustelleName(baustelle, baustelleId, baustelleNameFromRow),
         baustelleStatus: getBaustelleStatus(baustelle),
         quantity,
         unit,
@@ -589,7 +683,7 @@ export default function AdminMaterialPage() {
     if (!term) return materialOverview;
 
     return materialOverview.filter((item: any) => {
-      const haystack = `${item.groupName} ${item.name} ${item.unit} ${item.details
+      const haystack = `${item.groupName} ${displayGroupName(item.groupName)} ${item.name} ${item.unit} ${displayUnit(item.unit)} ${item.details
         .map((d: any) => d.baustelleName)
         .join(" ")}`.toLowerCase();
 
@@ -647,12 +741,12 @@ export default function AdminMaterialPage() {
     const groupId = Number(newMaterialGroupId);
 
     if (!name) {
-      alert("Upiši naziv materijala.");
+      alert("Materialname eingeben.");
       return;
     }
 
     if (!groupId) {
-      alert("Odaberi grupu materijala.");
+      alert("Materialgruppe auswählen.");
       return;
     }
 
@@ -677,7 +771,7 @@ export default function AdminMaterialPage() {
         await loadData();
         setTab("add");
         setSaving(false);
-        alert("Materijal je dodan.");
+        alert("Material wurde hinzugefügt.");
         return;
       }
 
@@ -685,13 +779,13 @@ export default function AdminMaterialPage() {
     }
 
     setSaving(false);
-    alert("Materijal nije dodan: " + (lastError?.message || "Nepoznata greška"));
+    alert("Material wurde nicht hinzugefügt: " + (lastError?.message || "Unbekannter Fehler"));
   }
 
   if (!accessChecked || loading) {
     return (
       <main style={pageStyle}>
-        <div style={cardStyle}>Učitavanje...</div>
+        <div style={cardStyle}>Wird geladen...</div>
       </main>
     );
   }
@@ -701,9 +795,9 @@ export default function AdminMaterialPage() {
       <main style={pageStyle}>
         <div style={cardStyle}>
           <h1 style={titleStyle}>Material</h1>
-          <p style={textStyle}>Ova stranica je dostupna samo adminu.</p>
+          <p style={textStyle}>Diese Seite ist nur für Admins verfügbar.</p>
           <Link href="/dashboard" style={backButtonStyle}>
-            Nazad
+            Zurück
           </Link>
         </div>
       </main>
@@ -717,12 +811,12 @@ export default function AdminMaterialPage() {
           <p style={eyebrowStyle}>Admin</p>
           <h1 style={mainTitleStyle}>Material</h1>
           <p style={subTextStyle}>
-            Grupe materijala, dodavanje novog materijala i pregled ukupne potrošnje sa aktivnih i arhiviranih Baustella.
+            Materialgruppen, neues Material hinzufügen und Gesamtverbrauch aller aktiven und archivierten Baustellen anzeigen.
           </p>
         </div>
 
         <Link href="/dashboard" style={backButtonStyle}>
-          Nazad
+          Zurück
         </Link>
       </div>
 
@@ -732,7 +826,7 @@ export default function AdminMaterialPage() {
           onClick={() => setTab("overview")}
           style={tab === "overview" ? activeTabButtonStyle : tabButtonStyle}
         >
-          Pregled utrošenog materijala
+          Materialverbrauch
         </button>
 
         <button
@@ -740,7 +834,7 @@ export default function AdminMaterialPage() {
           onClick={() => setTab("add")}
           style={tab === "add" ? activeTabButtonStyle : tabButtonStyle}
         >
-          Dodaj novi materijal
+          Neues Material hinzufügen
         </button>
       </div>
 
@@ -748,60 +842,60 @@ export default function AdminMaterialPage() {
         <section style={cardStyle}>
           <div style={overviewHeadStyle}>
             <div>
-              <h2 style={titleStyle}>Ukupno utrošeno materijala</h2>
+              <h2 style={titleStyle}>Gesamter Materialverbrauch</h2>
               <p style={mutedStyle}>
-                Sabira tabelu <b>baustelle_material</b> iz svih Baustella/Projekata i nazive čita iz <b>materials</b> + <b>material_catalog</b>.
+                Summiert <b>baustelle_material</b> aus allen Baustellen/Projekten und liest Namen aus <b>materials</b> + <b>material_catalog</b>.
               </p>
             </div>
 
             <button type="button" onClick={loadData} style={refreshButtonStyle}>
-              Osvježi
+              Aktualisieren
             </button>
           </div>
 
           <div style={statsGridStyle}>
             <div style={statBoxStyle}>
               <span style={statNumberStyle}>{totalDifferentMaterials}</span>
-              <span style={statTextStyle}>različitih materijala</span>
+              <span style={statTextStyle}>verschiedene Materialien</span>
             </div>
             <div style={statBoxStyle}>
               <span style={statNumberStyle}>{totalUsedEntries}</span>
-              <span style={statTextStyle}>unosa potrošnje</span>
+              <span style={statTextStyle}>Verbrauchseinträge</span>
             </div>
             <div style={statBoxStyle}>
               <span style={statNumberStyle}>{totalBaustellen}</span>
-              <span style={statTextStyle}>Baustella</span>
+              <span style={statTextStyle}>Baustellen</span>
             </div>
           </div>
 
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Pretraga materijala ili Baustelle..."
+            placeholder="Material oder Baustelle suchen..."
             style={searchInputStyle}
           />
 
           {filteredOverview.length === 0 ? (
-            <p style={mutedBoxStyle}>Još nema potrošnje materijala ili nema rezultata za pretragu.</p>
+            <p style={mutedBoxStyle}>Noch kein Materialverbrauch vorhanden oder keine Treffer für die Suche.</p>
           ) : (
             <div style={groupSectionsStyle}>
               {overviewByGroup.map((group: any) => (
                 <div key={group.groupName} style={groupOverviewStyle}>
                   <h3 style={groupHeaderStyle}>
                     <span>{getGroupIcon(group.groupName)}</span>
-                    <span>{group.groupName}</span>
-                    <small style={groupSmallStyle}>{group.items.length} materijala</small>
+                    <span>{displayGroupName(group.groupName)}</span>
+                    <small style={groupSmallStyle}>{group.items.length} Materialien</small>
                   </h3>
 
                   <div style={tableWrapStyle}>
                     <table style={tableStyle}>
                       <thead>
                         <tr>
-                          <th style={thStyle}>Materijal</th>
-                          <th style={thStyle}>Ukupno</th>
-                          <th style={thStyle}>Jedinica</th>
+                          <th style={thStyle}>Material</th>
+                          <th style={thStyle}>Gesamt</th>
+                          <th style={thStyle}>Einheit</th>
                           <th style={thStyle}>Baustelle</th>
-                          <th style={thStyle}>Detalji</th>
+                          <th style={thStyle}>Details</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -809,11 +903,11 @@ export default function AdminMaterialPage() {
                           <tr key={`${m.groupName}-${m.name}-${m.unit}`}>
                             <td style={tdStrongStyle}>{m.name}</td>
                             <td style={tdStrongStyle}>{formatNumber(m.total)}</td>
-                            <td style={tdStyle}>{m.unit}</td>
+                            <td style={tdStyle}>{displayUnit(m.unit)}</td>
                             <td style={tdStyle}>{m.baustelleCount}</td>
                             <td style={tdStyle}>
                               <details>
-                                <summary style={summaryStyle}>Prikaži gdje je trošeno</summary>
+                                <summary style={summaryStyle}>Anzeigen, wo verbraucht</summary>
                                 <div style={detailsBoxStyle}>
                                   {m.details.map((d: any) => (
                                     <div key={d.id} style={detailRowStyle}>
@@ -823,7 +917,7 @@ export default function AdminMaterialPage() {
                                       </div>
                                       <span style={statusBadgeStyle}>{d.baustelleStatus}</span>
                                       <b>
-                                        {formatNumber(d.quantity)} {d.unit}
+                                        {formatNumber(d.quantity)} {displayUnit(d.unit)}
                                       </b>
                                     </div>
                                   ))}
@@ -844,40 +938,40 @@ export default function AdminMaterialPage() {
 
       {tab === "add" && (
         <section style={cardStyle}>
-          <h2 style={titleStyle}>Dodaj novi materijal u katalog</h2>
+          <h2 style={titleStyle}>Neues Material zum Katalog hinzufügen</h2>
           <p style={mutedStyle}>
-            Novi materijal se dodaje u postojeće grupe i poslije se vidi u Baustelle materijalu.
+            Neues Material wird einer bestehenden Gruppe zugeordnet und ist danach im Baustellen-Material sichtbar.
           </p>
 
           <div style={formGridStyle}>
             <label style={labelStyle}>
-              Grupa materijala
+              Materialgruppe
               <select
                 value={newMaterialGroupId}
                 onChange={(e) => setNewMaterialGroupId(e.target.value)}
                 style={inputStyle}
               >
-                <option value="">Odaberi grupu</option>
+                <option value="">Gruppe auswählen</option>
                 {groups.map((g: any) => (
                   <option key={g.id} value={String(g.id)}>
-                    {getGroupName(g)}
+                    {displayGroupName(getGroupName(g))}
                   </option>
                 ))}
               </select>
             </label>
 
             <label style={labelStyle}>
-              Naziv materijala
+              Materialname
               <input
                 value={newMaterialName}
                 onChange={(e) => setNewMaterialName(e.target.value)}
-                placeholder="npr. Flexkleber, Silikon, Grundierung..."
+                placeholder="z. B. Flexkleber, Silikon, Grundierung..."
                 style={inputStyle}
               />
             </label>
 
             <label style={labelStyle}>
-              Jedinica
+              Einheit
               <select
                 value={newMaterialUnit}
                 onChange={(e) => setNewMaterialUnit(e.target.value)}
@@ -885,47 +979,47 @@ export default function AdminMaterialPage() {
               >
                 {UNIT_OPTIONS.map((u) => (
                   <option key={u} value={u}>
-                    {u}
+                    {displayUnit(u)}
                   </option>
                 ))}
               </select>
             </label>
 
             <label style={{ ...labelStyle, gridColumn: "1 / -1" }}>
-              Napomena / opis nije obavezno
+              Notiz / Beschreibung optional
               <textarea
                 value={newMaterialNote}
                 onChange={(e) => setNewMaterialNote(e.target.value)}
-                placeholder="Opcionalno..."
+                placeholder="Optional..."
                 style={{ ...inputStyle, minHeight: 90, resize: "vertical" }}
               />
             </label>
           </div>
 
           <button type="button" onClick={addMaterial} disabled={saving} style={saveButtonStyle}>
-            {saving ? "Spremam..." : "Spremi materijal"}
+            {saving ? "Speichern..." : "Material speichern"}
           </button>
 
-          <h3 style={smallTitleStyle}>Postojeći materijali po grupama</h3>
+          <h3 style={smallTitleStyle}>Vorhandene Materialien nach Gruppen</h3>
 
           {materials.length === 0 ? (
-            <p style={mutedBoxStyle}>Nema dodanih materijala.</p>
+            <p style={mutedBoxStyle}>Keine Materialien vorhanden.</p>
           ) : (
             <div style={catalogGridStyle}>
               {materialsByGroup.map((block: any) => (
                 <div key={block.group.id} style={catalogGroupStyle}>
                   <h4 style={catalogGroupTitleStyle}>
-                    {getGroupIcon(getGroupName(block.group))} {getGroupName(block.group)}
+                    {getGroupIcon(getGroupName(block.group))} {displayGroupName(getGroupName(block.group))}
                   </h4>
 
                   {block.items.length === 0 ? (
-                    <p style={mutedStyle}>Nema materijala u ovoj grupi.</p>
+                    <p style={mutedStyle}>Keine Materialien in dieser Gruppe.</p>
                   ) : (
                     <div style={catalogListStyle}>
                       {block.items.map((m: any) => (
                         <div key={m.id} style={catalogItemStyle}>
                           <b>{getMaterialNameFromCatalog(m) || "-"}</b>
-                          <span>{getMaterialUnitFromCatalog(m)}</span>
+                          <span>{displayUnit(getMaterialUnitFromCatalog(m))}</span>
                         </div>
                       ))}
                     </div>
