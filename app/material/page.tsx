@@ -234,23 +234,74 @@ function isAdminUser(user: any) {
   );
 }
 
+function looksLikeRealName(value: any) {
+  const text = cleanText(value);
+  if (!text) return false;
+  if (text.length < 2) return false;
+  if (/^\d+$/.test(text)) return false;
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return false;
+  if (/^true$/i.test(text) || /^false$/i.test(text) || /^null$/i.test(text)) return false;
+  if (["kg", "l", "m", "m²", "m2", "m³", "m3", "stk", "stk.", "kom", "sack", "vreća", "vreca", "-"]
+      .includes(text.toLowerCase())) return false;
+  return true;
+}
+
+function firstRealTextFromObject(obj: any, blockedKeys: string[] = []) {
+  if (!obj || typeof obj !== "object") return "";
+
+  const blocked = new Set(blockedKeys.map((k) => k.toLowerCase()));
+
+  for (const [key, value] of Object.entries(obj)) {
+    const k = key.toLowerCase();
+    if (blocked.has(k)) continue;
+    if (k.includes("id")) continue;
+    if (k.includes("created") || k.includes("updated") || k.includes("date") || k.includes("datum")) continue;
+    if (k.includes("unit") || k.includes("einheit") || k.includes("jedinica")) continue;
+    if (k.includes("status") || k.includes("active")) continue;
+    if (looksLikeRealName(value)) return cleanText(value);
+  }
+
+  return "";
+}
+
 function getMaterialNameFromCatalog(material: any) {
-  return cleanText(
+  const direct = cleanText(
     material?.naziv ||
       material?.name ||
+      material?.title ||
+      material?.bezeichnung ||
+      material?.bezeichnung_de ||
+      material?.name_de ||
+      material?.naziv_de ||
       material?.material ||
       material?.material_name ||
-      material?.bezeichnung ||
-      material?.title ||
-      material?.produkt ||
-      material?.product ||
-      material?.artikel ||
-      material?.artikel_name ||
+      material?.materialname ||
       material?.material_naziv ||
       material?.material_title ||
+      material?.produkt ||
+      material?.product ||
+      material?.produkt_name ||
+      material?.product_name ||
+      material?.artikel ||
+      material?.artikel_name ||
+      material?.artikelbezeichnung ||
+      material?.description ||
       material?.beschreibung ||
-      material?.description
+      material?.label ||
+      material?.text
   );
+
+  if (looksLikeRealName(direct)) return direct;
+
+  return firstRealTextFromObject(material, [
+    "unit",
+    "einheit",
+    "jedinica",
+    "group_id",
+    "gruppe_id",
+    "material_group_id",
+    "category_id",
+  ]);
 }
 
 function getMaterialUnitFromCatalog(material: any) {
@@ -307,32 +358,43 @@ function getBaustelleIdFromMaterialRow(row: any) {
 }
 
 function getBaustelleNameFromMaterialRow(row: any) {
-  return cleanText(
+  const direct = cleanText(
     row?.baustelle_name ||
+      row?.baustellen_name ||
+      row?.baustelle_naziv ||
       row?.baustelle ||
       row?.projekt_name ||
+      row?.projekt_naziv ||
       row?.projekt ||
       row?.project_name ||
       row?.project ||
       row?.building_site_name ||
+      row?.objekt ||
+      row?.object_name ||
       ""
   );
+
+  if (direct) return direct;
+
+  const nested = row?.baustellen || row?.baustelle_data || row?.projekt_data || row?.projekte;
+  return getBaustelleName(nested, undefined, "");
 }
 
 function mergeBaustelleRows(existing: any[], incoming: any[], source: string) {
-  const map = new Map<number, any>();
+  const map = new Map<string, any>();
 
   for (const row of existing) {
     const id = Number(row?.id ?? row?.__lookupId ?? 0);
-    if (id) map.set(id, row);
+    if (id) map.set(`${row?.__source || "table"}:${id}`, row);
   }
 
   for (const row of incoming || []) {
     const id = Number(row?.id ?? 0);
     if (!id) continue;
 
-    if (!map.has(id)) {
-      map.set(id, { ...row, __lookupId: id, __source: source });
+    const key = `${source}:${id}`;
+    if (!map.has(key)) {
+      map.set(key, { ...row, __lookupId: id, __source: source });
     }
   }
 
@@ -429,9 +491,15 @@ export default function AdminMaterialPage() {
   }, []);
 
   async function loadOptionalBaustellen(tableName: string, ids: number[]) {
-    const res = await supabase.from(tableName).select("*").in("id", ids);
-    if (res.error) return [];
-    return res.data || [];
+    // Prvo pokušava direktno preko id. Ako tabela koristi projekt_id/original_id,
+    // dodatno učitamo sve redove, pa se kasnije u getBaustelleById traži po više ID polja.
+    const byId = await supabase.from(tableName).select("*").in("id", ids);
+    const rowsById = byId.error ? [] : byId.data || [];
+
+    const allRows = await supabase.from(tableName).select("*").limit(5000);
+    const rowsAll = allRows.error ? [] : allRows.data || [];
+
+    return [...rowsById, ...rowsAll];
   }
 
   async function loadData() {
@@ -488,6 +556,9 @@ export default function AdminMaterialPage() {
         "archiv",
         "archiv_baustellen",
         "baustellen_archiv",
+        "projekt_archiv",
+        "projekte_archiv",
+        "archiv_projekte",
       ];
 
       for (const tableName of lookupTables) {
@@ -537,35 +608,101 @@ export default function AdminMaterialPage() {
   }
 
   function getBaustelleById(id: any) {
-    return baustellen.find((b: any) => Number(b.id) === Number(id));
+    const numericId = Number(id);
+    if (!numericId) return null;
+
+    return (
+      baustellen.find((b: any) => {
+        const possibleIds = [
+          b?.id,
+          b?.baustelle_id,
+          b?.baustellen_id,
+          b?.projekt_id,
+          b?.project_id,
+          b?.original_id,
+          b?.old_id,
+          b?.source_id,
+          b?.archiv_id,
+        ];
+
+        return possibleIds.some((value) => Number(value) === numericId);
+      }) || null
+    );
   }
 
   function getNameFromUsedMaterial(row: any) {
-    const customName = cleanText(row?.custom_naziv || row?.custom_name);
-    if (customName) return customName;
-
-    const savedName = cleanText(
-      row?.materijal ||
+    const directName = cleanText(
+      row?.custom_naziv ||
+        row?.custom_name ||
+        row?.custom_material_name ||
+        row?.slobodni_naziv ||
+        row?.slobodni_materijal ||
+        row?.freie_material_name ||
+        row?.freies_material ||
+        row?.manual_name ||
+        row?.manual_material_name ||
+        row?.materijal ||
         row?.material ||
         row?.material_name ||
         row?.material_naziv ||
+        row?.material_title ||
         row?.naziv ||
         row?.name ||
         row?.bezeichnung ||
+        row?.bezeichnung_de ||
+        row?.name_de ||
         row?.artikel ||
         row?.artikel_name ||
+        row?.artikelbezeichnung ||
         row?.produkt ||
         row?.product ||
+        row?.product_name ||
         row?.description ||
-        row?.beschreibung
+        row?.beschreibung ||
+        row?.label ||
+        row?.text
     );
-    if (savedName) return savedName;
+    if (looksLikeRealName(directName)) return directName;
 
     const materialId = getUsedMaterialId(row);
     const catalog = materialId ? getMaterialById(materialId) : null;
     const catalogName = getMaterialNameFromCatalog(catalog);
 
-    if (catalogName) return catalogName;
+    if (looksLikeRealName(catalogName)) return catalogName;
+
+    // Ako je slobodni materijal nekad sačuvan kao posebni red, a drugi red pokazuje na njegov ID,
+    // probaj naći red iz baustelle_material gdje je id isti kao material_id i uzmi njegov naziv.
+    if (materialId) {
+      const sourceRow = baustelleMaterials.find((r: any) => Number(r?.id) === Number(materialId));
+      const sourceName = cleanText(
+        sourceRow?.custom_naziv ||
+          sourceRow?.custom_name ||
+          sourceRow?.materijal ||
+          sourceRow?.material ||
+          sourceRow?.naziv ||
+          sourceRow?.name
+      );
+      if (looksLikeRealName(sourceName)) return sourceName;
+    }
+
+    const genericName = firstRealTextFromObject(row, [
+      "kolicina",
+      "quantity",
+      "menge",
+      "amount",
+      "qty",
+      "unit",
+      "einheit",
+      "jedinica",
+      "custom_jedinica",
+      "custom_unit",
+      "baustelle_id",
+      "baustellen_id",
+      "projekt_id",
+      "project_id",
+    ]);
+
+    if (looksLikeRealName(genericName)) return genericName;
     if (materialId) return `Material ID ${materialId}`;
 
     return "Material";
