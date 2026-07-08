@@ -15,6 +15,7 @@ const translations: any = {
     cars: "Autos",
     notes: "Notizen",
     materialOrder: "Material bestellen",
+    adminMaterial: "Material",
     privateNote: "Private Notiz",
     projects: "Projekte",
     workerProjects: "Meine Projekte",
@@ -33,6 +34,7 @@ const translations: any = {
     cars: "Auta",
     notes: "Bilješke",
     materialOrder: "Naruči materijal",
+    adminMaterial: "Materijal",
     privateNote: "Privatna bilješka",
     projects: "Projekti",
     workerProjects: "Moji projekti",
@@ -51,6 +53,7 @@ const translations: any = {
     cars: "Mashinalar",
     notes: "Eslatmalar",
     materialOrder: "Material buyurtma",
+    adminMaterial: "Material",
     privateNote: "Shaxsiy eslatma",
     projects: "Loyihalar",
     workerProjects: "Mening loyihalarim",
@@ -69,6 +72,7 @@ const translations: any = {
     cars: "Cars",
     notes: "Notes",
     materialOrder: "Order material",
+    adminMaterial: "Material",
     privateNote: "Private note",
     projects: "Projects",
     workerProjects: "My projects",
@@ -383,6 +387,12 @@ export default function DashboardPage() {
           📝 {t.privateNote}
         </Link>
 
+        {isAdmin && (
+          <Link href="/material" style={materialAdminButtonStyle}>
+            🧱 {t.adminMaterial}
+          </Link>
+        )}
+
         <Link
           href="/material-orders"
           style={materialOrders.length > 0 ? alertButtonStyle : buttonStyle}
@@ -529,6 +539,11 @@ const workerProjectButtonStyle: any = {
 const adminProjectButtonStyle: any = {
   ...buttonStyle,
   background: "#f97316",
+};
+
+const materialAdminButtonStyle: any = {
+  ...buttonStyle,
+  background: "#7c3aed",
 };
 
 const alertButtonStyle: any = {
