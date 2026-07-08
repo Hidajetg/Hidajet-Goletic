@@ -199,25 +199,76 @@ function getMaterialNameFromCatalog(material: any) {
     material?.naziv ||
       material?.name ||
       material?.material ||
+      material?.material_name ||
       material?.bezeichnung ||
-      material?.title
+      material?.title ||
+      material?.produkt ||
+      material?.product
   );
 }
 
 function getMaterialUnitFromCatalog(material: any) {
   return cleanText(
-    material?.jedinica || material?.unit || material?.einheit || material?.me || "-"
+    material?.jedinica || material?.unit || material?.einheit || material?.me || material?.unit_name || "-"
   );
 }
 
 function getMaterialGroupId(material: any) {
   return Number(
-    material?.group_id ?? material?.gruppe_id ?? material?.material_group_id ?? 0
+    material?.group_id ?? material?.gruppe_id ?? material?.material_group_id ?? material?.material_gruppe_id ?? material?.category_id ?? 0
   );
+}
+
+function getUsedMaterialId(row: any) {
+  return Number(
+    row?.material_id ??
+      row?.material_catalog_id ??
+      row?.catalog_id ??
+      row?.materialId ??
+      0
+  );
+}
+
+function getMaterialSignature(material: any) {
+  return `${normalizeKey(getMaterialNameFromCatalog(material))}__${normalizeKey(
+    getMaterialUnitFromCatalog(material)
+  )}__${getMaterialGroupId(material)}`;
 }
 
 function getGroupName(group: any) {
   return cleanText(group?.naziv || group?.name || group?.title || "Grupa");
+}
+
+
+function getBaustelleIdFromMaterialRow(row: any) {
+  return Number(
+    row?.baustelle_id ??
+      row?.baustellen_id ??
+      row?.projekt_id ??
+      row?.project_id ??
+      row?.projectId ??
+      0
+  );
+}
+
+function mergeBaustelleRows(existing: any[], incoming: any[], source: string) {
+  const map = new Map<number, any>();
+
+  for (const row of existing) {
+    const id = Number(row?.id ?? row?.__lookupId ?? 0);
+    if (id) map.set(id, row);
+  }
+
+  for (const row of incoming || []) {
+    const id = Number(row?.id ?? 0);
+    if (!id) continue;
+
+    if (!map.has(id)) {
+      map.set(id, { ...row, __lookupId: id, __source: source });
+    }
+  }
+
+  return Array.from(map.values());
 }
 
 function getBaustelleName(baustelle: any) {
@@ -228,16 +279,28 @@ function getBaustelleName(baustelle: any) {
       baustelle.naziv ||
       baustelle.baustelle ||
       baustelle.projekt ||
+      baustelle.projekt_name ||
       baustelle.title ||
+      baustelle.kunde ||
       "Baustelle"
   );
 
-  const ort = cleanText(baustelle.ort || baustelle.location || baustelle.mjesto || "");
+  const ort = cleanText(
+    baustelle.ort ||
+      baustelle.location ||
+      baustelle.mjesto ||
+      baustelle.adresa ||
+      baustelle.adresse ||
+      baustelle.address ||
+      ""
+  );
 
   return ort ? `${name} - ${ort}` : name;
 }
 
 function getBaustelleStatus(baustelle: any) {
+  if (!baustelle) return "Nepoznato";
+
   const raw = cleanText(
     baustelle?.status ||
       baustelle?.state ||
@@ -267,6 +330,7 @@ export default function AdminMaterialPage() {
 
   const [groups, setGroups] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
+  const [materialCatalog, setMaterialCatalog] = useState<any[]>([]);
   const [baustelleMaterials, setBaustelleMaterials] = useState<any[]>([]);
   const [baustellen, setBaustellen] = useState<any[]>([]);
 
@@ -317,6 +381,11 @@ export default function AdminMaterialPage() {
       return;
     }
 
+    const catalogRes = await supabase
+      .from("material_catalog")
+      .select("*")
+      .order("id", { ascending: true });
+
     const usedRes = await supabase
       .from("baustelle_material")
       .select("*")
@@ -329,7 +398,7 @@ export default function AdminMaterialPage() {
     }
 
     const baustelleIds = [
-      ...new Set((usedRes.data || []).map((m: any) => Number(m.baustelle_id)).filter(Boolean)),
+      ...new Set((usedRes.data || []).map((m: any) => getBaustelleIdFromMaterialRow(m)).filter(Boolean)),
     ];
 
     let baustellenData: any[] = [];
@@ -340,19 +409,36 @@ export default function AdminMaterialPage() {
         .select("*")
         .in("id", baustelleIds);
 
-      if (baustellenRes.error) {
-        alert("Greška kod učitavanja Baustella: " + baustellenRes.error.message);
+      if (!baustellenRes.error) {
+        baustellenData = mergeBaustelleRows(baustellenData, baustellenRes.data || [], "baustellen");
+      }
+
+      const projekteRes = await supabase
+        .from("projekte")
+        .select("*")
+        .in("id", baustelleIds);
+
+      if (!projekteRes.error) {
+        baustellenData = mergeBaustelleRows(baustellenData, projekteRes.data || [], "projekte");
+      }
+
+      if (baustellenData.length === 0 && baustellenRes.error && projekteRes.error) {
+        alert(
+          "Greška kod učitavanja Baustella/Projekata: " +
+            baustellenRes.error.message +
+            " / " +
+            projekteRes.error.message
+        );
         setLoading(false);
         return;
       }
-
-      baustellenData = baustellenRes.data || [];
     }
 
     const sortedGroups = sortGroups(groupsRes.data || []);
 
     setGroups(sortedGroups);
     setMaterials(materialsRes.data || []);
+    setMaterialCatalog(catalogRes.error ? [] : catalogRes.data || []);
     setBaustelleMaterials(usedRes.data || []);
     setBaustellen(baustellenData);
 
@@ -364,7 +450,15 @@ export default function AdminMaterialPage() {
   }
 
   function getMaterialById(id: any) {
-    return materials.find((m: any) => Number(m.id) === Number(id));
+    if (!id) return null;
+
+    const numericId = Number(id);
+
+    return (
+      materials.find((m: any) => Number(m.id) === numericId) ||
+      materialCatalog.find((m: any) => Number(m.id) === numericId) ||
+      null
+    );
   }
 
   function getGroupById(id: any) {
@@ -384,11 +478,12 @@ export default function AdminMaterialPage() {
     );
     if (savedName) return savedName;
 
-    const catalog = row?.material_id ? getMaterialById(row.material_id) : null;
+    const materialId = getUsedMaterialId(row);
+    const catalog = materialId ? getMaterialById(materialId) : null;
     const catalogName = getMaterialNameFromCatalog(catalog);
 
     if (catalogName) return catalogName;
-    if (row?.material_id) return `Materijal ID ${row.material_id}`;
+    if (materialId) return `Materijal ID ${materialId}`;
 
     return "Materijal";
   }
@@ -400,12 +495,14 @@ export default function AdminMaterialPage() {
     const directUnit = cleanText(row?.jedinica || row?.unit || row?.einheit);
     if (directUnit) return directUnit;
 
-    const catalog = row?.material_id ? getMaterialById(row.material_id) : null;
+    const materialId = getUsedMaterialId(row);
+    const catalog = materialId ? getMaterialById(materialId) : null;
     return getMaterialUnitFromCatalog(catalog) || "-";
   }
 
   function getGroupFromUsedMaterial(row: any) {
-    const catalog = row?.material_id ? getMaterialById(row.material_id) : null;
+    const materialId = getUsedMaterialId(row);
+    const catalog = materialId ? getMaterialById(materialId) : null;
     const groupId = getMaterialGroupId(catalog);
     const group = groupId ? getGroupById(groupId) : null;
     const groupName = getGroupName(group);
@@ -452,16 +549,17 @@ export default function AdminMaterialPage() {
         });
       }
 
-      const baustelle = getBaustelleById(row.baustelle_id);
+      const baustelleId = getBaustelleIdFromMaterialRow(row);
+      const baustelle = getBaustelleById(baustelleId);
       const item = map.get(key);
 
       item.total += quantity;
       item.count += 1;
-      if (row.baustelle_id) item.baustelleIds.add(Number(row.baustelle_id));
+      if (baustelleId) item.baustelleIds.add(Number(baustelleId));
 
       item.details.push({
         id: row.id,
-        baustelleId: row.baustelle_id,
+        baustelleId,
         baustelleName: getBaustelleName(baustelle),
         baustelleStatus: getBaustelleStatus(baustelle),
         quantity,
@@ -484,7 +582,7 @@ export default function AdminMaterialPage() {
         if (safeA !== safeB) return safeA - safeB;
         return String(a.name).localeCompare(String(b.name), "de");
       });
-  }, [baustelleMaterials, baustellen, materials, groups]);
+  }, [baustelleMaterials, baustellen, materials, materialCatalog, groups]);
 
   const filteredOverview = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -513,12 +611,26 @@ export default function AdminMaterialPage() {
   const totalUsedEntries = baustelleMaterials.length;
   const totalDifferentMaterials = materialOverview.length;
   const totalBaustellen = new Set(
-    baustelleMaterials.map((m: any) => Number(m.baustelle_id)).filter(Boolean)
+    baustelleMaterials.map((m: any) => getBaustelleIdFromMaterialRow(m)).filter(Boolean)
   ).size;
+
+  const allCatalogMaterials = useMemo(() => {
+    const map = new Map<string, any>();
+
+    for (const material of [...materialCatalog, ...materials]) {
+      const name = getMaterialNameFromCatalog(material);
+      if (!name) continue;
+
+      const key = getMaterialSignature(material);
+      if (!map.has(key)) map.set(key, material);
+    }
+
+    return Array.from(map.values());
+  }, [materials, materialCatalog]);
 
   const materialsByGroup = useMemo(() => {
     return groups.map((group: any) => {
-      const items = materials
+      const items = allCatalogMaterials
         .filter((m: any) => getMaterialGroupId(m) === Number(group.id))
         .sort((a: any, b: any) =>
           getMaterialNameFromCatalog(a).localeCompare(getMaterialNameFromCatalog(b), "de")
@@ -526,7 +638,7 @@ export default function AdminMaterialPage() {
 
       return { group, items };
     });
-  }, [groups, materials]);
+  }, [groups, allCatalogMaterials]);
 
   async function addMaterial() {
     const name = newMaterialName.trim();
@@ -638,7 +750,7 @@ export default function AdminMaterialPage() {
             <div>
               <h2 style={titleStyle}>Ukupno utrošeno materijala</h2>
               <p style={mutedStyle}>
-                Sabira tabelu <b>baustelle_material</b> iz svih Baustella, bez obzira da li su aktivne ili u arhivu.
+                Sabira tabelu <b>baustelle_material</b> iz svih Baustella/Projekata i nazive čita iz <b>materials</b> + <b>material_catalog</b>.
               </p>
             </div>
 
