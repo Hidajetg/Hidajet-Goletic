@@ -241,8 +241,9 @@ function looksLikeRealName(value: any) {
   if (/^\d+$/.test(text)) return false;
   if (/^\d{4}-\d{2}-\d{2}/.test(text)) return false;
   if (/^true$/i.test(text) || /^false$/i.test(text) || /^null$/i.test(text)) return false;
-  if (["kg", "l", "m", "m²", "m2", "m³", "m3", "stk", "stk.", "kom", "sack", "vreća", "vreca", "-"]
-      .includes(text.toLowerCase())) return false;
+  if (/^(material|materijal)\s*id\s*:?\s*\d+$/i.test(text)) return false;
+  if (/^id\s*:?\s*\d+$/i.test(text)) return false;
+  if (["kg", "l", "m", "m²", "m2", "m³", "m3", "stk", "stk.", "kom", "sack", "vreća", "vreca", "-"].includes(text.toLowerCase())) return false;
   return true;
 }
 
@@ -357,6 +358,43 @@ function getBaustelleIdFromMaterialRow(row: any) {
   );
 }
 
+function getRoomIdFromMaterialRow(row: any) {
+  return Number(
+    row?.room_id ??
+      row?.raum_id ??
+      row?.prostorija_id ??
+      row?.prostorije_id ??
+      row?.roomId ??
+      row?.raumId ??
+      0
+  );
+}
+
+function getBaustelleIdFromRoom(room: any) {
+  return Number(
+    room?.baustelle_id ??
+      room?.baustellen_id ??
+      room?.projekt_id ??
+      room?.project_id ??
+      room?.baustelleId ??
+      0
+  );
+}
+
+function getRoomName(room: any) {
+  const name = cleanText(
+    room?.name ||
+      room?.naziv ||
+      room?.raum ||
+      room?.room ||
+      room?.prostorija ||
+      room?.title ||
+      ""
+  );
+
+  return name || "-";
+}
+
 function getBaustelleNameFromMaterialRow(row: any) {
   const direct = cleanText(
     row?.baustelle_name ||
@@ -377,7 +415,7 @@ function getBaustelleNameFromMaterialRow(row: any) {
   if (direct) return direct;
 
   const nested = row?.baustellen || row?.baustelle_data || row?.projekt_data || row?.projekte;
-  return getBaustelleName(nested, undefined, "");
+  return getBaustelleName(nested, "");
 }
 
 function mergeBaustelleRows(existing: any[], incoming: any[], source: string) {
@@ -401,35 +439,66 @@ function mergeBaustelleRows(existing: any[], incoming: any[], source: string) {
   return Array.from(map.values());
 }
 
-function getBaustelleName(baustelle: any, fallbackId?: any, fallbackName?: string) {
-  if (!baustelle) {
-    if (fallbackName) return fallbackName;
-    if (fallbackId) return `Baustelle ID ${fallbackId}`;
-    return "Baustelle nicht gefunden";
-  }
+function getBaustelleBaseName(baustelle: any) {
+  if (!baustelle) return "";
 
-  const name = cleanText(
+  return cleanText(
     baustelle.name ||
       baustelle.naziv ||
       baustelle.baustelle ||
+      baustelle.baustelle_name ||
+      baustelle.baustellen_name ||
       baustelle.projekt ||
       baustelle.projekt_name ||
+      baustelle.project_name ||
+      baustelle.projektname ||
       baustelle.title ||
+      baustelle.objekt ||
+      baustelle.object_name ||
       baustelle.kunde ||
-      "Baustelle"
+      baustelle.auftraggeber ||
+      ""
   );
+}
+
+function getBaustelleLocation(baustelle: any) {
+  if (!baustelle) return "";
 
   const ort = cleanText(
     baustelle.ort ||
-      baustelle.location ||
       baustelle.mjesto ||
-      baustelle.adresa ||
-      baustelle.adresse ||
-      baustelle.address ||
+      baustelle.city ||
+      baustelle.stadt ||
+      baustelle.location ||
       ""
   );
 
-  return ort ? `${name} - ${ort}` : name;
+  const adresse = cleanText(
+    baustelle.adresa ||
+      baustelle.adresse ||
+      baustelle.address ||
+      baustelle.strasse ||
+      baustelle.street ||
+      baustelle.ulica ||
+      ""
+  );
+
+  if (ort && adresse && !adresse.toLowerCase().includes(ort.toLowerCase())) {
+    return `${ort}, ${adresse}`;
+  }
+
+  return ort || adresse;
+}
+
+function getBaustelleName(baustelle: any, fallbackName?: string) {
+  if (!baustelle) {
+    return cleanText(fallbackName) || "Baustelle nicht gefunden";
+  }
+
+  const name = getBaustelleBaseName(baustelle) || cleanText(fallbackName) || "Baustelle";
+  const location = getBaustelleLocation(baustelle);
+
+  return location ? `${name} - ${location}` : name;
 }
 
 function getBaustelleStatus(baustelle: any) {
@@ -466,6 +535,8 @@ export default function AdminMaterialPage() {
   const [materials, setMaterials] = useState<any[]>([]);
   const [materialCatalog, setMaterialCatalog] = useState<any[]>([]);
   const [baustelleMaterials, setBaustelleMaterials] = useState<any[]>([]);
+  const [roomMaterials, setRoomMaterials] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
   const [baustellen, setBaustellen] = useState<any[]>([]);
 
   const [newMaterialName, setNewMaterialName] = useState("");
@@ -543,9 +614,59 @@ export default function AdminMaterialPage() {
       return;
     }
 
-    const baustelleIds = [
-      ...new Set((usedRes.data || []).map((m: any) => getBaustelleIdFromMaterialRow(m)).filter(Boolean)),
+    // Stari dio aplikacije je materijal nekad čuvao u room_material.
+    // Zato ovdje učitavamo obje tabele: baustelle_material + room_material.
+    const roomUsedRes = await supabase
+      .from("room_material")
+      .select("*")
+      .order("id", { ascending: false });
+
+    const baustelleMaterialRows = usedRes.data || [];
+    const roomMaterialRows = roomUsedRes.error ? [] : roomUsedRes.data || [];
+
+    const directBaustelleIds = [
+      ...new Set(
+        baustelleMaterialRows
+          .map((m: any) => getBaustelleIdFromMaterialRow(m))
+          .filter(Boolean)
+      ),
     ];
+
+    const possibleRoomIds = [
+      ...new Set(
+        [
+          ...roomMaterialRows.map((m: any) => getRoomIdFromMaterialRow(m)),
+          ...baustelleMaterialRows.map((m: any) => getRoomIdFromMaterialRow(m)),
+          // Ako je u starom unosu ID slučajno spremljen kao room_id, pokušavamo i to pronaći.
+          ...directBaustelleIds,
+        ].filter(Boolean)
+      ),
+    ];
+
+    let roomsData: any[] = [];
+
+    if (possibleRoomIds.length > 0) {
+      const roomsById = await supabase
+        .from("prostorije")
+        .select("*")
+        .in("id", possibleRoomIds);
+
+      const allRooms = await supabase.from("prostorije").select("*").limit(5000);
+
+      const roomMap = new Map<number, any>();
+      for (const room of [...(roomsById.error ? [] : roomsById.data || []), ...(allRooms.error ? [] : allRooms.data || [])]) {
+        const id = Number(room?.id);
+        if (id && !roomMap.has(id)) roomMap.set(id, room);
+      }
+
+      roomsData = Array.from(roomMap.values());
+    }
+
+    const roomBaustelleIds = roomsData
+      .map((room: any) => getBaustelleIdFromRoom(room))
+      .filter(Boolean);
+
+    const baustelleIds = [...new Set([...directBaustelleIds, ...roomBaustelleIds])].map(Number).filter(Boolean);
 
     let baustellenData: any[] = [];
 
@@ -571,7 +692,9 @@ export default function AdminMaterialPage() {
     setGroups(sortedGroups);
     setMaterials(materialsRes.data || []);
     setMaterialCatalog(catalogRes.error ? [] : catalogRes.data || []);
-    setBaustelleMaterials(usedRes.data || []);
+    setBaustelleMaterials(baustelleMaterialRows);
+    setRoomMaterials(roomMaterialRows);
+    setRooms(roomsData);
     setBaustellen(baustellenData);
 
     if (!newMaterialGroupId && sortedGroups.length > 0) {
@@ -607,6 +730,13 @@ export default function AdminMaterialPage() {
     return groups.find((g: any) => Number(g.id) === Number(id));
   }
 
+  function getRoomById(id: any) {
+    const numericId = Number(id);
+    if (!numericId) return null;
+
+    return rooms.find((room: any) => Number(room?.id) === numericId) || null;
+  }
+
   function getBaustelleById(id: any) {
     const numericId = Number(id);
     if (!numericId) return null;
@@ -623,6 +753,8 @@ export default function AdminMaterialPage() {
           b?.old_id,
           b?.source_id,
           b?.archiv_id,
+          b?.nr,
+          b?.nummer,
         ];
 
         return possibleIds.some((value) => Number(value) === numericId);
@@ -654,6 +786,15 @@ export default function AdminMaterialPage() {
         row?.artikel ||
         row?.artikel_name ||
         row?.artikelbezeichnung ||
+        row?.material_text ||
+        row?.custom_text ||
+        row?.freier_materialname ||
+        row?.freies_material_name ||
+        row?.freier_name ||
+        row?.freie_name ||
+        row?.dodatak_naziv ||
+        row?.keramika_naziv ||
+        row?.slobodniNaziv ||
         row?.produkt ||
         row?.product ||
         row?.product_name ||
@@ -703,9 +844,9 @@ export default function AdminMaterialPage() {
     ]);
 
     if (looksLikeRealName(genericName)) return genericName;
-    if (materialId) return `Material ID ${materialId}`;
-
-    return "Material";
+    // Ne prikazujemo više "Material ID ..." u pregledu.
+    // Ako ime nije nađeno, znači da u bazi za taj stari unos nije sačuvan tekst naziva.
+    return "Unbenanntes Material";
   }
 
   function getUnitFromUsedMaterial(row: any) {
@@ -752,15 +893,73 @@ export default function AdminMaterialPage() {
     return "Slobodni materijal";
   }
 
+  function resolveBaustelleForRow(row: any) {
+    const directBaustelleId = getBaustelleIdFromMaterialRow(row);
+    const directRoomId = getRoomIdFromMaterialRow(row);
+
+    let room = directRoomId ? getRoomById(directRoomId) : null;
+    let baustelle = directBaustelleId ? getBaustelleById(directBaustelleId) : null;
+
+    // Stari unosi ponekad imaju ID prostorije na mjestu gdje očekujemo ID Baustelle.
+    if (!baustelle && directBaustelleId) {
+      const roomFromDirectId = getRoomById(directBaustelleId);
+      if (roomFromDirectId) {
+        room = room || roomFromDirectId;
+        baustelle = getBaustelleById(getBaustelleIdFromRoom(roomFromDirectId));
+      }
+    }
+
+    if (!baustelle && room) {
+      baustelle = getBaustelleById(getBaustelleIdFromRoom(room));
+    }
+
+    const rowName = getBaustelleNameFromMaterialRow(row);
+    const rowLocation = cleanText(
+      row?.baustelle_ort ||
+        row?.ort ||
+        row?.location ||
+        row?.mjesto ||
+        row?.adresse ||
+        row?.address ||
+        ""
+    );
+
+    const baustelleName = getBaustelleName(baustelle, rowName);
+    const baustelleLocation = getBaustelleLocation(baustelle) || rowLocation;
+    const roomName = room ? getRoomName(room) : "";
+
+    const stableId =
+      Number(baustelle?.id ?? 0) ||
+      Number(baustelle?.__lookupId ?? 0) ||
+      Number(getBaustelleIdFromRoom(room)) ||
+      directBaustelleId ||
+      0;
+
+    return {
+      baustelle,
+      room,
+      stableId,
+      baustelleName,
+      baustelleLocation,
+      roomName,
+      baustelleStatus: getBaustelleStatus(baustelle),
+    };
+  }
+
   const materialOverview = useMemo(() => {
     const map = new Map<string, any>();
 
-    for (const row of baustelleMaterials) {
+    const allUsedRows = [
+      ...baustelleMaterials.map((row: any) => ({ ...row, __sourceTable: "baustelle_material" })),
+      ...roomMaterials.map((row: any) => ({ ...row, __sourceTable: "room_material" })),
+    ];
+
+    for (const row of allUsedRows) {
       const name = getNameFromUsedMaterial(row);
       const unit = getUnitFromUsedMaterial(row);
       const groupName = getGroupFromUsedMaterial(row);
       const quantity = parseNumber(
-        row?.kolicina ?? row?.quantity ?? row?.menge ?? row?.amount ?? row?.qty ?? 0
+        row?.kolicina ?? row?.quantity ?? row?.menge ?? row?.amount ?? row?.qty ?? row?.verbrauch ?? 0
       );
 
       if (!name || quantity === 0) continue;
@@ -779,20 +978,19 @@ export default function AdminMaterialPage() {
         });
       }
 
-      const baustelleId = getBaustelleIdFromMaterialRow(row);
-      const baustelle = getBaustelleById(baustelleId);
-      const baustelleNameFromRow = getBaustelleNameFromMaterialRow(row);
+      const detail = resolveBaustelleForRow(row);
       const item = map.get(key);
 
       item.total += quantity;
       item.count += 1;
-      if (baustelleId) item.baustelleIds.add(Number(baustelleId));
+      if (detail.stableId) item.baustelleIds.add(Number(detail.stableId));
 
       item.details.push({
-        id: row.id,
-        baustelleId,
-        baustelleName: getBaustelleName(baustelle, baustelleId, baustelleNameFromRow),
-        baustelleStatus: getBaustelleStatus(baustelle),
+        id: `${row.__sourceTable}-${row.id}`,
+        baustelleName: detail.baustelleName,
+        baustelleLocation: detail.baustelleLocation,
+        roomName: detail.roomName,
+        baustelleStatus: detail.baustelleStatus,
         quantity,
         unit,
       });
@@ -813,7 +1011,7 @@ export default function AdminMaterialPage() {
         if (safeA !== safeB) return safeA - safeB;
         return String(a.name).localeCompare(String(b.name), "de");
       });
-  }, [baustelleMaterials, baustellen, materials, materialCatalog, groups]);
+  }, [baustelleMaterials, roomMaterials, rooms, baustellen, materials, materialCatalog, groups]);
 
   const filteredOverview = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -839,10 +1037,13 @@ export default function AdminMaterialPage() {
     return Array.from(map.entries()).map(([groupName, items]) => ({ groupName, items }));
   }, [filteredOverview]);
 
-  const totalUsedEntries = baustelleMaterials.length;
+  const totalUsedEntries = baustelleMaterials.length + roomMaterials.length;
   const totalDifferentMaterials = materialOverview.length;
   const totalBaustellen = new Set(
-    baustelleMaterials.map((m: any) => getBaustelleIdFromMaterialRow(m)).filter(Boolean)
+    materialOverview
+      .flatMap((m: any) => m.details || [])
+      .map((d: any) => d.baustelleName)
+      .filter((name: string) => name && name !== "Baustelle nicht gefunden")
   ).size;
 
   const allCatalogMaterials = useMemo(() => {
@@ -981,7 +1182,7 @@ export default function AdminMaterialPage() {
             <div>
               <h2 style={titleStyle}>Gesamter Materialverbrauch</h2>
               <p style={mutedStyle}>
-                Summiert <b>baustelle_material</b> aus allen Baustellen/Projekten und liest Namen aus <b>materials</b> + <b>material_catalog</b>.
+                Summiert <b>baustelle_material</b> und <b>room_material</b> aus aktiven und archivierten Baustellen. Namen kommen aus Katalog, gespeichertem Materialnamen und Baustelle/Ort.
               </p>
             </div>
 
@@ -1050,7 +1251,12 @@ export default function AdminMaterialPage() {
                                     <div key={d.id} style={detailRowStyle}>
                                       <div>
                                         <b>{d.baustelleName}</b>
-                                        <div style={detailSmallStyle}>ID: {d.baustelleId}</div>
+                                        {d.baustelleLocation ? (
+                                          <div style={detailSmallStyle}>Ort: {d.baustelleLocation}</div>
+                                        ) : null}
+                                        {d.roomName && d.roomName !== "-" ? (
+                                          <div style={detailSmallStyle}>Raum: {d.roomName}</div>
+                                        ) : null}
                                       </div>
                                       <span style={statusBadgeStyle}>{d.baustelleStatus}</span>
                                       <b>
