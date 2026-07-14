@@ -1,7 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["192.168.1.7"],
+  serverExternalPackages: [
+    "@sparticuz/chromium",
+    "puppeteer-core",
+  ],
+
+  outputFileTracingIncludes: {
+    "/api/onedrive/archive-baustelle": [
+      "./node_modules/@sparticuz/chromium/bin/**/*",
+    ],
+  },
 };
 
 export default nextConfig;
