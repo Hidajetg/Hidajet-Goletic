@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import chromium from "@sparticuz/chromium";
+import chromium from "@sparticuz/chromium-min";
 import JSZip from "jszip";
 import puppeteer, { type Browser, type Page } from "puppeteer-core";
 import { NextRequest, NextResponse } from "next/server";
@@ -282,7 +282,15 @@ function uniqueRows(rows: JsonRow[]) {
   });
 }
 
+const CHROMIUM_PACK_URL =
+  "https://github.com/Sparticuz/chromium/releases/download/v140.0.0/chromium-v140.0.0-pack.x64.tar";
+
 async function createBrowser() {
+  const executablePath = process.env.VERCEL
+    ? await chromium.executablePath(CHROMIUM_PACK_URL)
+    : process.env.LOCAL_CHROME_PATH ||
+      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+
   return puppeteer.launch({
     args: chromium.args,
     defaultViewport: {
@@ -293,8 +301,8 @@ async function createBrowser() {
       isLandscape: false,
       isMobile: false,
     },
-    executablePath: await chromium.executablePath(),
-    headless: true,
+    executablePath,
+    headless: "shell",
   });
 }
 
