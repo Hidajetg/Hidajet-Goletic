@@ -125,7 +125,7 @@ export default function ArchivBerichtPage() {
   const [baustelleInfo, setBaustelleInfo] = useState<any[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [savingPhotos, setSavingPhotos] = useState(false);
-  const [deletingBaustelle, setDeletingBaustelle] = useState(false);
+  const [deletingPhotos, setDeletingPhotos] = useState(false);
 
   const [logoTopUrl, setLogoTopUrl] = useState("");
   const [sideImageUrl, setSideImageUrl] = useState("");
@@ -853,6 +853,79 @@ export default function ArchivBerichtPage() {
     return cleaned || fallback;
   }
 
+  function isImageUrl(url: string) {
+    const cleanUrl = String(url || "").toLowerCase().split("?")[0];
+    return Boolean(cleanUrl) && !cleanUrl.endsWith(".pdf");
+  }
+
+  function getAllImageRows() {
+    const roomImageRows = photos
+      .map((row: any) => ({ ...row, __table: "room_photos" }))
+      .filter((row: any) => isImageUrl(getPhotoUrl(row)));
+
+    const regieImageRows = regiePhotos
+      .map((row: any) => ({ ...row, __table: "regiebericht_photos" }))
+      .filter((row: any) => isImageUrl(getPhotoUrl(row)));
+
+    const seen = new Set<string>();
+
+    return [...roomImageRows, ...regieImageRows].filter((row: any) => {
+      const key = `${row.__table}:${String(row.id ?? "")}:${getPhotoUrl(row)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  async function getAllImageRowsForDeletion() {
+    const currentRows = getAllImageRows();
+
+    const [infoResult, legacyResult, legacyRegieResult] = await Promise.all([
+      supabase
+        .from("baustelle_info_photos")
+        .select("*")
+        .eq("baustelle_id", Number(baustelleId)),
+      supabase
+        .from("fotos")
+        .select("*")
+        .eq("baustelle_id", baustelleId),
+      supabase
+        .from("regie_fotos")
+        .select("*")
+        .eq("baustelle_id", baustelleId),
+    ]);
+
+    const optionalRows = [
+      ...(infoResult.error
+        ? []
+        : (infoResult.data || []).map((row: any) => ({
+            ...row,
+            __table: "baustelle_info_photos",
+          }))),
+      ...(legacyResult.error
+        ? []
+        : (legacyResult.data || []).map((row: any) => ({
+            ...row,
+            __table: "fotos",
+          }))),
+      ...(legacyRegieResult.error
+        ? []
+        : (legacyRegieResult.data || []).map((row: any) => ({
+            ...row,
+            __table: "regie_fotos",
+          }))),
+    ].filter((row: any) => isImageUrl(getPhotoUrl(row)));
+
+    const seen = new Set<string>();
+
+    return [...currentRows, ...optionalRows].filter((row: any) => {
+      const key = `${row.__table}:${String(row.id ?? "")}:${getPhotoUrl(row)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   function getOriginalFileName(url: string, index: number) {
     try {
       const cleanUrl = String(url || "").split("?")[0];
@@ -883,82 +956,103 @@ export default function ArchivBerichtPage() {
       .split(";")[0]
       .trim()
       .toLowerCase();
+
     return `${fileName}${extensionByType[type] || ".jpg"}`;
   }
 
-  async function saveAllPhotos() {
-    if (savingPhotos) return;
-
-    const photoUrls = photos
-      .map((photo: any) => getPhotoUrl(photo))
-      .filter((url: string) => Boolean(url));
-
-    if (photoUrls.length === 0) {
-      alert("Für diese Baustelle sind keine Fotos vorhanden.");
-      return;
-    }
+  async function saveBaustelleAsZip() {
+    if (savingPhotos || deletingPhotos) return;
 
     setSavingPhotos(true);
 
     try {
-      const directoryPicker = (window as any).showDirectoryPicker;
-      let targetDirectory: any = null;
+      const response = await fetch(
+        `/api/onedrive/archive-baustelle?baustelleId=${encodeURIComponent(baustelleId)}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        },
+      );
 
-      if (typeof directoryPicker === "function") {
-        const selectedDirectory = await directoryPicker();
-        targetDirectory = await selectedDirectory.getDirectoryHandle(
-          sanitizeFileName(
-            baustelle?.naziv || `Baustelle-${baustelleId}`,
-            `Baustelle-${baustelleId}`,
-          ),
-          { create: true },
-        );
-      }
+      if (!response.ok) {
+        let message = `ZIP-Export fehlgeschlagen (${response.status}).`;
 
-      let savedCount = 0;
-
-      for (let index = 0; index < photoUrls.length; index += 1) {
-        const url = photoUrls[index];
-        const response = await fetch(url, { cache: "no-store" });
-
-        if (!response.ok) {
-          throw new Error(`Foto ${index + 1} konnte nicht geladen werden.`);
+        try {
+          const errorData = await response.json();
+          if (errorData?.error) message = errorData.error;
+        } catch {
+          const errorText = await response.text();
+          if (errorText) message = errorText;
         }
 
-        const blob = await response.blob();
-        const originalName = getOriginalFileName(url, index);
-        const fileName = sanitizeFileName(
-          `Foto-${String(index + 1).padStart(3, "0")}-${addExtensionFromType(originalName, blob.type)}`,
-          `Foto-${String(index + 1).padStart(3, "0")}.jpg`,
-        );
-
-        if (targetDirectory) {
-          const fileHandle = await targetDirectory.getFileHandle(fileName, {
-            create: true,
-          });
-          const writable = await fileHandle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-        } else {
-          const downloadUrl = URL.createObjectURL(blob);
-          const anchor = document.createElement("a");
-          anchor.href = downloadUrl;
-          anchor.download = fileName;
-          document.body.appendChild(anchor);
-          anchor.click();
-          anchor.remove();
-          URL.revokeObjectURL(downloadUrl);
-          await new Promise((resolve) => window.setTimeout(resolve, 250));
-        }
-
-        savedCount += 1;
+        throw new Error(message);
       }
 
-      alert(`${savedCount} Foto(s) wurden in Originalqualität gespeichert.`);
+      const zipBlob = await response.blob();
+      const disposition = response.headers.get("content-disposition") || "";
+      const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const normalMatch = disposition.match(/filename="?([^";]+)"?/i);
+
+      let fileName = sanitizeFileName(
+        `${baustelle?.naziv || `Baustelle-${baustelleId}`}.zip`,
+        `Baustelle-${baustelleId}.zip`,
+      );
+
+      if (utf8Match?.[1]) {
+        try {
+          fileName = decodeURIComponent(utf8Match[1]);
+        } catch {
+          fileName = utf8Match[1];
+        }
+      } else if (normalMatch?.[1]) {
+        fileName = normalMatch[1];
+      }
+
+      const downloadUrl = URL.createObjectURL(zipBlob);
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 10_000);
+
+      const wantsDeletion = window.confirm(
+        `Die Baustelle wurde erfolgreich als ZIP-Datei gespeichert.
+
+Die ZIP-Datei enthält die Baustellenübersicht, alle Bilder nach Räumen sortiert und alle vorhandenen Regieberichte.
+
+Möchten Sie jetzt die Bilder aus der Datenbank löschen?`,
+      );
+
+      if (!wantsDeletion) {
+        alert(
+          "Die ZIP-Datei wurde gespeichert. Die Bilder bleiben in der Datenbank erhalten.",
+        );
+        return;
+      }
+
+      const finalConfirmation = window.confirm(
+        `Haben Sie geprüft, dass die Baustellenübersicht, alle Bilder und alle Regieberichte vollständig in der ZIP-Datei gespeichert wurden?
+
+Es werden ausschließlich die Bilder gelöscht.
+Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle anderen Baustellendaten bleiben unverändert.
+
+Gelöschte Bilder können nicht wiederhergestellt werden.`,
+      );
+
+      if (!finalConfirmation) {
+        alert(
+          "Die Bilder wurden nicht gelöscht und bleiben in der Datenbank erhalten.",
+        );
+        return;
+      }
+
+      await deleteImagesAfterZip();
     } catch (error: any) {
-      if (error?.name === "AbortError") return;
       alert(
-        "Fotos konnten nicht gespeichert werden: " +
+        "Die Baustelle konnte nicht als ZIP-Datei gespeichert werden: " +
           (error?.message || String(error)),
       );
     } finally {
@@ -966,167 +1060,121 @@ export default function ArchivBerichtPage() {
     }
   }
 
-  async function deleteRowsByEqual(
-    table: string,
-    column: string,
-    value: string | number,
-  ) {
-    const { error } = await supabase.from(table).delete().eq(column, value);
+  function parseSupabaseStorageReference(url: string) {
+    try {
+      const parsedUrl = new URL(url);
+      const match = parsedUrl.pathname.match(
+        /\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/,
+      );
 
-    if (error) {
-      throw new Error(`${table}: ${error.message}`);
+      if (!match) return null;
+
+      return {
+        bucket: decodeURIComponent(match[1]),
+        path: decodeURIComponent(match[2]),
+      };
+    } catch {
+      return null;
     }
   }
 
-  async function deleteRowsByIn(
-    table: string,
-    column: string,
-    values: Array<string | number>,
-  ) {
-    if (values.length === 0) return;
+  async function removeStorageImages(imageRows: any[]) {
+    const filesByBucket = new Map<string, Set<string>>();
 
-    const { error } = await supabase.from(table).delete().in(column, values);
+    for (const row of imageRows) {
+      const reference = parseSupabaseStorageReference(getPhotoUrl(row));
+      if (!reference) continue;
 
-    if (error) {
-      throw new Error(`${table}: ${error.message}`);
+      if (!filesByBucket.has(reference.bucket)) {
+        filesByBucket.set(reference.bucket, new Set<string>());
+      }
+
+      filesByBucket.get(reference.bucket)!.add(reference.path);
+    }
+
+    for (const [bucket, pathSet] of filesByBucket.entries()) {
+      const paths = [...pathSet];
+
+      for (let offset = 0; offset < paths.length; offset += 100) {
+        const chunk = paths.slice(offset, offset + 100);
+        const { error } = await supabase.storage.from(bucket).remove(chunk);
+
+        if (error) {
+          throw new Error(`Storage ${bucket}: ${error.message}`);
+        }
+      }
     }
   }
 
-  async function deleteArchivedBaustelle() {
-    if (deletingBaustelle) return;
+  async function deleteImageRows(table: string, ids: Array<string | number>) {
+    if (ids.length === 0) return;
 
-    const confirmed = window.confirm(
-      `Baustelle „${baustelle?.naziv || baustelleId}“ wirklich vollständig löschen?\n\nBitte vorher die Fotos speichern. Dieser Vorgang kann nicht rückgängig gemacht werden.`,
-    );
+    for (let offset = 0; offset < ids.length; offset += 100) {
+      const chunk = ids.slice(offset, offset + 100);
+      const { error } = await supabase.from(table).delete().in("id", chunk);
 
-    if (!confirmed) return;
+      if (error) {
+        throw new Error(`${table}: ${error.message}`);
+      }
+    }
+  }
 
-    setDeletingBaustelle(true);
+  async function deleteImagesAfterZip() {
+    if (deletingPhotos) return;
+
+    const imageRows = await getAllImageRowsForDeletion();
+
+    if (imageRows.length === 0) {
+      alert("Für diese Baustelle sind keine Bilder vorhanden.");
+      return;
+    }
+
+    setDeletingPhotos(true);
 
     try {
-      const numericBaustelleId = Number(baustelleId);
-      const roomIds = rooms.map((room: any) => Number(room.id)).filter(Boolean);
-      const regieberichtIds = regieberichte
-        .map((bericht: any) => Number(bericht.id))
-        .filter(Boolean);
+      await removeStorageImages(imageRows);
 
-      const { data: projektRegieData, error: projektRegieError } =
-        await supabase
-          .from("projekt_regie")
-          .select("id")
-          .eq("baustelle_id", baustelleId);
+      const idsByTable = new Map<string, Array<string | number>>();
 
-      if (projektRegieError) {
-        throw new Error(`projekt_regie: ${projektRegieError.message}`);
+      for (const row of imageRows) {
+        if (!row.__table || row.id === null || row.id === undefined) continue;
+
+        if (!idsByTable.has(row.__table)) {
+          idsByTable.set(row.__table, []);
+        }
+
+        idsByTable.get(row.__table)!.push(row.id);
       }
 
-      const projektRegieIds = (projektRegieData || [])
-        .map((row: any) => Number(row.id))
-        .filter(Boolean);
-
-      await deleteRowsByIn(
-        "regiebericht_materials",
-        "regiebericht_id",
-        regieberichtIds,
-      );
-      await deleteRowsByIn(
-        "regiebericht_photos",
-        "regiebericht_id",
-        regieberichtIds,
-      );
-      await deleteRowsByIn(
-        "regiebericht_rooms",
-        "regiebericht_id",
-        regieberichtIds,
-      );
-      await deleteRowsByIn(
-        "regiebericht_workers",
-        "regiebericht_id",
-        regieberichtIds,
-      );
-
-      await deleteRowsByIn(
-        "projekt_regie_workers",
-        "regie_id",
-        projektRegieIds,
-      );
-      await deleteRowsByIn("projekt_fotos", "regie_id", projektRegieIds);
-
-      await deleteRowsByIn("arbeitsinfo_tasks", "room_id", roomIds);
-      await deleteRowsByIn("arbeitsinfo_tile_rooms", "room_id", roomIds);
-      await deleteRowsByIn("prostorije_materijal", "prostorija_id", roomIds);
-      await deleteRowsByIn("room_material", "room_id", roomIds);
-      await deleteRowsByIn("room_photos", "room_id", roomIds);
-
-      const numericTables = [
-        "arbeitsinfo_files",
-        "arbeitsinfo_materials",
-        "arbeitsinfo_notes",
-        "arbeitsinfo_tasks",
-        "arbeitsinfo_tiles",
-        "arbeitsinfo_tools",
-        "baustelle_hours",
-        "baustelle_info",
-        "baustelle_info_photos",
-        "baustelle_material",
-        "material_entries",
-        "material_orders",
-        "private_notes",
-        "produktivnost",
-        "regieberichte",
-        "work_calendar",
-      ];
-
-      for (const table of numericTables) {
-        await deleteRowsByEqual(table, "baustelle_id", numericBaustelleId);
+      for (const [table, ids] of idsByTable.entries()) {
+        await deleteImageRows(table, ids);
       }
 
-      const textTables = [
-        "arbeitszeiten",
-        "aufgaben",
-        "fotos",
-        "leistungen",
-        "material_bewegungen",
-        "positionen",
-        "raeume",
-        "regie_arbeiter",
-        "regie_fotos",
-        "regie_unterschriften",
-        "regie",
-        "room_photos",
-        "tagesberichte",
-      ];
+      const roomPhotoIds = idsByTable.get("room_photos") || [];
+      const regieberichtPhotoIds = idsByTable.get("regiebericht_photos") || [];
 
-      for (const table of textTables) {
-        await deleteRowsByEqual(table, "baustelle_id", baustelleId);
-      }
-
-      await deleteRowsByEqual("projekt_regie", "baustelle_id", baustelleId);
-      await deleteRowsByEqual(
-        "baustelle_archive_index",
-        "original_baustelle_id",
-        numericBaustelleId,
+      setPhotos((current) =>
+        current.filter((row: any) => !roomPhotoIds.includes(row.id)),
       );
-      await deleteRowsByEqual("prostorije", "baustelle_id", numericBaustelleId);
 
-      const { error: baustelleDeleteError } = await supabase
-        .from("baustellen")
-        .delete()
-        .eq("id", numericBaustelleId);
+      setRegiePhotos((current) =>
+        current.filter((row: any) => !regieberichtPhotoIds.includes(row.id)),
+      );
 
-      if (baustelleDeleteError) {
-        throw new Error(`baustellen: ${baustelleDeleteError.message}`);
-      }
+      setSelectedPhoto(null);
 
-      alert("Die Baustelle wurde gelöscht.");
-      window.location.href = "/baustellen/archiv";
-    } catch (error: any) {
       alert(
-        "Baustelle konnte nicht vollständig gelöscht werden: " +
+        `${imageRows.length} Bild(er) wurden endgültig gelöscht.
+
+Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle anderen Baustellendaten bleiben unverändert.`,
+      );
+    } catch (error: any) {
+      throw new Error(
+        "Die Bilder konnten nicht vollständig gelöscht werden: " +
           (error?.message || String(error)),
       );
     } finally {
-      setDeletingBaustelle(false);
+      setDeletingPhotos(false);
     }
   }
 
@@ -1513,21 +1561,15 @@ export default function ArchivBerichtPage() {
           </button>
 
           <button
-            onClick={saveAllPhotos}
+            onClick={saveBaustelleAsZip}
             style={savePhotosButtonStyle}
-            disabled={savingPhotos}
+            disabled={savingPhotos || deletingPhotos}
           >
-            {savingPhotos
-              ? "Fotos werden gespeichert..."
-              : "📷 Bilder speichern"}
-          </button>
-
-          <button
-            onClick={deleteArchivedBaustelle}
-            style={deleteButtonStyle}
-            disabled={deletingBaustelle}
-          >
-            {deletingBaustelle ? "Wird gelöscht..." : "🗑️ Baustelle löschen"}
+            {deletingPhotos
+              ? "Bilder werden gelöscht..."
+              : savingPhotos
+                ? "ZIP-Datei wird erstellt..."
+                : "📦 Baustelle als ZIP speichern"}
           </button>
         </div>
       </div>
