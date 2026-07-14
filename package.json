@@ -12,9 +12,11 @@
     "@capacitor/android": "^8.4.1",
     "@capacitor/cli": "^8.4.1",
     "@capacitor/core": "^8.4.1",
+    "@sparticuz/chromium": "^140.0.0",
     "@supabase/supabase-js": "^2.110.0",
     "dotenv": "^17.4.2",
     "next": "16.2.6",
+    "puppeteer-core": "^24.22.3",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

@@ -1,24 +1,24 @@
-import { createDecipheriv, createCipheriv, createHash, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 import { createClient } from "@supabase/supabase-js";
+import chromium from "@sparticuz/chromium";
+import puppeteer, { type Browser, type Page } from "puppeteer-core";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-type JsonRow = Record<string, unknown>;
-type TableBundle = Record<string, JsonRow[]>;
-type SupabaseAdminClient = ReturnType<typeof createClient<any>>;
+type JsonRow = Record<string, any>;
+
+type ArchiveRequestBody = {
+  baustelleId?: string | number;
+};
 
 type BaustelleRow = JsonRow & {
   id: string | number;
   naziv?: string | null;
   lokacija?: string | null;
   status?: string | null;
-};
-
-type ArchiveRequestBody = {
-  baustelleId?: string | number;
 };
 
 type OneDriveConnection = {
@@ -30,11 +30,9 @@ type OneDriveConnection = {
 };
 
 type MicrosoftRefreshResponse = {
-  token_type?: string;
-  scope?: string;
-  expires_in?: number;
   access_token?: string;
   refresh_token?: string;
+  expires_in?: number;
   error?: string;
   error_description?: string;
 };
@@ -58,8 +56,7 @@ type GraphChildrenResponse = {
 
 type FileCandidate = {
   sourceTable: string;
-  rowIndex: number;
-  fieldPath: string;
+  sourceId: string;
   reference: string;
 };
 
@@ -71,78 +68,17 @@ type DownloadedFile = {
   storagePath?: string;
 };
 
-type UploadedFileResult = {
-  sourceTable: string;
-  fieldPath: string;
-  originalReference: string;
-  onedriveItemId: string;
-  onedriveName: string;
-  onedriveWebUrl: string | null;
-  size: number;
-  sha256: string;
-};
-
-type FailedFileResult = {
-  sourceTable: string;
-  fieldPath: string;
-  originalReference: string;
-  error: string;
-};
-
-const DIRECT_BAUSTELLE_TABLES = [
-  "arbeitsinfo_files",
-  "arbeitsinfo_materials",
-  "arbeitsinfo_notes",
-  "arbeitsinfo_tasks",
-  "arbeitsinfo_tiles",
-  "arbeitsinfo_tools",
-  "arbeitszeiten",
-  "aufgaben",
-  "baustelle_hours",
-  "baustelle_info",
-  "baustelle_info_photos",
-  "baustelle_material",
-  "fotos",
-  "leistungen",
-  "material_bewegungen",
-  "material_entries",
-  "material_orders",
-  "positionen",
-  "private_notes",
-  "produktivnost",
-  "projekt_regie",
-  "prostorije",
-  "raeume",
-  "regie",
-  "regie_arbeiter",
-  "regie_fotos",
-  "regie_unterschriften",
-  "regieberichte",
-  "room_photos",
-  "tagesberichte",
-  "work_calendar",
-] as const;
-
-const FILE_FIELDS = new Set([
-  "file_url",
+const PHOTO_REFERENCE_FIELDS = [
   "photo_url",
   "foto_url",
   "image_url",
   "bild_url",
   "public_url",
+  "file_url",
+  "url",
   "storage_path",
   "file_path",
-  "pdf_url",
-  "qr_url",
-  "signature_url",
-  "unterschrift_url",
-  "schein_url",
-]);
-
-const GENERIC_URL_FILE_TABLES = new Set(["fotos", "regie_fotos"]);
-
-const FILE_EXTENSION_RE =
-  /\.(jpe?g|png|webp|gif|heic|heif|svg|pdf|docx?|xlsx?|csv|txt|zip|mp4|mov|avi|mkv)(?:$|\?)/i;
+] as const;
 
 function jsonResponse(body: unknown, status = 200) {
   return NextResponse.json(body, { status });
@@ -158,7 +94,18 @@ function requireEnvironmentVariable(name: string): string {
   return value;
 }
 
-function decryptRefreshToken(payload: string, encryptionKeyHex: string): string {
+function sanitizeOneDriveName(value: string, fallback: string) {
+  const cleaned = String(value || "")
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/[\u0000-\u001f]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/[. ]+$/g, "")
+    .trim();
+
+  return (cleaned || fallback).slice(0, 140);
+}
+
+function decryptRefreshToken(payload: string, encryptionKeyHex: string) {
   if (!/^[a-f0-9]{64}$/i.test(encryptionKeyHex)) {
     throw new Error(
       "ONEDRIVE_TOKEN_ENCRYPTION_KEY muss genau 64 hexadezimale Zeichen enthalten."
@@ -168,7 +115,9 @@ function decryptRefreshToken(payload: string, encryptionKeyHex: string): string 
   const [version, ivPart, tagPart, encryptedPart] = payload.split(".");
 
   if (version !== "v1" || !ivPart || !tagPart || !encryptedPart) {
-    throw new Error("Das Format des verschlüsselten OneDrive-Tokens ist ungültig.");
+    throw new Error(
+      "Das Format des verschlüsselten OneDrive-Tokens ist ungültig."
+    );
   }
 
   const key = Buffer.from(encryptionKeyHex, "hex");
@@ -179,15 +128,16 @@ function decryptRefreshToken(payload: string, encryptionKeyHex: string): string 
   const decipher = createDecipheriv("aes-256-gcm", key, iv);
   decipher.setAuthTag(authenticationTag);
 
-  const decrypted = Buffer.concat([
+  return Buffer.concat([
     decipher.update(encrypted),
     decipher.final(),
-  ]);
-
-  return decrypted.toString("utf8");
+  ]).toString("utf8");
 }
 
-function encryptRefreshToken(refreshToken: string, encryptionKeyHex: string) {
+function encryptRefreshToken(
+  refreshToken: string,
+  encryptionKeyHex: string
+) {
   if (!/^[a-f0-9]{64}$/i.test(encryptionKeyHex)) {
     throw new Error(
       "ONEDRIVE_TOKEN_ENCRYPTION_KEY muss genau 64 hexadezimale Zeichen enthalten."
@@ -211,126 +161,6 @@ function encryptRefreshToken(refreshToken: string, encryptionKeyHex: string) {
     authenticationTag.toString("base64url"),
     encrypted.toString("base64url"),
   ].join(".");
-}
-
-function sanitizeOneDriveName(value: string, fallback: string) {
-  const cleaned = value
-    .replace(/[\\/:*?"<>|]/g, "-")
-    .replace(/[\u0000-\u001f]/g, "")
-    .replace(/\s+/g, " ")
-    .replace(/[. ]+$/g, "")
-    .trim();
-
-  return (cleaned || fallback).slice(0, 120);
-}
-
-function chunkArray<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-
-  return chunks;
-}
-
-function uniqueValues(values: unknown[]) {
-  return [
-    ...new Set(
-      values
-        .filter((value) => value !== null && value !== undefined && value !== "")
-        .map((value) => String(value))
-    ),
-  ];
-}
-
-function uniqueRows(rows: JsonRow[]) {
-  const result: JsonRow[] = [];
-  const seen = new Set<string>();
-
-  for (const row of rows) {
-    const key =
-      row.id !== null && row.id !== undefined
-        ? `id:${String(row.id)}`
-        : JSON.stringify(row);
-
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(row);
-  }
-
-  return result;
-}
-
-function collectIds(rows: JsonRow[], column = "id") {
-  return uniqueValues(rows.map((row) => row[column]));
-}
-
-function mergeTableRows(bundle: TableBundle, table: string, rows: JsonRow[]) {
-  bundle[table] = uniqueRows([...(bundle[table] ?? []), ...rows]);
-}
-
-async function loadRowsByEqual(
-  supabaseAdmin: SupabaseAdminClient,
-  table: string,
-  column: string,
-  value: string | number
-) {
-  const rows: JsonRow[] = [];
-  const pageSize = 1000;
-
-  for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await supabaseAdmin
-      .from(table)
-      .select("*")
-      .eq(column, value)
-      .range(offset, offset + pageSize - 1);
-
-    if (error) {
-      throw new Error(`${table}.${column}: ${error.message}`);
-    }
-
-    const page = (data ?? []) as JsonRow[];
-    rows.push(...page);
-
-    if (page.length < pageSize) break;
-  }
-
-  return uniqueRows(rows);
-}
-
-async function loadRowsByIn(
-  supabaseAdmin: SupabaseAdminClient,
-  table: string,
-  column: string,
-  values: string[]
-) {
-  if (values.length === 0) return [];
-
-  const rows: JsonRow[] = [];
-
-  for (const part of chunkArray(values, 100)) {
-    const pageSize = 1000;
-
-    for (let offset = 0; ; offset += pageSize) {
-      const { data, error } = await supabaseAdmin
-        .from(table)
-        .select("*")
-        .in(column, part)
-        .range(offset, offset + pageSize - 1);
-
-      if (error) {
-        throw new Error(`${table}.${column}: ${error.message}`);
-      }
-
-      const page = (data ?? []) as JsonRow[];
-      rows.push(...page);
-
-      if (page.length < pageSize) break;
-    }
-  }
-
-  return uniqueRows(rows);
 }
 
 async function refreshMicrosoftAccessToken(
@@ -367,12 +197,15 @@ async function refreshMicrosoftAccessToken(
     }
   );
 
-  const tokenData = (await response.json()) as MicrosoftRefreshResponse;
+  const tokenData =
+    (await response.json()) as MicrosoftRefreshResponse;
 
   if (!response.ok || !tokenData.access_token) {
     throw new Error(
       `Microsoft-Tokenfehler: ${
-        tokenData.error_description || tokenData.error || response.status
+        tokenData.error_description ||
+        tokenData.error ||
+        response.status
       }`
     );
   }
@@ -397,7 +230,9 @@ async function graphJson<T>(
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/json",
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...(init.body
+        ? { "Content-Type": "application/json" }
+        : {}),
       ...(init.headers ?? {}),
     },
     cache: "no-store",
@@ -405,18 +240,61 @@ async function graphJson<T>(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Microsoft Graph ${response.status}: ${errorText}`);
+
+    throw new Error(
+      `Microsoft Graph ${response.status}: ${errorText}`
+    );
   }
 
   return (await response.json()) as T;
 }
 
-async function createOneDriveFolder(
+async function ensureOneDriveFolder(
   driveId: string,
   parentItemId: string,
   folderName: string,
   accessToken: string
-) {
+): Promise<GraphDriveItem> {
+  const safeName = sanitizeOneDriveName(folderName, "Ordner");
+  const encodedName = encodeURIComponent(safeName);
+
+  const getUrl =
+    `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(
+      driveId
+    )}/items/${encodeURIComponent(
+      parentItemId
+    )}:/${encodedName}?$select=id,name,webUrl,folder`;
+
+  const existingResponse = await fetch(getUrl, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (existingResponse.ok) {
+    const existing =
+      (await existingResponse.json()) as GraphDriveItem;
+
+    if (!existing.folder) {
+      throw new Error(
+        `OneDrive-Eintrag ist kein Ordner: ${safeName}`
+      );
+    }
+
+    return existing;
+  }
+
+  if (existingResponse.status !== 404) {
+    const errorText = await existingResponse.text();
+
+    throw new Error(
+      `OneDrive-Ordnerprüfung ${existingResponse.status}: ${errorText}`
+    );
+  }
+
   return graphJson<GraphDriveItem>(
     `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(
       driveId
@@ -425,7 +303,7 @@ async function createOneDriveFolder(
     {
       method: "POST",
       body: JSON.stringify({
-        name: folderName,
+        name: safeName,
         folder: {},
         "@microsoft.graph.conflictBehavior": "rename",
       }),
@@ -441,13 +319,20 @@ async function uploadOneDriveFile(
   contentType: string,
   accessToken: string
 ) {
-  const encodedName = encodeURIComponent(fileName);
+  const safeName = sanitizeOneDriveName(
+    fileName,
+    "Datei.bin"
+  );
+
+  const encodedName = encodeURIComponent(safeName);
   const body = new Uint8Array(bytes).buffer;
 
   const response = await fetch(
     `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(
       driveId
-    )}/items/${encodeURIComponent(parentItemId)}:/${encodedName}:/content`,
+    )}/items/${encodeURIComponent(
+      parentItemId
+    )}:/${encodedName}:/content`,
     {
       method: "PUT",
       headers: {
@@ -461,12 +346,18 @@ async function uploadOneDriveFile(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`OneDrive upload ${response.status}: ${errorText}`);
+
+    throw new Error(
+      `OneDrive-Upload ${response.status}: ${errorText}`
+    );
   }
 
   const item = (await response.json()) as GraphDriveItem;
 
-  if (typeof item.size === "number" && item.size !== bytes.byteLength) {
+  if (
+    typeof item.size === "number" &&
+    item.size !== bytes.byteLength
+  ) {
     throw new Error(
       `Die Dateigröße auf OneDrive stimmt nicht überein: ${item.size} / ${bytes.byteLength}`
     );
@@ -475,111 +366,126 @@ async function uploadOneDriveFile(
   return item;
 }
 
-async function uploadJsonFile(
-  driveId: string,
-  parentItemId: string,
-  fileName: string,
-  value: unknown,
-  accessToken: string
-) {
-  const bytes = new TextEncoder().encode(JSON.stringify(value, null, 2));
+async function loadRowsByEqual(
+  supabaseAdmin: any,
+  table: string,
+  column: string,
+  value: string | number
+): Promise<JsonRow[]> {
+  const { data, error } = await supabaseAdmin
+    .from(table)
+    .select("*")
+    .eq(column, value);
 
-  return uploadOneDriveFile(
-    driveId,
-    parentItemId,
-    fileName,
-    bytes,
-    "application/json; charset=utf-8",
-    accessToken
-  );
-}
-
-function isFileField(sourceTable: string, keyName: string) {
-  const normalized = keyName.trim().toLowerCase();
-
-  if (FILE_FIELDS.has(normalized)) return true;
-
-  return (
-    normalized === "url" &&
-    GENERIC_URL_FILE_TABLES.has(sourceTable.toLowerCase())
-  );
-}
-
-function looksLikeFileReference(value: string) {
-  const trimmed = value.trim();
-
-  if (!trimmed) return false;
-  if (/^data:[^;]+;base64,/i.test(trimmed)) return true;
-  if (/^https?:\/\//i.test(trimmed)) return true;
-  return FILE_EXTENSION_RE.test(trimmed);
-}
-
-function collectFileCandidates(bundle: TableBundle) {
-  const candidates: FileCandidate[] = [];
-  const seen = new Set<string>();
-
-  function visit(
-    sourceTable: string,
-    rowIndex: number,
-    fieldPath: string,
-    keyName: string,
-    value: unknown
-  ) {
-    if (typeof value === "string") {
-      if (!isFileField(sourceTable, keyName) || !looksLikeFileReference(value)) {
-        return;
-      }
-
-      const reference = value.trim();
-      const dedupeKey = reference.replace(/[?#].*$/, "");
-
-      if (seen.has(dedupeKey)) return;
-      seen.add(dedupeKey);
-
-      candidates.push({
-        sourceTable,
-        rowIndex,
-        fieldPath,
-        reference,
-      });
-
-      return;
-    }
-
-    if (Array.isArray(value)) {
-      value.forEach((entry, index) =>
-        visit(
-          sourceTable,
-          rowIndex,
-          `${fieldPath}[${index}]`,
-          keyName,
-          entry
-        )
-      );
-      return;
-    }
-
-    if (value && typeof value === "object") {
-      for (const [nestedKey, nestedValue] of Object.entries(
-        value as Record<string, unknown>
-      )) {
-        visit(
-          sourceTable,
-          rowIndex,
-          fieldPath ? `${fieldPath}.${nestedKey}` : nestedKey,
-          nestedKey,
-          nestedValue
-        );
-      }
-    }
+  if (error) {
+    throw new Error(
+      `${table}.${column}: ${error.message}`
+    );
   }
 
-  for (const [table, rows] of Object.entries(bundle)) {
-    rows.forEach((row, rowIndex) => {
-      for (const [key, value] of Object.entries(row)) {
-        visit(table, rowIndex, key, key, value);
+  return (data ?? []) as JsonRow[];
+}
+
+async function loadRowsByIn(
+  supabaseAdmin: any,
+  table: string,
+  column: string,
+  values: Array<string | number>
+): Promise<JsonRow[]> {
+  if (values.length === 0) {
+    return [];
+  }
+
+  const allRows: JsonRow[] = [];
+
+  for (
+    let offset = 0;
+    offset < values.length;
+    offset += 100
+  ) {
+    const chunk = values.slice(offset, offset + 100);
+
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select("*")
+      .in(column, chunk);
+
+    if (error) {
+      throw new Error(
+        `${table}.${column}: ${error.message}`
+      );
+    }
+
+    allRows.push(...((data ?? []) as JsonRow[]));
+  }
+
+  return allRows;
+}
+
+function uniqueRows(rows: JsonRow[]) {
+  const seen = new Set<string>();
+  const result: JsonRow[] = [];
+
+  for (const row of rows) {
+    const key =
+      row.id !== null && row.id !== undefined
+        ? `id:${String(row.id)}`
+        : JSON.stringify(row);
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(row);
+  }
+
+  return result;
+}
+
+function collectFileCandidates(
+  tableRows: Array<{
+    table: string;
+    rows: JsonRow[];
+  }>
+) {
+  const seen = new Set<string>();
+  const candidates: FileCandidate[] = [];
+
+  for (const { table, rows } of tableRows) {
+    for (const row of rows) {
+      for (const field of PHOTO_REFERENCE_FIELDS) {
+        const rawValue = row[field];
+
+        if (
+          typeof rawValue !== "string" ||
+          !rawValue.trim()
+        ) {
+          continue;
+        }
+
+        const reference = rawValue.trim();
+
+        const normalized = reference.replace(
+          /[?#].*$/,
+          ""
+        );
+
+        if (seen.has(normalized)) {
+          continue;
+        }
+
+        seen.add(normalized);
+
+        candidates.push({
+          sourceTable: table,
+          sourceId: String(
+            row.id ?? candidates.length + 1
+          ),
+          reference,
+        });
       }
-    });
+    }
   }
 
   return candidates;
@@ -588,11 +494,14 @@ function collectFileCandidates(bundle: TableBundle) {
 function parseSupabaseStorageUrl(reference: string) {
   try {
     const url = new URL(reference);
+
     const match = url.pathname.match(
       /\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/
     );
 
-    if (!match) return null;
+    if (!match) {
+      return null;
+    }
 
     return {
       bucketId: decodeURIComponent(match[1]),
@@ -603,67 +512,143 @@ function parseSupabaseStorageUrl(reference: string) {
   }
 }
 
-function getFileNameFromReference(reference: string, fallback: string) {
+function getFileNameFromReference(
+  reference: string,
+  fallback: string
+) {
   try {
     const url = new URL(reference);
-    const lastPart = url.pathname.split("/").filter(Boolean).pop();
+
+    const lastPart = url.pathname
+      .split("/")
+      .filter(Boolean)
+      .pop();
+
     return sanitizeOneDriveName(
-      lastPart ? decodeURIComponent(lastPart) : fallback,
+      lastPart
+        ? decodeURIComponent(lastPart)
+        : fallback,
       fallback
     );
   } catch {
-    const lastPart = reference.split(/[\\/]/).filter(Boolean).pop();
-    return sanitizeOneDriveName(lastPart || fallback, fallback);
+    const lastPart = reference
+      .split(/[\\/]/)
+      .filter(Boolean)
+      .pop();
+
+    return sanitizeOneDriveName(
+      lastPart || fallback,
+      fallback
+    );
   }
 }
 
 function parseDataUrl(reference: string) {
-  const match = reference.match(/^data:([^;]+);base64,(.+)$/i);
+  const match = reference.match(
+    /^data:([^;]+);base64,(.+)$/i
+  );
 
-  if (!match) return null;
+  if (!match) {
+    return null;
+  }
 
   return {
-    contentType: match[1] || "application/octet-stream",
-    bytes: new Uint8Array(Buffer.from(match[2], "base64")),
+    contentType:
+      match[1] || "application/octet-stream",
+    bytes: new Uint8Array(
+      Buffer.from(match[2], "base64")
+    ),
   };
 }
 
+function extensionFromContentType(
+  contentType: string
+) {
+  const normalized = contentType
+    .toLowerCase()
+    .split(";")[0]
+    .trim();
+
+  const map: Record<string, string> = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/heic": ".heic",
+    "image/heif": ".heif",
+    "application/pdf": ".pdf",
+  };
+
+  return map[normalized] || "";
+}
+
+function ensureExtension(
+  fileName: string,
+  contentType: string
+) {
+  if (/\.[a-z0-9]{2,6}$/i.test(fileName)) {
+    return fileName;
+  }
+
+  return `${fileName}${extensionFromContentType(
+    contentType
+  )}`;
+}
+
 async function downloadFileCandidate(
-  supabaseAdmin: SupabaseAdminClient,
+  supabaseAdmin: any,
   candidate: FileCandidate,
   bucketIds: string[],
   supabaseHost: string
 ): Promise<DownloadedFile> {
-  const parsedDataUrl = parseDataUrl(candidate.reference);
+  const dataUrl = parseDataUrl(candidate.reference);
 
-  if (parsedDataUrl) {
+  if (dataUrl) {
     return {
-      bytes: parsedDataUrl.bytes,
-      contentType: parsedDataUrl.contentType,
-      originalName: `embedded-${candidate.sourceTable}-${candidate.rowIndex}.bin`,
+      bytes: dataUrl.bytes,
+      contentType: dataUrl.contentType,
+      originalName: ensureExtension(
+        `${candidate.sourceTable}-${candidate.sourceId}`,
+        dataUrl.contentType
+      ),
     };
   }
 
-  const parsedStorageUrl = parseSupabaseStorageUrl(candidate.reference);
+  const parsedStorageUrl = parseSupabaseStorageUrl(
+    candidate.reference
+  );
 
   if (parsedStorageUrl) {
-    const { data, error } = await supabaseAdmin.storage
-      .from(parsedStorageUrl.bucketId)
-      .download(parsedStorageUrl.storagePath);
+    const { data, error } =
+      await supabaseAdmin.storage
+        .from(parsedStorageUrl.bucketId)
+        .download(parsedStorageUrl.storagePath);
 
     if (error || !data) {
       throw new Error(
-        `Der Download aus Supabase Storage ist fehlgeschlagen: ${error?.message || "keine Datei"}`
+        `Supabase-Storage-Download fehlgeschlagen: ${
+          error?.message || "keine Datei"
+        }`
       );
     }
 
-    return {
-      bytes: new Uint8Array(await data.arrayBuffer()),
-      contentType: data.type || "application/octet-stream",
-      originalName: getFileNameFromReference(
+    const contentType =
+      data.type || "application/octet-stream";
+
+    const originalName = ensureExtension(
+      getFileNameFromReference(
         parsedStorageUrl.storagePath,
-        "file.bin"
+        "Datei"
       ),
+      contentType
+    );
+
+    return {
+      bytes: new Uint8Array(
+        await data.arrayBuffer()
+      ),
+      contentType,
+      originalName,
       bucketId: parsedStorageUrl.bucketId,
       storagePath: parsedStorageUrl.storagePath,
     };
@@ -673,530 +658,1042 @@ async function downloadFileCandidate(
     const url = new URL(candidate.reference);
 
     if (url.hostname !== supabaseHost) {
-      throw new Error(`Externe URL ist nicht erlaubt: ${url.hostname}`);
+      throw new Error(
+        `Externe Datei-URL ist nicht erlaubt: ${url.hostname}`
+      );
     }
 
-    const response = await fetch(candidate.reference, {
-      method: "GET",
-      cache: "no-store",
-    });
+    const response = await fetch(
+      candidate.reference,
+      {
+        method: "GET",
+        cache: "no-store",
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`HTTP download ${response.status}`);
+      throw new Error(
+        `Dateidownload HTTP ${response.status}`
+      );
     }
 
+    const contentType =
+      response.headers.get("content-type") ||
+      "application/octet-stream";
+
+    const originalName = ensureExtension(
+      getFileNameFromReference(
+        candidate.reference,
+        "Datei"
+      ),
+      contentType
+    );
+
     return {
-      bytes: new Uint8Array(await response.arrayBuffer()),
-      contentType:
-        response.headers.get("content-type") || "application/octet-stream",
-      originalName: getFileNameFromReference(candidate.reference, "file.bin"),
+      bytes: new Uint8Array(
+        await response.arrayBuffer()
+      ),
+      contentType,
+      originalName,
     };
   }
 
-  const cleanPath = candidate.reference.replace(/^\/+/, "");
+  const cleanPath = candidate.reference.replace(
+    /^\/+/,
+    ""
+  );
+
   const firstPart = cleanPath.split("/")[0];
 
   const bucketOrder = bucketIds.includes(firstPart)
-    ? [firstPart, ...bucketIds.filter((bucketId) => bucketId !== firstPart)]
+    ? [
+        firstPart,
+        ...bucketIds.filter(
+          (bucketId) => bucketId !== firstPart
+        ),
+      ]
     : bucketIds;
 
   for (const bucketId of bucketOrder) {
     const storagePath =
       bucketId === firstPart
-        ? cleanPath.slice(firstPart.length).replace(/^\/+/, "")
+        ? cleanPath
+            .slice(firstPart.length)
+            .replace(/^\/+/, "")
         : cleanPath;
 
-    const { data, error } = await supabaseAdmin.storage
-      .from(bucketId)
-      .download(storagePath);
+    const { data, error } =
+      await supabaseAdmin.storage
+        .from(bucketId)
+        .download(storagePath);
 
     if (!error && data) {
+      const contentType =
+        data.type || "application/octet-stream";
+
+      const originalName = ensureExtension(
+        getFileNameFromReference(
+          storagePath,
+          "Datei"
+        ),
+        contentType
+      );
+
       return {
-        bytes: new Uint8Array(await data.arrayBuffer()),
-        contentType: data.type || "application/octet-stream",
-        originalName: getFileNameFromReference(storagePath, "file.bin"),
+        bytes: new Uint8Array(
+          await data.arrayBuffer()
+        ),
+        contentType,
+        originalName,
         bucketId,
         storagePath,
       };
     }
   }
 
-  throw new Error("Die Datei wurde in keinem Supabase-Storage-Bucket gefunden.");
+  throw new Error(
+    "Die Datei wurde in keinem Supabase-Storage-Bucket gefunden."
+  );
 }
 
-async function loadBaustelleBundle(
-  supabaseAdmin: SupabaseAdminClient,
-  baustelleId: string
-) {
-  const { data: baustelle, error: baustelleError } = await supabaseAdmin
-    .from("baustellen")
-    .select("*")
-    .eq("id", baustelleId)
-    .single();
+async function createBrowser() {
+  return puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: {
+      width: 1440,
+      height: 1600,
+      deviceScaleFactor: 1,
+      hasTouch: false,
+      isLandscape: false,
+      isMobile: false,
+    },
+    executablePath: await chromium.executablePath(),
+    headless: true,
+  });
+}
 
-  if (baustelleError || !baustelle) {
-    throw new Error(
-      `Baustelle wurde nicht gefunden: ${baustelleError?.message || baustelleId}`
-    );
-  }
+async function createAdminPage(browser: Browser) {
+  const page = await browser.newPage();
 
-  const typedBaustelle = baustelle as BaustelleRow;
+  const adminValue = JSON.stringify({
+    name: "Hido",
+    role: "admin",
+    is_admin: true,
+    admin: true,
+  });
 
-  if (String(typedBaustelle.status ?? "").trim() !== "Archiv") {
-    throw new Error("Der Export ist nur für Baustellen mit dem Status Archiv erlaubt.");
-  }
+  await page.evaluateOnNewDocument(
+    (serializedAdmin: string) => {
+      try {
+        localStorage.setItem(
+          "currentWorker",
+          serializedAdmin
+        );
 
-  const bundle: TableBundle = {
-    baustellen: [typedBaustelle],
-  };
+        localStorage.setItem(
+          "currentUser",
+          serializedAdmin
+        );
 
-  const directResults = await Promise.all(
-    DIRECT_BAUSTELLE_TABLES.map(async (table) => ({
-      table,
-      rows: await loadRowsByEqual(
-        supabaseAdmin,
-        table,
-        "baustelle_id",
-        baustelleId
-      ),
-    }))
+        localStorage.setItem(
+          "loggedUser",
+          serializedAdmin
+        );
+
+        localStorage.setItem(
+          "worker",
+          serializedAdmin
+        );
+      } catch {
+        // Leere Browser-Seiten haben manchmal
+        // noch keinen Local-Storage-Zugriff.
+      }
+    },
+    adminValue
   );
 
-  for (const result of directResults) {
-    mergeTableRows(bundle, result.table, result.rows);
-  }
+  return page;
+}
 
-  const roomIds = uniqueValues([
-    ...collectIds(bundle.prostorije ?? []),
-    ...collectIds(bundle.raeume ?? []),
-    ...(bundle.baustelle_info ?? []).map((row) => row.room_id),
-    ...(bundle.arbeitsinfo_tasks ?? []).map((row) => row.room_id),
-  ]);
+async function waitForPrintablePage(
+  page: Page,
+  readyText: string,
+  loadingTexts: string[]
+) {
+  await page.waitForFunction(
+    ({
+      ready,
+      loading,
+    }: {
+      ready: string;
+      loading: string[];
+    }) => {
+      const text =
+        document.body?.innerText || "";
 
-  const roomDependentQueries = [
-    {
-      table: "arbeitsinfo_tile_rooms",
-      column: "room_id",
-      values: roomIds,
+      const stillLoading = loading.some(
+        (value: string) =>
+          text.includes(value)
+      );
+
+      return (
+        !stillLoading &&
+        text.includes(ready)
+      );
     },
     {
-      table: "prostorije_materijal",
-      column: "prostorija_id",
-      values: roomIds,
+      timeout: 90_000,
     },
     {
-      table: "room_material",
-      column: "room_id",
-      values: roomIds,
-    },
-  ];
+      ready: readyText,
+      loading: loadingTexts,
+    }
+  );
 
-  for (const query of roomDependentQueries) {
-    const rows = await loadRowsByIn(
-      supabaseAdmin,
-      query.table,
-      query.column,
-      query.values
-    );
-    mergeTableRows(bundle, query.table, rows);
-  }
-
-  const regieberichtIds = collectIds(bundle.regieberichte ?? []);
-
-  for (const table of [
-    "regiebericht_materials",
-    "regiebericht_photos",
-    "regiebericht_rooms",
-    "regiebericht_workers",
-  ]) {
-    const rows = await loadRowsByIn(
-      supabaseAdmin,
-      table,
-      "regiebericht_id",
-      regieberichtIds
-    );
-    mergeTableRows(bundle, table, rows);
-  }
-
-  const projektRegieIds = collectIds(bundle.projekt_regie ?? []);
-
-  for (const table of ["projekt_fotos", "projekt_regie_workers"]) {
-    const rows = await loadRowsByIn(
-      supabaseAdmin,
-      table,
-      "regie_id",
-      projektRegieIds
-    );
-    mergeTableRows(bundle, table, rows);
-  }
-
-  const materialIds = uniqueValues(
-    Object.values(bundle).flatMap((rows) =>
-      rows.map((row) => row.material_id)
+  const accessDenied = await page.evaluate(() =>
+    (document.body?.innerText || "").includes(
+      "Kein Zugriff"
     )
   );
 
-  const materials = await loadRowsByIn(
-    supabaseAdmin,
-    "materials",
-    "id",
-    materialIds
-  );
-  mergeTableRows(bundle, "materials", materials);
+  if (accessDenied) {
+    throw new Error(
+      "Die PDF-Seite konnte nicht als Administrator geöffnet werden."
+    );
+  }
 
-  const materialGroupIds = uniqueValues(
-    materials.map((row) => row.group_id)
-  );
+  await page.evaluate(async () => {
+    const fontSet = (
+      document as Document & {
+        fonts?: FontFaceSet;
+      }
+    ).fonts;
 
-  const materialGroups = await loadRowsByIn(
-    supabaseAdmin,
-    "material_groups",
-    "id",
-    materialGroupIds
-  );
-  mergeTableRows(bundle, "material_groups", materialGroups);
+    if (fontSet?.ready) {
+      await fontSet.ready;
+    }
 
-  return {
-    baustelle: typedBaustelle,
-    bundle,
-  };
+    const imagePromises =
+      Array.from(document.images).map(
+        (image) =>
+          new Promise<void>((resolve) => {
+            if (image.complete) {
+              resolve();
+              return;
+            }
+
+            image.addEventListener(
+              "load",
+              () => resolve(),
+              { once: true }
+            );
+
+            image.addEventListener(
+              "error",
+              () => resolve(),
+              { once: true }
+            );
+          })
+      );
+
+    await Promise.race([
+      Promise.all(imagePromises),
+      new Promise<void>((resolve) =>
+        window.setTimeout(resolve, 12_000)
+      ),
+    ]);
+  });
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const expectedTestKey = requireEnvironmentVariable("ARCHIVE_TEST_KEY");
-    const suppliedTestKey = request.headers.get("x-archive-test-key")?.trim();
+async function renderPdf(
+  page: Page,
+  url: string,
+  readyText: string,
+  loadingTexts: string[]
+) {
+  const response = await page.goto(url, {
+    waitUntil: "networkidle2",
+    timeout: 90_000,
+  });
 
-    if (!suppliedTestKey || suppliedTestKey !== expectedTestKey) {
-      return jsonResponse({ error: "Zugriff nicht erlaubt." }, 401);
+  if (!response || !response.ok()) {
+    throw new Error(
+      `PDF-Seite konnte nicht geladen werden: ${
+        response?.status() || "keine Antwort"
+      }`
+    );
+  }
+
+  await waitForPrintablePage(
+    page,
+    readyText,
+    loadingTexts
+  );
+
+  await page.emulateMediaType("print");
+
+  const pdf = await page.pdf({
+    printBackground: true,
+    preferCSSPageSize: true,
+  });
+
+  await page.emulateMediaType("screen");
+
+  return new Uint8Array(pdf);
+}
+
+async function closeBrowserSafely(
+  browser: Browser | null
+) {
+  if (!browser) {
+    return;
+  }
+
+  try {
+    for (const page of await browser.pages()) {
+      await page.close().catch(() => undefined);
     }
 
-    const body = (await request.json()) as ArchiveRequestBody;
-    const baustelleId = String(body.baustelleId ?? "").trim();
+    await Promise.race([
+      browser.close(),
+      new Promise<void>((resolve) =>
+        setTimeout(resolve, 5_000)
+      ),
+    ]);
+  } catch (error) {
+    console.error(
+      "Chromium konnte nicht sauber geschlossen werden:",
+      error
+    );
+  }
+}
+
+function getRegieberichtNumber(row: JsonRow) {
+  return String(
+    row.bericht_nr ||
+      row.nummer ||
+      row.id ||
+      "Bericht"
+  );
+}
+
+export async function POST(
+  request: NextRequest
+) {
+  let browser: Browser | null = null;
+
+  try {
+    const expectedTestKey =
+      requireEnvironmentVariable(
+        "ARCHIVE_TEST_KEY"
+      );
+
+    const suppliedTestKey = request.headers
+      .get("x-archive-test-key")
+      ?.trim();
+
+    if (
+      !suppliedTestKey ||
+      suppliedTestKey !== expectedTestKey
+    ) {
+      return jsonResponse(
+        {
+          success: false,
+          error: "Zugriff nicht erlaubt.",
+        },
+        401
+      );
+    }
+
+    let body: ArchiveRequestBody;
+
+    try {
+      body =
+        (await request.json()) as ArchiveRequestBody;
+    } catch {
+      return jsonResponse(
+        {
+          success: false,
+          error:
+            "Der Request enthält kein gültiges JSON.",
+        },
+        400
+      );
+    }
+
+    const baustelleId = String(
+      body.baustelleId ?? ""
+    ).trim();
 
     if (!/^\d+$/.test(baustelleId)) {
-      return jsonResponse({ error: "baustelleId ist ungültig." }, 400);
+      return jsonResponse(
+        {
+          success: false,
+          error: "baustelleId ist ungültig.",
+        },
+        400
+      );
     }
 
-    const supabaseUrl = requireEnvironmentVariable("NEXT_PUBLIC_SUPABASE_URL");
-    const supabaseSecretKey = requireEnvironmentVariable(
-      "SUPABASE_SECRET_KEY"
-    );
-    const clientId = requireEnvironmentVariable("ONEDRIVE_CLIENT_ID");
-    const clientSecret = requireEnvironmentVariable("ONEDRIVE_CLIENT_SECRET");
-    const redirectUri = requireEnvironmentVariable("ONEDRIVE_REDIRECT_URI");
-    const tenant = process.env.ONEDRIVE_TENANT?.trim() || "consumers";
-    const encryptionKey = requireEnvironmentVariable(
-      "ONEDRIVE_TOKEN_ENCRYPTION_KEY"
+    const supabaseUrl =
+      requireEnvironmentVariable(
+        "NEXT_PUBLIC_SUPABASE_URL"
+      );
+
+    const supabaseSecretKey =
+      requireEnvironmentVariable(
+        "SUPABASE_SECRET_KEY"
+      );
+
+    const clientId =
+      requireEnvironmentVariable(
+        "ONEDRIVE_CLIENT_ID"
+      );
+
+    const clientSecret =
+      requireEnvironmentVariable(
+        "ONEDRIVE_CLIENT_SECRET"
+      );
+
+    const redirectUri =
+      requireEnvironmentVariable(
+        "ONEDRIVE_REDIRECT_URI"
+      );
+
+    const tenant =
+      process.env.ONEDRIVE_TENANT?.trim() ||
+      "consumers";
+
+    const encryptionKey =
+      requireEnvironmentVariable(
+        "ONEDRIVE_TOKEN_ENCRYPTION_KEY"
+      );
+
+    const supabaseAdmin = createClient(
+      supabaseUrl,
+      supabaseSecretKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+          detectSessionInUrl: false,
+        },
+      }
     );
 
-    const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      },
-    });
-
-    const { data: connection, error: connectionError } = await supabaseAdmin
+    const {
+      data: connection,
+      error: connectionError,
+    } = await supabaseAdmin
       .from("onedrive_connections")
       .select(
-        "provider, drive_id, archive_folder_id, archive_folder_web_url, refresh_token_encrypted"
+        `
+        provider,
+        drive_id,
+        archive_folder_id,
+        archive_folder_web_url,
+        refresh_token_encrypted
+        `
       )
       .eq("provider", "microsoft")
       .single();
 
     if (connectionError || !connection) {
       throw new Error(
-        `Die OneDrive-Verbindung wurde nicht gefunden: ${connectionError?.message || "kein Eintrag"}`
+        `Die OneDrive-Verbindung wurde nicht gefunden: ${
+          connectionError?.message ||
+          "kein Eintrag"
+        }`
       );
     }
 
-    const typedConnection = connection as OneDriveConnection;
+    const typedConnection =
+      connection as OneDriveConnection;
 
-    if (!typedConnection.drive_id || !typedConnection.archive_folder_id) {
-      throw new Error("OneDrive drive_id oder archive_folder_id fehlt.");
+    if (
+      !typedConnection.drive_id ||
+      !typedConnection.archive_folder_id
+    ) {
+      throw new Error(
+        "OneDrive drive_id oder archive_folder_id fehlt."
+      );
     }
 
-    const token = await refreshMicrosoftAccessToken(
-      typedConnection.refresh_token_encrypted,
-      encryptionKey,
-      clientId,
-      clientSecret,
-      tenant,
-      redirectUri
-    );
+    const token =
+      await refreshMicrosoftAccessToken(
+        typedConnection.refresh_token_encrypted,
+        encryptionKey,
+        clientId,
+        clientSecret,
+        tenant,
+        redirectUri
+      );
 
     if (token.refreshTokenChanged) {
-      const { error: updateTokenError } = await supabaseAdmin
+      const {
+        error: tokenUpdateError,
+      } = await supabaseAdmin
         .from("onedrive_connections")
         .update({
-          refresh_token_encrypted: encryptRefreshToken(
-            token.refreshToken,
-            encryptionKey
-          ),
+          refresh_token_encrypted:
+            encryptRefreshToken(
+              token.refreshToken,
+              encryptionKey
+            ),
+
           token_expires_at: new Date(
-            Date.now() + token.expiresIn * 1000
+            Date.now() +
+              token.expiresIn * 1000
           ).toISOString(),
-          updated_at: new Date().toISOString(),
+
+          updated_at:
+            new Date().toISOString(),
         })
         .eq("provider", "microsoft");
 
-      if (updateTokenError) {
+      if (tokenUpdateError) {
         throw new Error(
-          `Der neue Microsoft-Refresh-Token konnte nicht gespeichert werden: ${updateTokenError.message}`
+          `Der neue Microsoft-Refresh-Token konnte nicht gespeichert werden: ${tokenUpdateError.message}`
         );
       }
     }
 
-    const { baustelle, bundle } = await loadBaustelleBundle(
-      supabaseAdmin,
-      baustelleId
+    const {
+      data: baustelleData,
+      error: baustelleError,
+    } = await supabaseAdmin
+      .from("baustellen")
+      .select("*")
+      .eq("id", Number(baustelleId))
+      .single();
+
+    if (
+      baustelleError ||
+      !baustelleData
+    ) {
+      throw new Error(
+        `Baustelle wurde nicht gefunden: ${
+          baustelleError?.message ||
+          baustelleId
+        }`
+      );
+    }
+
+    const baustelle =
+      baustelleData as BaustelleRow;
+
+    if (
+      String(
+        baustelle.status || ""
+      ).trim() !== "Archiv"
+    ) {
+      throw new Error(
+        "Der Export ist nur für Baustellen mit dem Status Archiv erlaubt."
+      );
+    }
+
+    const rooms =
+      await loadRowsByEqual(
+        supabaseAdmin,
+        "prostorije",
+        "baustelle_id",
+        Number(baustelleId)
+      );
+
+    const roomIds = rooms
+      .map((row) => row.id)
+      .filter(Boolean);
+
+    const regieberichte =
+      await loadRowsByEqual(
+        supabaseAdmin,
+        "regieberichte",
+        "baustelle_id",
+        Number(baustelleId)
+      );
+
+    const regieberichtIds =
+      regieberichte
+        .map((row) => row.id)
+        .filter(Boolean);
+
+    const projektRegie =
+      await loadRowsByEqual(
+        supabaseAdmin,
+        "projekt_regie",
+        "baustelle_id",
+        baustelleId
+      );
+
+    const projektRegieIds =
+      projektRegie
+        .map((row) => row.id)
+        .filter(Boolean);
+
+    const [
+      roomPhotosByBaustelle,
+      roomPhotosByRoom,
+      regieberichtPhotos,
+      baustelleInfoPhotos,
+      fotos,
+      regieFotos,
+      projektFotos,
+      arbeitsinfoFiles,
+    ] = await Promise.all([
+      loadRowsByEqual(
+        supabaseAdmin,
+        "room_photos",
+        "baustelle_id",
+        baustelleId
+      ),
+
+      loadRowsByIn(
+        supabaseAdmin,
+        "room_photos",
+        "room_id",
+        roomIds
+      ),
+
+      loadRowsByIn(
+        supabaseAdmin,
+        "regiebericht_photos",
+        "regiebericht_id",
+        regieberichtIds
+      ),
+
+      loadRowsByEqual(
+        supabaseAdmin,
+        "baustelle_info_photos",
+        "baustelle_id",
+        Number(baustelleId)
+      ),
+
+      loadRowsByEqual(
+        supabaseAdmin,
+        "fotos",
+        "baustelle_id",
+        baustelleId
+      ),
+
+      loadRowsByEqual(
+        supabaseAdmin,
+        "regie_fotos",
+        "baustelle_id",
+        baustelleId
+      ),
+
+      loadRowsByIn(
+        supabaseAdmin,
+        "projekt_fotos",
+        "regie_id",
+        projektRegieIds
+      ),
+
+      loadRowsByEqual(
+        supabaseAdmin,
+        "arbeitsinfo_files",
+        "baustelle_id",
+        Number(baustelleId)
+      ),
+    ]);
+
+    const fileCandidates =
+      collectFileCandidates([
+        {
+          table: "room_photos",
+          rows: uniqueRows([
+            ...roomPhotosByBaustelle,
+            ...roomPhotosByRoom,
+          ]),
+        },
+
+        {
+          table: "regiebericht_photos",
+          rows: regieberichtPhotos,
+        },
+
+        {
+          table: "baustelle_info_photos",
+          rows: baustelleInfoPhotos,
+        },
+
+        {
+          table: "fotos",
+          rows: fotos,
+        },
+
+        {
+          table: "regie_fotos",
+          rows: regieFotos,
+        },
+
+        {
+          table: "projekt_fotos",
+          rows: projektFotos,
+        },
+
+        {
+          table: "arbeitsinfo_files",
+          rows: arbeitsinfoFiles,
+        },
+      ]);
+
+    const baustelleName =
+      sanitizeOneDriveName(
+        String(
+          baustelle.naziv ||
+            `Baustelle ${baustelleId}`
+        ),
+        `Baustelle ${baustelleId}`
+      );
+
+    const baustelleFolder =
+      await ensureOneDriveFolder(
+        typedConnection.drive_id,
+        typedConnection.archive_folder_id,
+        baustelleName,
+        token.accessToken
+      );
+
+    const fotosFolder =
+      await ensureOneDriveFolder(
+        typedConnection.drive_id,
+        baustelleFolder.id,
+        "Fotos",
+        token.accessToken
+      );
+
+    const regieberichteFolder =
+      await ensureOneDriveFolder(
+        typedConnection.drive_id,
+        baustelleFolder.id,
+        "Regieberichte",
+        token.accessToken
+      );
+
+    const appOrigin =
+      new URL(request.url).origin;
+
+    browser = await createBrowser();
+
+    const page =
+      await createAdminPage(browser);
+
+    const overviewPdf =
+      await renderPdf(
+        page,
+        `${appOrigin}/baustellen/archiv/${encodeURIComponent(
+          baustelleId
+        )}?onedriveExport=1`,
+        "Baustellenübersicht",
+        [
+          "Bericht wird geladen",
+          "Zugriff wird geprüft",
+        ]
+      );
+
+    const overviewItem =
+      await uploadOneDriveFile(
+        typedConnection.drive_id,
+        baustelleFolder.id,
+        "Baustellenübersicht.pdf",
+        overviewPdf,
+        "application/pdf",
+        token.accessToken
+      );
+
+    const uploadedRegieberichte: Array<{
+      id: string;
+      name: string;
+      itemId: string;
+    }> = [];
+
+    const sortedRegieberichte = [
+      ...regieberichte,
+    ].sort((a, b) =>
+      String(a.datum || "").localeCompare(
+        String(b.datum || "")
+      )
     );
 
-    const now = new Date();
-    const timestamp = now.toISOString().replace(/[:.]/g, "-");
-    const baustelleName = String(baustelle.naziv || `Baustelle ${baustelleId}`);
-    const archiveFolderName = sanitizeOneDriveName(
-      `TEST - ${baustelleId} - ${baustelleName} - ${timestamp}`,
-      `TEST - Baustelle ${baustelleId}`
-    );
+    for (
+      const bericht of sortedRegieberichte
+    ) {
+      const regieId =
+        String(bericht.id);
 
-    const archiveFolder = await createOneDriveFolder(
-      typedConnection.drive_id,
-      typedConnection.archive_folder_id,
-      archiveFolderName,
-      token.accessToken
-    );
+      const regieNumber =
+        sanitizeOneDriveName(
+          getRegieberichtNumber(bericht),
+          regieId
+        );
 
-    const dataFolder = await createOneDriveFolder(
-      typedConnection.drive_id,
-      archiveFolder.id,
-      "Daten",
-      token.accessToken
-    );
+      const regiePdf =
+        await renderPdf(
+          page,
+          `${appOrigin}/baustellen/archiv/${encodeURIComponent(
+            baustelleId
+          )}/regieberichte/${encodeURIComponent(
+            regieId
+          )}?onedriveExport=1`,
+          "Tagesbericht / Regiearbeit",
+          [
+            "Regiebericht wird geladen",
+            "Zugriff wird geprüft",
+          ]
+        );
 
-    const filesFolder = await createOneDriveFolder(
-      typedConnection.drive_id,
-      archiveFolder.id,
-      "Dateien",
-      token.accessToken
-    );
+      const targetName =
+        `Regiebericht-${regieNumber}.pdf`;
 
-    const tableCounts = Object.fromEntries(
-      Object.entries(bundle)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([table, rows]) => [table, rows.length])
-    );
+      const uploadedItem =
+        await uploadOneDriveFile(
+          typedConnection.drive_id,
+          regieberichteFolder.id,
+          targetName,
+          regiePdf,
+          "application/pdf",
+          token.accessToken
+        );
 
-    const fileCandidates = collectFileCandidates(bundle);
+      uploadedRegieberichte.push({
+        id: regieId,
+        name: uploadedItem.name,
+        itemId: uploadedItem.id,
+      });
+    }
 
-    const dataExport = {
-      schemaVersion: 1,
-      exportMode: "test-no-delete",
-      exportedAt: now.toISOString(),
-      source: {
-        supabaseProjectUrl: supabaseUrl,
-        baustelleId,
-      },
-      baustelle,
-      tableCounts,
-      tables: bundle,
-      discoveredFileReferences: fileCandidates,
-    };
-
-    const dataItem = await uploadJsonFile(
-      typedConnection.drive_id,
-      dataFolder.id,
-      "Baustelle-Daten.json",
-      dataExport,
-      token.accessToken
-    );
-
-    const { data: buckets, error: bucketsError } =
+    const {
+      data: buckets,
+      error: bucketsError,
+    } =
       await supabaseAdmin.storage.listBuckets();
 
     if (bucketsError) {
-      throw new Error(`Fehler beim Laden der Storage-Bucket-Liste: ${bucketsError.message}`);
+      throw new Error(
+        `Storage-Buckets konnten nicht geladen werden: ${bucketsError.message}`
+      );
     }
 
-    const bucketIds = (buckets ?? []).map((bucket: { id: string }) => bucket.id);
-    const supabaseHost = new URL(supabaseUrl).hostname;
-    const uploadedFiles: UploadedFileResult[] = [];
-    const failedFiles: FailedFileResult[] = [];
-    const uploadedStorageKeys = new Set<string>();
+    const bucketIds =
+      (buckets ?? []).map(
+        (bucket: { id: string }) =>
+          bucket.id
+      );
 
-    for (let index = 0; index < fileCandidates.length; index += 1) {
-      const candidate = fileCandidates[index];
+    const supabaseHost =
+      new URL(supabaseUrl).hostname;
+
+    let uploadedPhotoCount = 0;
+
+    let uploadedPdfAttachmentCount = 0;
+
+    const failedFiles: Array<{
+      reference: string;
+      error: string;
+    }> = [];
+
+    for (
+      let index = 0;
+      index < fileCandidates.length;
+      index += 1
+    ) {
+      const candidate =
+        fileCandidates[index];
 
       try {
-        const downloaded = await downloadFileCandidate(
-          supabaseAdmin,
-          candidate,
-          bucketIds,
-          supabaseHost
-        );
+        const downloaded =
+          await downloadFileCandidate(
+            supabaseAdmin,
+            candidate,
+            bucketIds,
+            supabaseHost
+          );
 
-        const storageKey =
-          downloaded.bucketId && downloaded.storagePath
-            ? `${downloaded.bucketId}/${downloaded.storagePath}`
-            : null;
+        const isPdf =
+          downloaded.contentType
+            .toLowerCase()
+            .includes(
+              "application/pdf"
+            ) ||
+          downloaded.originalName
+            .toLowerCase()
+            .endsWith(".pdf");
 
-        if (storageKey && uploadedStorageKeys.has(storageKey)) {
+        if (isPdf) {
+          const targetName =
+            sanitizeOneDriveName(
+              `Anlage-${String(
+                uploadedPdfAttachmentCount +
+                  1
+              ).padStart(
+                3,
+                "0"
+              )}-${downloaded.originalName}`,
+              `Anlage-${
+                uploadedPdfAttachmentCount +
+                1
+              }.pdf`
+            );
+
+          await uploadOneDriveFile(
+            typedConnection.drive_id,
+            regieberichteFolder.id,
+            targetName,
+            downloaded.bytes,
+            downloaded.contentType ||
+              "application/pdf",
+            token.accessToken
+          );
+
+          uploadedPdfAttachmentCount += 1;
+
           continue;
         }
 
-        if (downloaded.bytes.byteLength > 240 * 1024 * 1024) {
-          throw new Error(
-            "Die Datei ist größer als 240 MB; dafür ist eine Upload-Session erforderlich."
-          );
+        if (
+          !downloaded.contentType
+            .toLowerCase()
+            .startsWith("image/")
+        ) {
+          continue;
         }
 
-        const prefix = `${String(index + 1).padStart(4, "0")}-${sanitizeOneDriveName(
-          candidate.sourceTable,
-          "table"
-        )}`;
+        const targetName =
+          sanitizeOneDriveName(
+            `Foto-${String(
+              uploadedPhotoCount + 1
+            ).padStart(
+              3,
+              "0"
+            )}-${
+              downloaded.originalName
+            }`,
+            `Foto-${
+              uploadedPhotoCount + 1
+            }.jpg`
+          );
 
-        const targetName = sanitizeOneDriveName(
-          `${prefix}-${downloaded.originalName}`,
-          `${prefix}-file.bin`
-        );
-
-        const uploadedItem = await uploadOneDriveFile(
+        await uploadOneDriveFile(
           typedConnection.drive_id,
-          filesFolder.id,
+          fotosFolder.id,
           targetName,
           downloaded.bytes,
           downloaded.contentType,
           token.accessToken
         );
 
-        if (storageKey) {
-          uploadedStorageKeys.add(storageKey);
-        }
-
-        uploadedFiles.push({
-          sourceTable: candidate.sourceTable,
-          fieldPath: candidate.fieldPath,
-          originalReference: candidate.reference,
-          onedriveItemId: uploadedItem.id,
-          onedriveName: uploadedItem.name,
-          onedriveWebUrl: uploadedItem.webUrl ?? null,
-          size: downloaded.bytes.byteLength,
-          sha256: createHash("sha256")
-            .update(downloaded.bytes)
-            .digest("hex"),
-        });
+        uploadedPhotoCount += 1;
       } catch (error) {
         failedFiles.push({
-          sourceTable: candidate.sourceTable,
-          fieldPath: candidate.fieldPath,
-          originalReference: candidate.reference,
-          error: error instanceof Error ? error.message : String(error),
+          reference:
+            candidate.reference,
+
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error),
         });
       }
     }
 
-    const readyForDeletion = failedFiles.length === 0;
+    if (failedFiles.length > 0) {
+      throw new Error(
+        `${failedFiles.length} Datei(en) konnten nicht übertragen werden. Aus Supabase wurde nichts gelöscht. Erste Fehlerursache: ${failedFiles[0].error}`
+      );
+    }
 
-    const manifest = {
-      schemaVersion: 1,
-      exportMode: "test-no-delete",
-      exportedAt: now.toISOString(),
-      readyForDeletion,
-      deletedFromSupabase: false,
-      baustelle: {
-        id: baustelle.id,
-        naziv: baustelle.naziv,
-        lokacija: baustelle.lokacija,
-        status: baustelle.status,
-      },
-      onedrive: {
-        driveId: typedConnection.drive_id,
-        parentArchiveFolderId: typedConnection.archive_folder_id,
-        folderId: archiveFolder.id,
-        folderName: archiveFolder.name,
-        folderWebUrl: archiveFolder.webUrl ?? null,
-        dataItemId: dataItem.id,
-      },
-      database: {
-        tableCounts,
-        totalRows: Object.values(bundle).reduce(
-          (sum, rows) => sum + rows.length,
-          0
-        ),
-      },
-      files: {
-        discovered: fileCandidates.length,
-        uploaded: uploadedFiles.length,
-        failed: failedFiles.length,
-        uploadedItems: uploadedFiles,
-        failedItems: failedFiles,
-      },
-    };
+    const rootChildren =
+      await graphJson<GraphChildrenResponse>(
+        `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(
+          typedConnection.drive_id
+        )}/items/${encodeURIComponent(
+          baustelleFolder.id
+        )}/children?$select=id,name,size,webUrl,folder,file`,
+        token.accessToken
+      );
 
-    const manifestItem = await uploadJsonFile(
-      typedConnection.drive_id,
-      archiveFolder.id,
-      "Archiv-Manifest.json",
-      manifest,
-      token.accessToken
+    const rootNames = new Set(
+      (rootChildren.value ?? []).map(
+        (item) => item.name
+      )
     );
-
-    const children = await graphJson<GraphChildrenResponse>(
-      `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(
-        typedConnection.drive_id
-      )}/items/${encodeURIComponent(
-        archiveFolder.id
-      )}/children?$select=id,name,size,webUrl,folder,file`,
-      token.accessToken
-    );
-
-    const rootNames = new Set((children.value ?? []).map((item) => item.name));
 
     if (
-      !rootNames.has("Daten") ||
-      !rootNames.has("Dateien") ||
-      !rootNames.has("Archiv-Manifest.json")
+      !rootNames.has(
+        "Baustellenübersicht.pdf"
+      ) ||
+      !rootNames.has("Fotos") ||
+      !rootNames.has("Regieberichte")
     ) {
-      throw new Error("Die abschließende OneDrive-Ordnerprüfung ist fehlgeschlagen.");
+      throw new Error(
+        "Die abschließende OneDrive-Ordnerprüfung ist fehlgeschlagen."
+      );
     }
 
     return jsonResponse({
       success: true,
       mode: "test-no-delete",
-      message: readyForDeletion
-        ? "Der Testexport ist vollständig. Aus Supabase wurde nichts gelöscht."
-        : "Der Testexport wurde abgeschlossen, aber einige Dateien wurden nicht übertragen. Es wurde nichts gelöscht.",
-      readyForDeletion,
+
+      message:
+        "Der vereinfachte OneDrive-Export wurde erfolgreich abgeschlossen. Aus Supabase wurde noch nichts gelöscht.",
+
       deletedFromSupabase: false,
-      baustelleId,
+
+      baustelle: {
+        id: baustelle.id,
+        naziv: baustelle.naziv,
+        lokacija: baustelle.lokacija,
+      },
+
       folder: {
-        id: archiveFolder.id,
-        name: archiveFolder.name,
-        webUrl: archiveFolder.webUrl ?? null,
+        id: baustelleFolder.id,
+        name: baustelleFolder.name,
+        webUrl:
+          baustelleFolder.webUrl ??
+          null,
       },
-      manifest: {
-        id: manifestItem.id,
-        webUrl: manifestItem.webUrl ?? null,
+
+      overviewPdf: {
+        id: overviewItem.id,
+        name: overviewItem.name,
+        size:
+          overviewItem.size ??
+          overviewPdf.byteLength,
       },
-      tableCounts,
+
       files: {
-        discovered: fileCandidates.length,
-        uploaded: uploadedFiles.length,
-        failed: failedFiles,
+        photos: uploadedPhotoCount,
+
+        regieberichte:
+          uploadedRegieberichte.length,
+
+        pdfAttachments:
+          uploadedPdfAttachmentCount,
+
+        failed: 0,
       },
     });
   } catch (error) {
-    console.error("Fehler beim OneDrive-Testarchiv der Baustelle:", error);
+    console.error(
+      "Fehler beim vereinfachten OneDrive-Export:",
+      error
+    );
 
     return jsonResponse(
       {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error),
+
         deletedFromSupabase: false,
       },
       500
     );
+  } finally {
+    await closeBrowserSafely(browser);
   }
 }
