@@ -1,823 +1,871 @@
-import { createClient } from "@supabase/supabase-js";
-import chromium from "@sparticuz/chromium-min";
-import JSZip from "jszip";
-import puppeteer, { type Browser, type Page } from "puppeteer-core";
-import { NextRequest, NextResponse } from "next/server";
+"use client";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { supabase } from "../../lib/supabase";
 
-type JsonRow = Record<string, any>;
+const ADMIN_NAMES = [
+  "hido",
+  "steffi",
+  "admin",
+  "hidajet",
+  "hidajet goletic",
+  "hidajet goletić",
+];
 
-type DownloadedFile = {
-  bytes: Uint8Array;
-  contentType: string;
-  fileName: string;
-};
+function getLoggedUserFromLocalStorage() {
+  if (typeof window === "undefined") return null;
 
-const PHOTO_URL_FIELDS = [
-  "photo_url",
-  "foto_url",
-  "image_url",
-  "bild_url",
-  "public_url",
-  "file_url",
-  "url",
-  "storage_path",
-  "file_path",
-  "path",
-] as const;
+  const keys = [
+    "currentWorker",
+    "worker",
+    "loggedWorker",
+    "selectedWorker",
+    "currentUser",
+    "loggedUser",
+    "user",
+    "userName",
+    "workerName",
+    "name",
+    "loginUser",
+    "baustelle_user",
+    "stone_user",
+    "app_user",
+  ];
 
-function requiredEnvironmentVariable(name: string) {
-  const value = process.env[name]?.trim();
+  for (const key of keys) {
+    const value = localStorage.getItem(key);
+    if (!value) continue;
 
-  if (!value) {
-    throw new Error(`Fehlende Umgebungsvariable: ${name}`);
-  }
-
-  return value;
-}
-
-function sanitizeFileName(value: string, fallback: string) {
-  const cleaned = String(value || "")
-    .replace(/[\\/:*?"<>|]/g, "-")
-    .replace(/[\u0000-\u001f]/g, "")
-    .replace(/\s+/g, " ")
-    .replace(/[. ]+$/g, "")
-    .trim();
-
-  return (cleaned || fallback).slice(0, 140);
-}
-
-function getPhotoReference(row: JsonRow) {
-  for (const field of PHOTO_URL_FIELDS) {
-    const value = row?.[field];
-
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-
-  return "";
-}
-
-function isPdfReference(reference: string) {
-  return String(reference || "")
-    .toLowerCase()
-    .split(/[?#]/)[0]
-    .endsWith(".pdf");
-}
-
-function isImageContentType(contentType: string) {
-  return String(contentType || "").toLowerCase().startsWith("image/");
-}
-
-function extensionFromContentType(contentType: string) {
-  const normalized = String(contentType || "")
-    .toLowerCase()
-    .split(";")[0]
-    .trim();
-
-  const extensions: Record<string, string> = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-    "image/gif": ".gif",
-    "image/heic": ".heic",
-    "image/heif": ".heif",
-    "application/pdf": ".pdf",
-  };
-
-  return extensions[normalized] || "";
-}
-
-function getFileNameFromReference(reference: string, fallback: string) {
-  try {
-    const url = new URL(reference);
-    const lastPart = url.pathname.split("/").filter(Boolean).pop();
-
-    return sanitizeFileName(
-      lastPart ? decodeURIComponent(lastPart) : fallback,
-      fallback,
-    );
-  } catch {
-    const lastPart = String(reference || "")
-      .split(/[\\/]/)
-      .filter(Boolean)
-      .pop();
-
-    return sanitizeFileName(lastPart || fallback, fallback);
-  }
-}
-
-function ensureFileExtension(fileName: string, contentType: string) {
-  if (/\.[a-z0-9]{2,6}$/i.test(fileName)) return fileName;
-  return `${fileName}${extensionFromContentType(contentType) || ".bin"}`;
-}
-
-function parseStorageUrl(reference: string) {
-  try {
-    const url = new URL(reference);
-    const match = url.pathname.match(
-      /\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/,
-    );
-
-    if (!match) return null;
-
-    return {
-      bucket: decodeURIComponent(match[1]),
-      path: decodeURIComponent(match[2]),
-    };
-  } catch {
-    return null;
-  }
-}
-
-function parseDataUrl(reference: string) {
-  const match = String(reference || "").match(/^data:([^;]+);base64,(.+)$/i);
-
-  if (!match) return null;
-
-  return {
-    contentType: match[1] || "application/octet-stream",
-    bytes: new Uint8Array(Buffer.from(match[2], "base64")),
-  };
-}
-
-async function downloadFile(
-  supabaseAdmin: any,
-  reference: string,
-  bucketIds: string[],
-  index: number,
-): Promise<DownloadedFile> {
-  const dataUrl = parseDataUrl(reference);
-
-  if (dataUrl) {
-    const fallback = `Datei-${String(index + 1).padStart(3, "0")}`;
-
-    return {
-      bytes: dataUrl.bytes,
-      contentType: dataUrl.contentType,
-      fileName: ensureFileExtension(fallback, dataUrl.contentType),
-    };
-  }
-
-  const parsedStorage = parseStorageUrl(reference);
-
-  if (parsedStorage) {
-    const { data, error } = await supabaseAdmin.storage
-      .from(parsedStorage.bucket)
-      .download(parsedStorage.path);
-
-    if (error || !data) {
-      throw new Error(
-        `Storage-Datei konnte nicht geladen werden: ${error?.message || reference}`,
-      );
-    }
-
-    const contentType = data.type || "application/octet-stream";
-
-    return {
-      bytes: new Uint8Array(await data.arrayBuffer()),
-      contentType,
-      fileName: ensureFileExtension(
-        getFileNameFromReference(parsedStorage.path, `Datei-${index + 1}`),
-        contentType,
-      ),
-    };
-  }
-
-  if (/^https?:\/\//i.test(reference)) {
-    const response = await fetch(reference, {
-      method: "GET",
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new Error(`Datei konnte nicht geladen werden: HTTP ${response.status}`);
-    }
-
-    const contentType =
-      response.headers.get("content-type") || "application/octet-stream";
-
-    return {
-      bytes: new Uint8Array(await response.arrayBuffer()),
-      contentType,
-      fileName: ensureFileExtension(
-        getFileNameFromReference(reference, `Datei-${index + 1}`),
-        contentType,
-      ),
-    };
-  }
-
-  const cleanPath = String(reference || "").replace(/^\/+/, "");
-  const firstPart = cleanPath.split("/")[0];
-
-  const bucketOrder = bucketIds.includes(firstPart)
-    ? [firstPart, ...bucketIds.filter((bucketId) => bucketId !== firstPart)]
-    : bucketIds;
-
-  for (const bucketId of bucketOrder) {
-    const storagePath =
-      bucketId === firstPart
-        ? cleanPath.slice(firstPart.length).replace(/^\/+/, "")
-        : cleanPath;
-
-    const { data, error } = await supabaseAdmin.storage
-      .from(bucketId)
-      .download(storagePath);
-
-    if (!error && data) {
-      const contentType = data.type || "application/octet-stream";
-
-      return {
-        bytes: new Uint8Array(await data.arrayBuffer()),
-        contentType,
-        fileName: ensureFileExtension(
-          getFileNameFromReference(storagePath, `Datei-${index + 1}`),
-          contentType,
-        ),
-      };
-    }
-  }
-
-  throw new Error(`Datei wurde im Storage nicht gefunden: ${reference}`);
-}
-
-async function optionalRows(
-  supabaseAdmin: any,
-  table: string,
-  column: string,
-  value: string | number | Array<string | number>,
-): Promise<JsonRow[]> {
-  let query = supabaseAdmin.from(table).select("*");
-
-  if (Array.isArray(value)) {
-    if (value.length === 0) return [];
-    query = query.in(column, value);
-  } else {
-    query = query.eq(column, value);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.warn(`Tabelle ${table} konnte nicht gelesen werden:`, error.message);
-    return [];
-  }
-
-  return (data || []) as JsonRow[];
-}
-
-function uniqueRows(rows: JsonRow[]) {
-  const seen = new Set<string>();
-
-  return rows.filter((row) => {
-    const key = `${String(row.id ?? "")}:${getPhotoReference(row)}`;
-
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-const CHROMIUM_PACK_URL =
-  "https://github.com/Sparticuz/chromium/releases/download/v140.0.0/chromium-v140.0.0-pack.x64.tar";
-
-async function createBrowser() {
-  const executablePath = process.env.VERCEL
-    ? await chromium.executablePath(CHROMIUM_PACK_URL)
-    : process.env.LOCAL_CHROME_PATH ||
-      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-
-  return puppeteer.launch({
-    args: chromium.args,
-    defaultViewport: {
-      width: 1440,
-      height: 1600,
-      deviceScaleFactor: 1,
-      hasTouch: false,
-      isLandscape: false,
-      isMobile: false,
-    },
-    executablePath,
-    headless: "shell",
-  });
-}
-
-async function createAdminPage(browser: Browser) {
-  const page = await browser.newPage();
-
-  const adminValue = JSON.stringify({
-    name: "Hido",
-    role: "admin",
-    is_admin: true,
-    admin: true,
-  });
-
-  await page.evaluateOnNewDocument((serializedAdmin: string) => {
     try {
-      const keys = [
-        "currentWorker",
-        "worker",
-        "loggedWorker",
-        "selectedWorker",
-        "currentUser",
-        "loggedUser",
-        "user",
-        "loginUser",
-        "baustelle_user",
-        "stone_user",
-        "app_user",
-      ];
-
-      for (const key of keys) {
-        localStorage.setItem(key, serializedAdmin);
-      }
+      return JSON.parse(value);
     } catch {
-      // Die Seite setzt Local Storage nach dem Laden erneut.
+      return value;
     }
-  }, adminValue);
-
-  return page;
-}
-
-async function waitForReport(page: Page) {
-  await page.waitForFunction(
-    () => {
-      const text = document.body?.innerText || "";
-
-      if (!text || text.length < 100) return false;
-      if (text.includes("Zugriff wird geprüft")) return false;
-      if (text.includes("Bericht wird geladen")) return false;
-      if (text.includes("Regiebericht wird geladen")) return false;
-      if (text.includes("Kein Zugriff")) return false;
-
-      return true;
-    },
-    { timeout: 90_000 },
-  );
-
-  await page.evaluate(async () => {
-    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
-
-    if (fonts?.ready) {
-      await fonts.ready;
-    }
-
-    const images = Array.from(document.images);
-
-    await Promise.race([
-      Promise.all(
-        images.map(
-          (image) =>
-            new Promise<void>((resolve) => {
-              if (image.complete) {
-                resolve();
-                return;
-              }
-
-              image.addEventListener("load", () => resolve(), { once: true });
-              image.addEventListener("error", () => resolve(), { once: true });
-            }),
-        ),
-      ),
-      new Promise<void>((resolve) => window.setTimeout(resolve, 15_000)),
-    ]);
-  });
-}
-
-async function renderPdf(page: Page, url: string) {
-  const response = await page.goto(url, {
-    waitUntil: "networkidle2",
-    timeout: 90_000,
-  });
-
-  if (!response || !response.ok()) {
-    throw new Error(
-      `PDF-Seite konnte nicht geladen werden: ${response?.status() || "keine Antwort"}`,
-    );
   }
 
-  await waitForReport(page);
-  await page.emulateMediaType("print");
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
 
-  const pdf = await page.pdf({
-    format: "A4",
-    printBackground: true,
-    preferCSSPageSize: true,
-    margin: {
-      top: "0mm",
-      right: "0mm",
-      bottom: "0mm",
-      left: "0mm",
-    },
-  });
+    const value = localStorage.getItem(key);
+    if (!value) continue;
 
-  await page.emulateMediaType("screen");
-
-  return new Uint8Array(pdf);
-}
-
-async function closeBrowser(browser: Browser | null) {
-  if (!browser) return;
-
-  try {
-    await browser.close();
-  } catch (error) {
-    console.error("Browser konnte nicht geschlossen werden:", error);
-  }
-}
-
-function getRegieberichtNumber(row: JsonRow) {
-  return sanitizeFileName(
-    String(row.bericht_nr || row.nummer || row.id || "Bericht"),
-    String(row.id || "Bericht"),
-  );
-}
-
-function getRoomName(room: JsonRow | undefined, roomId: string | number) {
-  return sanitizeFileName(
-    String(
-      room?.naziv ||
-        room?.name ||
-        room?.room ||
-        room?.prostorija ||
-        `Raum-${roomId}`,
-    ),
-    `Raum-${roomId}`,
-  );
-}
-
-export async function GET(request: NextRequest) {
-  let browser: Browser | null = null;
-
-  try {
-    const baustelleId = request.nextUrl.searchParams.get("baustelleId")?.trim();
-
-    if (!baustelleId || !/^\d+$/.test(baustelleId)) {
-      return NextResponse.json(
-        { success: false, error: "baustelleId ist ungültig." },
-        { status: 400 },
-      );
+    try {
+      const parsed = JSON.parse(value);
+      if (isAdminUser(parsed)) return parsed;
+    } catch {
+      if (isAdminUser(value)) return value;
     }
+  }
 
-    const supabaseUrl = requiredEnvironmentVariable("NEXT_PUBLIC_SUPABASE_URL");
-    const supabaseSecretKey = requiredEnvironmentVariable("SUPABASE_SECRET_KEY");
+  return null;
+}
 
-    const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      },
-    });
+function isAdminUser(user: any) {
+  if (!user) return false;
 
-    const { data: baustelle, error: baustelleError } = await supabaseAdmin
+  if (typeof user === "string") {
+    return ADMIN_NAMES.includes(user.trim().toLowerCase());
+  }
+
+  const role = String(user.role || user.rolle || user.tip || "").toLowerCase();
+
+  const name = String(
+    user.name ||
+      user.worker_name ||
+      user.radnik ||
+      user.username ||
+      user.userName ||
+      user.displayName ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+  return (
+    role === "admin" ||
+    role === "administrator" ||
+    user.is_admin === true ||
+    user.admin === true ||
+    ADMIN_NAMES.includes(name)
+  );
+}
+
+function formatDate(value: string) {
+  if (!value || value === "-") return "-";
+
+  return new Date(value).toLocaleDateString("de-AT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatDateTime(value: string) {
+  if (!value || value === "-") return "-";
+
+  return new Date(value).toLocaleString("de-AT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatNumber(value: any) {
+  return Number(value || 0).toLocaleString("de-AT", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  });
+}
+
+function toNumberValue(value: any) {
+  if (value === null || value === undefined || value === "") return 0;
+
+  const cleaned = String(value)
+    .replace(",", ".")
+    .replace(/[^0-9.-]/g, "");
+
+  const numberValue = Number(cleaned);
+
+  if (Number.isNaN(numberValue)) return 0;
+  return numberValue;
+}
+
+function getDateForArchiveGroup(b: any) {
+  const dateValue =
+    b.archived_file_at ||
+    b.archived_at ||
+    (b.zadnjiDan && b.zadnjiDan !== "-"
+      ? b.zadnjiDan
+      : b.prviDan && b.prviDan !== "-"
+      ? b.prviDan
+      : b.updated_at || b.created_at || "");
+
+  if (!dateValue) return null;
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date;
+}
+
+function getMonthName(date: Date) {
+  return date.toLocaleDateString("de-AT", {
+    month: "long",
+  });
+}
+
+function getSearchText(b: any) {
+  return [
+    b.naziv,
+    b.lokacija,
+    b.auftraggeber,
+    b.kunde,
+    b.client,
+    b.bauleiter,
+    b.opis,
+    b.description,
+    b.napomena,
+    b.radniciText,
+    b.prviDan,
+    b.zadnjiDan,
+    b.regieText,
+    b.archived_file_by,
+    b.archive_method,
+    b.archived_file_at,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+export default function ArchivPage() {
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [baustellen, setBaustellen] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  async function loadArchiv() {
+    setLoading(true);
+
+    const { data, error } = await supabase
       .from("baustellen")
       .select("*")
-      .eq("id", Number(baustelleId))
-      .single();
+      .eq("status", "Archiv")
+      .order("id", { ascending: false });
 
-    if (baustelleError || !baustelle) {
-      throw new Error(
-        `Baustelle wurde nicht gefunden: ${baustelleError?.message || baustelleId}`,
-      );
+    if (error) {
+      alert(error.message);
+      setLoading(false);
+      return;
     }
 
-    if (String(baustelle.status || "").trim() !== "Archiv") {
-      throw new Error("Der ZIP-Export ist nur für archivierte Baustellen erlaubt.");
-    }
+    const result: any[] = [];
 
-    const rooms = await optionalRows(
-      supabaseAdmin,
-      "prostorije",
-      "baustelle_id",
-      Number(baustelleId),
-    );
+    for (const b of data || []) {
+      const { data: sati } = await supabase
+        .from("baustelle_hours")
+        .select("datum, radnik, ukupno_sati, sati")
+        .eq("baustelle_id", b.id)
+        .order("datum", { ascending: true });
 
-    const roomIds = rooms
-      .map((room) => room.id)
-      .filter((id) => id !== null && id !== undefined);
+      let prviDan = "-";
+      let zadnjiDan = "-";
 
-    const roomPhotosByRoom = await optionalRows(
-      supabaseAdmin,
-      "room_photos",
-      "room_id",
-      roomIds,
-    );
+      const workers = [
+        ...new Set((sati || []).map((h: any) => h.radnik).filter(Boolean)),
+      ];
 
-    const roomPhotosByBaustelle = await optionalRows(
-      supabaseAdmin,
-      "room_photos",
-      "baustelle_id",
-      baustelleId,
-    );
-
-    const regieberichte = await optionalRows(
-      supabaseAdmin,
-      "regieberichte",
-      "baustelle_id",
-      Number(baustelleId),
-    );
-
-    const regieberichtIds = regieberichte
-      .map((bericht) => bericht.id)
-      .filter((id) => id !== null && id !== undefined);
-
-    const regieberichtPhotos = await optionalRows(
-      supabaseAdmin,
-      "regiebericht_photos",
-      "regiebericht_id",
-      regieberichtIds,
-    );
-
-    const baustelleInfoPhotos = await optionalRows(
-      supabaseAdmin,
-      "baustelle_info_photos",
-      "baustelle_id",
-      Number(baustelleId),
-    );
-
-    const legacyPhotos = await optionalRows(
-      supabaseAdmin,
-      "fotos",
-      "baustelle_id",
-      baustelleId,
-    );
-
-    const legacyRegiePhotos = await optionalRows(
-      supabaseAdmin,
-      "regie_fotos",
-      "baustelle_id",
-      baustelleId,
-    );
-
-    const { data: buckets, error: bucketsError } =
-      await supabaseAdmin.storage.listBuckets();
-
-    if (bucketsError) {
-      throw new Error(`Storage-Buckets konnten nicht geladen werden: ${bucketsError.message}`);
-    }
-
-    const bucketIds = (buckets || []).map((bucket: { id: string }) => bucket.id);
-
-    const zip = new JSZip();
-    const rootName = sanitizeFileName(
-      String(baustelle.naziv || `Baustelle-${baustelleId}`),
-      `Baustelle-${baustelleId}`,
-    );
-
-    const root = zip.folder(rootName);
-
-    if (!root) {
-      throw new Error("ZIP-Hauptordner konnte nicht erstellt werden.");
-    }
-
-    browser = await createBrowser();
-    const page = await createAdminPage(browser);
-    const appOrigin = request.nextUrl.origin;
-
-    const overviewPdf = await renderPdf(
-      page,
-      `${appOrigin}/baustellen/archiv/${encodeURIComponent(baustelleId)}?zipExport=1`,
-    );
-
-    root.file("Baustellenübersicht.pdf", overviewPdf, {
-      binary: true,
-      compression: "DEFLATE",
-      compressionOptions: { level: 6 },
-    });
-
-    const sortedRegieberichte = [...regieberichte].sort((a, b) =>
-      String(a.datum || "").localeCompare(String(b.datum || "")),
-    );
-
-    for (const bericht of sortedRegieberichte) {
-      const berichtId = String(bericht.id);
-      const berichtNumber = getRegieberichtNumber(bericht);
-      const regiePdf = await renderPdf(
-        page,
-        `${appOrigin}/baustellen/archiv/${encodeURIComponent(
-          baustelleId,
-        )}/regieberichte/${encodeURIComponent(berichtId)}?zipExport=1`,
+      const arbeitsstunden = (sati || []).reduce(
+        (sum: number, h: any) =>
+          sum + Number(h.ukupno_sati || h.sati || 0),
+        0
       );
 
-      root.file(`Regieberichte/Regiebericht-${berichtNumber}.pdf`, regiePdf, {
-        binary: true,
-        compression: "DEFLATE",
-        compressionOptions: { level: 6 },
-      });
-    }
-
-    const roomById = new Map<string, JsonRow>(
-      rooms.map((room) => [String(room.id), room]),
-    );
-
-    const roomPhotos = uniqueRows([
-      ...roomPhotosByRoom,
-      ...roomPhotosByBaustelle,
-    ]).filter((row) => !isPdfReference(getPhotoReference(row)));
-
-    let photoCounter = 0;
-
-    for (const row of roomPhotos) {
-      const reference = getPhotoReference(row);
-      if (!reference) continue;
-
-      const downloaded = await downloadFile(
-        supabaseAdmin,
-        reference,
-        bucketIds,
-        photoCounter,
-      );
-
-      if (!isImageContentType(downloaded.contentType)) continue;
-
-      const roomId = String(row.room_id || row.prostorija_id || "ohne-raum");
-      const roomName =
-        roomId === "ohne-raum"
-          ? "Ohne Raum"
-          : getRoomName(roomById.get(roomId), roomId);
-
-      const targetName = sanitizeFileName(
-        `Bild-${String(photoCounter + 1).padStart(3, "0")}-${downloaded.fileName}`,
-        `Bild-${String(photoCounter + 1).padStart(3, "0")}.jpg`,
-      );
-
-      root.file(`Bilder/${roomName}/${targetName}`, downloaded.bytes, {
-        binary: true,
-        compression: "STORE",
-      });
-
-      photoCounter += 1;
-    }
-
-    const generalPhotoRows = uniqueRows([
-      ...baustelleInfoPhotos,
-      ...legacyPhotos,
-    ]).filter((row) => !isPdfReference(getPhotoReference(row)));
-
-    for (const row of generalPhotoRows) {
-      const reference = getPhotoReference(row);
-      if (!reference) continue;
-
-      const downloaded = await downloadFile(
-        supabaseAdmin,
-        reference,
-        bucketIds,
-        photoCounter,
-      );
-
-      if (!isImageContentType(downloaded.contentType)) continue;
-
-      const targetName = sanitizeFileName(
-        `Bild-${String(photoCounter + 1).padStart(3, "0")}-${downloaded.fileName}`,
-        `Bild-${String(photoCounter + 1).padStart(3, "0")}.jpg`,
-      );
-
-      root.file(`Bilder/Allgemein/${targetName}`, downloaded.bytes, {
-        binary: true,
-        compression: "STORE",
-      });
-
-      photoCounter += 1;
-    }
-
-    let regieImageCounter = 0;
-    let regieAttachmentCounter = 0;
-
-    for (const row of uniqueRows(regieberichtPhotos)) {
-      const reference = getPhotoReference(row);
-      if (!reference) continue;
-
-      const bericht = regieberichte.find(
-        (item) => Number(item.id) === Number(row.regiebericht_id),
-      );
-
-      const berichtNumber = getRegieberichtNumber(
-        bericht || { id: row.regiebericht_id || "Ohne-Nummer" },
-      );
-
-      const downloaded = await downloadFile(
-        supabaseAdmin,
-        reference,
-        bucketIds,
-        regieImageCounter + regieAttachmentCounter,
-      );
-
-      if (
-        isPdfReference(reference) ||
-        downloaded.contentType.toLowerCase().includes("application/pdf")
-      ) {
-        const targetName = sanitizeFileName(
-          `Anlage-${String(regieAttachmentCounter + 1).padStart(3, "0")}-${downloaded.fileName}`,
-          `Anlage-${String(regieAttachmentCounter + 1).padStart(3, "0")}.pdf`,
-        );
-
-        root.file(
-          `Regieberichte/Regiebericht-${berichtNumber}/Anlagen/${targetName}`,
-          downloaded.bytes,
-          {
-            binary: true,
-            compression: "STORE",
-          },
-        );
-
-        regieAttachmentCounter += 1;
-        continue;
+      if (sati && sati.length > 0) {
+        prviDan = sati[0].datum;
+        zadnjiDan = sati[sati.length - 1].datum;
       }
 
-      if (!isImageContentType(downloaded.contentType)) continue;
+      const { data: regieberichte } = await supabase
+        .from("regieberichte")
+        .select("id, bericht_nr, datum")
+        .eq("baustelle_id", b.id)
+        .order("datum", { ascending: true });
 
-      const targetName = sanitizeFileName(
-        `Bild-${String(regieImageCounter + 1).padStart(3, "0")}-${downloaded.fileName}`,
-        `Bild-${String(regieImageCounter + 1).padStart(3, "0")}.jpg`,
-      );
+      const regieberichtIds = (regieberichte || []).map((r: any) => r.id);
 
-      root.file(
-        `Regieberichte/Regiebericht-${berichtNumber}/Bilder/${targetName}`,
-        downloaded.bytes,
-        {
-          binary: true,
-          compression: "STORE",
-        },
-      );
+      let regieStunden = 0;
+      let regieWorkerText = "";
 
-      regieImageCounter += 1;
-    }
+      if (regieberichtIds.length > 0) {
+        const { data: regieWorkers } = await supabase
+          .from("regiebericht_workers")
+          .select("worker_name, stunden")
+          .in("regiebericht_id", regieberichtIds);
 
-    for (const row of uniqueRows(legacyRegiePhotos)) {
-      const reference = getPhotoReference(row);
-      if (!reference) continue;
+        regieStunden = (regieWorkers || []).reduce(
+          (sum: number, row: any) => sum + toNumberValue(row.stunden),
+          0
+        );
 
-      const downloaded = await downloadFile(
-        supabaseAdmin,
-        reference,
-        bucketIds,
-        regieImageCounter + regieAttachmentCounter,
-      );
+        const regieWorkersUnique = [
+          ...new Set(
+            (regieWorkers || [])
+              .map((row: any) => row.worker_name)
+              .filter(Boolean)
+          ),
+        ];
 
-      const targetFolder = isPdfReference(reference)
-        ? "Regieberichte/Weitere Anlagen"
-        : "Regieberichte/Weitere Bilder";
+        regieWorkerText = regieWorkersUnique.join(", ");
+      }
 
-      const targetName = sanitizeFileName(
-        downloaded.fileName,
-        `Datei-${regieImageCounter + regieAttachmentCounter + 1}`,
-      );
-
-      root.file(`${targetFolder}/${targetName}`, downloaded.bytes, {
-        binary: true,
-        compression: "STORE",
+      const archiveDate = getDateForArchiveGroup({
+        ...b,
+        prviDan,
+        zadnjiDan,
       });
 
-      if (isPdfReference(reference)) {
-        regieAttachmentCounter += 1;
-      } else {
-        regieImageCounter += 1;
-      }
+      result.push({
+        ...b,
+        prviDan,
+        zadnjiDan,
+        workers,
+        radniciText: workers.join(", "),
+        arbeitsstunden,
+        regieberichte: regieberichte || [],
+        regieberichteCount: regieberichte?.length || 0,
+        regieStunden,
+        regieText: regieWorkerText,
+        archiveDate,
+        archiveYear: archiveDate ? archiveDate.getFullYear() : "Ohne Jahr",
+        archiveMonthNumber: archiveDate ? archiveDate.getMonth() + 1 : 0,
+        archiveMonthName: archiveDate ? getMonthName(archiveDate) : "Ohne Monat",
+      });
     }
 
-    await closeBrowser(browser);
-    browser = null;
-
-    const zipBuffer = await zip.generateAsync({
-      type: "nodebuffer",
-      compression: "STORE",
-      streamFiles: true,
-    });
-
-    const zipFileName = `${rootName}.zip`;
-    const asciiFileName = sanitizeFileName(
-      zipFileName.normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
-      `Baustelle-${baustelleId}.zip`,
-    ).replace(/[^\x20-\x7E]/g, "-");
-
-    return new NextResponse(new Uint8Array(zipBuffer), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="${asciiFileName}"; filename*=UTF-8''${encodeURIComponent(
-          zipFileName,
-        )}`,
-        "Cache-Control": "no-store, max-age=0",
-        "X-Archive-Photos": String(photoCounter + regieImageCounter),
-        "X-Archive-Regieberichte": String(regieberichte.length),
-      },
-    });
-  } catch (error) {
-    console.error("Fehler beim ZIP-Export der Baustelle:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    );
-  } finally {
-    await closeBrowser(browser);
+    setBaustellen(result);
+    setLoading(false);
   }
+
+  async function vratiAktivno(id: number) {
+    const potvrda = confirm(
+      "Möchten Sie diese Baustelle wirklich wieder aktivieren?"
+    );
+
+    if (!potvrda) return;
+
+    const { error } = await supabase
+      .from("baustellen")
+      .update({
+        status: "Aktiv",
+      })
+      .eq("id", id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    loadArchiv();
+  }
+
+  useEffect(() => {
+    const loggedUser = getLoggedUserFromLocalStorage();
+    const adminOk = isAdminUser(loggedUser);
+
+    setIsAdmin(adminOk);
+    setAccessChecked(true);
+
+    if (!adminOk) {
+      setLoading(false);
+      return;
+    }
+
+    loadArchiv();
+  }, []);
+
+  const filteredBaustellen = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+
+    if (!search) return baustellen;
+
+    return baustellen.filter((b) => getSearchText(b).includes(search));
+  }, [baustellen, searchTerm]);
+
+  const suggestions = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+
+    if (!search) return [];
+
+    return filteredBaustellen.slice(0, 8);
+  }, [filteredBaustellen, searchTerm]);
+
+  const groupedArchiv = useMemo(() => {
+    const groups: any = {};
+
+    for (const b of filteredBaustellen) {
+      const year = String(b.archiveYear || "Ohne Jahr");
+      const monthKey = String(b.archiveMonthNumber || 0).padStart(2, "0");
+      const monthLabel = b.archiveMonthName || "Ohne Monat";
+
+      if (!groups[year]) {
+        groups[year] = {};
+      }
+
+      if (!groups[year][monthKey]) {
+        groups[year][monthKey] = {
+          monthLabel,
+          items: [],
+        };
+      }
+
+      groups[year][monthKey].items.push(b);
+    }
+
+    return groups;
+  }, [filteredBaustellen]);
+
+  const yearKeys = Object.keys(groupedArchiv).sort((a, b) => {
+    if (a === "Ohne Jahr") return 1;
+    if (b === "Ohne Jahr") return -1;
+    return Number(b) - Number(a);
+  });
+
+  if (!accessChecked) {
+    return (
+      <main style={mainStyle}>
+        <p>Zugriff wird geprüft...</p>
+      </main>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <main style={mainStyle}>
+        <Link href="/baustellen" style={backLinkStyle}>
+          ← Zurück zu Baustellen
+        </Link>
+
+        <div style={noAccessBoxStyle}>
+          <h1 style={noAccessTitleStyle}>Kein Zugriff</h1>
+          <p>Der Archivbereich ist nur für Admins sichtbar.</p>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main style={mainStyle}>
+      <Link href="/baustellen" style={backLinkStyle}>
+        ← Zurück zu Baustellen
+      </Link>
+
+      <div style={headerRowStyle}>
+        <div>
+          <h1 style={titleStyle}>Archiv</h1>
+          <p style={subTextStyle}>
+            Baustellen nach Jahr und Monat organisiert. Regieberichte können
+            separat geöffnet und gedruckt werden.
+          </p>
+        </div>
+
+        <button onClick={loadArchiv} style={refreshButtonStyle}>
+          🔄 Aktualisieren
+        </button>
+      </div>
+
+      <section style={searchBoxStyle}>
+        <label style={searchLabelStyle}>Baustelle suchen</label>
+
+        <input
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Name, Ort, Auftraggeber, Bauleiter, Mitarbeiter..."
+          style={searchInputStyle}
+        />
+
+        {suggestions.length > 0 && (
+          <div style={suggestionBoxStyle}>
+            {suggestions.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => setSearchTerm(b.naziv || "")}
+                style={suggestionButtonStyle}
+              >
+                <strong>{b.naziv}</strong>
+                <span style={suggestionSmallStyle}>
+                  {b.lokacija || "-"} · {b.archiveMonthName} {b.archiveYear} ·{" "}
+                  {b.regieberichteCount} Regieberichte
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {loading && (
+        <div style={emptyBoxStyle}>
+          Archiv wird geladen...
+        </div>
+      )}
+
+      {!loading && baustellen.length === 0 && (
+        <div style={emptyBoxStyle}>
+          Keine archivierten Baustellen vorhanden.
+        </div>
+      )}
+
+      {!loading && baustellen.length > 0 && filteredBaustellen.length === 0 && (
+        <div style={emptyBoxStyle}>
+          Keine Baustelle für diese Suche gefunden.
+        </div>
+      )}
+
+      {!loading &&
+        yearKeys.map((year) => {
+          const monthKeys = Object.keys(groupedArchiv[year]).sort((a, b) => {
+            return Number(b) - Number(a);
+          });
+
+          const yearCount = monthKeys.reduce(
+            (sum, monthKey) =>
+              sum + groupedArchiv[year][monthKey].items.length,
+            0
+          );
+
+          return (
+            <details key={year} open style={yearFolderStyle}>
+              <summary style={yearSummaryStyle}>
+                📁 {year}{" "}
+                <span style={countBadgeStyle}>{yearCount} Baustellen</span>
+              </summary>
+
+              <div style={monthWrapStyle}>
+                {monthKeys.map((monthKey) => {
+                  const monthGroup = groupedArchiv[year][monthKey];
+                  const items = monthGroup.items.sort((a: any, b: any) => {
+                    const aDate = getDateForArchiveGroup(a)?.getTime() || 0;
+                    const bDate = getDateForArchiveGroup(b)?.getTime() || 0;
+                    return bDate - aDate;
+                  });
+
+                  return (
+                    <details key={`${year}-${monthKey}`} open style={monthFolderStyle}>
+                      <summary style={monthSummaryStyle}>
+                        📂 {monthGroup.monthLabel} {year}{" "}
+                        <span style={countBadgeSmallStyle}>
+                          {items.length} Baustellen
+                        </span>
+                      </summary>
+
+                      <div style={cardGridStyle}>
+                        {items.map((b: any) => (
+                          <div key={b.id} style={cardStyle}>
+                            <div style={cardHeaderStyle}>
+                              <div>
+                                <h2 style={cardTitleStyle}>{b.naziv}</h2>
+                                <div style={cardLocationStyle}>
+                                  📍 {b.lokacija || "-"}
+                                </div>
+                              </div>
+
+                              <div style={statusBadgeStyle}>Archiv</div>
+                            </div>
+
+                            <div style={infoGridStyle}>
+                              <p>
+                                <strong>Erster Arbeitstag:</strong>
+                                <br />
+                                {formatDate(b.prviDan)}
+                              </p>
+
+                              <p>
+                                <strong>Letzter Arbeitstag:</strong>
+                                <br />
+                                {formatDate(b.zadnjiDan)}
+                              </p>
+
+                              <p>
+                                <strong>Mitarbeiter:</strong>
+                                <br />
+                                {b.radniciText || "-"}
+                              </p>
+
+                              <p>
+                                <strong>Arbeitsstunden:</strong>
+                                <br />
+                                {formatNumber(b.arbeitsstunden)} h
+                              </p>
+
+                              <p>
+                                <strong>Regieberichte:</strong>
+                                <br />
+                                {b.regieberichteCount}
+                              </p>
+
+                              <p>
+                                <strong>Regiestunden:</strong>
+                                <br />
+                                {formatNumber(b.regieStunden)} h
+                              </p>
+
+                              {b.archived_file_at && (
+                                <p>
+                                  <strong>ZIP für OneDrive erstellt am:</strong>
+                                  <br />
+                                  {formatDateTime(b.archived_file_at)}
+                                </p>
+                              )}
+
+                              {b.archived_file_by && (
+                                <p>
+                                  <strong>Erstellt von:</strong>
+                                  <br />
+                                  {b.archived_file_by}
+                                </p>
+                              )}
+                            </div>
+
+                            <div style={buttonRowStyle}>
+                              <Link
+                                href={`/baustellen/archiv/${b.id}`}
+                                style={berichtButtonStyle}
+                              >
+                                📄 Abschlussbericht
+                              </Link>
+
+                              <Link
+                                href={`/baustellen/archiv/${b.id}/regieberichte`}
+                                style={regieButtonStyle}
+                              >
+                                🧾 Regieberichte separat
+                              </Link>
+
+                              <button
+                                onClick={() => vratiAktivno(b.id)}
+                                style={activeButtonStyle}
+                              >
+                                Zurück zu Aktiv
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  );
+                })}
+              </div>
+            </details>
+          );
+        })}
+    </main>
+  );
 }
+
+const mainStyle: any = {
+  background: "#000",
+  minHeight: "100vh",
+  color: "white",
+  padding: "40px",
+};
+
+const backLinkStyle: any = {
+  color: "#3b82f6",
+  textDecoration: "none",
+  fontWeight: "bold",
+};
+
+const headerRowStyle: any = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "20px",
+  marginTop: "30px",
+  marginBottom: "25px",
+  flexWrap: "wrap",
+};
+
+const titleStyle: any = {
+  fontSize: "60px",
+  fontWeight: "bold",
+  margin: 0,
+};
+
+const subTextStyle: any = {
+  color: "#aaa",
+  marginTop: "10px",
+  fontSize: "16px",
+};
+
+const refreshButtonStyle: any = {
+  background: "#374151",
+  color: "white",
+  border: "none",
+  padding: "12px 18px",
+  borderRadius: "10px",
+  cursor: "pointer",
+  fontWeight: "bold",
+};
+
+const searchBoxStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  padding: "22px",
+  borderRadius: "18px",
+  marginBottom: "25px",
+  position: "relative",
+};
+
+const searchLabelStyle: any = {
+  display: "block",
+  color: "#f97316",
+  fontWeight: "bold",
+  marginBottom: "10px",
+  fontSize: "18px",
+};
+
+const searchInputStyle: any = {
+  width: "100%",
+  background: "#000",
+  color: "white",
+  border: "1px solid #333",
+  padding: "15px",
+  borderRadius: "12px",
+  fontSize: "16px",
+  outline: "none",
+};
+
+const suggestionBoxStyle: any = {
+  marginTop: "12px",
+  display: "grid",
+  gap: "8px",
+};
+
+const suggestionButtonStyle: any = {
+  background: "#1f2937",
+  color: "white",
+  border: "1px solid #374151",
+  padding: "12px",
+  borderRadius: "10px",
+  cursor: "pointer",
+  textAlign: "left",
+  display: "grid",
+  gap: "4px",
+};
+
+const suggestionSmallStyle: any = {
+  color: "#cbd5e1",
+  fontSize: "13px",
+};
+
+const emptyBoxStyle: any = {
+  background: "#111",
+  padding: "25px",
+  borderRadius: "20px",
+  color: "#ddd",
+};
+
+const noAccessBoxStyle: any = {
+  background: "#111",
+  padding: "25px",
+  borderRadius: "20px",
+  marginTop: "40px",
+};
+
+const noAccessTitleStyle: any = {
+  color: "#dc2626",
+  marginTop: 0,
+};
+
+const yearFolderStyle: any = {
+  background: "#090909",
+  border: "1px solid #222",
+  borderRadius: "20px",
+  marginBottom: "24px",
+  padding: "18px",
+};
+
+const yearSummaryStyle: any = {
+  cursor: "pointer",
+  fontSize: "34px",
+  fontWeight: "bold",
+  color: "#f97316",
+  listStyle: "none",
+};
+
+const monthWrapStyle: any = {
+  marginTop: "20px",
+  display: "grid",
+  gap: "18px",
+};
+
+const monthFolderStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "18px",
+  padding: "16px",
+};
+
+const monthSummaryStyle: any = {
+  cursor: "pointer",
+  fontSize: "24px",
+  fontWeight: "bold",
+  color: "#60a5fa",
+  listStyle: "none",
+};
+
+const countBadgeStyle: any = {
+  background: "#1f2937",
+  color: "white",
+  fontSize: "14px",
+  padding: "7px 10px",
+  borderRadius: "999px",
+  marginLeft: "10px",
+  verticalAlign: "middle",
+};
+
+const countBadgeSmallStyle: any = {
+  background: "#172554",
+  color: "white",
+  fontSize: "13px",
+  padding: "6px 9px",
+  borderRadius: "999px",
+  marginLeft: "8px",
+  verticalAlign: "middle",
+};
+
+const cardGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
+  gap: "18px",
+  marginTop: "16px",
+};
+
+const cardStyle: any = {
+  background: "#000",
+  border: "1px solid #333",
+  padding: "22px",
+  borderRadius: "18px",
+};
+
+const cardHeaderStyle: any = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "12px",
+  alignItems: "flex-start",
+  marginBottom: "16px",
+};
+
+const cardTitleStyle: any = {
+  margin: 0,
+  color: "white",
+  fontSize: "24px",
+};
+
+const cardLocationStyle: any = {
+  color: "#cbd5e1",
+  marginTop: "6px",
+};
+
+const statusBadgeStyle: any = {
+  background: "#7c2d12",
+  color: "white",
+  padding: "7px 10px",
+  borderRadius: "999px",
+  fontWeight: "bold",
+  fontSize: "12px",
+};
+
+const infoGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: "12px",
+  color: "#ddd",
+};
+
+const buttonRowStyle: any = {
+  display: "flex",
+  gap: "12px",
+  flexWrap: "wrap",
+  marginTop: "18px",
+};
+
+const berichtButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  textDecoration: "none",
+  border: "none",
+  padding: "12px 18px",
+  borderRadius: "10px",
+  cursor: "pointer",
+  fontWeight: "bold",
+  display: "inline-block",
+};
+
+const regieButtonStyle: any = {
+  background: "#f97316",
+  color: "white",
+  textDecoration: "none",
+  border: "none",
+  padding: "12px 18px",
+  borderRadius: "10px",
+  cursor: "pointer",
+  fontWeight: "bold",
+  display: "inline-block",
+};
+
+const activeButtonStyle: any = {
+  background: "#16a34a",
+  color: "white",
+  border: "none",
+  padding: "12px 18px",
+  borderRadius: "10px",
+  cursor: "pointer",
+  fontWeight: "bold",
+};
