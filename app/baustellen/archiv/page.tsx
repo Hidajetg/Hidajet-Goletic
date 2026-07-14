@@ -102,6 +102,18 @@ function formatDate(value: string) {
   });
 }
 
+function formatDateTime(value: string) {
+  if (!value || value === "-") return "-";
+
+  return new Date(value).toLocaleString("de-AT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function formatNumber(value: any) {
   return Number(value || 0).toLocaleString("de-AT", {
     minimumFractionDigits: 1,
@@ -124,11 +136,13 @@ function toNumberValue(value: any) {
 
 function getDateForArchiveGroup(b: any) {
   const dateValue =
-    b.zadnjiDan && b.zadnjiDan !== "-"
+    b.archived_file_at ||
+    b.archived_at ||
+    (b.zadnjiDan && b.zadnjiDan !== "-"
       ? b.zadnjiDan
       : b.prviDan && b.prviDan !== "-"
       ? b.prviDan
-      : b.updated_at || b.created_at || "";
+      : b.updated_at || b.created_at || "");
 
   if (!dateValue) return null;
 
@@ -159,6 +173,9 @@ function getSearchText(b: any) {
     b.prviDan,
     b.zadnjiDan,
     b.regieText,
+    b.archived_file_by,
+    b.archive_method,
+    b.archived_file_at,
   ]
     .filter(Boolean)
     .join(" ")
@@ -537,6 +554,22 @@ export default function ArchivPage() {
                                 <br />
                                 {formatNumber(b.regieStunden)} h
                               </p>
+
+                              {b.archived_file_at && (
+                                <p>
+                                  <strong>ZIP für OneDrive erstellt am:</strong>
+                                  <br />
+                                  {formatDateTime(b.archived_file_at)}
+                                </p>
+                              )}
+
+                              {b.archived_file_by && (
+                                <p>
+                                  <strong>Erstellt von:</strong>
+                                  <br />
+                                  {b.archived_file_by}
+                                </p>
+                              )}
                             </div>
 
                             <div style={buttonRowStyle}>

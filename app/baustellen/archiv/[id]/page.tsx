@@ -102,6 +102,24 @@ function isAdminUser(user: any) {
   );
 }
 
+function getLoggedUserName(user: any) {
+  if (!user) return "Admin";
+
+  if (typeof user === "string") {
+    return user.trim() || "Admin";
+  }
+
+  return String(
+    user.name ||
+      user.worker_name ||
+      user.radnik ||
+      user.username ||
+      user.userName ||
+      user.displayName ||
+      "Admin",
+  ).trim();
+}
+
 export default function ArchivBerichtPage() {
   const params = useParams();
   const baustelleId = String(params.id);
@@ -966,8 +984,13 @@ export default function ArchivBerichtPage() {
     setSavingPhotos(true);
 
     try {
+      const loggedUser = getLoggedUserFromLocalStorage();
+      const archivedBy = getLoggedUserName(loggedUser);
+
       const response = await fetch(
-        `/api/onedrive/archive-baustelle?baustelleId=${encodeURIComponent(baustelleId)}`,
+        `/api/onedrive/archive-baustelle?baustelleId=${encodeURIComponent(
+          baustelleId,
+        )}&archivedBy=${encodeURIComponent(archivedBy)}`,
         {
           method: "GET",
           cache: "no-store",
