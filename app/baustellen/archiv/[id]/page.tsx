@@ -1044,7 +1044,7 @@ export default function ArchivBerichtPage() {
       const wantsDeletion = window.confirm(
         `Die Baustelle wurde erfolgreich als ZIP-Datei gespeichert.
 
-Die ZIP-Datei enthält die Baustellenübersicht, alle Bilder nach Räumen sortiert und alle vorhandenen Regieberichte.
+Die ZIP-Datei enthält die Baustellenübersicht mit allen Bildern sowie alle vorhandenen Regieberichte. Die Bilder werden nicht zusätzlich als einzelne Dateien gespeichert.
 
 Möchten Sie jetzt die Bilder aus der Datenbank löschen?`,
       );
@@ -1057,7 +1057,7 @@ Möchten Sie jetzt die Bilder aus der Datenbank löschen?`,
       }
 
       const finalConfirmation = window.confirm(
-        `Haben Sie geprüft, dass die Baustellenübersicht, alle Bilder und alle Regieberichte vollständig in der ZIP-Datei gespeichert wurden?
+        `Haben Sie geprüft, dass alle Bilder in der Baustellenübersicht und alle Regieberichte vollständig in der ZIP-Datei gespeichert wurden?
 
 Es werden ausschließlich die Bilder gelöscht.
 Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle anderen Baustellendaten bleiben unverändert.
@@ -1999,6 +1999,75 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
           })}
         </div>
       </section>
+
+      {sortedRegieberichte.some(
+        (bericht: any) => getRegieberichtPhotos(bericht.id).length > 0,
+      ) && (
+        <section style={boxStyle} className="print-box">
+          {renderPaperBranding()}
+          <div style={paperContentStyle}>
+            <h2 style={sectionTitleStyle}>
+              Fotodokumentation Regieberichte
+            </h2>
+
+            {sortedRegieberichte.map((bericht: any) => {
+              const berichtPhotos = getRegieberichtPhotos(bericht.id);
+
+              if (berichtPhotos.length === 0) return null;
+
+              return (
+                <div
+                  key={`regie-fotos-${bericht.id}`}
+                  style={roomBoxStyle}
+                  className="print-room"
+                >
+                  <h3 style={subTitleStyle}>
+                    Regiebericht {getRegieberichtNumber(bericht)} ·{" "}
+                    {formatDate(bericht.datum)}
+                  </h3>
+
+                  <div style={photoGridStyle} className="photo-grid">
+                    {berichtPhotos.map((photo: any) => {
+                      const url = getPhotoUrl(photo);
+
+                      if (!url) return null;
+
+                      return (
+                        <div
+                          key={photo.id}
+                          style={photoCardStyle}
+                          className="photo-card"
+                        >
+                          <img
+                            src={url}
+                            alt={getPhotoDescription(photo) || "Regiefoto"}
+                            style={photoStyle}
+                            className="photo-img"
+                            onClick={() => setSelectedPhoto(url)}
+                          />
+
+                          <div style={photoInfoStyle}>
+                            <p style={photoRoomStyle}>
+                              Regiebericht {getRegieberichtNumber(bericht)}
+                            </p>
+
+                            {getPhotoDescription(photo) && (
+                              <p style={photoCaptionStyle}>
+                                <strong>Beschreibung:</strong>{" "}
+                                {getPhotoDescription(photo)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section style={boxStyle} className="print-box">
         {renderPaperBranding()}

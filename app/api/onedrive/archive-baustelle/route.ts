@@ -492,78 +492,12 @@ export async function GET(request: NextRequest) {
       throw new Error("Der ZIP-Export ist nur für archivierte Baustellen erlaubt.");
     }
 
-    const rooms = await optionalRows(
-      supabaseAdmin,
-      "prostorije",
-      "baustelle_id",
-      Number(baustelleId),
-    );
-
-    const roomIds = rooms
-      .map((room) => room.id)
-      .filter((id) => id !== null && id !== undefined);
-
-    const roomPhotosByRoom = await optionalRows(
-      supabaseAdmin,
-      "room_photos",
-      "room_id",
-      roomIds,
-    );
-
-    const roomPhotosByBaustelle = await optionalRows(
-      supabaseAdmin,
-      "room_photos",
-      "baustelle_id",
-      baustelleId,
-    );
-
     const regieberichte = await optionalRows(
       supabaseAdmin,
       "regieberichte",
       "baustelle_id",
       Number(baustelleId),
     );
-
-    const regieberichtIds = regieberichte
-      .map((bericht) => bericht.id)
-      .filter((id) => id !== null && id !== undefined);
-
-    const regieberichtPhotos = await optionalRows(
-      supabaseAdmin,
-      "regiebericht_photos",
-      "regiebericht_id",
-      regieberichtIds,
-    );
-
-    const baustelleInfoPhotos = await optionalRows(
-      supabaseAdmin,
-      "baustelle_info_photos",
-      "baustelle_id",
-      Number(baustelleId),
-    );
-
-    const legacyPhotos = await optionalRows(
-      supabaseAdmin,
-      "fotos",
-      "baustelle_id",
-      baustelleId,
-    );
-
-    const legacyRegiePhotos = await optionalRows(
-      supabaseAdmin,
-      "regie_fotos",
-      "baustelle_id",
-      baustelleId,
-    );
-
-    const { data: buckets, error: bucketsError } =
-      await supabaseAdmin.storage.listBuckets();
-
-    if (bucketsError) {
-      throw new Error(`Storage-Buckets konnten nicht geladen werden: ${bucketsError.message}`);
-    }
-
-    const bucketIds = (buckets || []).map((bucket: { id: string }) => bucket.id);
 
     const zip = new JSZip();
     const rootName = sanitizeFileName(
@@ -613,174 +547,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const roomById = new Map<string, JsonRow>(
-      rooms.map((room) => [String(room.id), room]),
-    );
-
-    const roomPhotos = uniqueRows([
-      ...roomPhotosByRoom,
-      ...roomPhotosByBaustelle,
-    ]).filter((row) => !isPdfReference(getPhotoReference(row)));
-
-    let photoCounter = 0;
-
-    for (const row of roomPhotos) {
-      const reference = getPhotoReference(row);
-      if (!reference) continue;
-
-      const downloaded = await downloadFile(
-        supabaseAdmin,
-        reference,
-        bucketIds,
-        photoCounter,
-      );
-
-      if (!isImageContentType(downloaded.contentType)) continue;
-
-      const roomId = String(row.room_id || row.prostorija_id || "ohne-raum");
-      const roomName =
-        roomId === "ohne-raum"
-          ? "Ohne Raum"
-          : getRoomName(roomById.get(roomId), roomId);
-
-      const targetName = sanitizeFileName(
-        `Bild-${String(photoCounter + 1).padStart(3, "0")}-${downloaded.fileName}`,
-        `Bild-${String(photoCounter + 1).padStart(3, "0")}.jpg`,
-      );
-
-      root.file(`Bilder/${roomName}/${targetName}`, downloaded.bytes, {
-        binary: true,
-        compression: "STORE",
-      });
-
-      photoCounter += 1;
-    }
-
-    const generalPhotoRows = uniqueRows([
-      ...baustelleInfoPhotos,
-      ...legacyPhotos,
-    ]).filter((row) => !isPdfReference(getPhotoReference(row)));
-
-    for (const row of generalPhotoRows) {
-      const reference = getPhotoReference(row);
-      if (!reference) continue;
-
-      const downloaded = await downloadFile(
-        supabaseAdmin,
-        reference,
-        bucketIds,
-        photoCounter,
-      );
-
-      if (!isImageContentType(downloaded.contentType)) continue;
-
-      const targetName = sanitizeFileName(
-        `Bild-${String(photoCounter + 1).padStart(3, "0")}-${downloaded.fileName}`,
-        `Bild-${String(photoCounter + 1).padStart(3, "0")}.jpg`,
-      );
-
-      root.file(`Bilder/Allgemein/${targetName}`, downloaded.bytes, {
-        binary: true,
-        compression: "STORE",
-      });
-
-      photoCounter += 1;
-    }
-
-    let regieImageCounter = 0;
-    let regieAttachmentCounter = 0;
-
-    for (const row of uniqueRows(regieberichtPhotos)) {
-      const reference = getPhotoReference(row);
-      if (!reference) continue;
-
-      const bericht = regieberichte.find(
-        (item) => Number(item.id) === Number(row.regiebericht_id),
-      );
-
-      const berichtNumber = getRegieberichtNumber(
-        bericht || { id: row.regiebericht_id || "Ohne-Nummer" },
-      );
-
-      const downloaded = await downloadFile(
-        supabaseAdmin,
-        reference,
-        bucketIds,
-        regieImageCounter + regieAttachmentCounter,
-      );
-
-      if (
-        isPdfReference(reference) ||
-        downloaded.contentType.toLowerCase().includes("application/pdf")
-      ) {
-        const targetName = sanitizeFileName(
-          `Anlage-${String(regieAttachmentCounter + 1).padStart(3, "0")}-${downloaded.fileName}`,
-          `Anlage-${String(regieAttachmentCounter + 1).padStart(3, "0")}.pdf`,
-        );
-
-        root.file(
-          `Regieberichte/Regiebericht-${berichtNumber}/Anlagen/${targetName}`,
-          downloaded.bytes,
-          {
-            binary: true,
-            compression: "STORE",
-          },
-        );
-
-        regieAttachmentCounter += 1;
-        continue;
-      }
-
-      if (!isImageContentType(downloaded.contentType)) continue;
-
-      const targetName = sanitizeFileName(
-        `Bild-${String(regieImageCounter + 1).padStart(3, "0")}-${downloaded.fileName}`,
-        `Bild-${String(regieImageCounter + 1).padStart(3, "0")}.jpg`,
-      );
-
-      root.file(
-        `Regieberichte/Regiebericht-${berichtNumber}/Bilder/${targetName}`,
-        downloaded.bytes,
-        {
-          binary: true,
-          compression: "STORE",
-        },
-      );
-
-      regieImageCounter += 1;
-    }
-
-    for (const row of uniqueRows(legacyRegiePhotos)) {
-      const reference = getPhotoReference(row);
-      if (!reference) continue;
-
-      const downloaded = await downloadFile(
-        supabaseAdmin,
-        reference,
-        bucketIds,
-        regieImageCounter + regieAttachmentCounter,
-      );
-
-      const targetFolder = isPdfReference(reference)
-        ? "Regieberichte/Weitere Anlagen"
-        : "Regieberichte/Weitere Bilder";
-
-      const targetName = sanitizeFileName(
-        downloaded.fileName,
-        `Datei-${regieImageCounter + regieAttachmentCounter + 1}`,
-      );
-
-      root.file(`${targetFolder}/${targetName}`, downloaded.bytes, {
-        binary: true,
-        compression: "STORE",
-      });
-
-      if (isPdfReference(reference)) {
-        regieAttachmentCounter += 1;
-      } else {
-        regieImageCounter += 1;
-      }
-    }
+    // Die Bilder werden ausschließlich in der Baustellenübersicht.pdf
+    // gespeichert. Dadurch bleibt die ZIP-Datei deutlich kleiner und es
+    // werden keine Originalbilder doppelt in die ZIP-Datei geschrieben.
 
     await closeBrowser(browser);
     browser = null;
@@ -822,7 +591,7 @@ export async function GET(request: NextRequest) {
           zipFileName,
         )}`,
         "Cache-Control": "no-store, max-age=0",
-        "X-Archive-Photos": String(photoCounter + regieImageCounter),
+        "X-Archive-Photos": "overview-pdf-only",
         "X-Archive-Regieberichte": String(regieberichte.length),
         "X-Archive-At": archivedAt,
         "X-Archive-By": archivedBy,

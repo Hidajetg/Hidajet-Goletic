@@ -135,14 +135,15 @@ function toNumberValue(value: any) {
 }
 
 function getDateForArchiveGroup(b: any) {
+  // Die Position im Archiv richtet sich ausschließlich nach dem letzten
+  // Arbeitstag. Das Erstellen einer ZIP-Datei darf die Baustelle nicht
+  // in einen anderen Monat oder an eine andere Position verschieben.
   const dateValue =
-    b.archived_file_at ||
-    b.archived_at ||
-    (b.zadnjiDan && b.zadnjiDan !== "-"
+    b.zadnjiDan && b.zadnjiDan !== "-"
       ? b.zadnjiDan
       : b.prviDan && b.prviDan !== "-"
-      ? b.prviDan
-      : b.updated_at || b.created_at || "");
+        ? b.prviDan
+        : b.created_at || "";
 
   if (!dateValue) return null;
 
