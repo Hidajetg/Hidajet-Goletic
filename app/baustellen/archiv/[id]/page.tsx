@@ -2084,10 +2084,6 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
                 <strong>Regiestunden:</strong> {formatNumber(totalRegieHours)} h
               </p>
 
-              <p>
-                <strong>Gesamtstunden inkl. Regie:</strong>{" "}
-                {formatNumber(totalHours + totalRegieHours)} h
-              </p>
             </>
           )}
 
