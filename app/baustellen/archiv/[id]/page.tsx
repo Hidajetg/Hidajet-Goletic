@@ -142,7 +142,6 @@ export default function ArchivBerichtPage() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [baustelleInfo, setBaustelleInfo] = useState<any[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
-  const [savingPhotos, setSavingPhotos] = useState(false);
   const [downloadingImages, setDownloadingImages] = useState(false);
   const [deletingPhotos, setDeletingPhotos] = useState(false);
 
@@ -1126,7 +1125,7 @@ export default function ArchivBerichtPage() {
   }
 
   async function downloadAllImagesAsZip() {
-    if (downloadingImages || savingPhotos || deletingPhotos) return;
+    if (downloadingImages || deletingPhotos) return;
 
     const roomImageRows = photos.filter((photo: any) =>
       isImageUrl(getPhotoUrl(photo)),
@@ -1311,111 +1310,6 @@ export default function ArchivBerichtPage() {
     }
   }
 
-  async function saveBaustelleAsZip() {
-    if (downloadingImages || savingPhotos || deletingPhotos) return;
-
-    setSavingPhotos(true);
-
-    try {
-      const loggedUser = getLoggedUserFromLocalStorage();
-      const archivedBy = getLoggedUserName(loggedUser);
-
-      const response = await fetch(
-        `/api/onedrive/archive-baustelle?baustelleId=${encodeURIComponent(
-          baustelleId,
-        )}&archivedBy=${encodeURIComponent(archivedBy)}`,
-        {
-          method: "GET",
-          cache: "no-store",
-        },
-      );
-
-      if (!response.ok) {
-        let message = `ZIP-Export fehlgeschlagen (${response.status}).`;
-
-        try {
-          const errorData = await response.json();
-          if (errorData?.error) message = errorData.error;
-        } catch {
-          const errorText = await response.text();
-          if (errorText) message = errorText;
-        }
-
-        throw new Error(message);
-      }
-
-      const zipBlob = await response.blob();
-      const disposition = response.headers.get("content-disposition") || "";
-      const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-      const normalMatch = disposition.match(/filename="?([^";]+)"?/i);
-
-      let fileName = sanitizeFileName(
-        `${baustelle?.naziv || `Baustelle-${baustelleId}`}.zip`,
-        `Baustelle-${baustelleId}.zip`,
-      );
-
-      if (utf8Match?.[1]) {
-        try {
-          fileName = decodeURIComponent(utf8Match[1]);
-        } catch {
-          fileName = utf8Match[1];
-        }
-      } else if (normalMatch?.[1]) {
-        fileName = normalMatch[1];
-      }
-
-      const downloadUrl = URL.createObjectURL(zipBlob);
-      const anchor = document.createElement("a");
-      anchor.href = downloadUrl;
-      anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-
-      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 10_000);
-
-      const wantsDeletion = window.confirm(
-        `Die Baustelle wurde erfolgreich als ZIP-Datei gespeichert.
-
-Die ZIP-Datei enthält die Baustellenübersicht mit allen Bildern sowie alle vorhandenen Regieberichte. Die Bilder werden nicht zusätzlich als einzelne Dateien gespeichert.
-
-Möchten Sie jetzt die Bilder aus der Datenbank löschen?`,
-      );
-
-      if (!wantsDeletion) {
-        alert(
-          "Die ZIP-Datei wurde gespeichert. Die Bilder bleiben in der Datenbank erhalten.",
-        );
-        return;
-      }
-
-      const finalConfirmation = window.confirm(
-        `Haben Sie geprüft, dass alle Bilder in der Baustellenübersicht und alle Regieberichte vollständig in der ZIP-Datei gespeichert wurden?
-
-Es werden ausschließlich die Bilder gelöscht.
-Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle anderen Baustellendaten bleiben unverändert.
-
-Gelöschte Bilder können nicht wiederhergestellt werden.`,
-      );
-
-      if (!finalConfirmation) {
-        alert(
-          "Die Bilder wurden nicht gelöscht und bleiben in der Datenbank erhalten.",
-        );
-        return;
-      }
-
-      await deleteImagesAfterZip();
-    } catch (error: any) {
-      alert(
-        "Die Baustelle konnte nicht als ZIP-Datei gespeichert werden: " +
-          (error?.message || String(error)),
-      );
-    } finally {
-      setSavingPhotos(false);
-    }
-  }
-
   function parseSupabaseStorageReference(url: string) {
     try {
       const parsedUrl = new URL(url);
@@ -1531,6 +1425,36 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
       );
     } finally {
       setDeletingPhotos(false);
+    }
+  }
+
+
+  async function confirmAndDeleteImages() {
+    if (downloadingImages || deletingPhotos) return;
+
+    try {
+      const imageRows = await getAllImageRowsForDeletion();
+
+      if (imageRows.length === 0) {
+        alert("Für diese Baustelle sind keine Bilder vorhanden.");
+        return;
+      }
+
+      const firstConfirmation = window.confirm(
+        `ACHTUNG: ${imageRows.length} Bild(er) werden dauerhaft gelöscht.\n\nBitte laden Sie zuerst alle Bilder mit „Alle Bilder herunterladen“ herunter und prüfen Sie die ZIP-Datei.\n\nArbeitsstunden, Räume, Materialien, Produktivität und Regieberichte bleiben erhalten.\n\nMöchten Sie fortfahren?`,
+      );
+
+      if (!firstConfirmation) return;
+
+      const finalConfirmation = window.confirm(
+        `Letzte Bestätigung:\n\nDie Bilder werden jetzt aus Supabase Storage und aus den Bildtabellen gelöscht. Dieser Vorgang kann nicht rückgängig gemacht werden.\n\nBilder endgültig löschen?`,
+      );
+
+      if (!finalConfirmation) return;
+
+      await deleteImagesAfterZip();
+    } catch (error: any) {
+      alert(error?.message || String(error));
     }
   }
 
@@ -1919,7 +1843,7 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
           <button
             onClick={downloadAllImagesAsZip}
             style={downloadImagesButtonStyle}
-            disabled={downloadingImages || savingPhotos || deletingPhotos}
+            disabled={downloadingImages || deletingPhotos}
           >
             {downloadingImages
               ? "Bilder werden vorbereitet..."
@@ -1927,15 +1851,13 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
           </button>
 
           <button
-            onClick={saveBaustelleAsZip}
-            style={savePhotosButtonStyle}
-            disabled={downloadingImages || savingPhotos || deletingPhotos}
+            onClick={confirmAndDeleteImages}
+            style={deleteButtonStyle}
+            disabled={downloadingImages || deletingPhotos}
           >
             {deletingPhotos
               ? "Bilder werden gelöscht..."
-              : savingPhotos
-                ? "ZIP-Datei wird erstellt..."
-                : "📦 Baustelle als ZIP speichern"}
+              : "🗑️ Bilder endgültig löschen"}
           </button>
         </div>
       </div>
@@ -2512,15 +2434,6 @@ const downloadImagesButtonStyle: any = {
   cursor: "pointer",
 };
 
-const savePhotosButtonStyle: any = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  borderRadius: "10px",
-  padding: "12px 20px",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
 
 const deleteButtonStyle: any = {
   background: "#dc2626",
