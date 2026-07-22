@@ -1125,44 +1125,6 @@ export default function ArchivBerichtPage() {
   }
 
 
-  async function createBaustellenOverviewPdfBlob() {
-    const response = await fetch(
-      `/api/archive/baustelle-overview-pdf?baustelleId=${encodeURIComponent(
-        baustelleId,
-      )}`,
-      {
-        method: "GET",
-        cache: "no-store",
-      },
-    );
-
-    if (!response.ok) {
-      let message = `PDF-Export fehlgeschlagen (${response.status}).`;
-
-      try {
-        const errorData = await response.json();
-        if (errorData?.error) message = errorData.error;
-      } catch {
-        try {
-          const errorText = await response.text();
-          if (errorText) message = errorText;
-        } catch {
-          // Die Standardmeldung bleibt erhalten.
-        }
-      }
-
-      throw new Error(message);
-    }
-
-    const contentType = response.headers.get("content-type") || "";
-
-    if (!contentType.toLowerCase().includes("application/pdf")) {
-      throw new Error("Der Server hat keine gültige PDF-Datei zurückgegeben.");
-    }
-
-    return response.blob();
-  }
-
   async function downloadAllImagesAsZip() {
     if (downloadingImages || deletingPhotos) return;
 
@@ -1198,25 +1160,6 @@ export default function ArchivBerichtPage() {
       if (!rootFolder) {
         throw new Error("Der ZIP-Ordner konnte nicht erstellt werden.");
       }
-
-      let overviewPdfBlob: Blob;
-
-      try {
-        overviewPdfBlob = await createBaustellenOverviewPdfBlob();
-      } catch (error: any) {
-        throw new Error(
-          "Die PDF-Baustellenübersicht konnte nicht erstellt werden: " +
-            (error?.message || String(error)),
-        );
-      }
-
-      rootFolder.file(
-        sanitizeFileName(
-          `00 - Baustellenübersicht - ${baustelleName}.pdf`,
-          "00 - Baustellenübersicht.pdf",
-        ),
-        overviewPdfBlob,
-      );
 
       const seenUrls = new Set<string>();
       const knownRoomIds = new Set(
