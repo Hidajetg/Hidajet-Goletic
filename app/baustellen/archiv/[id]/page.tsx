@@ -143,6 +143,7 @@ export default function ArchivBerichtPage() {
   const [baustelleInfo, setBaustelleInfo] = useState<any[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [savingPhotos, setSavingPhotos] = useState(false);
+  const [downloadingImages, setDownloadingImages] = useState(false);
   const [deletingPhotos, setDeletingPhotos] = useState(false);
 
   const [logoTopUrl, setLogoTopUrl] = useState("");
@@ -978,8 +979,340 @@ export default function ArchivBerichtPage() {
     return `${fileName}${extensionByType[type] || ".jpg"}`;
   }
 
+  function getImageExtension(url: string, contentType: string) {
+    const normalizedType = String(contentType || "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+
+    const extensionByType: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "image/heic": "heic",
+      "image/heif": "heif",
+      "image/bmp": "bmp",
+      "image/tiff": "tif",
+    };
+
+    if (extensionByType[normalizedType]) {
+      return extensionByType[normalizedType];
+    }
+
+    try {
+      const cleanUrl = String(url || "").split("?")[0];
+      const match = cleanUrl.match(/\.([a-z0-9]{2,6})$/i);
+      return match?.[1]?.toLowerCase() || "jpg";
+    } catch {
+      return "jpg";
+    }
+  }
+
+  async function convertImageBlobToJpeg(sourceBlob: Blob) {
+    const sourceType = String(sourceBlob.type || "").toLowerCase();
+
+    if (sourceType === "image/jpeg" || sourceType === "image/jpg") {
+      return sourceBlob;
+    }
+
+    if (typeof createImageBitmap !== "function") {
+      throw new Error("JPEG-Konvertierung wird von diesem Browser nicht unterstützt.");
+    }
+
+    const bitmap = await createImageBitmap(sourceBlob);
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        throw new Error("Das Bild konnte nicht verarbeitet werden.");
+      }
+
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, 0, 0);
+
+      return await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (jpegBlob) => {
+            if (jpegBlob) {
+              resolve(jpegBlob);
+            } else {
+              reject(new Error("Das Bild konnte nicht als JPG gespeichert werden."));
+            }
+          },
+          "image/jpeg",
+          0.92,
+        );
+      });
+    } finally {
+      bitmap.close();
+    }
+  }
+
+  function getZipImageFileName(
+    photo: any,
+    index: number,
+    extension: string,
+  ) {
+    const createdAt = getPhotoCreatedAt(photo);
+    let datePart = "";
+
+    if (createdAt) {
+      const date = new Date(createdAt);
+
+      if (!Number.isNaN(date.getTime())) {
+        datePart = date.toISOString().slice(0, 10);
+      }
+    }
+
+    const numberPart = String(index + 1).padStart(3, "0");
+    const safeExtension = String(extension || "jpg")
+      .replace(/[^a-z0-9]/gi, "")
+      .toLowerCase();
+
+    return `${numberPart}${datePart ? `_${datePart}` : ""}.${
+      safeExtension || "jpg"
+    }`;
+  }
+
+  async function addImageToZipFolder(
+    folder: any,
+    photo: any,
+    index: number,
+    seenUrls: Set<string>,
+  ) {
+    const url = getPhotoUrl(photo);
+
+    if (!url || seenUrls.has(url)) {
+      return false;
+    }
+
+    seenUrls.add(url);
+
+    const response = await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Bild konnte nicht geladen werden (${response.status}).`);
+    }
+
+    const sourceBlob = await response.blob();
+    let outputBlob = sourceBlob;
+    let extension = getImageExtension(url, sourceBlob.type);
+
+    try {
+      outputBlob = await convertImageBlobToJpeg(sourceBlob);
+      extension = "jpg";
+    } catch {
+      // Falls ein seltenes Format nicht konvertiert werden kann,
+      // bleibt die Originaldatei mit ihrer ursprünglichen Endung erhalten.
+    }
+
+    folder.file(
+      getZipImageFileName(photo, index, extension),
+      outputBlob,
+    );
+
+    return true;
+  }
+
+  async function downloadAllImagesAsZip() {
+    if (downloadingImages || savingPhotos || deletingPhotos) return;
+
+    const roomImageRows = photos.filter((photo: any) =>
+      isImageUrl(getPhotoUrl(photo)),
+    );
+
+    const regieImageRows = regiePhotos.filter((photo: any) =>
+      isImageUrl(getPhotoUrl(photo)),
+    );
+
+    if (roomImageRows.length + regieImageRows.length === 0) {
+      alert("Für diese Baustelle sind keine Bilder vorhanden.");
+      return;
+    }
+
+    setDownloadingImages(true);
+
+    try {
+      const JSZipModule = await import("jszip");
+      const JSZip = JSZipModule.default;
+      const zip = new JSZip();
+
+      const baustelleName = sanitizeFileName(
+        baustelle?.naziv || `Baustelle-${baustelleId}`,
+        `Baustelle-${baustelleId}`,
+      );
+
+      const rootFolderName = sanitizeFileName(
+        `${baustelleName}-Bilder`,
+        `Baustelle-${baustelleId}-Bilder`,
+      );
+
+      const rootFolder = zip.folder(rootFolderName);
+
+      if (!rootFolder) {
+        throw new Error("Der ZIP-Ordner konnte nicht erstellt werden.");
+      }
+
+      const seenUrls = new Set<string>();
+      const knownRoomIds = new Set(
+        rooms.map((room: any) => Number(room.id)),
+      );
+
+      let savedCount = 0;
+      let failedCount = 0;
+
+      for (const room of rooms) {
+        const roomFolderName = sanitizeFileName(
+          room?.naziv || `Raum-${room.id}`,
+          `Raum-${room.id}`,
+        );
+
+        const roomFolder = rootFolder.folder(roomFolderName);
+
+        if (!roomFolder) continue;
+
+        const roomRows = getPhotosForRoom(room.id).filter((photo: any) =>
+          isImageUrl(getPhotoUrl(photo)),
+        );
+
+        for (let index = 0; index < roomRows.length; index++) {
+          try {
+            const added = await addImageToZipFolder(
+              roomFolder,
+              roomRows[index],
+              index,
+              seenUrls,
+            );
+
+            if (added) savedCount++;
+          } catch (error) {
+            console.error("Fehler beim Bildexport:", error);
+            failedCount++;
+          }
+        }
+      }
+
+      const withoutRoomRows = roomImageRows.filter(
+        (photo: any) => !knownRoomIds.has(Number(photo.room_id)),
+      );
+
+      if (withoutRoomRows.length > 0) {
+        const withoutRoomFolder = rootFolder.folder("Ohne-Raum");
+
+        if (withoutRoomFolder) {
+          for (let index = 0; index < withoutRoomRows.length; index++) {
+            try {
+              const added = await addImageToZipFolder(
+                withoutRoomFolder,
+                withoutRoomRows[index],
+                index,
+                seenUrls,
+              );
+
+              if (added) savedCount++;
+            } catch (error) {
+              console.error("Fehler beim Bildexport:", error);
+              failedCount++;
+            }
+          }
+        }
+      }
+
+      const regieRootFolder = rootFolder.folder("Regieberichte");
+
+      if (regieRootFolder) {
+        for (const bericht of sortedRegieberichte) {
+          const berichtPhotos = getRegieberichtPhotos(bericht.id);
+
+          if (berichtPhotos.length === 0) continue;
+
+          const berichtNumber = sanitizeFileName(
+            String(getRegieberichtNumber(bericht)),
+            String(bericht.id),
+          );
+
+          const datePart = bericht?.datum
+            ? `-${String(bericht.datum).slice(0, 10)}`
+            : "";
+
+          const berichtFolder = regieRootFolder.folder(
+            sanitizeFileName(
+              `Regiebericht-${berichtNumber}${datePart}`,
+              `Regiebericht-${bericht.id}`,
+            ),
+          );
+
+          if (!berichtFolder) continue;
+
+          for (let index = 0; index < berichtPhotos.length; index++) {
+            try {
+              const added = await addImageToZipFolder(
+                berichtFolder,
+                berichtPhotos[index],
+                index,
+                seenUrls,
+              );
+
+              if (added) savedCount++;
+            } catch (error) {
+              console.error("Fehler beim Regiebild-Export:", error);
+              failedCount++;
+            }
+          }
+        }
+      }
+
+      if (savedCount === 0) {
+        throw new Error(
+          "Keine Bilder konnten geladen und in die ZIP-Datei eingefügt werden.",
+        );
+      }
+
+      const zipBlob = await zip.generateAsync({
+        type: "blob",
+        compression: "STORE",
+      });
+
+      const downloadUrl = URL.createObjectURL(zipBlob);
+      const anchor = document.createElement("a");
+
+      anchor.href = downloadUrl;
+      anchor.download = `${rootFolderName}.zip`;
+
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 10_000);
+
+      if (failedCount > 0) {
+        alert(
+          `${savedCount} Bild(er) wurden gespeichert. ${failedCount} Bild(er) konnten nicht geladen werden.`,
+        );
+      }
+    } catch (error: any) {
+      alert(
+        "Die Bilder konnten nicht als ZIP-Datei gespeichert werden: " +
+          (error?.message || String(error)),
+      );
+    } finally {
+      setDownloadingImages(false);
+    }
+  }
+
   async function saveBaustelleAsZip() {
-    if (savingPhotos || deletingPhotos) return;
+    if (downloadingImages || savingPhotos || deletingPhotos) return;
 
     setSavingPhotos(true);
 
@@ -1584,9 +1917,19 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
           </button>
 
           <button
+            onClick={downloadAllImagesAsZip}
+            style={downloadImagesButtonStyle}
+            disabled={downloadingImages || savingPhotos || deletingPhotos}
+          >
+            {downloadingImages
+              ? "Bilder werden vorbereitet..."
+              : "🖼️ Alle Bilder herunterladen"}
+          </button>
+
+          <button
             onClick={saveBaustelleAsZip}
             style={savePhotosButtonStyle}
-            disabled={savingPhotos || deletingPhotos}
+            disabled={downloadingImages || savingPhotos || deletingPhotos}
           >
             {deletingPhotos
               ? "Bilder werden gelöscht..."
@@ -2157,6 +2500,16 @@ const pdfButtonStyle: any = {
   fontWeight: "bold",
   cursor: "pointer",
   textDecoration: "none",
+};
+
+const downloadImagesButtonStyle: any = {
+  background: "#f97316",
+  color: "white",
+  border: "none",
+  borderRadius: "10px",
+  padding: "12px 20px",
+  fontWeight: "bold",
+  cursor: "pointer",
 };
 
 const savePhotosButtonStyle: any = {
