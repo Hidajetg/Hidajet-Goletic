@@ -1126,318 +1126,41 @@ export default function ArchivBerichtPage() {
 
 
   async function createBaustellenOverviewPdfBlob() {
-    const html2canvasModule = await import("html2canvas");
-    const html2canvas = html2canvasModule.default;
-    const jsPdfModule = await import("jspdf");
-    const { jsPDF } = jsPdfModule;
-
-    const reportSections = Array.from(
-      document.querySelectorAll("section.print-box"),
-    ) as HTMLElement[];
-
-    if (reportSections.length === 0) {
-      throw new Error("Die Baustellenübersicht wurde nicht gefunden.");
-    }
-
-    const exportItems: Array<{
-      element: HTMLElement;
-      sectionTitle?: string;
-    }> = [];
-
-    for (const section of reportSections) {
-      const nestedRooms = Array.from(
-        section.querySelectorAll(".print-room"),
-      ).filter(
-        (room) =>
-          (room as HTMLElement).closest("section.print-box") === section,
-      ) as HTMLElement[];
-
-      if (nestedRooms.length === 0) {
-        exportItems.push({ element: section });
-        continue;
-      }
-
-      const sectionTitle =
-        section.querySelector("h2")?.textContent?.trim() || "";
-
-      nestedRooms.forEach((room, index) => {
-        exportItems.push({
-          element: room,
-          sectionTitle: index === 0 ? sectionTitle : undefined,
-        });
-      });
-    }
-
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-      compress: true,
-    });
-
-    const pageWidth = 210;
-    const pageHeight = 297;
-    const margin = 8;
-    const contentWidth = pageWidth - margin * 2;
-    let currentY = margin;
-    let firstExportItem = true;
-
-    const baustelleName = sanitizeFileName(
-      baustelle?.naziv || `Baustelle-${baustelleId}`,
-      `Baustelle-${baustelleId}`,
+    const response = await fetch(
+      `/api/archive/baustelle-overview-pdf?baustelleId=${encodeURIComponent(
+        baustelleId,
+      )}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      },
     );
 
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(18);
-    pdf.text("ABSCHLUSSBERICHT BAUSTELLE", margin, currentY + 6);
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(11);
-    pdf.text(baustelleName, margin, currentY + 13);
-    currentY += 19;
-
-    for (const item of exportItems) {
-      if (!firstExportItem) {
-        pdf.addPage();
-        currentY = margin;
-      }
-
-      firstExportItem = false;
-
-      if (item.sectionTitle) {
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(14);
-        pdf.text(item.sectionTitle, margin, currentY + 5);
-        currentY += 10;
-      }
-
-      const holder = document.createElement("div");
-      holder.style.position = "fixed";
-      holder.style.left = "-100000px";
-      holder.style.top = "0";
-      holder.style.width = "1000px";
-      holder.style.padding = "0";
-      holder.style.margin = "0";
-      holder.style.background = "#ffffff";
-      holder.style.zIndex = "-1";
-      holder.style.pointerEvents = "none";
-
-      const clone = item.element.cloneNode(true) as HTMLElement;
-
-      clone.style.setProperty("width", "100%", "important");
-      clone.style.setProperty("max-width", "100%", "important");
-      clone.style.setProperty("min-width", "0", "important");
-      clone.style.setProperty("margin", "0", "important");
-      clone.style.setProperty("padding", "24px", "important");
-      clone.style.setProperty("padding-bottom", "32px", "important");
-      clone.style.setProperty("background", "#ffffff", "important");
-      clone.style.setProperty("color", "#111111", "important");
-      clone.style.setProperty("border", "1px solid #d1d5db", "important");
-      clone.style.setProperty("border-radius", "0", "important");
-      clone.style.setProperty("overflow", "hidden", "important");
-      clone.style.setProperty("box-shadow", "none", "important");
-
-      clone.querySelectorAll(".no-print").forEach((node) => node.remove());
-
-      clone
-        .querySelectorAll<HTMLElement>(".print-room")
-        .forEach((roomNode) => {
-          roomNode.style.setProperty("width", "100%", "important");
-          roomNode.style.setProperty("max-width", "100%", "important");
-          roomNode.style.setProperty("margin", "0 0 20px 0", "important");
-          roomNode.style.setProperty("padding", "20px", "important");
-          roomNode.style.setProperty("background", "#ffffff", "important");
-          roomNode.style.setProperty("color", "#111111", "important");
-          roomNode.style.setProperty(
-            "border",
-            "1px solid #d1d5db",
-            "important",
-          );
-          roomNode.style.setProperty("border-radius", "0", "important");
-        });
-
-      clone
-        .querySelectorAll<HTMLElement>("p, td, strong, span, div")
-        .forEach((node) => {
-          if (!node.classList.contains("paper-overlay-inline")) {
-            node.style.setProperty("color", "#111111", "important");
-          }
-        });
-
-      clone.querySelectorAll<HTMLElement>("h2, h3").forEach((heading) => {
-        heading.style.setProperty("color", "#1f2937", "important");
-      });
-
-      clone.querySelectorAll<HTMLElement>("table").forEach((table) => {
-        table.style.setProperty("width", "100%", "important");
-        table.style.setProperty("table-layout", "fixed", "important");
-        table.style.setProperty("border-collapse", "collapse", "important");
-        table.style.setProperty("font-size", "11px", "important");
-        table.style.setProperty("background", "#ffffff", "important");
-      });
-
-      clone.querySelectorAll<HTMLElement>("th").forEach((cell) => {
-        cell.style.setProperty("color", "#c2410c", "important");
-        cell.style.setProperty("border-bottom", "1px solid #9ca3af", "important");
-        cell.style.setProperty("padding", "7px", "important");
-        cell.style.setProperty("white-space", "normal", "important");
-        cell.style.setProperty("word-break", "break-word", "important");
-      });
-
-      clone.querySelectorAll<HTMLElement>("td").forEach((cell) => {
-        cell.style.setProperty("border-bottom", "1px solid #d1d5db", "important");
-        cell.style.setProperty("padding", "7px", "important");
-        cell.style.setProperty("word-break", "break-word", "important");
-      });
-
-      clone
-        .querySelectorAll<HTMLElement>(".photo-grid")
-        .forEach((grid) => {
-          grid.style.setProperty(
-            "grid-template-columns",
-            "repeat(2, minmax(0, 1fr))",
-            "important",
-          );
-          grid.style.setProperty("gap", "12px", "important");
-        });
-
-      clone
-        .querySelectorAll<HTMLElement>(".photo-card")
-        .forEach((card) => {
-          card.style.setProperty("max-width", "none", "important");
-          card.style.setProperty("background", "#ffffff", "important");
-          card.style.setProperty("border", "1px solid #d1d5db", "important");
-          card.style.setProperty("border-radius", "8px", "important");
-        });
-
-      clone.querySelectorAll<HTMLImageElement>(".photo-img").forEach((img) => {
-        img.style.setProperty("width", "100%", "important");
-        img.style.setProperty("height", "320px", "important");
-        img.style.setProperty("object-fit", "contain", "important");
-        img.style.setProperty("background", "#ffffff", "important");
-      });
-
-      clone
-        .querySelectorAll<HTMLElement>(
-          ".paper-mountain-inline, .paper-overlay-inline",
-        )
-        .forEach((backgroundNode) => {
-          backgroundNode.style.setProperty("opacity", "0.10", "important");
-        });
-
-      clone
-        .querySelectorAll<HTMLElement>(".paper-brand-badge-inline")
-        .forEach((badge) => {
-          badge.style.setProperty("display", "none", "important");
-        });
-
-      holder.appendChild(clone);
-      document.body.appendChild(holder);
+    if (!response.ok) {
+      let message = `PDF-Export fehlgeschlagen (${response.status}).`;
 
       try {
-        const images = Array.from(
-          clone.querySelectorAll("img"),
-        ) as HTMLImageElement[];
-
-        await Promise.all(
-          images.map(
-            (img) =>
-              new Promise<void>((resolve) => {
-                if (img.complete) {
-                  resolve();
-                  return;
-                }
-
-                const finish = () => resolve();
-                img.addEventListener("load", finish, { once: true });
-                img.addEventListener("error", finish, { once: true });
-                window.setTimeout(finish, 12_000);
-              }),
-          ),
-        );
-
-        const canvas = await html2canvas(clone, {
-          scale: 1.25,
-          useCORS: true,
-          allowTaint: false,
-          backgroundColor: "#ffffff",
-          logging: false,
-          imageTimeout: 15_000,
-          windowWidth: 1000,
-        });
-
-        const pixelsPerMillimeter = canvas.width / contentWidth;
-        let sourceY = 0;
-
-        while (sourceY < canvas.height) {
-          const availableHeightMm = pageHeight - margin - currentY;
-
-          if (availableHeightMm < 25) {
-            pdf.addPage();
-            currentY = margin;
-          }
-
-          const usableHeightMm = pageHeight - margin - currentY;
-          const maxSliceHeightPx = Math.max(
-            1,
-            Math.floor(usableHeightMm * pixelsPerMillimeter),
-          );
-          const sliceHeightPx = Math.min(
-            maxSliceHeightPx,
-            canvas.height - sourceY,
-          );
-
-          const sliceCanvas = document.createElement("canvas");
-          sliceCanvas.width = canvas.width;
-          sliceCanvas.height = sliceHeightPx;
-
-          const context = sliceCanvas.getContext("2d");
-
-          if (!context) {
-            throw new Error("PDF-Seite konnte nicht erstellt werden.");
-          }
-
-          context.fillStyle = "#ffffff";
-          context.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-          context.drawImage(
-            canvas,
-            0,
-            sourceY,
-            canvas.width,
-            sliceHeightPx,
-            0,
-            0,
-            canvas.width,
-            sliceHeightPx,
-          );
-
-          const sliceHeightMm = sliceHeightPx / pixelsPerMillimeter;
-          const imageData = sliceCanvas.toDataURL("image/jpeg", 0.82);
-
-          pdf.addImage(
-            imageData,
-            "JPEG",
-            margin,
-            currentY,
-            contentWidth,
-            sliceHeightMm,
-            undefined,
-            "FAST",
-          );
-
-          sourceY += sliceHeightPx;
-          currentY += sliceHeightMm;
-
-          if (sourceY < canvas.height) {
-            pdf.addPage();
-            currentY = margin;
-          }
+        const errorData = await response.json();
+        if (errorData?.error) message = errorData.error;
+      } catch {
+        try {
+          const errorText = await response.text();
+          if (errorText) message = errorText;
+        } catch {
+          // Die Standardmeldung bleibt erhalten.
         }
-      } finally {
-        holder.remove();
       }
+
+      throw new Error(message);
     }
 
-    return pdf.output("blob");
+    const contentType = response.headers.get("content-type") || "";
+
+    if (!contentType.toLowerCase().includes("application/pdf")) {
+      throw new Error("Der Server hat keine gültige PDF-Datei zurückgegeben.");
+    }
+
+    return response.blob();
   }
 
   async function downloadAllImagesAsZip() {
