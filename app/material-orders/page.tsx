@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
+type Language = "de" | "ba" | "uz" | "en";
+
 type MaterialRow = {
   id: number;
   naziv?: string;
@@ -42,6 +44,7 @@ type CartItem = {
   baustelleId: number | null;
   baustelleName: string | null;
   note: string;
+  addedAt: string;
 };
 
 type MaterialOrder = {
@@ -59,6 +62,272 @@ type MaterialOrder = {
   note?: string | null;
 };
 
+const LANGUAGE_STORAGE_KEY = "materialOrdersLanguage";
+
+const LANGUAGE_OPTIONS: Array<{ code: Language; label: string }> = [
+  { code: "de", label: "DE" },
+  { code: "ba", label: "BA" },
+  { code: "uz", label: "UZ" },
+  { code: "en", label: "EN" },
+];
+
+const LOCALES: Record<Language, string> = {
+  de: "de-AT",
+  ba: "bs-BA",
+  uz: "uz-UZ",
+  en: "en-GB",
+};
+
+const translations = {
+  de: {
+    loading: "Materialbestellungen werden geladen...",
+    pageTitle: "Material bestellen",
+    loggedInAs: "Angemeldet als",
+    dashboard: "Dashboard",
+    addMissingMaterial: "Fehlendes Material hinzufügen",
+    searchMaterial: "Material suchen",
+    materialSearchPlaceholder: "Materialname eingeben...",
+    selectMaterial: "Material auswählen",
+    materialSelectPlaceholder: "Material auswählen...",
+    quantity: "Menge",
+    unit: "Einheit",
+    unitPlaceholder: "Stk., kg, Sack...",
+    selectDestination: "Lieferort auswählen",
+    warehouse: "Lager",
+    activeSite: "Aktive Baustelle",
+    selectSite: "Baustelle auswählen",
+    activeSitePlaceholder: "Aktive Baustelle auswählen...",
+    noActiveSite: "Keine aktive Baustelle gefunden.",
+    note: "Bemerkung",
+    notePlaceholder: "Zusätzliche Information...",
+    addToOrder: "+ Material zur Bestellung hinzufügen",
+    orderList: "Bestellliste",
+    noMaterialAdded: "Noch kein Material hinzugefügt.",
+    remove: "Entfernen",
+    target: "Ziel",
+    employee: "Mitarbeiter",
+    addedAt: "Hinzugefügt",
+    savingOrder: "Bestellung wird gespeichert...",
+    orderMaterial: "MATERIAL BESTELLEN",
+    orderMaterialCount: "🔴 MATERIAL BESTELLEN ({count})",
+    redButtonInfo:
+      "Der Bestellknopf ist rot, weil Material in der Bestellliste liegt.",
+    openOrders: "Offene Materialbestellungen",
+    openOrdersDescription:
+      "Hier sehen Sie, wer das Material bestellt hat und wann.",
+    openCount: "{count} offen",
+    noOpenOrders: "Keine offenen Materialbestellungen vorhanden.",
+    orderedBy: "Bestellt von",
+    dateTime: "Datum / Uhrzeit",
+    status: "Status",
+    myOrders: "Meine Bestellungen",
+    noMyOrders: "Sie haben noch kein Material bestellt.",
+    orderedAt: "Bestellt am",
+    site: "Baustelle",
+    unknownWorker: "Unbekannter Mitarbeiter",
+    materialFallback: "Material",
+    siteFallback: "Baustelle",
+    loadMaterialsError: "Materialien konnten nicht geladen werden",
+    loadSitesError: "Baustellen konnten nicht geladen werden",
+    loadOrdersError: "Bestellungen konnten nicht geladen werden",
+    selectMaterialError: "Bitte wählen Sie ein Material aus.",
+    validQuantityError: "Bitte geben Sie eine gültige Menge ein.",
+    selectActiveSiteError: "Bitte wählen Sie eine aktive Baustelle aus.",
+    orderSuccess:
+      "{count} Materialposition(en) wurden erfolgreich bestellt.",
+    saveOrderError: "Die Materialbestellung konnte nicht gespeichert werden",
+    statusOpen: "Offen",
+    statusOrdered: "Bestellt",
+    statusDelivered: "Geliefert",
+    statusCancelled: "Storniert",
+  },
+  ba: {
+    loading: "Narudžbe materijala se učitavaju...",
+    pageTitle: "Naruči materijal",
+    loggedInAs: "Prijavljen kao",
+    dashboard: "Početna",
+    addMissingMaterial: "Dodaj materijal koji nedostaje",
+    searchMaterial: "Pretraži materijal",
+    materialSearchPlaceholder: "Upiši naziv materijala...",
+    selectMaterial: "Odaberi materijal",
+    materialSelectPlaceholder: "Odaberi materijal...",
+    quantity: "Količina",
+    unit: "Jedinica",
+    unitPlaceholder: "Kom., kg, vreća...",
+    selectDestination: "Odaberi mjesto isporuke",
+    warehouse: "Lager",
+    activeSite: "Aktivna Baustelle",
+    selectSite: "Odaberi Baustelle",
+    activeSitePlaceholder: "Odaberi aktivnu Baustelle...",
+    noActiveSite: "Nije pronađena aktivna Baustelle.",
+    note: "Napomena",
+    notePlaceholder: "Dodatna informacija...",
+    addToOrder: "+ Dodaj materijal u narudžbu",
+    orderList: "Lista narudžbe",
+    noMaterialAdded: "Još nije dodat nijedan materijal.",
+    remove: "Ukloni",
+    target: "Odredište",
+    employee: "Radnik",
+    addedAt: "Dodano",
+    savingOrder: "Narudžba se sprema...",
+    orderMaterial: "NARUČI MATERIJAL",
+    orderMaterialCount: "🔴 NARUČI MATERIJAL ({count})",
+    redButtonInfo:
+      "Dugme je crveno jer se materijal nalazi u listi narudžbe.",
+    openOrders: "Otvorene narudžbe materijala",
+    openOrdersDescription:
+      "Ovdje se vidi ko je naručio materijal i kada.",
+    openCount: "{count} otvoreno",
+    noOpenOrders: "Nema otvorenih narudžbi materijala.",
+    orderedBy: "Naručio",
+    dateTime: "Datum / vrijeme",
+    status: "Status",
+    myOrders: "Moje narudžbe",
+    noMyOrders: "Još niste naručili materijal.",
+    orderedAt: "Naručeno",
+    site: "Baustelle",
+    unknownWorker: "Nepoznat radnik",
+    materialFallback: "Materijal",
+    siteFallback: "Baustelle",
+    loadMaterialsError: "Materijali se nisu mogli učitati",
+    loadSitesError: "Baustelle se nisu mogle učitati",
+    loadOrdersError: "Narudžbe se nisu mogle učitati",
+    selectMaterialError: "Odaberite materijal.",
+    validQuantityError: "Unesite ispravnu količinu.",
+    selectActiveSiteError: "Odaberite aktivnu Baustelle.",
+    orderSuccess: "{count} stavka/e materijala je uspješno naručeno.",
+    saveOrderError: "Narudžba materijala se nije mogla spremiti",
+    statusOpen: "Otvoreno",
+    statusOrdered: "Naručeno",
+    statusDelivered: "Isporučeno",
+    statusCancelled: "Otkazano",
+  },
+  uz: {
+    loading: "Material buyurtmalari yuklanmoqda...",
+    pageTitle: "Material buyurtma qilish",
+    loggedInAs: "Tizimga kirgan",
+    dashboard: "Bosh sahifa",
+    addMissingMaterial: "Yetishmayotgan materialni qo‘shish",
+    searchMaterial: "Material qidirish",
+    materialSearchPlaceholder: "Material nomini kiriting...",
+    selectMaterial: "Materialni tanlash",
+    materialSelectPlaceholder: "Materialni tanlang...",
+    quantity: "Miqdor",
+    unit: "Birlik",
+    unitPlaceholder: "Dona, kg, qop...",
+    selectDestination: "Yetkazib berish joyini tanlang",
+    warehouse: "Ombor",
+    activeSite: "Faol qurilish obyekti",
+    selectSite: "Qurilish obyektini tanlang",
+    activeSitePlaceholder: "Faol qurilish obyektini tanlang...",
+    noActiveSite: "Faol qurilish obyekti topilmadi.",
+    note: "Izoh",
+    notePlaceholder: "Qo‘shimcha ma’lumot...",
+    addToOrder: "+ Materialni buyurtmaga qo‘shish",
+    orderList: "Buyurtma ro‘yxati",
+    noMaterialAdded: "Hali material qo‘shilmagan.",
+    remove: "Olib tashlash",
+    target: "Manzil",
+    employee: "Xodim",
+    addedAt: "Qo‘shilgan",
+    savingOrder: "Buyurtma saqlanmoqda...",
+    orderMaterial: "MATERIAL BUYURTMA QILISH",
+    orderMaterialCount: "🔴 MATERIAL BUYURTMA QILISH ({count})",
+    redButtonInfo:
+      "Buyurtma ro‘yxatida material borligi uchun tugma qizil.",
+    openOrders: "Ochiq material buyurtmalari",
+    openOrdersDescription:
+      "Bu yerda materialni kim va qachon buyurtma qilgani ko‘rinadi.",
+    openCount: "{count} ochiq",
+    noOpenOrders: "Ochiq material buyurtmalari yo‘q.",
+    orderedBy: "Buyurtma bergan",
+    dateTime: "Sana / vaqt",
+    status: "Holat",
+    myOrders: "Mening buyurtmalarim",
+    noMyOrders: "Siz hali material buyurtma qilmagansiz.",
+    orderedAt: "Buyurtma sanasi",
+    site: "Qurilish obyekti",
+    unknownWorker: "Noma’lum xodim",
+    materialFallback: "Material",
+    siteFallback: "Qurilish obyekti",
+    loadMaterialsError: "Materiallarni yuklab bo‘lmadi",
+    loadSitesError: "Qurilish obyektlarini yuklab bo‘lmadi",
+    loadOrdersError: "Buyurtmalarni yuklab bo‘lmadi",
+    selectMaterialError: "Materialni tanlang.",
+    validQuantityError: "To‘g‘ri miqdorni kiriting.",
+    selectActiveSiteError: "Faol qurilish obyektini tanlang.",
+    orderSuccess: "{count} ta material pozitsiyasi muvaffaqiyatli buyurtma qilindi.",
+    saveOrderError: "Material buyurtmasini saqlab bo‘lmadi",
+    statusOpen: "Ochiq",
+    statusOrdered: "Buyurtma qilindi",
+    statusDelivered: "Yetkazildi",
+    statusCancelled: "Bekor qilindi",
+  },
+  en: {
+    loading: "Loading material orders...",
+    pageTitle: "Order material",
+    loggedInAs: "Logged in as",
+    dashboard: "Dashboard",
+    addMissingMaterial: "Add missing material",
+    searchMaterial: "Search material",
+    materialSearchPlaceholder: "Enter material name...",
+    selectMaterial: "Select material",
+    materialSelectPlaceholder: "Select material...",
+    quantity: "Quantity",
+    unit: "Unit",
+    unitPlaceholder: "pcs., kg, bag...",
+    selectDestination: "Select delivery destination",
+    warehouse: "Warehouse",
+    activeSite: "Active construction site",
+    selectSite: "Select construction site",
+    activeSitePlaceholder: "Select an active construction site...",
+    noActiveSite: "No active construction site found.",
+    note: "Note",
+    notePlaceholder: "Additional information...",
+    addToOrder: "+ Add material to order",
+    orderList: "Order list",
+    noMaterialAdded: "No material has been added yet.",
+    remove: "Remove",
+    target: "Destination",
+    employee: "Employee",
+    addedAt: "Added",
+    savingOrder: "Saving order...",
+    orderMaterial: "ORDER MATERIAL",
+    orderMaterialCount: "🔴 ORDER MATERIAL ({count})",
+    redButtonInfo:
+      "The order button is red because material is in the order list.",
+    openOrders: "Open material orders",
+    openOrdersDescription:
+      "Here you can see who ordered the material and when.",
+    openCount: "{count} open",
+    noOpenOrders: "There are no open material orders.",
+    orderedBy: "Ordered by",
+    dateTime: "Date / time",
+    status: "Status",
+    myOrders: "My orders",
+    noMyOrders: "You have not ordered any material yet.",
+    orderedAt: "Ordered at",
+    site: "Construction site",
+    unknownWorker: "Unknown employee",
+    materialFallback: "Material",
+    siteFallback: "Construction site",
+    loadMaterialsError: "Materials could not be loaded",
+    loadSitesError: "Construction sites could not be loaded",
+    loadOrdersError: "Orders could not be loaded",
+    selectMaterialError: "Please select a material.",
+    validQuantityError: "Please enter a valid quantity.",
+    selectActiveSiteError: "Please select an active construction site.",
+    orderSuccess: "{count} material item(s) were ordered successfully.",
+    saveOrderError: "The material order could not be saved",
+    statusOpen: "Open",
+    statusOrdered: "Ordered",
+    statusDelivered: "Delivered",
+    statusCancelled: "Cancelled",
+  },
+} as const;
+
+type TranslationKey = keyof typeof translations.de;
+
 const LOCAL_STORAGE_USER_KEYS = [
   "currentWorker",
   "worker",
@@ -75,6 +344,39 @@ const LOCAL_STORAGE_USER_KEYS = [
   "stone_user",
   "app_user",
 ];
+
+function getSavedLanguage(): Language {
+  if (typeof window === "undefined") return "de";
+
+  const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+
+  if (
+    savedLanguage === "de" ||
+    savedLanguage === "ba" ||
+    savedLanguage === "uz" ||
+    savedLanguage === "en"
+  ) {
+    return savedLanguage;
+  }
+
+  return "de";
+}
+
+function translate(
+  language: Language,
+  key: TranslationKey,
+  values?: Record<string, string | number>,
+) {
+  let value: string = translations[language][key] || translations.de[key];
+
+  if (values) {
+    for (const [name, replacement] of Object.entries(values)) {
+      value = value.replaceAll(`{${name}}`, String(replacement));
+    }
+  }
+
+  return value;
+}
 
 function getLoggedUser() {
   if (typeof window === "undefined") return null;
@@ -94,11 +396,11 @@ function getLoggedUser() {
   return null;
 }
 
-function getLoggedUserName(user: any) {
-  if (!user) return "Unbekannter Mitarbeiter";
+function getLoggedUserName(user: any, fallback: string) {
+  if (!user) return fallback;
 
   if (typeof user === "string") {
-    return user.trim() || "Unbekannter Mitarbeiter";
+    return user.trim() || fallback;
   }
 
   return String(
@@ -108,17 +410,20 @@ function getLoggedUserName(user: any) {
       user.username ||
       user.userName ||
       user.displayName ||
-      "Unbekannter Mitarbeiter",
+      fallback,
   ).trim();
 }
 
-function getMaterialName(material: MaterialRow) {
+function getMaterialName(
+  material: MaterialRow,
+  fallbackLabel = "Material",
+) {
   return (
     material.naziv ||
     material.name ||
     material.material ||
     material.bezeichnung ||
-    `Material ${material.id}`
+    `${fallbackLabel} ${material.id}`
   );
 }
 
@@ -126,8 +431,11 @@ function getMaterialUnit(material: MaterialRow) {
   return material.jedinica || material.unit || material.einheit || "Stk.";
 }
 
-function getBaustelleName(baustelle: BaustelleRow) {
-  return baustelle.naziv || baustelle.name || `Baustelle ${baustelle.id}`;
+function getBaustelleName(
+  baustelle: BaustelleRow,
+  fallbackLabel = "Baustelle",
+) {
+  return baustelle.naziv || baustelle.name || `${fallbackLabel} ${baustelle.id}`;
 }
 
 function getBaustelleLocation(baustelle: BaustelleRow) {
@@ -166,15 +474,13 @@ function isActiveBaustelle(baustelle: BaustelleRow) {
     "zavrsena",
   ];
 
-  if (archivedStatuses.includes(status)) return false;
-
-  return true;
+  return !archivedStatuses.includes(status);
 }
 
-function formatDateTime(value: string) {
+function formatDateTime(value: string, language: Language) {
   if (!value) return "-";
 
-  return new Date(value).toLocaleString("de-AT", {
+  return new Date(value).toLocaleString(LOCALES[language], {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -183,33 +489,35 @@ function formatDateTime(value: string) {
   });
 }
 
-function formatNumber(value: number) {
-  return Number(value || 0).toLocaleString("de-AT", {
+function formatNumber(value: number, language: Language) {
+  return Number(value || 0).toLocaleString(LOCALES[language], {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
 }
 
-function getStatusLabel(status: string) {
+function getStatusLabel(
+  status: string,
+  language: Language,
+) {
   switch (String(status || "").toLowerCase()) {
     case "ordered":
-      return "Bestellt";
+      return translate(language, "statusOrdered");
     case "delivered":
-      return "Geliefert";
+      return translate(language, "statusDelivered");
     case "cancelled":
-      return "Storniert";
+      return translate(language, "statusCancelled");
     default:
-      return "Offen";
+      return translate(language, "statusOpen");
   }
 }
 
 export default function MaterialOrdersPage() {
+  const [language, setLanguage] = useState<Language>("de");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [loggedUserName, setLoggedUserName] = useState(
-    "Unbekannter Mitarbeiter",
-  );
+  const [loggedUserName, setLoggedUserName] = useState("");
 
   const [materials, setMaterials] = useState<MaterialRow[]>([]);
   const [baustellen, setBaustellen] = useState<BaustelleRow[]>([]);
@@ -231,14 +539,44 @@ export default function MaterialOrdersPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  useEffect(() => {
-    const loggedUser = getLoggedUser();
-    setLoggedUserName(getLoggedUserName(loggedUser));
+  const t = (
+    key: TranslationKey,
+    values?: Record<string, string | number>,
+  ) => translate(language, key, values);
 
-    loadPageData();
+  useEffect(() => {
+    const savedLanguage = getSavedLanguage();
+    const loggedUser = getLoggedUser();
+
+    setLanguage(savedLanguage);
+    setLoggedUserName(
+      getLoggedUserName(
+        loggedUser,
+        translate(savedLanguage, "unknownWorker"),
+      ),
+    );
+
+    loadPageData(savedLanguage);
   }, []);
 
-  async function loadPageData() {
+  function changeLanguage(newLanguage: Language) {
+    setLanguage(newLanguage);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, newLanguage);
+
+    if (
+      !loggedUserName ||
+      Object.values(translations).some(
+        (translation) => translation.unknownWorker === loggedUserName,
+      )
+    ) {
+      setLoggedUserName(translate(newLanguage, "unknownWorker"));
+    }
+
+    setErrorMessage("");
+    setSuccessMessage("");
+  }
+
+  async function loadPageData(activeLanguage: Language = language) {
     setLoading(true);
     setErrorMessage("");
 
@@ -256,34 +594,49 @@ export default function MaterialOrdersPage() {
 
       if (materialsResult.error) {
         throw new Error(
-          "Materialien konnten nicht geladen werden: " +
-            materialsResult.error.message,
+          `${translate(activeLanguage, "loadMaterialsError")}: ${
+            materialsResult.error.message
+          }`,
         );
       }
 
       if (baustellenResult.error) {
         throw new Error(
-          "Baustellen konnten nicht geladen werden: " +
-            baustellenResult.error.message,
+          `${translate(activeLanguage, "loadSitesError")}: ${
+            baustellenResult.error.message
+          }`,
         );
       }
 
       if (ordersResult.error) {
         throw new Error(
-          "Bestellungen konnten nicht geladen werden: " +
-            ordersResult.error.message,
+          `${translate(activeLanguage, "loadOrdersError")}: ${
+            ordersResult.error.message
+          }`,
         );
       }
 
+      const materialFallback = translate(
+        activeLanguage,
+        "materialFallback",
+      );
+      const siteFallback = translate(activeLanguage, "siteFallback");
+
       const sortedMaterials = [...(materialsResult.data || [])].sort(
         (a: MaterialRow, b: MaterialRow) =>
-          getMaterialName(a).localeCompare(getMaterialName(b), "de"),
+          getMaterialName(a, materialFallback).localeCompare(
+            getMaterialName(b, materialFallback),
+            LOCALES[activeLanguage],
+          ),
       );
 
       const activeBaustellen = [...(baustellenResult.data || [])]
         .filter((baustelle: BaustelleRow) => isActiveBaustelle(baustelle))
         .sort((a: BaustelleRow, b: BaustelleRow) =>
-          getBaustelleName(a).localeCompare(getBaustelleName(b), "de"),
+          getBaustelleName(a, siteFallback).localeCompare(
+            getBaustelleName(b, siteFallback),
+            LOCALES[activeLanguage],
+          ),
         );
 
       setMaterials(sortedMaterials);
@@ -291,7 +644,9 @@ export default function MaterialOrdersPage() {
       setOrders((ordersResult.data || []) as MaterialOrder[]);
 
       if (activeBaustellen.length > 0) {
-        setSelectedBaustelleId(String(activeBaustellen[0].id));
+        setSelectedBaustelleId((current) =>
+          current || String(activeBaustellen[0].id),
+        );
       }
     } catch (error: any) {
       setErrorMessage(error?.message || String(error));
@@ -306,14 +661,18 @@ export default function MaterialOrdersPage() {
     if (!search) return materials;
 
     return materials.filter((material) => {
-      const materialName = getMaterialName(material).toLowerCase();
+      const materialName = getMaterialName(
+        material,
+        t("materialFallback"),
+      ).toLowerCase();
+
       const groupName = String(
         material.grupa || material.group_name || "",
       ).toLowerCase();
 
       return materialName.includes(search) || groupName.includes(search);
     });
-  }, [materials, materialSearch]);
+  }, [materials, materialSearch, language]);
 
   const openOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -351,14 +710,14 @@ export default function MaterialOrdersPage() {
     );
 
     if (!selectedMaterial) {
-      setErrorMessage("Bitte wählen Sie ein Material aus.");
+      setErrorMessage(t("selectMaterialError"));
       return;
     }
 
     const numericQuantity = Number(String(quantity).replace(",", "."));
 
     if (!numericQuantity || numericQuantity <= 0) {
-      setErrorMessage("Bitte geben Sie eine gültige Menge ein.");
+      setErrorMessage(t("validQuantityError"));
       return;
     }
 
@@ -372,29 +731,35 @@ export default function MaterialOrdersPage() {
       );
 
       if (!selectedBaustelle) {
-        setErrorMessage("Bitte wählen Sie eine aktive Baustelle aus.");
+        setErrorMessage(t("selectActiveSiteError"));
         return;
       }
 
       baustelleId = selectedBaustelle.id;
 
       const location = getBaustelleLocation(selectedBaustelle);
+      const siteName = getBaustelleName(
+        selectedBaustelle,
+        t("siteFallback"),
+      );
 
-      baustelleName = location
-        ? `${getBaustelleName(selectedBaustelle)} – ${location}`
-        : getBaustelleName(selectedBaustelle);
+      baustelleName = location ? `${siteName} – ${location}` : siteName;
     }
 
     const newItem: CartItem = {
       temporaryId: `${Date.now()}-${Math.random()}`,
       materialId: selectedMaterial.id,
-      materialName: getMaterialName(selectedMaterial),
+      materialName: getMaterialName(
+        selectedMaterial,
+        t("materialFallback"),
+      ),
       quantity: numericQuantity,
       unit: unit.trim() || getMaterialUnit(selectedMaterial),
       destinationType,
       baustelleId,
       baustelleName,
       note: note.trim(),
+      addedAt: new Date().toISOString(),
     };
 
     setCart((current) => [...current, newItem]);
@@ -430,7 +795,7 @@ export default function MaterialOrdersPage() {
         destination_type: item.destinationType,
         baustelle_id: item.baustelleId,
         baustelle_name: item.baustelleName,
-        requested_by: loggedUserName,
+        requested_by: loggedUserName || t("unknownWorker"),
         requested_at: requestedAt,
         status: "open",
         note: item.note || null,
@@ -459,12 +824,11 @@ export default function MaterialOrdersPage() {
       window.dispatchEvent(new Event("material-orders-changed"));
 
       setSuccessMessage(
-        `${insertedOrders.length} Materialposition(en) wurden erfolgreich bestellt.`,
+        t("orderSuccess", { count: insertedOrders.length }),
       );
     } catch (error: any) {
       setErrorMessage(
-        "Die Materialbestellung konnte nicht gespeichert werden: " +
-          (error?.message || String(error)),
+        `${t("saveOrderError")}: ${error?.message || String(error)}`,
       );
     } finally {
       setSaving(false);
@@ -474,7 +838,7 @@ export default function MaterialOrdersPage() {
   if (loading) {
     return (
       <main style={pageStyle}>
-        <div style={loadingStyle}>Materialbestellungen werden geladen...</div>
+        <div style={loadingStyle}>{t("loading")}</div>
       </main>
     );
   }
@@ -492,6 +856,8 @@ export default function MaterialOrdersPage() {
             grid-template-columns: minmax(0, 1fr) minmax(320px, 440px);
             gap: 24px;
             align-items: start;
+            max-width: 1450px;
+            margin: 0 auto;
           }
 
           .form-grid {
@@ -514,6 +880,10 @@ export default function MaterialOrdersPage() {
             .material-order-grid {
               grid-template-columns: 1fr;
             }
+
+            .material-order-cart {
+              position: static !important;
+            }
           }
 
           @media (max-width: 650px) {
@@ -533,22 +903,50 @@ export default function MaterialOrdersPage() {
             .order-card-mobile {
               padding: 16px !important;
             }
+
+            .header-actions {
+              width: 100%;
+              justify-content: space-between !important;
+            }
           }
         `}
       </style>
 
       <div style={headerStyle} className="page-header">
         <div>
-          <h1 style={titleStyle}>Material bestellen</h1>
+          <h1 style={titleStyle}>{t("pageTitle")}</h1>
           <p style={subtitleStyle}>
-            Angemeldet als:{" "}
-            <strong style={{ color: "#f97316" }}>{loggedUserName}</strong>
+            {t("loggedInAs")}:{" "}
+            <strong style={{ color: "#f97316" }}>
+              {loggedUserName || t("unknownWorker")}
+            </strong>
           </p>
         </div>
 
-        <Link href="/dashboard" style={backButtonStyle}>
-          ← Dashboard
-        </Link>
+        <div style={headerActionsStyle} className="header-actions">
+          <div style={languageSwitcherStyle}>
+            {LANGUAGE_OPTIONS.map((option) => (
+              <button
+                key={option.code}
+                type="button"
+                onClick={() => changeLanguage(option.code)}
+                style={{
+                  ...languageButtonStyle,
+                  ...(language === option.code
+                    ? activeLanguageButtonStyle
+                    : {}),
+                }}
+                aria-pressed={language === option.code}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <Link href="/dashboard" style={backButtonStyle}>
+            ← {t("dashboard")}
+          </Link>
+        </div>
       </div>
 
       {errorMessage && (
@@ -560,22 +958,25 @@ export default function MaterialOrdersPage() {
       )}
 
       <div className="material-order-grid">
-        <section style={cardStyle} className="order-card-mobile">
-          <h2 style={sectionTitleStyle}>Fehlendes Material hinzufügen</h2>
+        <section
+          style={{ ...cardStyle, margin: 0 }}
+          className="order-card-mobile"
+        >
+          <h2 style={sectionTitleStyle}>{t("addMissingMaterial")}</h2>
 
           <label style={labelStyle}>
-            Material suchen
+            {t("searchMaterial")}
             <input
               type="text"
               value={materialSearch}
               onChange={(event) => setMaterialSearch(event.target.value)}
-              placeholder="Materialname eingeben..."
+              placeholder={t("materialSearchPlaceholder")}
               style={inputStyle}
             />
           </label>
 
           <label style={labelStyle}>
-            Material auswählen
+            {t("selectMaterial")}
             <select
               value={selectedMaterialId}
               onChange={(event) =>
@@ -583,11 +984,11 @@ export default function MaterialOrdersPage() {
               }
               style={inputStyle}
             >
-              <option value="">Material auswählen...</option>
+              <option value="">{t("materialSelectPlaceholder")}</option>
 
               {filteredMaterials.map((material) => (
                 <option key={material.id} value={material.id}>
-                  {getMaterialName(material)}
+                  {getMaterialName(material, t("materialFallback"))}
                   {material.grupa || material.group_name
                     ? ` – ${material.grupa || material.group_name}`
                     : ""}
@@ -598,7 +999,7 @@ export default function MaterialOrdersPage() {
 
           <div className="form-grid">
             <label style={labelStyle}>
-              Menge
+              {t("quantity")}
               <input
                 type="number"
                 min="0.01"
@@ -610,19 +1011,19 @@ export default function MaterialOrdersPage() {
             </label>
 
             <label style={labelStyle}>
-              Einheit
+              {t("unit")}
               <input
                 type="text"
                 value={unit}
                 onChange={(event) => setUnit(event.target.value)}
-                placeholder="Stk., kg, Sack..."
+                placeholder={t("unitPlaceholder")}
                 style={inputStyle}
               />
             </label>
           </div>
 
           <div style={{ marginTop: "22px" }}>
-            <div style={labelTitleStyle}>Lieferort auswählen</div>
+            <div style={labelTitleStyle}>{t("selectDestination")}</div>
 
             <div className="destination-grid">
               <button
@@ -636,7 +1037,7 @@ export default function MaterialOrdersPage() {
                 }}
               >
                 <span style={destinationIconStyle}>🏢</span>
-                <span>Lager</span>
+                <span>{t("warehouse")}</span>
               </button>
 
               <button
@@ -650,14 +1051,14 @@ export default function MaterialOrdersPage() {
                 }}
               >
                 <span style={destinationIconStyle}>🏗️</span>
-                <span>Aktive Baustelle</span>
+                <span>{t("activeSite")}</span>
               </button>
             </div>
           </div>
 
           {destinationType === "baustelle" && (
             <label style={{ ...labelStyle, marginTop: "18px" }}>
-              Baustelle auswählen
+              {t("selectSite")}
               <select
                 value={selectedBaustelleId}
                 onChange={(event) =>
@@ -665,11 +1066,11 @@ export default function MaterialOrdersPage() {
                 }
                 style={inputStyle}
               >
-                <option value="">Aktive Baustelle auswählen...</option>
+                <option value="">{t("activeSitePlaceholder")}</option>
 
                 {baustellen.map((baustelle) => (
                   <option key={baustelle.id} value={baustelle.id}>
-                    {getBaustelleName(baustelle)}
+                    {getBaustelleName(baustelle, t("siteFallback"))}
                     {getBaustelleLocation(baustelle)
                       ? ` – ${getBaustelleLocation(baustelle)}`
                       : ""}
@@ -678,19 +1079,17 @@ export default function MaterialOrdersPage() {
               </select>
 
               {baustellen.length === 0 && (
-                <span style={warningTextStyle}>
-                  Keine aktive Baustelle gefunden.
-                </span>
+                <span style={warningTextStyle}>{t("noActiveSite")}</span>
               )}
             </label>
           )}
 
           <label style={{ ...labelStyle, marginTop: "18px" }}>
-            Bemerkung
+            {t("note")}
             <textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}
-              placeholder="Zusätzliche Information..."
+              placeholder={t("notePlaceholder")}
               style={textareaStyle}
             />
           </label>
@@ -700,13 +1099,16 @@ export default function MaterialOrdersPage() {
             onClick={addMaterialToCart}
             style={addButtonStyle}
           >
-            + Material zur Bestellung hinzufügen
+            {t("addToOrder")}
           </button>
         </section>
 
-        <section style={cartCardStyle} className="order-card-mobile">
+        <section
+          style={cartCardStyle}
+          className="order-card-mobile material-order-cart"
+        >
           <div style={cartHeaderStyle}>
-            <h2 style={sectionTitleStyle}>Bestellliste</h2>
+            <h2 style={sectionTitleStyle}>{t("orderList")}</h2>
 
             <span
               style={{
@@ -721,7 +1123,7 @@ export default function MaterialOrdersPage() {
           {cart.length === 0 ? (
             <div style={emptyCartStyle}>
               <div style={{ fontSize: "42px" }}>🛒</div>
-              <p>Noch kein Material hinzugefügt.</p>
+              <p>{t("noMaterialAdded")}</p>
             </div>
           ) : (
             <div style={cartListStyle}>
@@ -736,7 +1138,8 @@ export default function MaterialOrdersPage() {
                       type="button"
                       onClick={() => removeCartItem(item.temporaryId)}
                       style={removeButtonStyle}
-                      title="Entfernen"
+                      title={t("remove")}
+                      aria-label={t("remove")}
                     >
                       ×
                     </button>
@@ -744,33 +1147,36 @@ export default function MaterialOrdersPage() {
 
                   <div style={cartItemDetailsStyle}>
                     <span>
-                      Menge:{" "}
+                      {t("quantity")}:{" "}
                       <strong>
-                        {formatNumber(item.quantity)} {item.unit}
+                        {formatNumber(item.quantity, language)} {item.unit}
                       </strong>
                     </span>
 
                     <span>
-                      Ziel:{" "}
+                      {t("target")}:{" "}
                       <strong>
                         {item.destinationType === "lager"
-                          ? "Lager"
+                          ? t("warehouse")
                           : item.baustelleName}
                       </strong>
                     </span>
 
                     <span>
-                      Mitarbeiter: <strong>{loggedUserName}</strong>
+                      {t("employee")}:{" "}
+                      <strong>{loggedUserName || t("unknownWorker")}</strong>
                     </span>
 
                     <span>
-                      Hinzugefügt:{" "}
-                      <strong>{formatDateTime(new Date().toISOString())}</strong>
+                      {t("addedAt")}:{" "}
+                      <strong>
+                        {formatDateTime(item.addedAt, language)}
+                      </strong>
                     </span>
 
                     {item.note && (
                       <span>
-                        Bemerkung: <strong>{item.note}</strong>
+                        {t("note")}: <strong>{item.note}</strong>
                       </span>
                     )}
                   </div>
@@ -796,17 +1202,14 @@ export default function MaterialOrdersPage() {
             }}
           >
             {saving
-              ? "Bestellung wird gespeichert..."
+              ? t("savingOrder")
               : cart.length > 0
-                ? `🔴 MATERIAL BESTELLEN (${cart.length})`
-                : "MATERIAL BESTELLEN"}
+                ? t("orderMaterialCount", { count: cart.length })
+                : t("orderMaterial")}
           </button>
 
           {cart.length > 0 && (
-            <p style={redButtonInfoStyle}>
-              Das Bestellknopf ist rot, weil Material in der Bestellliste
-              liegt.
-            </p>
+            <p style={redButtonInfoStyle}>{t("redButtonInfo")}</p>
           )}
         </section>
       </div>
@@ -814,10 +1217,8 @@ export default function MaterialOrdersPage() {
       <section style={{ ...cardStyle, marginTop: "24px" }}>
         <div style={ordersHeaderStyle}>
           <div>
-            <h2 style={sectionTitleStyle}>Offene Materialbestellungen</h2>
-            <p style={subtitleStyle}>
-              Hier sehen Sie, wer das Material bestellt hat und wann.
-            </p>
+            <h2 style={sectionTitleStyle}>{t("openOrders")}</h2>
+            <p style={subtitleStyle}>{t("openOrdersDescription")}</p>
           </div>
 
           <span
@@ -826,26 +1227,24 @@ export default function MaterialOrdersPage() {
               background: openOrders.length > 0 ? "#dc2626" : "#166534",
             }}
           >
-            {openOrders.length} offen
+            {t("openCount", { count: openOrders.length })}
           </span>
         </div>
 
         {openOrders.length === 0 ? (
-          <div style={emptyOrdersStyle}>
-            Keine offenen Materialbestellungen vorhanden.
-          </div>
+          <div style={emptyOrdersStyle}>{t("noOpenOrders")}</div>
         ) : (
           <div className="orders-table-wrap">
             <table style={tableStyle}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Material</th>
-                  <th style={thStyle}>Menge</th>
-                  <th style={thStyle}>Lieferort</th>
-                  <th style={thStyle}>Bestellt von</th>
-                  <th style={thStyle}>Datum / Uhrzeit</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Bemerkung</th>
+                  <th style={thStyle}>{t("materialFallback")}</th>
+                  <th style={thStyle}>{t("quantity")}</th>
+                  <th style={thStyle}>{t("selectDestination")}</th>
+                  <th style={thStyle}>{t("orderedBy")}</th>
+                  <th style={thStyle}>{t("dateTime")}</th>
+                  <th style={thStyle}>{t("status")}</th>
+                  <th style={thStyle}>{t("note")}</th>
                 </tr>
               </thead>
 
@@ -857,13 +1256,13 @@ export default function MaterialOrdersPage() {
                     </td>
 
                     <td style={tdStyle}>
-                      {formatNumber(order.quantity)} {order.unit}
+                      {formatNumber(order.quantity, language)} {order.unit}
                     </td>
 
                     <td style={tdStyle}>
                       {order.destination_type === "lager"
-                        ? "Lager"
-                        : order.baustelle_name || "Baustelle"}
+                        ? t("warehouse")
+                        : order.baustelle_name || t("site")}
                     </td>
 
                     <td style={tdStyle}>
@@ -873,12 +1272,12 @@ export default function MaterialOrdersPage() {
                     </td>
 
                     <td style={tdStyle}>
-                      {formatDateTime(order.requested_at)}
+                      {formatDateTime(order.requested_at, language)}
                     </td>
 
                     <td style={tdStyle}>
                       <span style={statusBadgeStyle}>
-                        {getStatusLabel(order.status)}
+                        {getStatusLabel(order.status, language)}
                       </span>
                     </td>
 
@@ -892,22 +1291,20 @@ export default function MaterialOrdersPage() {
       </section>
 
       <section style={{ ...cardStyle, marginTop: "24px" }}>
-        <h2 style={sectionTitleStyle}>Meine Bestellungen</h2>
+        <h2 style={sectionTitleStyle}>{t("myOrders")}</h2>
 
         {currentWorkerOrders.length === 0 ? (
-          <p style={emptyOrdersStyle}>
-            Sie haben noch kein Material bestellt.
-          </p>
+          <p style={emptyOrdersStyle}>{t("noMyOrders")}</p>
         ) : (
           <div className="orders-table-wrap">
             <table style={tableStyle}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Material</th>
-                  <th style={thStyle}>Menge</th>
-                  <th style={thStyle}>Lieferort</th>
-                  <th style={thStyle}>Bestellt am</th>
-                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>{t("materialFallback")}</th>
+                  <th style={thStyle}>{t("quantity")}</th>
+                  <th style={thStyle}>{t("selectDestination")}</th>
+                  <th style={thStyle}>{t("orderedAt")}</th>
+                  <th style={thStyle}>{t("status")}</th>
                 </tr>
               </thead>
 
@@ -916,19 +1313,19 @@ export default function MaterialOrdersPage() {
                   <tr key={`my-order-${order.id}`}>
                     <td style={tdStyle}>{order.material_name}</td>
                     <td style={tdStyle}>
-                      {formatNumber(order.quantity)} {order.unit}
+                      {formatNumber(order.quantity, language)} {order.unit}
                     </td>
                     <td style={tdStyle}>
                       {order.destination_type === "lager"
-                        ? "Lager"
-                        : order.baustelle_name || "Baustelle"}
+                        ? t("warehouse")
+                        : order.baustelle_name || t("site")}
                     </td>
                     <td style={tdStyle}>
-                      {formatDateTime(order.requested_at)}
+                      {formatDateTime(order.requested_at, language)}
                     </td>
                     <td style={tdStyle}>
                       <span style={statusBadgeStyle}>
-                        {getStatusLabel(order.status)}
+                        {getStatusLabel(order.status, language)}
                       </span>
                     </td>
                   </tr>
@@ -1255,4 +1652,41 @@ const statusBadgeStyle: React.CSSProperties = {
   padding: "5px 10px",
   fontSize: "12px",
   fontWeight: 900,
+};
+
+const headerActionsStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: "12px",
+  flexWrap: "wrap",
+};
+
+const languageSwitcherStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "6px",
+  padding: "5px",
+  background: "#090909",
+  border: "1px solid #333",
+  borderRadius: "12px",
+};
+
+const languageButtonStyle: React.CSSProperties = {
+  minWidth: "42px",
+  height: "36px",
+  padding: "0 10px",
+  background: "transparent",
+  color: "#a3a3a3",
+  border: "1px solid transparent",
+  borderRadius: "8px",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const activeLanguageButtonStyle: React.CSSProperties = {
+  background: "#f97316",
+  color: "#fff",
+  borderColor: "#fb923c",
+  boxShadow: "0 0 0 2px rgba(249,115,22,0.16)",
 };
