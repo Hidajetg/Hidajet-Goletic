@@ -23,6 +23,8 @@ const translations: any = {
     openGoogle: "Auf Google Maps öffnen",
     visualization3d: "3D Visualisierung",
     openVisualization3d: "3D Ansicht öffnen",
+    bauDocumentation: "Bau-Dokumentation",
+    openBauDocumentation: "Tagesberichte, Fotos und Pläne",
     siteInfo: "Informationen zur Baustelle",
     addInfo: "Information hinzufügen",
     close: "Schließen",
@@ -60,6 +62,8 @@ const translations: any = {
     openGoogle: "Otvori na Google Maps",
     visualization3d: "3D Vizualizacija",
     openVisualization3d: "Otvori 3D prikaz",
+    bauDocumentation: "Bau-Dokumentation",
+    openBauDocumentation: "Dnevni izvještaji, slike i planovi",
     siteInfo: "Informacije o Baustelle",
     addInfo: "Dodaj informaciju",
     close: "Zatvori",
@@ -97,6 +101,8 @@ const translations: any = {
     openGoogle: "Open in Google Maps",
     visualization3d: "3D Visualization",
     openVisualization3d: "Open 3D view",
+    bauDocumentation: "Construction documentation",
+    openBauDocumentation: "Daily reports, photos and plans",
     siteInfo: "Site information",
     addInfo: "Add information",
     close: "Close",
@@ -134,6 +140,8 @@ const translations: any = {
     openGoogle: "Google Maps’da ochish",
     visualization3d: "3D vizualizatsiya",
     openVisualization3d: "3D ko‘rinishni ochish",
+    bauDocumentation: "Qurilish hujjatlari",
+    openBauDocumentation: "Kunlik hisobotlar, rasmlar va rejalar",
     siteInfo: "Obyekt ma’lumoti",
     addInfo: "Ma’lumot qo‘shish",
     close: "Yopish",
@@ -543,6 +551,19 @@ export default function BaustelleDetailPage() {
           <div style={googleSmallTextStyle}>{t.openVisualization3d}</div>
         </a>
 
+        {isAdmin && (
+          <Link
+            href={`/baustellen/${baustelleId}/bau-dokumentation`}
+            style={bauDocumentationButtonStyle}
+          >
+            <div style={googleIconStyle}>📋</div>
+            <div style={googleTitleStyle}>{t.bauDocumentation}</div>
+            <div style={googleSmallTextStyle}>
+              {t.openBauDocumentation}
+            </div>
+          </Link>
+        )}
+
         <div style={topDividerStyle} />
 
         <div style={basicInfoStyle}>
@@ -756,6 +777,18 @@ const googleButtonStyle: any = {
 
 const visualizationButtonStyle: any = {
   background: "#7c3aed",
+  color: "white",
+  borderRadius: "16px",
+  padding: "25px 35px",
+  minWidth: "260px",
+  textDecoration: "none",
+  textAlign: "center",
+  fontWeight: "bold",
+  display: "block",
+};
+
+const bauDocumentationButtonStyle: any = {
+  background: "#059669",
   color: "white",
   borderRadius: "16px",
   padding: "25px 35px",
