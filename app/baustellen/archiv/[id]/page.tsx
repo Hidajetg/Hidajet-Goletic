@@ -144,6 +144,7 @@ export default function ArchivBerichtPage() {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [downloadingImages, setDownloadingImages] = useState(false);
   const [deletingPhotos, setDeletingPhotos] = useState(false);
+  const [preparingPdf, setPreparingPdf] = useState(false);
 
   const [logoTopUrl, setLogoTopUrl] = useState("");
   const [sideImageUrl, setSideImageUrl] = useState("");
@@ -1456,8 +1457,343 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
     }
   }
 
-  function printPdf() {
-    window.print();
+  function sleep(milliseconds: number) {
+    return new Promise<void>((resolve) => {
+      window.setTimeout(resolve, milliseconds);
+    });
+  }
+
+  async function waitForImageElement(
+    image: HTMLImageElement,
+    timeoutMs = 30_000,
+  ) {
+    if (image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
+      try {
+        await image.decode();
+      } catch {
+        // Das Bild ist bereits geladen. Manche Browser werfen bei decode()
+        // trotzdem einen Fehler; naturalWidth/naturalHeight sind hier maßgeblich.
+      }
+      return;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      let finished = false;
+
+      const cleanup = () => {
+        image.removeEventListener("load", handleLoad);
+        image.removeEventListener("error", handleError);
+        window.clearTimeout(timeoutId);
+      };
+
+      const handleLoad = async () => {
+        if (finished) return;
+        finished = true;
+        cleanup();
+
+        try {
+          await image.decode();
+        } catch {
+          // Laden war erfolgreich; decode() ist nur eine zusätzliche Kontrolle.
+        }
+
+        if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+          resolve();
+        } else {
+          reject(new Error("Das Bild hat keine gültigen Abmessungen."));
+        }
+      };
+
+      const handleError = () => {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        reject(new Error("Das Bild konnte nicht dargestellt werden."));
+      };
+
+      const timeoutId = window.setTimeout(() => {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        reject(new Error("Zeitüberschreitung beim Laden des Bildes."));
+      }, timeoutMs);
+
+      image.addEventListener("load", handleLoad, { once: true });
+      image.addEventListener("error", handleError, { once: true });
+    });
+  }
+
+  async function fetchImageBlobWithRetry(
+    url: string,
+    maxAttempts = 3,
+  ): Promise<Blob> {
+    let lastError: unknown = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const blob = await response.blob();
+
+        if (!blob.size) {
+          throw new Error("Leere Bilddatei");
+        }
+
+        return blob;
+      } catch (error) {
+        lastError = error;
+
+        if (attempt < maxAttempts) {
+          await sleep(450 * attempt);
+        }
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Das Bild konnte nicht heruntergeladen werden.");
+  }
+
+  async function loadBlobIntoHtmlImage(blob: Blob) {
+    const objectUrl = URL.createObjectURL(blob);
+    const image = new Image();
+
+    image.loading = "eager";
+    image.decoding = "sync";
+    image.src = objectUrl;
+
+    try {
+      await waitForImageElement(image);
+      return {
+        image,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+        cleanup: () => URL.revokeObjectURL(objectUrl),
+      };
+    } catch (error) {
+      URL.revokeObjectURL(objectUrl);
+      throw error;
+    }
+  }
+
+  async function normalizeImageForPrint(sourceBlob: Blob): Promise<Blob> {
+    const MAX_PRINT_IMAGE_SIDE = 1800;
+    let source: CanvasImageSource | null = null;
+    let sourceWidth = 0;
+    let sourceHeight = 0;
+    let closeBitmap: (() => void) | null = null;
+    let cleanupHtmlImage: (() => void) | null = null;
+
+    try {
+      if (typeof createImageBitmap === "function") {
+        try {
+          const bitmap = await createImageBitmap(
+            sourceBlob,
+            { imageOrientation: "from-image" } as any,
+          );
+
+          source = bitmap;
+          sourceWidth = bitmap.width;
+          sourceHeight = bitmap.height;
+          closeBitmap = () => bitmap.close();
+        } catch {
+          // Einige HEIC-/ältere Bildformate funktionieren nicht über
+          // createImageBitmap. In diesem Fall verwenden wir ein HTMLImageElement.
+        }
+      }
+
+      if (!source) {
+        const htmlImage = await loadBlobIntoHtmlImage(sourceBlob);
+        source = htmlImage.image;
+        sourceWidth = htmlImage.width;
+        sourceHeight = htmlImage.height;
+        cleanupHtmlImage = htmlImage.cleanup;
+      }
+
+      if (!sourceWidth || !sourceHeight) {
+        throw new Error("Ungültige Bildgröße.");
+      }
+
+      const scale = Math.min(
+        1,
+        MAX_PRINT_IMAGE_SIDE / Math.max(sourceWidth, sourceHeight),
+      );
+
+      const outputWidth = Math.max(1, Math.round(sourceWidth * scale));
+      const outputHeight = Math.max(1, Math.round(sourceHeight * scale));
+      const canvas = document.createElement("canvas");
+
+      canvas.width = outputWidth;
+      canvas.height = outputHeight;
+
+      const context = canvas.getContext("2d", {
+        alpha: false,
+        desynchronized: false,
+      });
+
+      if (!context) {
+        throw new Error("Das Bild konnte nicht für den Druck vorbereitet werden.");
+      }
+
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, outputWidth, outputHeight);
+      context.drawImage(source, 0, 0, outputWidth, outputHeight);
+
+      return await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (jpegBlob) => {
+            if (jpegBlob && jpegBlob.size > 0) {
+              resolve(jpegBlob);
+            } else {
+              reject(
+                new Error("Das Bild konnte nicht als Druckbild gespeichert werden."),
+              );
+            }
+          },
+          "image/jpeg",
+          0.9,
+        );
+      });
+    } finally {
+      closeBitmap?.();
+      cleanupHtmlImage?.();
+    }
+  }
+
+  type PreparedPrintImage = {
+    element: HTMLImageElement;
+    originalSrc: string;
+    printObjectUrl: string;
+  };
+
+  async function prepareAllReportImagesForPrint() {
+    const imageElements = Array.from(
+      document.querySelectorAll<HTMLImageElement>("img.photo-img"),
+    );
+
+    const preparedImages: PreparedPrintImage[] = [];
+    const failedImages: Array<{ index: number; url: string; error: unknown }> = [];
+
+    // Absichtlich nacheinander statt gleichzeitig: Bei vielen hochauflösenden
+    // Baustellenfotos verhindert das Speicherprobleme und schwarze Teilbilder.
+    for (let index = 0; index < imageElements.length; index++) {
+      const imageElement = imageElements[index];
+      const originalSrc =
+        imageElement.getAttribute("src") || imageElement.currentSrc || "";
+
+      if (!originalSrc) {
+        failedImages.push({
+          index,
+          url: "",
+          error: new Error("Bild-URL fehlt."),
+        });
+        continue;
+      }
+
+      try {
+        const sourceBlob = await fetchImageBlobWithRetry(originalSrc);
+        const printBlob = await normalizeImageForPrint(sourceBlob);
+        const printObjectUrl = URL.createObjectURL(printBlob);
+
+        imageElement.loading = "eager";
+        imageElement.decoding = "sync";
+        imageElement.src = printObjectUrl;
+
+        await waitForImageElement(imageElement);
+
+        preparedImages.push({
+          element: imageElement,
+          originalSrc,
+          printObjectUrl,
+        });
+      } catch (error) {
+        console.error(
+          `Bild ${index + 1} konnte nicht für den PDF-Druck vorbereitet werden:`,
+          error,
+        );
+
+        failedImages.push({
+          index,
+          url: originalSrc,
+          error,
+        });
+      }
+    }
+
+    return {
+      preparedImages,
+      failedImages,
+      totalImages: imageElements.length,
+    };
+  }
+
+  function restorePreparedPrintImages(preparedImages: PreparedPrintImage[]) {
+    for (const prepared of preparedImages) {
+      prepared.element.src = prepared.originalSrc;
+      URL.revokeObjectURL(prepared.printObjectUrl);
+    }
+  }
+
+  async function waitForPrintLayout() {
+    if (document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+
+    // Chromium benötigt bei sehr vielen Seiten einen kurzen Moment,
+    // um alle bereits dekodierten Bilder in das Drucklayout zu übernehmen.
+    await sleep(900);
+  }
+
+  async function printPdf() {
+    if (
+      preparingPdf ||
+      downloadingImages ||
+      deletingPhotos
+    ) {
+      return;
+    }
+
+    setPreparingPdf(true);
+    let preparedImages: PreparedPrintImage[] = [];
+
+    try {
+      const result = await prepareAllReportImagesForPrint();
+      preparedImages = result.preparedImages;
+
+      if (result.failedImages.length > 0) {
+        throw new Error(
+          `${result.failedImages.length} von ${result.totalImages} Bild(ern) konnten nicht vollständig geladen werden. ` +
+            "Der PDF-Druck wurde gestoppt, damit kein unvollständiger Bericht gespeichert wird. " +
+            "Bitte prüfen Sie die Internetverbindung und versuchen Sie es erneut.",
+        );
+      }
+
+      await waitForPrintLayout();
+      window.print();
+    } catch (error: any) {
+      alert(
+        "PDF konnte nicht vorbereitet werden: " +
+          (error?.message || String(error)),
+      );
+    } finally {
+      restorePreparedPrintImages(preparedImages);
+      setPreparingPdf(false);
+    }
   }
 
   if (!accessChecked) {
@@ -1758,8 +2094,12 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
             }
 
             .photo-img {
+              width: 100% !important;
               height: 120px !important;
-              object-fit: cover !important;
+              object-fit: contain !important;
+              object-position: center center !important;
+              background: #ffffff !important;
+              image-rendering: auto !important;
             }
 
             table {
@@ -1834,14 +2174,20 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
             </a>
           )}
 
-          <button onClick={printPdf} style={pdfButtonStyle}>
-            📥 PDF herunterladen
+          <button
+            onClick={printPdf}
+            style={pdfButtonStyle}
+            disabled={preparingPdf || downloadingImages || deletingPhotos}
+          >
+            {preparingPdf
+              ? "Bilder werden vollständig vorbereitet..."
+              : "📥 PDF herunterladen"}
           </button>
 
           <button
             onClick={downloadAllImagesAsZip}
             style={downloadImagesButtonStyle}
-            disabled={downloadingImages || deletingPhotos}
+            disabled={preparingPdf || downloadingImages || deletingPhotos}
           >
             {downloadingImages
               ? "Bilder werden vorbereitet..."
@@ -1851,7 +2197,7 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
           <button
             onClick={confirmAndDeleteImages}
             style={deleteButtonStyle}
-            disabled={downloadingImages || deletingPhotos}
+            disabled={preparingPdf || downloadingImages || deletingPhotos}
           >
             {deletingPhotos
               ? "Bilder werden gelöscht..."
@@ -2229,6 +2575,8 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
                               alt={getPhotoDescription(photo) || "Foto"}
                               style={photoStyle}
                               className="photo-img"
+                              loading="eager"
+                              decoding="sync"
                               onClick={() => setSelectedPhoto(url)}
                             />
 
@@ -2306,6 +2654,8 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
                             alt={getPhotoDescription(photo) || "Regiefoto"}
                             style={photoStyle}
                             className="photo-img"
+                            loading="eager"
+                            decoding="sync"
                             onClick={() => setSelectedPhoto(url)}
                           />
 
@@ -2569,7 +2919,9 @@ const photoCardStyle: any = {
 const photoStyle: any = {
   width: "100%",
   height: "150px",
-  objectFit: "cover",
+  objectFit: "contain",
+  objectPosition: "center center",
+  background: "#fff",
   borderRadius: "10px",
   display: "block",
   cursor: "pointer",
