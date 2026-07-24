@@ -11,7 +11,7 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024;
 type DokumentDatei = {
   id: number;
   dokumentation_id: number;
-  baustelle_id: number;
+  baustelle_id: string;
   datei_name: string;
   datei_typ: "bild" | "plan";
   mime_type: string | null;
@@ -23,7 +23,7 @@ type DokumentDatei = {
 
 type DokumentEintrag = {
   id: number;
-  baustelle_id: number;
+  baustelle_id: string;
   dokument_datum: string;
   titel: string;
   beschreibung: string;
@@ -70,6 +70,65 @@ function formatDateTime(value: string): string {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message || error.name || "JavaScript-Fehler ohne Nachricht";
+  }
+
+  if (typeof error === "string") {
+    return error || "Leere Fehlermeldung";
+  }
+
+  if (error === null) return "Fehlerobjekt ist null";
+  if (error === undefined) return "Fehlerobjekt ist undefined";
+
+  if (typeof error === "object") {
+    const value = error as Record<string, unknown>;
+    const parts = [
+      value.message,
+      value.details,
+      value.hint,
+      value.code,
+      value.status,
+      value.statusText,
+      value.name,
+    ]
+      .filter(
+        (part): part is string | number =>
+          (typeof part === "string" && part.trim().length > 0) ||
+          typeof part === "number",
+      )
+      .map(String);
+
+    if (parts.length > 0) {
+      return parts.join(" – ");
+    }
+
+    try {
+      const ownValues: Record<string, unknown> = {};
+      for (const key of Object.getOwnPropertyNames(error)) {
+        ownValues[key] = value[key];
+      }
+      const serialized = JSON.stringify(ownValues);
+      if (serialized && serialized !== "{}") return serialized;
+    } catch {
+      // Nastavi na String(error).
+    }
+
+    const fallback = String(error);
+    return fallback === "[object Object]"
+      ? "Leeres Fehlerobjekt {}"
+      : fallback;
+  }
+
+  return String(error);
+}
+
+function throwSupabaseError(context: string, error: unknown): never {
+  throw new Error(`${context}: ${getErrorMessage(error)}`);
 }
 
 function getStoredUserName(): string {
@@ -139,44 +198,56 @@ export default function BauDokumentationPage() {
     setLoading(true);
 
     try {
-      const [baustelleResult, dokumentationResult] = await Promise.all([
-        supabase
-          .from("baustellen")
-          .select("*")
-          .eq("id", baustelleId)
-          .single(),
-        supabase
+      // Odvojeni upiti su pouzdaniji od ugrađenog relational selecta.
+      // Tako stranica radi i odmah nakon kreiranja novih tabela.
+      const { data: baustelleData, error: baustelleError } = await supabase
+        .from("baustellen")
+        .select("*")
+        .eq("id", baustelleId)
+        .single();
+
+      if (baustelleError) throwSupabaseError("Baustelle laden", baustelleError);
+
+      const { data: dokumentationData, error: dokumentationError } =
+        await supabase
           .from("bau_dokumentation")
-          .select(
-            `
-              *,
-              bau_dokumentation_dateien (*)
-            `,
-          )
+          .select("*")
           .eq("baustelle_id", baustelleId)
           .order("dokument_datum", { ascending: true })
-          .order("created_at", { ascending: true }),
-      ]);
+          .order("created_at", { ascending: true });
 
-      if (baustelleResult.error) throw baustelleResult.error;
-      if (dokumentationResult.error) throw dokumentationResult.error;
+      if (dokumentationError) throwSupabaseError("Tabelle bau_dokumentation laden", dokumentationError);
 
-      const sorted = ((dokumentationResult.data || []) as DokumentEintrag[]).map(
+      const { data: dateienData, error: dateienError } = await supabase
+        .from("bau_dokumentation_dateien")
+        .select("*")
+        .eq("baustelle_id", baustelleId)
+        .order("created_at", { ascending: true });
+
+      if (dateienError) throwSupabaseError("Tabelle bau_dokumentation_dateien laden", dateienError);
+
+      const filesByEntry = new Map<number, DokumentDatei[]>();
+
+      for (const file of (dateienData || []) as DokumentDatei[]) {
+        const list = filesByEntry.get(file.dokumentation_id) || [];
+        list.push(file);
+        filesByEntry.set(file.dokumentation_id, list);
+      }
+
+      const entries = ((dokumentationData || []) as DokumentEintrag[]).map(
         (entry) => ({
           ...entry,
-          bau_dokumentation_dateien: [
-            ...(entry.bau_dokumentation_dateien || []),
-          ].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+          bau_dokumentation_dateien: filesByEntry.get(entry.id) || [],
         }),
       );
 
-      setBaustelle(baustelleResult.data as Baustelle);
-      setEintraege(sorted);
+      setBaustelle(baustelleData as Baustelle);
+      setEintraege(entries);
     } catch (error) {
-      console.error(error);
+      console.error("Bau-Dokumentation loadAll error:", error);
       alert(
-        "Bau-Dokumentation konnte nicht geladen werden: " +
-          (error instanceof Error ? error.message : "Unbekannter Fehler"),
+        "Bau-Dokumentation konnte nicht geladen werden:\n\n" +
+          getErrorMessage(error),
       );
     } finally {
       setLoading(false);
@@ -247,7 +318,7 @@ export default function BauDokumentationPage() {
         .from("bau_dokumentation_dateien")
         .insert({
           dokumentation_id: dokumentationId,
-          baustelle_id: Number(baustelleId),
+          baustelle_id: baustelleId,
           datei_name: file.name,
           datei_typ: fileType,
           mime_type: file.type || null,
@@ -296,23 +367,32 @@ export default function BauDokumentationPage() {
           .eq("id", editingId)
           .eq("baustelle_id", baustelleId);
 
-        if (error) throw error;
+        if (error) throwSupabaseError("Eintrag aktualisieren", error);
       } else {
         const { data, error } = await supabase
           .from("bau_dokumentation")
           .insert({
-            baustelle_id: Number(baustelleId),
+            baustelle_id: baustelleId,
             dokument_datum: datum,
             titel: titel.trim(),
             beschreibung: beschreibung.trim(),
             bemerkung: bemerkung.trim(),
             erstellt_von: adminName,
           })
-          .select("id")
-          .single();
+          .select("id");
 
-        if (error) throw error;
-        dokumentationId = data.id;
+        if (error) {
+          throwSupabaseError("Neuen Tagesbericht einfügen", error);
+        }
+
+        const insertedRow = Array.isArray(data) ? data[0] : null;
+        if (!insertedRow?.id) {
+          throw new Error(
+            "Der Tagesbericht wurde nicht zurückgegeben. Prüfe SELECT/INSERT-Rechte der Tabelle bau_dokumentation.",
+          );
+        }
+
+        dokumentationId = Number(insertedRow.id);
       }
 
       if (!dokumentationId) {
@@ -327,7 +407,7 @@ export default function BauDokumentationPage() {
       console.error(error);
       alert(
         "Speichern fehlgeschlagen: " +
-          (error instanceof Error ? error.message : "Unbekannter Fehler"),
+          getErrorMessage(error),
       );
     } finally {
       setSaving(false);
@@ -365,7 +445,7 @@ export default function BauDokumentationPage() {
           .from(STORAGE_BUCKET)
           .remove(paths);
 
-        if (storageError) throw storageError;
+        if (storageError) throwSupabaseError("Datei aus Storage löschen", storageError);
       }
 
       const { error } = await supabase
@@ -374,7 +454,7 @@ export default function BauDokumentationPage() {
         .eq("id", entry.id)
         .eq("baustelle_id", baustelleId);
 
-      if (error) throw error;
+      if (error) throwSupabaseError("Tagesbericht löschen", error);
 
       if (editingId === entry.id) resetForm();
       await loadAll();
@@ -382,7 +462,7 @@ export default function BauDokumentationPage() {
       console.error(error);
       alert(
         "Löschen fehlgeschlagen: " +
-          (error instanceof Error ? error.message : "Unbekannter Fehler"),
+          getErrorMessage(error),
       );
     }
   }
@@ -395,7 +475,7 @@ export default function BauDokumentationPage() {
         .from(STORAGE_BUCKET)
         .remove([file.storage_path]);
 
-      if (storageError) throw storageError;
+      if (storageError) throwSupabaseError("Datei aus Storage löschen", storageError);
 
       const { error: databaseError } = await supabase
         .from("bau_dokumentation_dateien")
@@ -403,13 +483,13 @@ export default function BauDokumentationPage() {
         .eq("id", file.id)
         .eq("baustelle_id", baustelleId);
 
-      if (databaseError) throw databaseError;
+      if (databaseError) throwSupabaseError("Datei-Metadaten löschen", databaseError);
       await loadAll();
     } catch (error) {
       console.error(error);
       alert(
         "Datei konnte nicht gelöscht werden: " +
-          (error instanceof Error ? error.message : "Unbekannter Fehler"),
+          getErrorMessage(error),
       );
     }
   }
