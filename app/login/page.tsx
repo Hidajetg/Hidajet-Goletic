@@ -1,36 +1,117 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "../lib/supabase";
 
 const LOGO_URL =
   "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/logo.png";
-
 const BACKGROUND_URL =
   "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/pozadina.png";
+
+type Worker = {
+  id: string;
+  name: string;
+  role: "admin" | "worker";
+};
+
+const FALLBACK_WORKERS: Worker[] = [
+  { id: "6", name: "Hido", role: "admin" },
+  { id: "7", name: "Steffi", role: "admin" },
+  { id: "1", name: "Arnes", role: "worker" },
+  { id: "2", name: "Ramiz", role: "worker" },
+  { id: "4", name: "Shohruh", role: "worker" },
+];
+
+const ADMIN_NAMES = new Set(["hido", "steffi", "admin", "hidajet"]);
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const [name, setName] = useState("");
+  const [workers, setWorkers] = useState<Worker[]>(FALLBACK_WORKERS);
+  const [name, setName] = useState("Hido");
   const [pin, setPin] = useState("");
-
+  const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    loadWorkers();
+  }, []);
+
+  async function loadWorkers() {
+    try {
+      const { data } = await supabase
+        .from("workers")
+        .select("*")
+        .order("name", { ascending: true });
+
+      const dbWorkers: Worker[] = (data || [])
+        .filter((row: any) => row?.active !== false)
+        .map((row: any) => {
+          const workerName = String(row?.name || "").trim();
+          const role: "admin" | "worker" =
+            String(row?.role || "").toLowerCase() === "admin" ||
+            ADMIN_NAMES.has(workerName.toLowerCase())
+              ? "admin"
+              : "worker";
+
+          return {
+            id: String(row?.id ?? workerName),
+            name: workerName,
+            role,
+          };
+        })
+        .filter((worker) => worker.name);
+
+      if (dbWorkers.length > 0) {
+        setWorkers(dbWorkers);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function saveUser(user: any) {
+    const id = String(user.id);
+    const userName = String(user.name);
+    const role = String(user.role);
+
+    const json = JSON.stringify({
+      id,
+      name: userName,
+      role,
+      is_admin: role === "admin",
+      admin: role === "admin",
+    });
+
+    localStorage.setItem("worker_id", id);
+    localStorage.setItem("worker_name", userName);
+    localStorage.setItem("worker_role", role);
+    localStorage.setItem("userName", userName);
+    localStorage.setItem("userRole", role);
+    localStorage.setItem("name", userName);
+    localStorage.setItem("role", role);
+    localStorage.setItem("loggedIn", "true");
+    localStorage.setItem("isLoggedIn", "true");
+    localStorage.setItem("currentWorker", json);
+    localStorage.setItem("currentUser", json);
+    localStorage.setItem("loggedUser", json);
+    localStorage.setItem("user", json);
+  }
+
   async function login() {
+    if (loading) return;
+
     setError("");
 
-    const cleanName = name.trim();
-    const cleanPin = pin.trim();
-
-    if (!cleanName) {
-      setError("Bitte Namen eingeben.");
+    if (!name.trim()) {
+      setError("Bitte Mitarbeiter auswählen.");
       return;
     }
 
-    if (!cleanPin) {
-      setError("Bitte PIN eingeben.");
+    if (!/^\d{4,8}$/.test(pin)) {
+      setError("PIN muss aus 4 bis 8 Zahlen bestehen.");
       return;
     }
 
@@ -39,395 +120,215 @@ export default function LoginPage() {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-        },
-
         credentials: "include",
-
-        body: JSON.stringify({
-          name: cleanName,
-          pin: cleanPin,
-        }),
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), pin }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(
-          data?.error || "Anmeldung fehlgeschlagen."
-        );
+        throw new Error(data?.error || "Name oder PIN ist falsch.");
       }
 
-      if (!data?.user) {
-        throw new Error(
-          "Benutzerdaten konnten nicht geladen werden."
-        );
-      }
-
-      const user = data.user;
-
-      // ======================================================
-      // KOMPATIBILNOST SA POSTOJEĆOM APLIKACIJOM
-      // ======================================================
-
-      localStorage.setItem(
-        "worker_id",
-        String(user.id)
-      );
-
-      localStorage.setItem(
-        "worker_name",
-        String(user.name)
-      );
-
-      localStorage.setItem(
-        "worker_role",
-        String(user.role)
-      );
-
-      localStorage.setItem(
-        "user_id",
-        String(user.id)
-      );
-
-      localStorage.setItem(
-        "userName",
-        String(user.name)
-      );
-
-      localStorage.setItem(
-        "userRole",
-        String(user.role)
-      );
-
-      localStorage.setItem(
-        "name",
-        String(user.name)
-      );
-
-      localStorage.setItem(
-        "role",
-        String(user.role)
-      );
-
-      localStorage.setItem(
-        "loggedIn",
-        "true"
-      );
-
-      localStorage.setItem(
-        "isLoggedIn",
-        "true"
-      );
-
-      // Stari formati ako ih neki modul još koristi
-      localStorage.setItem(
-        "currentUser",
-        JSON.stringify({
-          id: String(user.id),
-          name: String(user.name),
-          role: String(user.role),
-        })
-      );
-
-      localStorage.setItem(
-        "currentWorker",
-        JSON.stringify({
-          id: String(user.id),
-          name: String(user.name),
-          role: String(user.role),
-        })
-      );
-
-      // ======================================================
-      // DASHBOARD
-      // ======================================================
+      saveUser(data.user);
+      setPin("");
 
       router.replace("/dashboard");
       router.refresh();
-
-    } catch (err: any) {
-      console.error("LOGIN ERROR:", err);
-
-      setError(
-        err?.message ||
-          "Anmeldung fehlgeschlagen."
-      );
+    } catch (e: any) {
+      setError(e?.message || "Anmeldung fehlgeschlagen.");
     } finally {
       setLoading(false);
     }
   }
 
-  function handleKeyDown(
-    event: React.KeyboardEvent<HTMLInputElement>
-  ) {
-    if (event.key === "Enter") {
-      login();
-    }
-  }
-
   return (
     <main style={pageStyle}>
+      <div style={bgStyle} />
+      <div style={shadeStyle} />
 
-      <div style={backgroundStyle} />
+      <div style={cardStyle}>
+        <img src={LOGO_URL} alt="SolStone" style={logoStyle} />
 
-      <div style={overlayStyle} />
+        <h1 style={titleStyle}>STONE BOUTIQUE</h1>
+        <p style={subStyle}>Baustellen App</p>
 
-      <section style={loginBoxStyle}>
+        <label style={labelStyle}>Mitarbeiter</label>
+        <select
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            setPin("");
+            setError("");
+          }}
+          style={inputStyle}
+        >
+          {workers.map((worker) => (
+            <option key={worker.id} value={worker.name}>
+              {worker.name}
+              {worker.role === "admin" ? " — Admin" : ""}
+            </option>
+          ))}
+        </select>
 
-        <div style={logoBoxStyle}>
-          <img
-            src={LOGO_URL}
-            alt="Stone Boutique"
-            style={logoStyle}
-          />
-        </div>
+        <label style={labelStyle}>PIN</label>
 
-        <h1 style={titleStyle}>
-          STONE BOUTIQUE
-        </h1>
-
-        <p style={subtitleStyle}>
-          Baustellen App
-        </p>
-
-        <div style={formStyle}>
-
-          <label style={labelStyle}>
-            Mitarbeiter
-          </label>
-
+        <div style={pinRowStyle}>
           <input
-            type="text"
-            value={name}
-            onChange={(event) =>
-              setName(event.target.value)
-            }
-            onKeyDown={handleKeyDown}
-            placeholder="Name"
-            autoComplete="username"
-            style={inputStyle}
-          />
-
-          <label style={labelStyle}>
-            PIN
-          </label>
-
-          <input
-            type="password"
-            inputMode="numeric"
+            type={showPin ? "text" : "password"}
             value={pin}
-            onChange={(event) =>
-              setPin(
-                event.target.value.replace(
-                  /\D/g,
-                  ""
-                )
-              )
-            }
-            onKeyDown={handleKeyDown}
-            placeholder="PIN"
-            autoComplete="current-password"
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") login();
+            }}
+            inputMode="numeric"
             maxLength={8}
-            style={inputStyle}
+            placeholder="PIN"
+            style={pinInputStyle}
           />
-
-          {error && (
-            <div style={errorStyle}>
-              {error}
-            </div>
-          )}
 
           <button
             type="button"
-            onClick={login}
-            disabled={loading}
-            style={{
-              ...loginButtonStyle,
-
-              opacity: loading
-                ? 0.6
-                : 1,
-
-              cursor: loading
-                ? "not-allowed"
-                : "pointer",
-            }}
+            onClick={() => setShowPin((v) => !v)}
+            style={eyeStyle}
+            title={showPin ? "PIN verbergen" : "PIN anzeigen"}
           >
-            {loading
-              ? "Anmeldung..."
-              : "Anmelden"}
+            {showPin ? "🙈" : "👁"}
           </button>
-
         </div>
 
-      </section>
+        {error && <div style={errorStyle}>{error}</div>}
 
+        <button
+          type="button"
+          onClick={login}
+          disabled={loading}
+          style={loginStyle}
+        >
+          {loading ? "Anmeldung..." : "Anmelden"}
+        </button>
+      </div>
     </main>
   );
 }
 
-// ============================================================
-// STYLE
-// ============================================================
-
 const pageStyle: React.CSSProperties = {
-  position: "relative",
   minHeight: "100vh",
-  width: "100%",
-  overflow: "hidden",
-
+  position: "relative",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-
-  background: "#000000",
-
-  padding: "20px",
+  background: "#222",
+  padding: 20,
 };
 
-const backgroundStyle: React.CSSProperties = {
+const bgStyle: React.CSSProperties = {
   position: "absolute",
   inset: 0,
-
   backgroundImage: `url("${BACKGROUND_URL}")`,
   backgroundSize: "cover",
   backgroundPosition: "center",
-  backgroundRepeat: "no-repeat",
-
-  opacity: 0.55,
 };
 
-const overlayStyle: React.CSSProperties = {
+const shadeStyle: React.CSSProperties = {
   position: "absolute",
   inset: 0,
-
-  background:
-    "linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.82))",
+  background: "rgba(0,0,0,.58)",
 };
 
-const loginBoxStyle: React.CSSProperties = {
+const cardStyle: React.CSSProperties = {
   position: "relative",
   zIndex: 2,
-
   width: "100%",
-  maxWidth: "420px",
-
-  background: "rgba(0,0,0,0.88)",
-
-  border: "1px solid #333333",
-  borderRadius: "20px",
-
-  padding: "28px",
-
-  boxShadow:
-    "0 20px 60px rgba(0,0,0,0.55)",
-
-  color: "#ffffff",
-};
-
-const logoBoxStyle: React.CSSProperties = {
-  width: "100%",
-
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-
-  marginBottom: "14px",
+  maxWidth: 360,
+  background: "rgba(0,0,0,.95)",
+  border: "1px solid #444",
+  borderRadius: 18,
+  padding: 26,
+  color: "#fff",
+  boxShadow: "0 20px 60px rgba(0,0,0,.55)",
 };
 
 const logoStyle: React.CSSProperties = {
   display: "block",
-  width: "150px",
-  maxWidth: "70%",
-  height: "auto",
-  objectFit: "contain",
+  width: 120,
+  margin: "0 auto 12px",
 };
 
 const titleStyle: React.CSSProperties = {
+  textAlign: "center",
+  color: "#ff7417",
   margin: 0,
-  textAlign: "center",
-
-  fontSize: "30px",
+  fontSize: 28,
   fontWeight: 900,
-
-  color: "#f97316",
 };
 
-const subtitleStyle: React.CSSProperties = {
-  marginTop: "6px",
-  marginBottom: "25px",
-
+const subStyle: React.CSSProperties = {
   textAlign: "center",
-
-  color: "#bbbbbb",
-
-  fontSize: "15px",
-};
-
-const formStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "10px",
+  margin: "9px 0 28px",
 };
 
 const labelStyle: React.CSSProperties = {
-  marginTop: "5px",
-
-  fontSize: "14px",
-  fontWeight: 700,
-
-  color: "#dddddd",
+  display: "block",
+  margin: "0 0 7px",
+  fontSize: 13,
+  fontWeight: 800,
 };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
+  height: 48,
+  marginBottom: 17,
   boxSizing: "border-box",
-
-  padding: "14px 15px",
-
-  background: "#111111",
-  color: "#ffffff",
-
-  border: "1px solid #444444",
-  borderRadius: "12px",
-
-  outline: "none",
-
-  fontSize: "17px",
+  borderRadius: 10,
+  border: "1px solid #aaa",
+  background: "#edf4ff",
+  color: "#000",
+  padding: "0 12px",
+  fontSize: 16,
 };
 
-const loginButtonStyle: React.CSSProperties = {
-  width: "100%",
+const pinRowStyle: React.CSSProperties = {
+  display: "flex",
+  marginBottom: 14,
+};
 
-  marginTop: "12px",
+const pinInputStyle: React.CSSProperties = {
+  ...inputStyle,
+  marginBottom: 0,
+  borderRadius: "10px 0 0 10px",
+  borderRight: "none",
+};
 
-  padding: "15px",
-
-  background: "#f97316",
-  color: "#ffffff",
-
-  border: "none",
-  borderRadius: "12px",
-
-  fontSize: "17px",
-  fontWeight: 900,
+const eyeStyle: React.CSSProperties = {
+  width: 54,
+  border: "1px solid #aaa",
+  borderRadius: "0 10px 10px 0",
+  background: "#fff",
+  cursor: "pointer",
+  fontSize: 19,
 };
 
 const errorStyle: React.CSSProperties = {
-  marginTop: "5px",
+  background: "#5b0a0a",
+  border: "1px solid #b91c1c",
+  color: "#fff",
+  borderRadius: 9,
+  padding: 11,
+  marginBottom: 14,
+  fontSize: 13,
+};
 
-  padding: "12px",
-
-  background: "#450a0a",
-
-  border: "1px solid #991b1b",
-  borderRadius: "10px",
-
-  color: "#fecaca",
-
-  fontSize: "14px",
-  fontWeight: 700,
+const loginStyle: React.CSSProperties = {
+  width: "100%",
+  height: 50,
+  border: "none",
+  borderRadius: 10,
+  background: "#ff7417",
+  color: "#fff",
+  fontWeight: 900,
+  fontSize: 16,
+  cursor: "pointer",
 };

@@ -5,6 +5,42 @@ import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { createSessionToken } from "../../../lib/admin-session";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+type Role = "admin" | "worker";
+
+const LEGACY_USERS = [
+  { id: "1", name: "Arnes", pin: "1111", role: "worker" as Role },
+  { id: "2", name: "Ramiz", pin: "2222", role: "worker" as Role },
+  { id: "4", name: "Shohruh", pin: "4444", role: "worker" as Role },
+  { id: "6", name: "Hido", pin: "0000", role: "admin" as Role },
+  { id: "7", name: "Steffi", pin: "0001", role: "admin" as Role },
+];
+
+function createLoginResponse(user: {
+  id: string;
+  name: string;
+  role: Role;
+}) {
+  const token = createSessionToken(user);
+
+  const response = NextResponse.json({
+    success: true,
+    user,
+  });
+
+  response.cookies.set({
+    name: "solstone_session",
+    value: token,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+
+  return response;
+}
 
 export async function POST(request: Request) {
   try {
@@ -13,227 +49,128 @@ export async function POST(request: Request) {
     const name = String(body?.name || "").trim();
     const pin = String(body?.pin || "").trim();
 
-    // =========================================================
-    // OSNOVNA PROVJERA
-    // =========================================================
-
-    if (!name || !pin) {
+    if (!name || !/^\d{4,8}$/.test(pin)) {
       return NextResponse.json(
-        {
-          error: "Bitte Name und PIN eingeben.",
-        },
-        {
-          status: 400,
-        }
+        { error: "Bitte Mitarbeiter und gültigen PIN eingeben." },
+        { status: 400 },
       );
     }
 
-    if (!/^\d{4,8}$/.test(pin)) {
-      return NextResponse.json(
-        {
-          error: "PIN muss aus 4 bis 8 Zahlen bestehen.",
-        },
-        {
-          status: 400,
+    // STARI LOGIN - ODMAH RADI KAO PRIJE
+    const legacy = LEGACY_USERS.find(
+      (user) => user.name.toLowerCase() === name.toLowerCase(),
+    );
+
+    if (legacy && legacy.pin === pin) {
+      let id = legacy.id;
+      let finalName = legacy.name;
+      let role = legacy.role;
+
+      try {
+        const { data } = await supabaseAdmin
+          .from("workers")
+          .select("id, name, role, active")
+          .ilike("name", legacy.name)
+          .limit(1);
+
+        const worker = data?.[0];
+
+        if (worker) {
+          if (worker.active === false) {
+            return NextResponse.json(
+              { error: "Dieser Mitarbeiter ist deaktiviert." },
+              { status: 403 },
+            );
+          }
+
+          id = String(worker.id);
+          finalName = String(worker.name || legacy.name);
+          role =
+            String(worker.role || "").toLowerCase() === "admin"
+              ? "admin"
+              : legacy.role;
         }
-      );
+      } catch (e) {
+        console.error("Legacy worker lookup:", e);
+      }
+
+      return createLoginResponse({
+        id,
+        name: finalName,
+        role,
+      });
     }
 
-    // =========================================================
-    // PRONAĐI RADNIKA
-    // =========================================================
-
-    const {
-      data: workers,
-      error: workerError,
-    } = await supabaseAdmin
+    // NOVI RADNICI IZ ADMIN PANELA
+    const { data: workers, error: workerError } = await supabaseAdmin
       .from("workers")
       .select("id, name, role, active")
       .ilike("name", name)
       .limit(1);
 
     if (workerError) {
-      console.error(
-        "LOGIN - workers error:",
-        workerError
-      );
-
+      console.error(workerError);
       return NextResponse.json(
-        {
-          error: "Mitarbeiter konnte nicht geladen werden.",
-        },
-        {
-          status: 500,
-        }
+        { error: "Login konnte nicht geprüft werden." },
+        { status: 500 },
       );
     }
 
-    const worker =
-      Array.isArray(workers) && workers.length > 0
-        ? workers[0]
-        : null;
+    const worker = workers?.[0];
 
     if (!worker) {
       return NextResponse.json(
-        {
-          error: "Name oder PIN ist falsch.",
-        },
-        {
-          status: 401,
-        }
+        { error: "Name oder PIN ist falsch." },
+        { status: 401 },
       );
     }
-
-    // =========================================================
-    // AKTIVAN?
-    // =========================================================
 
     if (worker.active === false) {
       return NextResponse.json(
-        {
-          error: "Dieser Mitarbeiter ist deaktiviert.",
-        },
-        {
-          status: 403,
-        }
+        { error: "Dieser Mitarbeiter ist deaktiviert." },
+        { status: 403 },
       );
     }
 
-    // =========================================================
-    // UČITAJ HASH PIN-a
-    // =========================================================
-
-    const {
-      data: authData,
-      error: authError,
-    } = await supabaseAdmin
+    const { data: auth, error: authError } = await supabaseAdmin
       .from("worker_auth")
       .select("pin_hash")
       .eq("worker_id", String(worker.id))
       .maybeSingle();
 
-    if (authError) {
-      console.error(
-        "LOGIN - worker_auth error:",
-        authError
-      );
-
+    if (authError || !auth?.pin_hash) {
+      console.error(authError);
       return NextResponse.json(
-        {
-          error: "PIN konnte nicht geprüft werden.",
-        },
-        {
-          status: 500,
-        }
+        { error: "Für diesen Mitarbeiter ist kein gültiger PIN eingerichtet." },
+        { status: 401 },
       );
     }
 
-    if (!authData?.pin_hash) {
-      console.error(
-        "LOGIN - kein PIN für Worker:",
-        worker.id,
-        worker.name
-      );
+    const validPin = await bcrypt.compare(pin, String(auth.pin_hash));
 
+    if (!validPin) {
       return NextResponse.json(
-        {
-          error:
-            "Für diesen Mitarbeiter ist noch kein PIN eingerichtet.",
-        },
-        {
-          status: 401,
-        }
+        { error: "Name oder PIN ist falsch." },
+        { status: 401 },
       );
     }
 
-    // =========================================================
-    // PIN PROVJERA
-    // =========================================================
-
-    const pinCorrect = await bcrypt.compare(
-      pin,
-      authData.pin_hash
-    );
-
-    if (!pinCorrect) {
-      return NextResponse.json(
-        {
-          error: "Name oder PIN ist falsch.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    // =========================================================
-    // ROLE
-    // =========================================================
-
-    const role: "admin" | "worker" =
-      worker.role === "admin"
+    const role: Role =
+      String(worker.role || "").toLowerCase() === "admin"
         ? "admin"
         : "worker";
 
-    // =========================================================
-    // SESSION TOKEN
-    // =========================================================
-
-    const token = createSessionToken({
+    return createLoginResponse({
       id: String(worker.id),
       name: String(worker.name),
       role,
     });
-
-    // =========================================================
-    // RESPONSE
-    // =========================================================
-
-    const response = NextResponse.json({
-      success: true,
-
-      user: {
-        id: String(worker.id),
-        name: String(worker.name),
-        role,
-      },
-    });
-
-    // =========================================================
-    // SIGURNA COOKIE
-    // =========================================================
-
-    response.cookies.set({
-      name: "solstone_session",
-      value: token,
-
-      httpOnly: true,
-
-      secure:
-        process.env.NODE_ENV === "production",
-
-      sameSite: "lax",
-
-      path: "/",
-
-      maxAge:
-        60 * 60 * 24 * 7,
-    });
-
-    return response;
   } catch (error) {
-    console.error(
-      "LOGIN COMPLETE ERROR:",
-      error
-    );
+    console.error("LOGIN ERROR:", error);
 
     return NextResponse.json(
-      {
-        error: "Fehler beim Login.",
-      },
-      {
-        status: 500,
-      }
+      { error: "Anmeldung fehlgeschlagen." },
+      { status: 500 },
     );
   }
 }
