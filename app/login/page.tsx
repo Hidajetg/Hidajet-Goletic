@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabase";
 
 const LOGO_URL =
   "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/logo.png";
+
 const BACKGROUND_URL =
   "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/pozadina.png";
 
@@ -23,7 +24,14 @@ const FALLBACK_WORKERS: Worker[] = [
   { id: "4", name: "Shohruh", role: "worker" },
 ];
 
-const ADMIN_NAMES = new Set(["hido", "steffi", "admin", "hidajet"]);
+const ADMIN_NAMES = new Set([
+  "hido",
+  "steffi",
+  "admin",
+  "hidajet",
+  "hidajet goletic",
+  "hidajet goletić",
+]);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,12 +40,54 @@ export default function LoginPage() {
   const [name, setName] = useState("Hido");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
+  const [rememberLogin, setRememberLogin] = useState(false);
+
+  const [checkingSavedLogin, setCheckingSavedLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const savedName = localStorage.getItem("solstone_saved_worker");
+    const savedRemember =
+      localStorage.getItem("solstone_remember_login") === "true";
+
+    if (savedName) {
+      setName(savedName);
+    }
+
+    setRememberLogin(savedRemember);
+
     loadWorkers();
+    checkSavedLogin(savedRemember);
   }, []);
+
+  async function checkSavedLogin(shouldCheck: boolean) {
+    if (!shouldCheck) {
+      setCheckingSavedLogin(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data?.user) {
+        saveUser(data.user);
+        router.replace("/dashboard");
+        router.refresh();
+        return;
+      }
+    } catch (e) {
+      console.error("Saved login check:", e);
+    }
+
+    setCheckingSavedLogin(false);
+  }
 
   async function loadWorkers() {
     try {
@@ -50,6 +100,7 @@ export default function LoginPage() {
         .filter((row: any) => row?.active !== false)
         .map((row: any) => {
           const workerName = String(row?.name || "").trim();
+
           const role: "admin" | "worker" =
             String(row?.role || "").toLowerCase() === "admin" ||
             ADMIN_NAMES.has(workerName.toLowerCase())
@@ -66,9 +117,21 @@ export default function LoginPage() {
 
       if (dbWorkers.length > 0) {
         setWorkers(dbWorkers);
+
+        const savedName = localStorage.getItem("solstone_saved_worker");
+
+        if (
+          savedName &&
+          dbWorkers.some(
+            (worker) =>
+              worker.name.toLowerCase() === savedName.toLowerCase(),
+          )
+        ) {
+          setName(savedName);
+        }
       }
     } catch (e) {
-      console.error(e);
+      console.error("Load workers:", e);
     }
   }
 
@@ -94,10 +157,20 @@ export default function LoginPage() {
     localStorage.setItem("role", role);
     localStorage.setItem("loggedIn", "true");
     localStorage.setItem("isLoggedIn", "true");
+
     localStorage.setItem("currentWorker", json);
     localStorage.setItem("currentUser", json);
     localStorage.setItem("loggedUser", json);
     localStorage.setItem("user", json);
+  }
+
+  function changeRememberLogin(value: boolean) {
+    setRememberLogin(value);
+
+    if (!value) {
+      localStorage.removeItem("solstone_remember_login");
+      localStorage.removeItem("solstone_saved_worker");
+    }
   }
 
   async function login() {
@@ -122,8 +195,14 @@ export default function LoginPage() {
         method: "POST",
         credentials: "include",
         cache: "no-store",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), pin }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          pin,
+          remember: rememberLogin,
+        }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -133,6 +212,18 @@ export default function LoginPage() {
       }
 
       saveUser(data.user);
+
+      if (rememberLogin) {
+        localStorage.setItem("solstone_remember_login", "true");
+        localStorage.setItem(
+          "solstone_saved_worker",
+          String(data.user.name),
+        );
+      } else {
+        localStorage.removeItem("solstone_remember_login");
+        localStorage.removeItem("solstone_saved_worker");
+      }
+
       setPin("");
 
       router.replace("/dashboard");
@@ -142,6 +233,22 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checkingSavedLogin) {
+    return (
+      <main style={pageStyle}>
+        <div style={bgStyle} />
+        <div style={shadeStyle} />
+
+        <div style={checkingCardStyle}>
+          <img src={LOGO_URL} alt="SolStone" style={logoStyle} />
+          <div style={checkingTextStyle}>
+            Gespeicherte Anmeldung wird geprüft...
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -156,6 +263,7 @@ export default function LoginPage() {
         <p style={subStyle}>Baustellen App</p>
 
         <label style={labelStyle}>Mitarbeiter</label>
+
         <select
           value={name}
           onChange={(e) => {
@@ -179,9 +287,13 @@ export default function LoginPage() {
           <input
             type={showPin ? "text" : "password"}
             value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) =>
+              setPin(e.target.value.replace(/\D/g, ""))
+            }
             onKeyDown={(e) => {
-              if (e.key === "Enter") login();
+              if (e.key === "Enter") {
+                login();
+              }
             }}
             inputMode="numeric"
             maxLength={8}
@@ -191,7 +303,7 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={() => setShowPin((v) => !v)}
+            onClick={() => setShowPin((value) => !value)}
             style={eyeStyle}
             title={showPin ? "PIN verbergen" : "PIN anzeigen"}
           >
@@ -199,13 +311,34 @@ export default function LoginPage() {
           </button>
         </div>
 
+        <label style={rememberRowStyle}>
+          <input
+            type="checkbox"
+            checked={rememberLogin}
+            onChange={(e) =>
+              changeRememberLogin(e.target.checked)
+            }
+            style={checkboxStyle}
+          />
+
+          <span>
+            <strong>Login speichern</strong>
+            <small style={rememberHintStyle}>
+              Auf diesem Gerät 30 Tage angemeldet bleiben
+            </small>
+          </span>
+        </label>
+
         {error && <div style={errorStyle}>{error}</div>}
 
         <button
           type="button"
           onClick={login}
           disabled={loading}
-          style={loginStyle}
+          style={{
+            ...loginStyle,
+            opacity: loading ? 0.65 : 1,
+          }}
         >
           {loading ? "Anmeldung..." : "Anmelden"}
         </button>
@@ -220,7 +353,7 @@ const pageStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "#222",
+  background: "#222222",
   padding: 20,
 };
 
@@ -230,6 +363,7 @@ const bgStyle: React.CSSProperties = {
   backgroundImage: `url("${BACKGROUND_URL}")`,
   backgroundSize: "cover",
   backgroundPosition: "center",
+  backgroundRepeat: "no-repeat",
 };
 
 const shadeStyle: React.CSSProperties = {
@@ -244,11 +378,23 @@ const cardStyle: React.CSSProperties = {
   width: "100%",
   maxWidth: 360,
   background: "rgba(0,0,0,.95)",
-  border: "1px solid #444",
+  border: "1px solid #444444",
   borderRadius: 18,
   padding: 26,
-  color: "#fff",
+  color: "#ffffff",
   boxShadow: "0 20px 60px rgba(0,0,0,.55)",
+};
+
+const checkingCardStyle: React.CSSProperties = {
+  ...cardStyle,
+  textAlign: "center",
+};
+
+const checkingTextStyle: React.CSSProperties = {
+  marginTop: 15,
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 700,
 };
 
 const logoStyle: React.CSSProperties = {
@@ -268,6 +414,7 @@ const titleStyle: React.CSSProperties = {
 const subStyle: React.CSSProperties = {
   textAlign: "center",
   margin: "9px 0 28px",
+  color: "#ffffff",
 };
 
 const labelStyle: React.CSSProperties = {
@@ -283,9 +430,9 @@ const inputStyle: React.CSSProperties = {
   marginBottom: 17,
   boxSizing: "border-box",
   borderRadius: 10,
-  border: "1px solid #aaa",
+  border: "1px solid #aaaaaa",
   background: "#edf4ff",
-  color: "#000",
+  color: "#000000",
   padding: "0 12px",
   fontSize: 16,
 };
@@ -304,17 +451,43 @@ const pinInputStyle: React.CSSProperties = {
 
 const eyeStyle: React.CSSProperties = {
   width: 54,
-  border: "1px solid #aaa",
+  border: "1px solid #aaaaaa",
   borderRadius: "0 10px 10px 0",
-  background: "#fff",
+  background: "#ffffff",
   cursor: "pointer",
   fontSize: 19,
+};
+
+const rememberRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 10,
+  margin: "3px 0 17px",
+  cursor: "pointer",
+  color: "#ffffff",
+  fontSize: 13,
+};
+
+const checkboxStyle: React.CSSProperties = {
+  width: 18,
+  height: 18,
+  marginTop: 1,
+  accentColor: "#ff7417",
+  cursor: "pointer",
+};
+
+const rememberHintStyle: React.CSSProperties = {
+  display: "block",
+  marginTop: 3,
+  color: "#aaaaaa",
+  fontSize: 11,
+  fontWeight: 400,
 };
 
 const errorStyle: React.CSSProperties = {
   background: "#5b0a0a",
   border: "1px solid #b91c1c",
-  color: "#fff",
+  color: "#ffffff",
   borderRadius: 9,
   padding: 11,
   marginBottom: 14,
@@ -327,7 +500,7 @@ const loginStyle: React.CSSProperties = {
   border: "none",
   borderRadius: 10,
   background: "#ff7417",
-  color: "#fff",
+  color: "#ffffff",
   fontWeight: 900,
   fontSize: 16,
   cursor: "pointer",

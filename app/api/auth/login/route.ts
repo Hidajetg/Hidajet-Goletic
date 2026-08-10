@@ -1,8 +1,12 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
 import { supabaseAdmin } from "../../../lib/supabase-admin";
-import { createSessionToken } from "../../../lib/admin-session";
+import {
+  createSessionToken,
+  verifySessionToken,
+} from "../../../lib/admin-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,30 +21,98 @@ const LEGACY_USERS = [
   { id: "7", name: "Steffi", pin: "0001", role: "admin" as Role },
 ];
 
-function createLoginResponse(user: {
-  id: string;
-  name: string;
-  role: Role;
-}) {
-  const token = createSessionToken(user);
+function createLoginResponse(
+  user: {
+    id: string;
+    name: string;
+    role: Role;
+  },
+  remember: boolean,
+) {
+  const days = remember ? 30 : 7;
+
+  const token = createSessionToken(user, days);
 
   const response = NextResponse.json({
     success: true,
     user,
   });
 
-  response.cookies.set({
+  const cookieOptions: {
+    name: string;
+    value: string;
+    httpOnly: boolean;
+    secure: boolean;
+    sameSite: "lax";
+    path: string;
+    maxAge?: number;
+  } = {
     name: "solstone_session",
     value: token,
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  };
+
+  if (remember) {
+    cookieOptions.maxAge = 60 * 60 * 24 * 30;
+  }
+
+  response.cookies.set(cookieOptions);
 
   return response;
 }
+
+// ============================================================
+// GET - PROVJERA SAČUVANOG LOGIN-a
+// ============================================================
+
+export async function GET() {
+  try {
+    const cookieStore = await cookies();
+
+    const token =
+      cookieStore.get("solstone_session")?.value || null;
+
+    const session = verifySessionToken(token);
+
+    if (!session) {
+      return NextResponse.json(
+        {
+          authenticated: false,
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
+    return NextResponse.json({
+      authenticated: true,
+      user: {
+        id: String(session.id),
+        name: String(session.name),
+        role: session.role,
+      },
+    });
+  } catch (error) {
+    console.error("SESSION CHECK ERROR:", error);
+
+    return NextResponse.json(
+      {
+        authenticated: false,
+      },
+      {
+        status: 401,
+      },
+    );
+  }
+}
+
+// ============================================================
+// POST - LOGIN
+// ============================================================
 
 export async function POST(request: Request) {
   try {
@@ -48,17 +120,27 @@ export async function POST(request: Request) {
 
     const name = String(body?.name || "").trim();
     const pin = String(body?.pin || "").trim();
+    const remember = body?.remember === true;
 
     if (!name || !/^\d{4,8}$/.test(pin)) {
       return NextResponse.json(
-        { error: "Bitte Mitarbeiter und gültigen PIN eingeben." },
-        { status: 400 },
+        {
+          error:
+            "Bitte Mitarbeiter und gültigen PIN eingeben.",
+        },
+        {
+          status: 400,
+        },
       );
     }
 
-    // STARI LOGIN - ODMAH RADI KAO PRIJE
+    // --------------------------------------------------------
+    // STARI POSTOJEĆI LOGIN
+    // --------------------------------------------------------
+
     const legacy = LEGACY_USERS.find(
-      (user) => user.name.toLowerCase() === name.toLowerCase(),
+      (user) =>
+        user.name.toLowerCase() === name.toLowerCase(),
     );
 
     if (legacy && legacy.pin === pin) {
@@ -78,31 +160,52 @@ export async function POST(request: Request) {
         if (worker) {
           if (worker.active === false) {
             return NextResponse.json(
-              { error: "Dieser Mitarbeiter ist deaktiviert." },
-              { status: 403 },
+              {
+                error:
+                  "Dieser Mitarbeiter ist deaktiviert.",
+              },
+              {
+                status: 403,
+              },
             );
           }
 
           id = String(worker.id);
-          finalName = String(worker.name || legacy.name);
+          finalName = String(
+            worker.name || legacy.name,
+          );
+
           role =
-            String(worker.role || "").toLowerCase() === "admin"
+            String(worker.role || "").toLowerCase() ===
+            "admin"
               ? "admin"
               : legacy.role;
         }
-      } catch (e) {
-        console.error("Legacy worker lookup:", e);
+      } catch (error) {
+        console.error(
+          "Legacy worker lookup:",
+          error,
+        );
       }
 
-      return createLoginResponse({
-        id,
-        name: finalName,
-        role,
-      });
+      return createLoginResponse(
+        {
+          id,
+          name: finalName,
+          role,
+        },
+        remember,
+      );
     }
 
+    // --------------------------------------------------------
     // NOVI RADNICI IZ ADMIN PANELA
-    const { data: workers, error: workerError } = await supabaseAdmin
+    // --------------------------------------------------------
+
+    const {
+      data: workers,
+      error: workerError,
+    } = await supabaseAdmin
       .from("workers")
       .select("id, name, role, active")
       .ilike("name", name)
@@ -110,9 +213,14 @@ export async function POST(request: Request) {
 
     if (workerError) {
       console.error(workerError);
+
       return NextResponse.json(
-        { error: "Login konnte nicht geprüft werden." },
-        { status: 500 },
+        {
+          error: "Login konnte nicht geprüft werden.",
+        },
+        {
+          status: 500,
+        },
       );
     }
 
@@ -120,19 +228,30 @@ export async function POST(request: Request) {
 
     if (!worker) {
       return NextResponse.json(
-        { error: "Name oder PIN ist falsch." },
-        { status: 401 },
+        {
+          error: "Name oder PIN ist falsch.",
+        },
+        {
+          status: 401,
+        },
       );
     }
 
     if (worker.active === false) {
       return NextResponse.json(
-        { error: "Dieser Mitarbeiter ist deaktiviert." },
-        { status: 403 },
+        {
+          error: "Dieser Mitarbeiter ist deaktiviert.",
+        },
+        {
+          status: 403,
+        },
       );
     }
 
-    const { data: auth, error: authError } = await supabaseAdmin
+    const {
+      data: auth,
+      error: authError,
+    } = await supabaseAdmin
       .from("worker_auth")
       .select("pin_hash")
       .eq("worker_id", String(worker.id))
@@ -140,37 +259,58 @@ export async function POST(request: Request) {
 
     if (authError || !auth?.pin_hash) {
       console.error(authError);
+
       return NextResponse.json(
-        { error: "Für diesen Mitarbeiter ist kein gültiger PIN eingerichtet." },
-        { status: 401 },
+        {
+          error:
+            "Für diesen Mitarbeiter ist kein gültiger PIN eingerichtet.",
+        },
+        {
+          status: 401,
+        },
       );
     }
 
-    const validPin = await bcrypt.compare(pin, String(auth.pin_hash));
+    const validPin = await bcrypt.compare(
+      pin,
+      String(auth.pin_hash),
+    );
 
     if (!validPin) {
       return NextResponse.json(
-        { error: "Name oder PIN ist falsch." },
-        { status: 401 },
+        {
+          error: "Name oder PIN ist falsch.",
+        },
+        {
+          status: 401,
+        },
       );
     }
 
     const role: Role =
-      String(worker.role || "").toLowerCase() === "admin"
+      String(worker.role || "").toLowerCase() ===
+      "admin"
         ? "admin"
         : "worker";
 
-    return createLoginResponse({
-      id: String(worker.id),
-      name: String(worker.name),
-      role,
-    });
+    return createLoginResponse(
+      {
+        id: String(worker.id),
+        name: String(worker.name),
+        role,
+      },
+      remember,
+    );
   } catch (error) {
     console.error("LOGIN ERROR:", error);
 
     return NextResponse.json(
-      { error: "Anmeldung fehlgeschlagen." },
-      { status: 500 },
+      {
+        error: "Anmeldung fehlgeschlagen.",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }
