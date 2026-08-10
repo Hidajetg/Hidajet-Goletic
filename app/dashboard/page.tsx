@@ -1,11 +1,19 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 
-const translations: any = {
+type UserRole = "admin" | "worker";
+
+type StoredUser = {
+  id: string;
+  name: string;
+  role: UserRole;
+};
+
+const translations: Record<string, Record<string, string>> = {
   de: {
     welcome: "Willkommen",
     baustelle: "Baustelle",
@@ -13,12 +21,12 @@ const translations: any = {
     calendar: "Kalender",
     info: "Info",
     cars: "Autos",
-    notes: "Notizen",
     materialOrder: "Material bestellen",
     adminMaterial: "Material",
     privateNote: "Private Notiz",
     projects: "Projekte",
     workerProjects: "Meine Projekte",
+    employees: "Mitarbeiter",
     logout: "Abmelden",
     noMessages: "Aktuell gibt es keine Info-Nachrichten.",
     message: "Nachricht",
@@ -32,12 +40,12 @@ const translations: any = {
     calendar: "Kalendar",
     info: "Info",
     cars: "Auta",
-    notes: "Bilješke",
     materialOrder: "Naruči materijal",
     adminMaterial: "Materijal",
     privateNote: "Privatna bilješka",
     projects: "Projekti",
     workerProjects: "Moji projekti",
+    employees: "Radnici",
     logout: "Odjava",
     noMessages: "Trenutno nema info poruka.",
     message: "poruka",
@@ -51,12 +59,12 @@ const translations: any = {
     calendar: "Kalendar",
     info: "Info",
     cars: "Mashinalar",
-    notes: "Eslatmalar",
     materialOrder: "Material buyurtma",
     adminMaterial: "Material",
     privateNote: "Shaxsiy eslatma",
     projects: "Loyihalar",
     workerProjects: "Mening loyihalarim",
+    employees: "Xodimlar",
     logout: "Chiqish",
     noMessages: "Hozircha xabar yo‘q.",
     message: "xabar",
@@ -70,12 +78,12 @@ const translations: any = {
     calendar: "Calendar",
     info: "Info",
     cars: "Cars",
-    notes: "Notes",
     materialOrder: "Order material",
     adminMaterial: "Material",
     privateNote: "Private note",
     projects: "Projects",
     workerProjects: "My projects",
+    employees: "Employees",
     logout: "Logout",
     noMessages: "There are currently no info messages.",
     message: "message",
@@ -83,17 +91,129 @@ const translations: any = {
   },
 };
 
+function normalizeRole(value: unknown): UserRole | null {
+  return String(value || "").toLowerCase() === "admin"
+    ? "admin"
+    : String(value || "").toLowerCase() === "worker"
+      ? "worker"
+      : null;
+}
+
+function getJsonUser(key: string): Partial<StoredUser> | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+
+    const id =
+      parsed.id ??
+      parsed.worker_id ??
+      parsed.workerId ??
+      parsed.user_id ??
+      parsed.userId ??
+      "";
+
+    const name =
+      parsed.name ??
+      parsed.worker_name ??
+      parsed.workerName ??
+      parsed.user_name ??
+      parsed.userName ??
+      "";
+
+    const role =
+      parsed.role ??
+      parsed.worker_role ??
+      parsed.workerRole ??
+      parsed.user_role ??
+      parsed.userRole ??
+      "";
+
+    return {
+      id: String(id || ""),
+      name: String(name || ""),
+      role: normalizeRole(role) || undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readStoredUser(): StoredUser | null {
+  const directName =
+    localStorage.getItem("worker_name") ||
+    localStorage.getItem("userName") ||
+    localStorage.getItem("user_name") ||
+    localStorage.getItem("name") ||
+    "";
+
+  const directRole =
+    localStorage.getItem("worker_role") ||
+    localStorage.getItem("userRole") ||
+    localStorage.getItem("role") ||
+    "";
+
+  const directId =
+    localStorage.getItem("worker_id") ||
+    localStorage.getItem("user_id") ||
+    "";
+
+  const role = normalizeRole(directRole);
+
+  if (directName && role) {
+    return {
+      id: String(directId || directName),
+      name: directName,
+      role,
+    };
+  }
+
+  const jsonKeys = [
+    "currentWorker",
+    "worker",
+    "loggedWorker",
+    "selectedWorker",
+    "currentUser",
+    "loggedUser",
+    "user",
+    "loginUser",
+    "baustelle_user",
+    "stone_user",
+    "app_user",
+  ];
+
+  for (const key of jsonKeys) {
+    const candidate = getJsonUser(key);
+
+    if (candidate?.name && candidate?.role) {
+      return {
+        id: String(candidate.id || candidate.name),
+        name: String(candidate.name),
+        role: candidate.role,
+      };
+    }
+  }
+
+  return null;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
 
   const [authLoading, setAuthLoading] = useState(true);
   const [workerName, setWorkerName] = useState("");
-  const [workerId, setWorkerId] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+
   const [messages, setMessages] = useState<any[]>([]);
   const [todayPlans, setTodayPlans] = useState<any[]>([]);
   const [materialOrders, setMaterialOrders] = useState<any[]>([]);
   const [carWarnings, setCarWarnings] = useState<any[]>([]);
+
   const [lang, setLang] = useState("ba");
 
   const t = translations[lang] || translations.ba;
@@ -102,51 +222,38 @@ export default function DashboardPage() {
     const savedLang = localStorage.getItem("lang") || "ba";
     setLang(savedLang);
 
-    checkOldLogin();
+    initializeDashboard();
   }, []);
 
-  async function checkOldLogin() {
+  async function initializeDashboard() {
     setAuthLoading(true);
 
-    const storedName =
-      localStorage.getItem("worker_name") ||
-      localStorage.getItem("userName") ||
-      localStorage.getItem("name") ||
-      "";
+    const user = readStoredUser();
 
-    const storedRole =
-      localStorage.getItem("worker_role") ||
-      localStorage.getItem("role") ||
-      localStorage.getItem("userRole") ||
-      "";
-
-    const storedId =
-      localStorage.getItem("worker_id") ||
-      localStorage.getItem("user_id") ||
-      storedName ||
-      "";
-
-    if (!storedName || !storedRole) {
+    if (!user) {
       router.replace("/login");
       return;
     }
 
-    const adminStatus = storedRole === "admin";
+    const adminStatus = user.role === "admin";
 
-    setWorkerName(storedName);
-    setWorkerId(storedId);
+    setWorkerName(user.name);
     setIsAdmin(adminStatus);
 
-    localStorage.setItem("worker_id", storedId);
-    localStorage.setItem("worker_name", storedName);
-    localStorage.setItem("worker_role", storedRole);
-    localStorage.setItem("userName", storedName);
+    // Ostavlja stare module kompatibilnim s novim loginom.
+    localStorage.setItem("worker_id", user.id);
+    localStorage.setItem("worker_name", user.name);
+    localStorage.setItem("worker_role", user.role);
+    localStorage.setItem("user_id", user.id);
+    localStorage.setItem("userName", user.name);
+    localStorage.setItem("userRole", user.role);
+    localStorage.setItem("role", user.role);
     localStorage.setItem("loggedIn", "true");
     localStorage.setItem("isLoggedIn", "true");
 
     await Promise.all([
-      loadMessages(storedId),
-      loadTodayPlans(storedName, adminStatus),
+      loadMessages(user.id),
+      loadTodayPlans(user.name, adminStatus),
       loadMaterialOrders(),
       adminStatus ? loadCarWarnings() : Promise.resolve(),
     ]);
@@ -159,29 +266,49 @@ export default function DashboardPage() {
   }
 
   function clearStoredUser() {
-    localStorage.removeItem("worker_id");
-    localStorage.removeItem("worker_name");
-    localStorage.removeItem("worker_role");
-    localStorage.removeItem("userName");
-    localStorage.removeItem("user_name");
-    localStorage.removeItem("name");
-    localStorage.removeItem("role");
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("loggedIn");
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("authenticated");
+    const localKeys = [
+      "worker_id",
+      "worker_name",
+      "worker_role",
+      "user_id",
+      "userName",
+      "user_name",
+      "name",
+      "role",
+      "userRole",
+      "loggedIn",
+      "isLoggedIn",
+      "authenticated",
+      "currentWorker",
+      "worker",
+      "loggedWorker",
+      "selectedWorker",
+      "currentUser",
+      "loggedUser",
+      "user",
+      "loginUser",
+      "baustelle_user",
+      "stone_user",
+      "app_user",
+    ];
 
-    sessionStorage.removeItem("worker_id");
-    sessionStorage.removeItem("worker_name");
-    sessionStorage.removeItem("worker_role");
-    sessionStorage.removeItem("userName");
-    sessionStorage.removeItem("loggedIn");
-    sessionStorage.removeItem("isLoggedIn");
+    const sessionKeys = [
+      "worker_id",
+      "worker_name",
+      "worker_role",
+      "user_id",
+      "userName",
+      "userRole",
+      "loggedIn",
+      "isLoggedIn",
+    ];
+
+    localKeys.forEach((key) => localStorage.removeItem(key));
+    sessionKeys.forEach((key) => sessionStorage.removeItem(key));
   }
 
   function getTodayLocalDate() {
     const date = new Date();
-
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
@@ -191,7 +318,6 @@ export default function DashboardPage() {
 
   function getOneMonthFromToday() {
     const date = new Date();
-
     date.setMonth(date.getMonth() + 1);
 
     const year = date.getFullYear();
@@ -202,11 +328,20 @@ export default function DashboardPage() {
   }
 
   async function loadMessages(currentWorkerId: string) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("info_messages")
       .select("*")
-      .or(`visible_to_all.eq.true,target_worker_id.eq.${currentWorkerId}`)
       .order("created_at", { ascending: false });
+
+    if (currentWorkerId) {
+      query = query.or(
+        `visible_to_all.eq.true,target_worker_id.eq.${currentWorkerId}`
+      );
+    } else {
+      query = query.eq("visible_to_all", true);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Greška kod učitavanja info poruka:", error);
@@ -283,15 +418,26 @@ export default function DashboardPage() {
     setLang(newLang);
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+    } catch (error) {
+      console.error("Logout API Fehler:", error);
+    }
+
     clearStoredUser();
+
+    setWorkerName("");
+    setIsAdmin(false);
+
     router.replace("/login");
+    router.refresh();
   }
 
   function formatDateTime(value: string) {
-    if (!value) {
-      return "";
-    }
+    if (!value) return "";
 
     return new Date(value).toLocaleString("de-AT", {
       day: "2-digit",
@@ -350,6 +496,12 @@ export default function DashboardPage() {
           </Link>
         )}
 
+        {isAdmin && (
+          <Link href="/mitarbeiter" style={employeeButtonStyle}>
+            👥 {t.employees}
+          </Link>
+        )}
+
         <Link href="/pregled-sati" style={buttonStyle}>
           ⏰ {t.hours}
         </Link>
@@ -375,7 +527,10 @@ export default function DashboardPage() {
           )}
         </Link>
 
-        <Link href="/info" style={messages.length > 0 ? alertButtonStyle : buttonStyle}>
+        <Link
+          href="/info"
+          style={messages.length > 0 ? alertButtonStyle : buttonStyle}
+        >
           📢 {t.info}
           <br />
           <small>
@@ -430,7 +585,10 @@ export default function DashboardPage() {
   );
 }
 
-const loadingPageStyle: any = {
+// ============================================================
+// STYLES
+// ===========================================================
+const loadingPageStyle: CSSProperties = {
   minHeight: "100vh",
   background: "#000000",
   color: "#ffffff",
@@ -440,7 +598,7 @@ const loadingPageStyle: any = {
   padding: "20px",
 };
 
-const loadingBoxStyle: any = {
+const loadingBoxStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
@@ -452,7 +610,7 @@ const loadingBoxStyle: any = {
   padding: "30px",
 };
 
-const loadingCircleStyle: any = {
+const loadingCircleStyle: CSSProperties = {
   width: "64px",
   height: "64px",
   borderRadius: "50%",
@@ -463,39 +621,40 @@ const loadingCircleStyle: any = {
   fontSize: "30px",
 };
 
-const loadingTextStyle: any = {
+const loadingTextStyle: CSSProperties = {
   color: "#ffffff",
   fontSize: "18px",
   fontWeight: "bold",
   margin: 0,
 };
 
-const mainStyle: any = {
+const mainStyle: CSSProperties = {
   background: "#000000",
   minHeight: "100vh",
   color: "#ffffff",
   padding: "20px",
 };
 
-const titleStyle: any = {
+const titleStyle: CSSProperties = {
   fontSize: "38px",
   marginBottom: "6px",
   color: "#f97316",
 };
 
-const subtitleStyle: any = {
+const subtitleStyle: CSSProperties = {
+  marginTop: 0,
   marginBottom: "14px",
   color: "#cccccc",
 };
 
-const languageBoxStyle: any = {
+const languageBoxStyle: CSSProperties = {
   display: "flex",
   gap: "8px",
   marginBottom: "20px",
   flexWrap: "wrap",
 };
 
-const langButtonStyle: any = {
+const langButtonStyle: CSSProperties = {
   background: "#111111",
   color: "#ffffff",
   border: "1px solid #333333",
@@ -506,19 +665,19 @@ const langButtonStyle: any = {
   cursor: "pointer",
 };
 
-const activeLangButtonStyle: any = {
+const activeLangButtonStyle: CSSProperties = {
   ...langButtonStyle,
   background: "#f97316",
   border: "1px solid #f97316",
 };
 
-const gridStyle: any = {
+const gridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
   gap: "10px",
 };
 
-const buttonStyle: any = {
+const buttonStyle: CSSProperties = {
   background: "#2563eb",
   color: "#ffffff",
   textDecoration: "none",
@@ -531,32 +690,37 @@ const buttonStyle: any = {
   cursor: "pointer",
 };
 
-const workerProjectButtonStyle: any = {
+const workerProjectButtonStyle: CSSProperties = {
   ...buttonStyle,
   background: "#16a34a",
 };
 
-const adminProjectButtonStyle: any = {
+const adminProjectButtonStyle: CSSProperties = {
   ...buttonStyle,
   background: "#f97316",
 };
 
-const materialAdminButtonStyle: any = {
+const employeeButtonStyle: CSSProperties = {
+  ...buttonStyle,
+  background: "#0891b2",
+};
+
+const materialAdminButtonStyle: CSSProperties = {
   ...buttonStyle,
   background: "#7c3aed",
 };
 
-const alertButtonStyle: any = {
+const alertButtonStyle: CSSProperties = {
   ...buttonStyle,
   background: "#dc2626",
 };
 
-const logoutButtonStyle: any = {
+const logoutButtonStyle: CSSProperties = {
   ...buttonStyle,
   background: "#dc2626",
 };
 
-const infoBoxStyle: any = {
+const infoBoxStyle: CSSProperties = {
   marginTop: "24px",
   background: "#111111",
   border: "1px solid #333333",
@@ -564,18 +728,19 @@ const infoBoxStyle: any = {
   padding: "18px",
 };
 
-const infoTitleStyle: any = {
+const infoTitleStyle: CSSProperties = {
   color: "#f97316",
   fontSize: "23px",
+  marginTop: 0,
   marginBottom: "14px",
 };
 
-const emptyMessageStyle: any = {
+const emptyMessageStyle: CSSProperties = {
   color: "#aaaaaa",
   fontSize: "16px",
 };
 
-const messageStyle: any = {
+const messageStyle: CSSProperties = {
   background: "#000000",
   border: "1px solid #333333",
   borderRadius: "13px",
@@ -583,7 +748,7 @@ const messageStyle: any = {
   marginBottom: "12px",
 };
 
-const messageTopStyle: any = {
+const messageTopStyle: CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   gap: "12px",
@@ -592,7 +757,7 @@ const messageTopStyle: any = {
   flexWrap: "wrap",
 };
 
-const messageTextStyle: any = {
+const messageTextStyle: CSSProperties = {
   fontSize: "16px",
   whiteSpace: "pre-wrap",
   margin: 0,
