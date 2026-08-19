@@ -4,11 +4,57 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-const RADNICI = ["Arnes", "Ramiz", "Abror", "Shohruh", "Harun"];
 const ADMINI = ["Hido", "Steffi", "Admin"];
+
+type WorkerOption = {
+  label: string;
+  queryNames: string[];
+  active: boolean;
+};
+
+function cleanWorkerName(value: any) {
+  return String(value ?? "").trim();
+}
+
+function workerNameKey(value: any) {
+  return cleanWorkerName(value).toLowerCase();
+}
+
+function uniqueWorkerNames(names: string[]) {
+  const unique = new Map<string, string>();
+
+  for (const rawName of names) {
+    const name = cleanWorkerName(rawName);
+    const key = workerNameKey(name);
+
+    if (name && !unique.has(key)) {
+      unique.set(key, name);
+    }
+  }
+
+  return Array.from(unique.values());
+}
+
+function namesBelongToSameWorker(currentName: string, historicalName: string) {
+  const currentKey = workerNameKey(currentName);
+  const historicalKey = workerNameKey(historicalName);
+
+  if (!currentKey || !historicalKey) return false;
+  if (currentKey === historicalKey) return true;
+
+  const currentTokens = currentKey.split(/\s+/).filter(Boolean);
+
+  return currentTokens.some(
+    (token) =>
+      token === historicalKey ||
+      token.startsWith(historicalKey) ||
+      historicalKey.startsWith(token)
+  );
+}
 
 const GODISNJI_DANI_PO_RADNIKU = 25;
 const SATI_PO_DANU = 8.5;
+const SATI_GODISNJEG_PO_DANU = 8;
 
 const PDF_BUCKET = "pdf-assets";
 const PDF_LOGO_TOP = "gore.png";
@@ -36,6 +82,24 @@ const translations: any = {
     workdays: "radnih dana",
     workers: "radnika",
     days: "dana",
+    activeStatus: "AKTIVAN",
+    passiveStatus: "PASIVAN",
+    addEntry: "Dodaj sate / odsustvo",
+    work: "Rad",
+    entryWorker: "Radnik",
+    entryDate: "Datum",
+    startTime: "Početak",
+    endTime: "Kraj",
+    pauseMinutes: "Pauza (min)",
+    baustelle: "Baustelle",
+    noBaustelle: "Bez Baustelle",
+    saveEntry: "Sačuvaj unos",
+    entrySaved: "Unos je sačuvan.",
+    invalidTime: "Provjeri početak, kraj i pauzu.",
+    vacationLimit: "Godišnji odmor je ograničen na 5 sedmica = 25 radnih dana godišnje.",
+    vacationInfo: "Godišnji: 5 sedmica = 25 radnih dana",
+    workerOwnOnly: "Radnik može pregledati i unositi samo svoje sate.",
+    saving: "Spremanje...",
     addAbsence: "Dodaj godišnji / bolovanje / praznik",
     absenceType: "Vrsta",
     fromDate: "Od datuma",
@@ -51,24 +115,242 @@ const translations: any = {
     onlyAdmin: "Samo admin može dodati godišnji, bolovanje ili praznik.",
     onlyAdminDownload: "Samo admin može izvesti PDF.",
     absenceSaved: "Odsustvo je sačuvano.",
+    date: "Datum", name: "Ime", start: "Početak", pause: "Pauza", end: "Kraj",
+    total: "Ukupno", location: "Lokacija", type: "Tip",
+  },
+
+  de: {
+    back: "Zurück zum Dashboard",
+    title: "Arbeitszeitübersicht",
+    loggedIn: "Angemeldet",
+    worker: "Mitarbeiter",
+    allWorkers: "Alle Mitarbeiter",
+    year: "Jahr",
+    month: "Monat",
+    totalHours: "Gesamtstunden",
+    targetHours: "Sollstunden",
+    balance: "Differenz",
+    sick: "Krankenstand",
+    vacation: "Urlaub",
+    holiday: "Feiertag",
+    entries: "Einträge im Monat",
+    download: "PDF herunterladen",
+    noEntries: "Für diesen Monat sind keine Stunden eingetragen.",
+    workdays: "Arbeitstage",
+    workers: "Mitarbeiter",
+    days: "Tage",
+    activeStatus: "AKTIV",
+    passiveStatus: "PASSIV",
+    addEntry: "Stunden / Abwesenheit hinzufügen",
+    work: "Arbeit",
+    entryWorker: "Mitarbeiter",
+    entryDate: "Datum",
+    startTime: "Beginn",
+    endTime: "Ende",
+    pauseMinutes: "Pause (Min.)",
+    baustelle: "Baustelle",
+    noBaustelle: "Ohne Baustelle",
+    saveEntry: "Eintrag speichern",
+    entrySaved: "Eintrag wurde gespeichert.",
+    invalidTime: "Bitte Beginn, Ende und Pause prüfen.",
+    vacationLimit: "Der Urlaub ist auf 5 Wochen = 25 Arbeitstage pro Jahr begrenzt.",
+    vacationInfo: "Urlaub: 5 Wochen = 25 Arbeitstage",
+    workerOwnOnly: "Mitarbeiter können nur ihre eigenen Stunden sehen und eintragen.",
+    saving: "Speichern...",
+    addAbsence: "Urlaub / Krankenstand / Feiertag hinzufügen",
+    absenceType: "Art",
+    fromDate: "Von Datum",
+    toDate: "Bis Datum",
+    saveAbsence: "Abwesenheit speichern",
+    vacationRight: "Urlaubsanspruch",
+    vacationUsedYear: "Im Jahr verwendet",
+    vacationRestYear: "Rest im Jahr",
+    selectWorker: "Mitarbeiter auswählen",
+    selectType: "Art auswählen",
+    enterDate: "Datum auswählen",
+    dateWrong: "Das Bis-Datum darf nicht vor dem Von-Datum liegen.",
+    onlyAdmin: "Nur Admin kann Urlaub, Krankenstand oder Feiertage hinzufügen.",
+    onlyAdminDownload: "Nur Admin kann PDF exportieren.",
+    absenceSaved: "Abwesenheit wurde gespeichert.",
+    date: "Datum", name: "Name", start: "Beginn", pause: "Pause", end: "Ende",
+    total: "Gesamt", location: "Ort", type: "Art",
+  },
+  uz: {
+    back: "Dashboardga qaytish",
+    title: "Ish vaqti ko‘rinishi",
+    loggedIn: "Kirilgan",
+    worker: "Ishchi",
+    allWorkers: "Barcha ishchilar",
+    year: "Yil",
+    month: "Oy",
+    totalHours: "Jami soatlar",
+    targetHours: "Me’yor soatlar",
+    balance: "Farq",
+    sick: "Kasallik ta’tili",
+    vacation: "Ta’til",
+    holiday: "Bayram kuni",
+    entries: "Oydagi yozuvlar",
+    download: "PDF yuklab olish",
+    noEntries: "Bu oy uchun soatlar kiritilmagan.",
+    workdays: "ish kuni",
+    workers: "ishchi",
+    days: "kun",
+    activeStatus: "FAOL",
+    passiveStatus: "NOFAOL",
+    addEntry: "Soat / yo‘qlik qo‘shish",
+    work: "Ish",
+    entryWorker: "Ishchi",
+    entryDate: "Sana",
+    startTime: "Boshlanish",
+    endTime: "Tugash",
+    pauseMinutes: "Tanaffus (daq.)",
+    baustelle: "Qurilish obyekti",
+    noBaustelle: "Obyektsiz",
+    saveEntry: "Yozuvni saqlash",
+    entrySaved: "Yozuv saqlandi.",
+    invalidTime: "Boshlanish, tugash va tanaffus vaqtini tekshiring.",
+    vacationLimit: "Ta’til yiliga 5 hafta = 25 ish kuni bilan cheklangan.",
+    vacationInfo: "Ta’til: 5 hafta = 25 ish kuni",
+    workerOwnOnly: "Ishchi faqat o‘z soatlarini ko‘rishi va kiritishi mumkin.",
+    saving: "Saqlanmoqda...",
+    addAbsence: "Ta’til / kasallik / bayram qo‘shish",
+    absenceType: "Turi",
+    fromDate: "Boshlanish sanasi",
+    toDate: "Tugash sanasi",
+    saveAbsence: "Yo‘qlikni saqlash",
+    vacationRight: "Ta’til huquqi",
+    vacationUsedYear: "Yilda ishlatilgan",
+    vacationRestYear: "Yillik qoldiq",
+    selectWorker: "Ishchini tanlang",
+    selectType: "Turini tanlang",
+    enterDate: "Sanani tanlang",
+    dateWrong: "Tugash sanasi boshlanish sanasidan oldin bo‘lishi mumkin emas.",
+    onlyAdmin: "Faqat admin ta’til, kasallik yoki bayram kunini qo‘sha oladi.",
+    onlyAdminDownload: "Faqat admin PDF eksport qila oladi.",
+    absenceSaved: "Yo‘qlik saqlandi.",
+    date: "Sana", name: "Ism", start: "Boshlanish", pause: "Tanaffus", end: "Tugash",
+    total: "Jami", location: "Joy", type: "Turi",
+  },
+  cz: {
+    back: "Zpět na Dashboard",
+    title: "Přehled pracovní doby",
+    loggedIn: "Přihlášen",
+    worker: "Pracovník",
+    allWorkers: "Všichni pracovníci",
+    year: "Rok",
+    month: "Měsíc",
+    totalHours: "Celkem hodin",
+    targetHours: "Fond pracovní doby",
+    balance: "Rozdíl",
+    sick: "Nemocenská",
+    vacation: "Dovolená",
+    holiday: "Svátek",
+    entries: "Záznamy v měsíci",
+    download: "Stáhnout PDF",
+    noEntries: "Pro tento měsíc nejsou zadány žádné hodiny.",
+    workdays: "pracovních dnů",
+    workers: "pracovníků",
+    days: "dnů",
+    activeStatus: "AKTIVNÍ",
+    passiveStatus: "NEAKTIVNÍ",
+    addEntry: "Přidat hodiny / nepřítomnost",
+    work: "Práce",
+    entryWorker: "Pracovník",
+    entryDate: "Datum",
+    startTime: "Začátek",
+    endTime: "Konec",
+    pauseMinutes: "Přestávka (min)",
+    baustelle: "Stavba",
+    noBaustelle: "Bez stavby",
+    saveEntry: "Uložit záznam",
+    entrySaved: "Záznam byl uložen.",
+    invalidTime: "Zkontrolujte začátek, konec a přestávku.",
+    vacationLimit: "Dovolená je omezena na 5 týdnů = 25 pracovních dnů ročně.",
+    vacationInfo: "Dovolená: 5 týdnů = 25 pracovních dnů",
+    workerOwnOnly: "Pracovník může zobrazit a zadávat pouze své vlastní hodiny.",
+    saving: "Ukládání...",
+    addAbsence: "Přidat dovolenou / nemocenskou / svátek",
+    absenceType: "Typ",
+    fromDate: "Datum od",
+    toDate: "Datum do",
+    saveAbsence: "Uložit nepřítomnost",
+    vacationRight: "Nárok na dovolenou",
+    vacationUsedYear: "Vyčerpáno v roce",
+    vacationRestYear: "Zbývá v roce",
+    selectWorker: "Vyberte pracovníka",
+    selectType: "Vyberte typ",
+    enterDate: "Vyberte datum",
+    dateWrong: "Datum do nesmí být před datem od.",
+    onlyAdmin: "Pouze admin může přidat dovolenou, nemocenskou nebo svátek.",
+    onlyAdminDownload: "Pouze admin může exportovat PDF.",
+    absenceSaved: "Nepřítomnost byla uložena.",
+    date: "Datum", name: "Jméno", start: "Začátek", pause: "Přestávka", end: "Konec",
+    total: "Celkem", location: "Místo", type: "Typ",
+  },
+  en: {
+    back: "Back to Dashboard",
+    title: "Working hours overview",
+    loggedIn: "Logged in",
+    worker: "Worker",
+    allWorkers: "All workers",
+    year: "Year",
+    month: "Month",
+    totalHours: "Total hours",
+    targetHours: "Target hours",
+    balance: "Difference",
+    sick: "Sick leave",
+    vacation: "Vacation",
+    holiday: "Public holiday",
+    entries: "Entries in month",
+    download: "Download PDF",
+    noEntries: "No hours have been entered for this month.",
+    workdays: "workdays",
+    workers: "workers",
+    days: "days",
+    activeStatus: "ACTIVE",
+    passiveStatus: "INACTIVE",
+    addEntry: "Add hours / absence",
+    work: "Work",
+    entryWorker: "Worker",
+    entryDate: "Date",
+    startTime: "Start",
+    endTime: "End",
+    pauseMinutes: "Break (min)",
+    baustelle: "Construction site",
+    noBaustelle: "No construction site",
+    saveEntry: "Save entry",
+    entrySaved: "Entry was saved.",
+    invalidTime: "Check start, end and break time.",
+    vacationLimit: "Vacation is limited to 5 weeks = 25 working days per year.",
+    vacationInfo: "Vacation: 5 weeks = 25 working days",
+    workerOwnOnly: "Workers can view and enter only their own hours.",
+    saving: "Saving...",
+    addAbsence: "Add vacation / sick leave / public holiday",
+    absenceType: "Type",
+    fromDate: "From date",
+    toDate: "To date",
+    saveAbsence: "Save absence",
+    vacationRight: "Vacation entitlement",
+    vacationUsedYear: "Used this year",
+    vacationRestYear: "Remaining this year",
+    selectWorker: "Select worker",
+    selectType: "Select type",
+    enterDate: "Select date",
+    dateWrong: "The to date cannot be before the from date.",
+    onlyAdmin: "Only an admin can add vacation, sick leave or public holidays.",
+    onlyAdminDownload: "Only an admin can export PDF.",
+    absenceSaved: "Absence was saved.",
+    date: "Date", name: "Name", start: "Start", pause: "Break", end: "End",
+    total: "Total", location: "Location", type: "Type",
   },
 };
 
 const monthNames: any = {
-  ba: [
-    "Januar",
-    "Februar",
-    "Mart",
-    "April",
-    "Maj",
-    "Juni",
-    "Juli",
-    "August",
-    "Septembar",
-    "Oktobar",
-    "Novembar",
-    "Decembar",
-  ],
+  de: ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
+  ba: ["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"],
+  uz: ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"],
+  cz: ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"],
+  en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
 };
 
 const germanMonthNames = [
@@ -108,11 +390,19 @@ export default function PregledSatiPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [unosi, setUnosi] = useState<any[]>([]);
   const [lang, setLang] = useState("ba");
+  const [workerOptions, setWorkerOptions] = useState<WorkerOption[]>([]);
+  const [activeWorkerNames, setActiveWorkerNames] = useState<string[]>([]);
 
   const [absenceWorker, setAbsenceWorker] = useState("");
-  const [absenceType, setAbsenceType] = useState("GODISNJI");
+  const [absenceType, setAbsenceType] = useState("RAD");
   const [absenceFrom, setAbsenceFrom] = useState(today);
   const [absenceTo, setAbsenceTo] = useState(today);
+  const [entryStart, setEntryStart] = useState("08:00");
+  const [entryEnd, setEntryEnd] = useState("17:00");
+  const [entryPause, setEntryPause] = useState("30");
+  const [entryBaustelleId, setEntryBaustelleId] = useState("");
+  const [baustellen, setBaustellen] = useState<any[]>([]);
+  const [savingEntry, setSavingEntry] = useState(false);
   const [godisnjiGodinaUnosi, setGodisnjiGodinaUnosi] = useState<any[]>([]);
 
   const t = translations[lang] || translations.ba;
@@ -121,7 +411,13 @@ export default function PregledSatiPage() {
   useEffect(() => {
     const name = localStorage.getItem("worker_name") || "";
     const savedLang = localStorage.getItem("lang") || "ba";
-    const adminStatus = ADMINI.includes(name);
+    const savedRole = (
+      localStorage.getItem("worker_role") ||
+      localStorage.getItem("role") ||
+      ""
+    ).toLowerCase();
+
+    const adminStatus = savedRole === "admin" || ADMINI.includes(name);
 
     setLang(savedLang);
     setWorkerName(name);
@@ -129,11 +425,13 @@ export default function PregledSatiPage() {
 
     if (adminStatus) {
       setSelectedWorker("ALL");
-      setAbsenceWorker(RADNICI[0]);
     } else {
       setSelectedWorker(name);
       setAbsenceWorker(name);
     }
+
+    loadWorkerLists(adminStatus);
+    loadBaustellen();
   }, []);
 
   useEffect(() => {
@@ -141,7 +439,195 @@ export default function PregledSatiPage() {
       loadData();
       loadGodisnjiGodina();
     }
-  }, [selectedWorker, year, month]);
+  }, [selectedWorker, year, month, workerOptions]);
+
+  async function loadBaustellen() {
+    try {
+      const { data, error } = await supabase
+        .from("baustellen")
+        .select("id, naziv, lokacija")
+        .order("naziv", { ascending: true });
+
+      if (error) {
+        console.error("Pregled sati - baustellen:", error.message);
+        setBaustellen([]);
+        return;
+      }
+
+      setBaustellen(data || []);
+    } catch (error) {
+      console.error("Pregled sati - baustellen:", error);
+      setBaustellen([]);
+    }
+  }
+
+  function getQueryNamesForWorker(name: string) {
+    if (!name || name === "ALL") return [];
+
+    const key = workerNameKey(name);
+
+    const option = workerOptions.find(
+      (item) =>
+        workerNameKey(item.label) === key ||
+        item.queryNames.some((queryName) => workerNameKey(queryName) === key)
+    );
+
+    return option?.queryNames?.length
+      ? uniqueWorkerNames([option.label, ...option.queryNames])
+      : [name];
+  }
+
+  async function loadWorkerLists(adminStatus: boolean) {
+    let currentRows: any[] = [];
+
+    // 1. Prvo probaj isti Admin API koji koristi Mitarbeiter stranica.
+    try {
+      const response = await fetch("/api/admin/workers", {
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (response.ok && Array.isArray(result?.workers)) {
+        currentRows = result.workers;
+      }
+    } catch (error) {
+      console.error("Pregled sati - workers API:", error);
+    }
+
+    // 2. Fallback direktno na workers tabelu, isto kao Mitarbeiter stranica.
+    if (currentRows.length === 0) {
+      try {
+        const { data, error } = await supabase
+          .from("workers")
+          .select("id, name, role, active")
+          .order("name", { ascending: true });
+
+        if (!error) {
+          currentRows = data || [];
+        } else {
+          console.error("Pregled sati - workers tabela:", error.message);
+        }
+      } catch (error) {
+        console.error("Pregled sati - workers tabela:", error);
+      }
+    }
+
+    const currentWorkers = currentRows
+      .map((row: any) => {
+        const name = cleanWorkerName(row?.name);
+        const role = String(row?.role || "worker").toLowerCase();
+
+        return {
+          name,
+          role,
+          active: row?.active !== false,
+        };
+      })
+      .filter(
+        (worker: any) =>
+          worker.name &&
+          worker.role !== "admin" &&
+          !ADMINI.some(
+            (adminName) =>
+              workerNameKey(adminName) === workerNameKey(worker.name)
+          )
+      );
+
+    // Aktivna imena koristimo samo za NOVO odsustvo i trenutnu normu.
+    // Ne koristimo ih za filtriranje Pregleda sati.
+    const activeNames = uniqueWorkerNames(
+      currentWorkers
+        .filter((worker: any) => worker.active)
+        .map((worker: any) => worker.name)
+    );
+
+    // 3. Učitaj SVA historijska imena iz baustelle_hours.
+    //    Radimo po 1000 redova da stari radnik ne nestane zbog API limita.
+    const historicalNames: string[] = [];
+    const pageSize = 1000;
+
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await supabase
+        .from("baustelle_hours")
+        .select("id, radnik")
+        .not("radnik", "is", null)
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (error) {
+        console.error("Pregled sati - historijski radnici:", error.message);
+        break;
+      }
+
+      const page = data || [];
+
+      for (const row of page) {
+        const name = cleanWorkerName((row as any)?.radnik);
+        if (name) historicalNames.push(name);
+      }
+
+      if (page.length < pageSize) break;
+    }
+
+    // 4. U dropdown stavljamo SVE radnike:
+    //    - trenutno aktivne
+    //    - trenutno pasivne/deaktivirane
+    //    - historijske radnike koji više ne postoje u workers tabeli,
+    //      ali imaju stare zapise u baustelle_hours.
+    const options: WorkerOption[] = currentWorkers.map((worker: any) => ({
+      label: worker.name,
+      queryNames: [worker.name],
+      active: worker.active,
+    }));
+
+    // 5. Spoji stara kratka imena sa novim punim imenom kada pripadaju
+    //    istoj osobi (npr. Arnes -> Arnes Abazi, Ramiz -> Ramiz Suvankulov).
+    //    Ako historijsko ime više nema zapis u workers tabeli, ono ipak
+    //    ostaje u Pregledu sati kao PASIVAN radnik.
+    for (const historicalName of uniqueWorkerNames(historicalNames)) {
+      const existing = options.find((option) =>
+        namesBelongToSameWorker(option.label, historicalName)
+      );
+
+      if (existing) {
+        existing.queryNames = uniqueWorkerNames([
+          ...existing.queryNames,
+          historicalName,
+        ]);
+      } else {
+        options.push({
+          label: historicalName,
+          queryNames: [historicalName],
+          active: false,
+        });
+      }
+    }
+
+    // Aktivni su prvi, zatim pasivni; unutar grupe abecedno.
+    options.sort((a, b) => {
+      if (a.active !== b.active) {
+        return a.active ? -1 : 1;
+      }
+
+      return a.label.localeCompare(b.label, "de");
+    });
+
+    setWorkerOptions(options);
+    setActiveWorkerNames(activeNames);
+
+    if (adminStatus && options.length > 0) {
+      setAbsenceWorker((current) => {
+        const stillExists = options.some(
+          (option) => workerNameKey(option.label) === workerNameKey(current)
+        );
+
+        return current && stillExists ? current : options[0].label;
+      });
+    }
+  }
 
   async function loadData() {
     const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -154,10 +640,24 @@ export default function PregledSatiPage() {
       .lt("datum", endDate)
       .order("datum", { ascending: true });
 
-    if (selectedWorker !== "ALL") {
-      query = query.eq("radnik", selectedWorker);
+    const effectiveWorker = isAdmin ? selectedWorker : workerName;
+
+    if (effectiveWorker === "ALL" && isAdmin) {
+      const allNames = uniqueWorkerNames(
+        workerOptions.flatMap((worker) => [worker.label, ...worker.queryNames])
+      );
+
+      if (allNames.length > 0) {
+        query = query.in("radnik", allNames);
+      }
     } else {
-      query = query.in("radnik", RADNICI);
+      const queryNames = getQueryNamesForWorker(effectiveWorker);
+
+      if (queryNames.length === 1) {
+        query = query.eq("radnik", queryNames[0]);
+      } else if (queryNames.length > 1) {
+        query = query.in("radnik", queryNames);
+      }
     }
 
     const { data: hoursData, error } = await query;
@@ -208,10 +708,24 @@ export default function PregledSatiPage() {
       .lt("datum", endDate)
       .or("tip_unosa.eq.GODISNJI,tip_unosa.eq.GODIŠNJI");
 
-    if (selectedWorker !== "ALL") {
-      query = query.eq("radnik", selectedWorker);
+    const effectiveWorker = isAdmin ? selectedWorker : workerName;
+
+    if (effectiveWorker === "ALL" && isAdmin) {
+      const allNames = uniqueWorkerNames(
+        workerOptions.flatMap((worker) => [worker.label, ...worker.queryNames])
+      );
+
+      if (allNames.length > 0) {
+        query = query.in("radnik", allNames);
+      }
     } else {
-      query = query.in("radnik", RADNICI);
+      const queryNames = getQueryNamesForWorker(effectiveWorker);
+
+      if (queryNames.length === 1) {
+        query = query.eq("radnik", queryNames[0]);
+      } else if (queryNames.length > 1) {
+        query = query.in("radnik", queryNames);
+      }
     }
 
     const { data, error } = await query;
@@ -267,20 +781,24 @@ export default function PregledSatiPage() {
     return dates;
   }
 
+  function isGodisnjiTip(tip: any) {
+    const value = String(tip || "").toUpperCase();
+    return value === "GODISNJI" || value === "GODIŠNJI";
+  }
+
   function nazivTipa(tip: string) {
-    if (tip === "GODISNJI" || tip === "GODIŠNJI") return t.vacation;
+    if (isGodisnjiTip(tip)) return t.vacation;
     if (tip === "BOLOVANJE") return t.sick;
     if (tip === "PRAZNIK") return t.holiday;
     return "RAD";
   }
 
-  async function saveAbsence() {
-    if (!isAdmin) {
-      alert(t.onlyAdmin);
-      return;
-    }
+  async function saveEntry() {
+    if (savingEntry) return;
 
-    if (!absenceWorker) {
+    const targetWorker = isAdmin ? absenceWorker : workerName;
+
+    if (!targetWorker) {
       alert(t.selectWorker);
       return;
     }
@@ -290,48 +808,177 @@ export default function PregledSatiPage() {
       return;
     }
 
-    if (!absenceFrom || !absenceTo) {
+    if (!absenceFrom) {
       alert(t.enterDate);
       return;
     }
 
-    if (new Date(absenceTo) < new Date(absenceFrom)) {
-      alert(t.dateWrong);
-      return;
+    setSavingEntry(true);
+
+    try {
+      // RAD: jedan datum, početak/kraj/pauza i opcionalna Baustelle.
+      if (absenceType === "RAD") {
+        const startMinutes = parseTimeToMinutes(entryStart);
+        const endMinutes = parseTimeToMinutes(entryEnd);
+        const pauseMinutes = Number(entryPause || 0);
+
+        if (
+          startMinutes === null ||
+          endMinutes === null ||
+          endMinutes <= startMinutes ||
+          Number.isNaN(pauseMinutes) ||
+          pauseMinutes < 0
+        ) {
+          alert(t.invalidTime);
+          return;
+        }
+
+        const netMinutes = endMinutes - startMinutes - pauseMinutes;
+
+        if (netMinutes <= 0) {
+          alert(t.invalidTime);
+          return;
+        }
+
+        const totalHours = Math.round((netMinutes / 60) * 100) / 100;
+
+        const { error } = await supabase.from("baustelle_hours").insert({
+          baustelle_id: entryBaustelleId || null,
+          room_id: null,
+          radnik: targetWorker,
+          datum: absenceFrom,
+          tip_unosa: "RAD",
+          pocetak: entryStart,
+          kraj: entryEnd,
+          pauza: pauseMinutes,
+          ukupno_sati: totalHours,
+          sati: totalHours,
+          prekovremeni: Math.max(0, totalHours - SATI_PO_DANU),
+          opis_posla: "RAD",
+        });
+
+        if (error) {
+          alert(error.message);
+          return;
+        }
+
+        alert(t.entrySaved);
+        await loadData();
+        await loadGodisnjiGodina();
+        return;
+      }
+
+      // GODIŠNJI / BOLOVANJE / PRAZNIK: raspon radnih dana.
+      if (!absenceTo) {
+        alert(t.enterDate);
+        return;
+      }
+
+      if (new Date(absenceTo) < new Date(absenceFrom)) {
+        alert(t.dateWrong);
+        return;
+      }
+
+      const dates = getDatesBetween(absenceFrom, absenceTo);
+
+      if (dates.length === 0) {
+        alert(t.enterDate);
+        return;
+      }
+
+      let datesToInsert = dates;
+
+      if (isGodisnjiTip(absenceType)) {
+        const years = dates.map((date) => Number(date.slice(0, 4)));
+        const minYear = Math.min(...years);
+        const maxYear = Math.max(...years);
+        const workerNames = getQueryNamesForWorker(targetWorker);
+
+        let vacationQuery = supabase
+          .from("baustelle_hours")
+          .select("datum, radnik")
+          .gte("datum", `${minYear}-01-01`)
+          .lt("datum", `${maxYear + 1}-01-01`)
+          .or("tip_unosa.eq.GODISNJI,tip_unosa.eq.GODIŠNJI");
+
+        if (workerNames.length === 1) {
+          vacationQuery = vacationQuery.eq("radnik", workerNames[0]);
+        } else {
+          vacationQuery = vacationQuery.in("radnik", workerNames);
+        }
+
+        const { data: existingVacation, error: existingVacationError } =
+          await vacationQuery;
+
+        if (existingVacationError) {
+          alert(existingVacationError.message);
+          return;
+        }
+
+        const existingDates = new Set(
+          (existingVacation || []).map((item: any) => String(item.datum))
+        );
+
+        datesToInsert = dates.filter((datum) => !existingDates.has(datum));
+
+        // 5 sedmica = 25 radnih dana godišnje po radniku.
+        for (let y = minYear; y <= maxYear; y++) {
+          const existingInYear = new Set(
+            Array.from(existingDates).filter((datum) =>
+              String(datum).startsWith(`${y}-`)
+            )
+          ).size;
+
+          const newInYear = datesToInsert.filter((datum) =>
+            datum.startsWith(`${y}-`)
+          ).length;
+
+          if (existingInYear + newInYear > GODISNJI_DANI_PO_RADNIKU) {
+            alert(t.vacationLimit);
+            return;
+          }
+        }
+      }
+
+      if (datesToInsert.length === 0) {
+        alert(t.entrySaved);
+        await loadData();
+        await loadGodisnjiGodina();
+        return;
+      }
+
+      const satiZaDan = isGodisnjiTip(absenceType)
+        ? SATI_GODISNJEG_PO_DANU
+        : SATI_PO_DANU;
+
+      const inserts = datesToInsert.map((datum) => ({
+        baustelle_id: null,
+        room_id: null,
+        radnik: targetWorker,
+        datum,
+        tip_unosa: absenceType,
+        pocetak: null,
+        kraj: null,
+        pauza: 0,
+        ukupno_sati: satiZaDan,
+        sati: satiZaDan,
+        prekovremeni: 0,
+        opis_posla: nazivTipa(absenceType),
+      }));
+
+      const { error } = await supabase.from("baustelle_hours").insert(inserts);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      alert(t.entrySaved);
+      await loadData();
+      await loadGodisnjiGodina();
+    } finally {
+      setSavingEntry(false);
     }
-
-    const dates = getDatesBetween(absenceFrom, absenceTo);
-
-    if (dates.length === 0) {
-      alert(t.enterDate);
-      return;
-    }
-
-    const inserts = dates.map((datum) => ({
-      baustelle_id: null,
-      room_id: null,
-      radnik: absenceWorker,
-      datum,
-      tip_unosa: absenceType,
-      pocetak: null,
-      kraj: null,
-      pauza: 0,
-      ukupno_sati: SATI_PO_DANU,
-      sati: SATI_PO_DANU,
-      prekovremeni: 0,
-      opis_posla: nazivTipa(absenceType),
-    }));
-
-    const { error } = await supabase.from("baustelle_hours").insert(inserts);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    alert(t.absenceSaved);
-    await loadData();
-    await loadGodisnjiGodina();
   }
 
   function formatDate(dateString: string) {
@@ -402,11 +1049,14 @@ export default function PregledSatiPage() {
 
     for (const u of unosi) {
       const key = `${u.datum}__${u.radnik || ""}`;
-      const startMinutes = parseTimeToMinutes(u.pocetak);
-      const endMinutes = parseTimeToMinutes(u.kraj);
-      const pause = Number(u.pauza || 0);
-      const hours = Number(u.ukupno_sati || u.sati || 0);
-      const location = getLocationText(u);
+      const isVacation = isGodisnjiTip(u.tip_unosa);
+      const startMinutes = isVacation ? null : parseTimeToMinutes(u.pocetak);
+      const endMinutes = isVacation ? null : parseTimeToMinutes(u.kraj);
+      const pause = isVacation ? 0 : Number(u.pauza || 0);
+      const hours = isVacation
+        ? SATI_GODISNJEG_PO_DANU
+        : Number(u.ukupno_sati || u.sati || 0);
+      const location = isVacation ? "-" : getLocationText(u);
 
       if (!grouped[key]) {
         grouped[key] = {
@@ -417,34 +1067,53 @@ export default function PregledSatiPage() {
           pause,
           hours,
           locations: location && location !== "-" ? [location] : [],
+          hasVacation: isVacation,
         };
-      } else {
-        if (
-          startMinutes !== null &&
-          (grouped[key].startMinutes === null ||
-            startMinutes < grouped[key].startMinutes)
-        ) {
-          grouped[key].startMinutes = startMinutes;
-        }
+        continue;
+      }
 
-        if (
-          endMinutes !== null &&
-          (grouped[key].endMinutes === null ||
-            endMinutes > grouped[key].endMinutes)
-        ) {
-          grouped[key].endMinutes = endMinutes;
-        }
+      // Ako za isti dan postoji godišnji, on vrijedi tačno 8 h.
+      // Dupli GODISNJI/GODIŠNJI zapisi se ne zbrajaju.
+      if (isVacation) {
+        grouped[key].startMinutes = null;
+        grouped[key].endMinutes = null;
+        grouped[key].pause = 0;
+        grouped[key].hours = SATI_GODISNJEG_PO_DANU;
+        grouped[key].locations = [];
+        grouped[key].hasVacation = true;
+        continue;
+      }
 
-        grouped[key].pause = Math.max(Number(grouped[key].pause || 0), pause);
-        grouped[key].hours += hours;
+      // Ako je godišnji već pronađen za taj dan, ne dodaj druge zapise na njega.
+      if (grouped[key].hasVacation) {
+        continue;
+      }
 
-        if (
-          location &&
-          location !== "-" &&
-          !grouped[key].locations.includes(location)
-        ) {
-          grouped[key].locations.push(location);
-        }
+      if (
+        startMinutes !== null &&
+        (grouped[key].startMinutes === null ||
+          startMinutes < grouped[key].startMinutes)
+      ) {
+        grouped[key].startMinutes = startMinutes;
+      }
+
+      if (
+        endMinutes !== null &&
+        (grouped[key].endMinutes === null ||
+          endMinutes > grouped[key].endMinutes)
+      ) {
+        grouped[key].endMinutes = endMinutes;
+      }
+
+      grouped[key].pause = Math.max(Number(grouped[key].pause || 0), pause);
+      grouped[key].hours += hours;
+
+      if (
+        location &&
+        location !== "-" &&
+        !grouped[key].locations.includes(location)
+      ) {
+        grouped[key].locations.push(location);
       }
     }
 
@@ -458,8 +1127,8 @@ export default function PregledSatiPage() {
   }
 
   function downloadPDF() {
-    if (!isAdmin) {
-      alert(t.onlyAdminDownload);
+    if (!isAdmin && selectedWorker !== workerName) {
+      alert(t.workerOwnOnly);
       return;
     }
 
@@ -988,34 +1657,53 @@ export default function PregledSatiPage() {
     printWindow.document.close();
   }
 
-  const ukupnoSati = unosi.reduce(
-    (sum, item) => sum + Number(item.ukupno_sati || item.sati || 0),
-    0
+  const godisnjiKljuceviUMjesecu = new Set(
+    unosi
+      .filter((item) => isGodisnjiTip(item.tip_unosa))
+      .map((item) => `${item.radnik || ""}__${item.datum}`)
   );
+
+  const regularniSati = unosi
+    .filter((item) => !isGodisnjiTip(item.tip_unosa))
+    .reduce(
+      (sum, item) => sum + Number(item.ukupno_sati || item.sati || 0),
+      0
+    );
+
+  // Svaki jedinstveni dan godišnjeg vrijedi tačno 8 h,
+  // bez obzira na stare vrijednosti ili duple zapise u bazi.
+  const ukupnoSati =
+    regularniSati + godisnjiKljuceviUMjesecu.size * SATI_GODISNJEG_PO_DANU;
 
   const bolovanjeDani = unosi.filter(
     (item) => item.tip_unosa === "BOLOVANJE"
   ).length;
 
-  const godisnjiDani = unosi.filter(
-    (item) => item.tip_unosa === "GODISNJI" || item.tip_unosa === "GODIŠNJI"
-  ).length;
+  const godisnjiDani = godisnjiKljuceviUMjesecu.size;
 
   const praznikDani = unosi.filter(
     (item) => item.tip_unosa === "PRAZNIK"
   ).length;
 
   const radniDani = getWorkdaysInMonth(year, month);
-  const brojRadnikaZaNormu = selectedWorker === "ALL" ? RADNICI.length : 1;
+  const brojAktivnihRadnika = activeWorkerNames.length;
+  const brojRadnikaZaNormu =
+    selectedWorker === "ALL" ? brojAktivnihRadnika : 1;
   const normaSati = radniDani * SATI_PO_DANU * brojRadnikaZaNormu;
   const saldo = ukupnoSati - normaSati;
 
+  const brojSvihRadnika = workerOptions.length;
+
   const godisnjiPravoDani =
     selectedWorker === "ALL"
-      ? GODISNJI_DANI_PO_RADNIKU * RADNICI.length
+      ? GODISNJI_DANI_PO_RADNIKU * brojSvihRadnika
       : GODISNJI_DANI_PO_RADNIKU;
 
-  const godisnjiIskoristenoGodina = godisnjiGodinaUnosi.length;
+  const godisnjiIskoristenoGodina = new Set(
+    godisnjiGodinaUnosi.map(
+      (item: any) => `${item.radnik || ""}__${item.datum}`
+    )
+  ).size;
   const godisnjiOstatakGodina = godisnjiPravoDani - godisnjiIskoristenoGodina;
 
   return (
@@ -1041,9 +1729,9 @@ export default function PregledSatiPage() {
           >
             {isAdmin && <option value="ALL">{t.allWorkers}</option>}
             {isAdmin ? (
-              RADNICI.map((r) => (
-                <option key={r} value={r}>
-                  {r}
+              workerOptions.map((worker) => (
+                <option key={worker.label} value={worker.label}>
+                  {worker.label} — {worker.active ? t.activeStatus : t.passiveStatus}
                 </option>
               ))
             ) : (
@@ -1082,49 +1770,72 @@ export default function PregledSatiPage() {
         </div>
       </div>
 
-      {isAdmin && (
-        <div style={absenceBoxStyle}>
-          <h2 style={{ marginTop: 0 }}>+ {t.addAbsence}</h2>
+      <div style={absenceBoxStyle}>
+        <h2 style={{ marginTop: 0 }}>+ {t.addEntry}</h2>
 
-          <div style={absenceGridStyle}>
-            <div>
-              <label>{t.worker}</label>
+        <p style={{ color: "#aaa", marginTop: "-5px", marginBottom: "18px" }}>
+          {t.vacationInfo}
+          {!isAdmin ? ` · ${t.workerOwnOnly}` : ""}
+        </p>
+
+        <div style={absenceGridStyle}>
+          <div>
+            <label>{t.entryWorker}</label>
+
+            {isAdmin ? (
               <select
                 value={absenceWorker}
                 onChange={(e) => setAbsenceWorker(e.target.value)}
                 style={selectStyle}
               >
-                {RADNICI.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
+                <option value="">{t.selectWorker}</option>
+
+                {workerOptions.map((worker) => (
+                  <option key={worker.label} value={worker.label}>
+                    {worker.label} —{" "}
+                    {worker.active ? t.activeStatus : t.passiveStatus}
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label>{t.absenceType}</label>
-              <select
-                value={absenceType}
-                onChange={(e) => setAbsenceType(e.target.value)}
-                style={selectStyle}
-              >
-                <option value="GODISNJI">{t.vacation}</option>
-                <option value="BOLOVANJE">{t.sick}</option>
-                <option value="PRAZNIK">{t.holiday}</option>
+            ) : (
+              <select value={workerName} style={selectStyle} disabled>
+                <option value={workerName}>{workerName}</option>
               </select>
-            </div>
+            )}
+          </div>
 
-            <div>
-              <label>{t.fromDate}</label>
-              <input
-                type="date"
-                value={absenceFrom}
-                onChange={(e) => setAbsenceFrom(e.target.value)}
-                style={selectStyle}
-              />
-            </div>
+          <div>
+            <label>{t.absenceType}</label>
+            <select
+              value={absenceType}
+              onChange={(e) => setAbsenceType(e.target.value)}
+              style={selectStyle}
+            >
+              <option value="RAD">{t.work}</option>
+              <option value="PRAZNIK">{t.holiday}</option>
+              <option value="BOLOVANJE">{t.sick}</option>
+              <option value="GODISNJI">{t.vacation}</option>
+            </select>
+          </div>
 
+          <div>
+            <label>
+              {absenceType === "RAD" ? t.entryDate : t.fromDate}
+            </label>
+            <input
+              type="date"
+              value={absenceFrom}
+              onChange={(e) => {
+                setAbsenceFrom(e.target.value);
+                if (absenceType === "RAD") {
+                  setAbsenceTo(e.target.value);
+                }
+              }}
+              style={selectStyle}
+            />
+          </div>
+
+          {absenceType !== "RAD" && (
             <div>
               <label>{t.toDate}</label>
               <input
@@ -1134,13 +1845,75 @@ export default function PregledSatiPage() {
                 style={selectStyle}
               />
             </div>
-          </div>
+          )}
 
-          <button onClick={saveAbsence} style={absenceButtonStyle}>
-            {t.saveAbsence}
-          </button>
+          {absenceType === "RAD" && (
+            <>
+              <div>
+                <label>{t.startTime}</label>
+                <input
+                  type="time"
+                  value={entryStart}
+                  onChange={(e) => setEntryStart(e.target.value)}
+                  style={selectStyle}
+                />
+              </div>
+
+              <div>
+                <label>{t.pauseMinutes}</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="5"
+                  value={entryPause}
+                  onChange={(e) => setEntryPause(e.target.value)}
+                  style={selectStyle}
+                />
+              </div>
+
+              <div>
+                <label>{t.endTime}</label>
+                <input
+                  type="time"
+                  value={entryEnd}
+                  onChange={(e) => setEntryEnd(e.target.value)}
+                  style={selectStyle}
+                />
+              </div>
+
+              <div>
+                <label>{t.baustelle}</label>
+                <select
+                  value={entryBaustelleId}
+                  onChange={(e) => setEntryBaustelleId(e.target.value)}
+                  style={selectStyle}
+                >
+                  <option value="">{t.noBaustelle}</option>
+
+                  {baustellen.map((b: any) => (
+                    <option key={b.id} value={b.id}>
+                      {b.naziv || b.lokacija || b.id}
+                      {b.lokacija && b.naziv ? ` — ${b.lokacija}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
         </div>
-      )}
+
+        <button
+          onClick={saveEntry}
+          style={{
+            ...absenceButtonStyle,
+            opacity: savingEntry ? 0.6 : 1,
+            cursor: savingEntry ? "default" : "pointer",
+          }}
+          disabled={savingEntry}
+        >
+          {savingEntry ? t.saving : t.saveEntry}
+        </button>
+      </div>
 
       <div style={summaryGridStyle}>
         <div style={summaryBoxStyle}>
@@ -1154,7 +1927,7 @@ export default function PregledSatiPage() {
           <small>
             {radniDani} {t.workdays} × 8.5 h
             {selectedWorker === "ALL"
-              ? ` × ${RADNICI.length} ${t.workers}`
+              ? ` × ${brojAktivnihRadnika} ${t.workers}`
               : ""}
           </small>
         </div>
@@ -1218,11 +1991,9 @@ export default function PregledSatiPage() {
         <div style={listHeaderStyle}>
           <h2>{t.entries}</h2>
 
-          {isAdmin && (
-            <button onClick={downloadPDF} style={downloadButtonStyle}>
-              {t.download}
-            </button>
-          )}
+          <button onClick={downloadPDF} style={downloadButtonStyle}>
+            {t.download}
+          </button>
         </div>
 
         {unosi.length === 0 && <p style={{ color: "#999" }}>{t.noEntries}</p>}
@@ -1232,14 +2003,14 @@ export default function PregledSatiPage() {
             <table style={tableStyle}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Datum</th>
-                  <th style={thStyle}>Ime</th>
-                  <th style={thStyle}>Početak</th>
-                  <th style={thStyle}>Pauza</th>
-                  <th style={thStyle}>Kraj</th>
-                  <th style={thStyle}>Ukupno</th>
-                  <th style={thStyle}>Lokacija</th>
-                  <th style={thStyle}>Tip</th>
+                  <th style={thStyle}>{t.date}</th>
+                  <th style={thStyle}>{t.name}</th>
+                  <th style={thStyle}>{t.start}</th>
+                  <th style={thStyle}>{t.pause}</th>
+                  <th style={thStyle}>{t.end}</th>
+                  <th style={thStyle}>{t.total}</th>
+                  <th style={thStyle}>{t.location}</th>
+                  <th style={thStyle}>{t.type}</th>
                 </tr>
               </thead>
 
