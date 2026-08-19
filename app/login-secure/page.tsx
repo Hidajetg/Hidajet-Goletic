@@ -1,6 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  APP_LANGUAGES,
+  type AppLanguage,
+  readAppLanguage,
+  saveAppLanguage,
+} from "../lib/language";
 
 const LOGO_URL =
   "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/logo.png";
@@ -19,10 +25,74 @@ const users = [
   { id: 8, name: "Admin", pin: "0000", role: "admin" },
 ];
 
+const translations: Record<AppLanguage, Record<string, string>> = {
+  de: {
+    system: "Baustellen Management System",
+    test: "Testbetrieb",
+    name: "Name",
+    pin: "PIN",
+    pinPlaceholder: "PIN eingeben",
+    login: "ANMELDEN",
+    invalid: "Falscher Name oder PIN.",
+    language: "Sprache",
+  },
+  ba: {
+    system: "Sistem upravljanja gradilištima",
+    test: "Testni rad",
+    name: "Ime",
+    pin: "PIN",
+    pinPlaceholder: "Unesi PIN",
+    login: "PRIJAVA",
+    invalid: "Pogrešno ime ili PIN.",
+    language: "Jezik",
+  },
+  uz: {
+    system: "Qurilish maydonini boshqarish tizimi",
+    test: "Sinov rejimi",
+    name: "Ism",
+    pin: "PIN",
+    pinPlaceholder: "PIN kiriting",
+    login: "KIRISH",
+    invalid: "Ism yoki PIN noto‘g‘ri.",
+    language: "Til",
+  },
+  cz: {
+    system: "Systém řízení staveb",
+    test: "Testovací provoz",
+    name: "Jméno",
+    pin: "PIN",
+    pinPlaceholder: "Zadejte PIN",
+    login: "PŘIHLÁSIT",
+    invalid: "Nesprávné jméno nebo PIN.",
+    language: "Jazyk",
+  },
+  en: {
+    system: "Construction Site Management System",
+    test: "Test mode",
+    name: "Name",
+    pin: "PIN",
+    pinPlaceholder: "Enter PIN",
+    login: "LOGIN",
+    invalid: "Incorrect name or PIN.",
+    language: "Language",
+  },
+};
+
 export default function LoginPage() {
   const [name, setName] = useState("Hido");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
+  const [lang, setLang] = useState<AppLanguage>("de");
+  const t = translations[lang];
+
+  useEffect(() => {
+    setLang(readAppLanguage("de"));
+  }, []);
+
+  function changeLanguage(next: AppLanguage) {
+    setLang(next);
+    saveAppLanguage(next);
+  }
 
   function login() {
     const enteredName = name.trim().toLowerCase();
@@ -33,9 +103,11 @@ export default function LoginPage() {
     );
 
     if (!user) {
-      alert("Falscher Name oder PIN.");
+      alert(t.invalid);
       return;
     }
+
+    saveAppLanguage(lang);
 
     localStorage.setItem("worker_id", String(user.id));
     localStorage.setItem("worker_name", user.name);
@@ -68,13 +140,28 @@ export default function LoginPage() {
         <div style={boxStyle}>
           <div style={logoBoxStyle}>
             <img src={LOGO_URL} alt="Solstone Logo" style={logoStyle} />
-
-            <p style={systemStyle}>Baustellen Management System</p>
-            <p style={testStyle}>Testbetrieb</p>
+            <p style={systemStyle}>{t.system}</p>
+            <p style={testStyle}>{t.test}</p>
           </div>
 
-          <label style={labelStyle}>Name</label>
+          <div style={languageRowStyle}>
+            <span style={languageLabelStyle}>{t.language}:</span>
+            {APP_LANGUAGES.map((code) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => changeLanguage(code)}
+                style={{
+                  ...languageButtonStyle,
+                  ...(lang === code ? languageButtonActiveStyle : {}),
+                }}
+              >
+                {code.toUpperCase()}
+              </button>
+            ))}
+          </div>
 
+          <label style={labelStyle}>{t.name}</label>
           <select
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -87,15 +174,14 @@ export default function LoginPage() {
             ))}
           </select>
 
-          <label style={labelStyle}>PIN</label>
-
+          <label style={labelStyle}>{t.pin}</label>
           <div style={pinBoxStyle}>
             <input
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               type={showPin ? "text" : "password"}
               style={{ ...inputStyle, marginBottom: 0, paddingRight: "55px" }}
-              placeholder="PIN eingeben"
+              placeholder={t.pinPlaceholder}
               onKeyDown={(e) => {
                 if (e.key === "Enter") login();
               }}
@@ -105,13 +191,14 @@ export default function LoginPage() {
               type="button"
               onClick={() => setShowPin(!showPin)}
               style={eyeButtonStyle}
+              aria-label={showPin ? "Hide PIN" : "Show PIN"}
             >
               {showPin ? "🙈" : "👁"}
             </button>
           </div>
 
           <button onClick={login} style={buttonStyle}>
-            LOGIN
+            {t.login}
           </button>
 
           <div style={hintBoxStyle}>
@@ -157,7 +244,7 @@ const boxStyle: any = {
 
 const logoBoxStyle: any = {
   textAlign: "center",
-  marginBottom: "35px",
+  marginBottom: "24px",
   paddingBottom: "25px",
   borderBottom: "1px solid rgba(255,255,255,0.18)",
   display: "flex",
@@ -187,6 +274,35 @@ const testStyle: any = {
   color: "#f97316",
   fontWeight: "bold",
   textShadow: "0 2px 8px rgba(0,0,0,0.9)",
+};
+
+const languageRowStyle: any = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "7px",
+  flexWrap: "wrap",
+  marginBottom: "22px",
+};
+
+const languageLabelStyle: any = {
+  fontWeight: "bold",
+  marginRight: "4px",
+};
+
+const languageButtonStyle: any = {
+  border: "1px solid rgba(255,255,255,0.45)",
+  background: "rgba(0,0,0,0.45)",
+  color: "white",
+  borderRadius: "8px",
+  padding: "7px 10px",
+  cursor: "pointer",
+  fontWeight: "bold",
+};
+
+const languageButtonActiveStyle: any = {
+  background: "#f97316",
+  borderColor: "#f97316",
 };
 
 const labelStyle: any = {

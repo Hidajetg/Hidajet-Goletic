@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
-type Lang = "de" | "ba" | "en" | "uz";
+type Lang = "de" | "ba" | "en" | "uz" | "cz";
 
 type Projekt = {
   id: number | string;
@@ -276,6 +276,69 @@ const t: Record<Lang, any> = {
       saveFailed: "Regie saqlanmadi.",
     },
   },
+
+  cz: {
+    back: "Zpět",
+    title: "Vícepráce / Regie",
+    subtitle:
+      "Regie je doklad o vícepráci. Po podpisu může změny provádět pouze admin.",
+    language: "Jazyk",
+    worker: "Přihlášený pracovník",
+    noWorker:
+      "Není přihlášen žádný pracovník. Nejprve se přihlaste pomocí PINu na přihlašovací stránce.",
+    workers: "Vyberte další pracovníky",
+    date: "Datum",
+    start: "Od",
+    end: "Do",
+    pause: "Přestávka v minutách",
+    room: "Místnost",
+    selectRoom: "Vyberte místnost",
+    noRooms: "Nejsou žádné místnosti. Nejprve je přidejte v administraci.",
+    position: "LV pozice",
+    selectPosition: "Vyberte LV pozici",
+    noPositions:
+      "Nejsou k dispozici žádné LV pozice. Pokud odpovídající pozice neexistuje, zadejte dodatečnou pozici.",
+    extraPosition: "Dodatečná pozice / popis",
+    extraPositionPlaceholder: "Pokud odpovídající LV pozice neexistuje, zadejte ji zde",
+    work: "Regie práce",
+    workPlaceholder: "Co bylo provedeno jako vícepráce?",
+    description: "Popis",
+    descriptionPlaceholder: "Popis vícepráce",
+    material: "Materiál / nářadí / ostatní",
+    materialPlaceholder: "Zadejte materiál nebo nářadí",
+    calculatedHours: "Hodiny na pracovníka",
+    totalWorkerHours: "Celkem hodin pracovníků",
+    photos: "Fotografie",
+    photoTitle: "Název fotografie",
+    photoNote: "Poznámka k fotografii",
+    addPhotos: "Přidat fotografie",
+    save: "Uložit Regie",
+    saving: "Ukládání...",
+    todayEntries: "Dnešní Regie",
+    noEntries: "Pro dnešek nejsou žádné Regie záznamy.",
+    successSaved: "Regie bylo uloženo.",
+    nextStep: "Další krok",
+    signNow: "Podpis stavbyvedoucího",
+    openPdf: "Otevřít PDF",
+    showQr: "QR kód pro PDF",
+    pdfOnlyAfterSign:
+      "QR kód se zobrazí až po podpisu a otevře pouze PDF.",
+    signed: "Podepsáno",
+    waiting: "Čeká na podpis",
+    locked: "Uzamčeno",
+    notLocked: "Otevřeno",
+    errors: {
+      noWorker:
+        "Není přihlášen žádný pracovník. Nejprve se přihlaste pomocí PINu na přihlašovací stránce.",
+      selectWorkers: "Vyberte alespoň jednoho pracovníka.",
+      selectRoom: "Vyberte místnost.",
+      enterWork: "Zadejte Regie práci.",
+      enterDescription: "Zadejte popis.",
+      invalidTime: "Zadejte platnou pracovní dobu.",
+      duplicate: "Tento Regie záznam již existuje.",
+      saveFailed: "Regie se nepodařilo uložit.",
+    },
+  },
 };
 
 export default function RadnikRegiePage() {
@@ -350,7 +413,7 @@ export default function RadnikRegiePage() {
       localStorage.getItem("language") ||
       "ba";
 
-    if (["de", "ba", "en", "uz"].includes(value)) {
+    if (["de", "ba", "en", "uz", "cz"].includes(value)) {
       return value as Lang;
     }
 
@@ -430,6 +493,8 @@ export default function RadnikRegiePage() {
   function changeLang(next: Lang) {
     setLang(next);
     localStorage.setItem("appLanguage", next);
+    localStorage.setItem("lang", next);
+    localStorage.setItem("language", next);
     localStorage.setItem("lang", next);
     localStorage.setItem("language", next);
   }
@@ -1074,7 +1139,7 @@ export default function RadnikRegiePage() {
         <label>{tr("language")}</label>
 
         <div className="langGrid">
-          {(["de", "ba", "en", "uz"] as Lang[]).map((x) => (
+          {(["de", "ba", "en", "uz", "cz"] as Lang[]).map((x) => (
             <button
               key={x}
               className={lang === x ? "active" : ""}

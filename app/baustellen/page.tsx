@@ -65,6 +65,22 @@ const translations: any = {
     status: "Status",
     active: "Active",
   },
+
+  cz: {
+    dashboard: "Dashboard",
+    archive: "Archiv",
+    title: "Stavby",
+    overview: "Přehled aktivních staveb",
+    newSite: "Nová stavba",
+    siteName: "Název stavby",
+    location: "Místo",
+    description: "Popis stavby",
+    save: "Uložit stavbu",
+    enterName: "Zadejte název stavby",
+    empty: "Nejsou žádné aktivní stavby.",
+    status: "Stav",
+    active: "Aktivní",
+  },
 };
 
 export default function BaustellenPage() {

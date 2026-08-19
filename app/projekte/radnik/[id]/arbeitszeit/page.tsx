@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
-type Lang = "de" | "ba" | "en" | "uz";
+type Lang = "de" | "ba" | "en" | "uz" | "cz";
 
 type Projekt = {
   id: number | string;
@@ -165,6 +165,42 @@ const t: Record<Lang, any> = {
         "Baza to‘liq emas. Avval SQL 001_kontrola_radnika_lv_regie ni ishga tushiring.",
     },
   },
+
+  cz: {
+    back: "Zpět",
+    title: "Pracovní doba",
+    subtitle: "Pracovní doba musí být propojena s místností a LV pozicí.",
+    language: "Jazyk",
+    worker: "Pracovník",
+    selectWorker: "Vyberte pracovníka",
+    date: "Datum",
+    start: "Od",
+    end: "Do",
+    pause: "Přestávka v minutách",
+    room: "Místnost",
+    selectRoom: "Vyberte místnost",
+    position: "LV pozice",
+    selectPosition: "Vyberte LV pozici",
+    note: "Poznámka",
+    notePlaceholder: "Poznámka k pracovní době",
+    calculatedHours: "Vypočítané hodiny",
+    save: "Uložit pracovní dobu",
+    saving: "Ukládání...",
+    todayEntries: "Dnešní pracovní doba",
+    noEntries: "Pro dnešek nejsou žádné záznamy pracovní doby.",
+    project: "Projekt",
+    successSaved: "Pracovní doba byla uložena.",
+    errors: {
+      selectWorker: "Vyberte pracovníka.",
+      selectRoom: "Vyberte místnost.",
+      selectPosition: "Vyberte LV pozici.",
+      invalidTime: "Zadejte platnou pracovní dobu.",
+      duplicate: "Tato pracovní doba již byla zadána.",
+      saveFailed: "Pracovní dobu se nepodařilo uložit.",
+      sqlMissing:
+        "Databáze není kompletní. Nejprve spusťte SQL 001_kontrola_radnika_lv_regie.",
+    },
+  },
 };
 
 export default function RadnikArbeitszeitPage() {
@@ -202,7 +238,7 @@ export default function RadnikArbeitszeitPage() {
       localStorage.getItem("radnik") ||
       "";
 
-    if (["de", "ba", "en", "uz"].includes(savedLang)) {
+    if (["de", "ba", "en", "uz", "cz"].includes(savedLang)) {
       setLang(savedLang);
     }
 
@@ -245,6 +281,8 @@ export default function RadnikArbeitszeitPage() {
   function changeLang(next: Lang) {
     setLang(next);
     localStorage.setItem("appLanguage", next);
+    localStorage.setItem("lang", next);
+    localStorage.setItem("language", next);
   }
 
   function changeWorker(next: string) {
@@ -590,7 +628,7 @@ export default function RadnikArbeitszeitPage() {
         <label>{tr("language")}</label>
 
         <div className="langGrid">
-          {(["de", "ba", "en", "uz"] as Lang[]).map((x) => (
+          {(["de", "ba", "en", "uz", "cz"] as Lang[]).map((x) => (
             <button
               key={x}
               className={lang === x ? "active" : ""}

@@ -4,10 +4,116 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
+import {
+  type AppLanguage,
+  localeForLanguage,
+  readAppLanguage,
+} from "../../../lib/language";
+
+
+const reportTranslations: Record<AppLanguage, Record<string, string>> = {
+  de: {
+    loading: "Bericht wird geladen...", back: "← Zurück zur Baustelle", download: "📥 PDF herunterladen",
+    title: "ABSCHLUSSBERICHT BAUSTELLE", siteOverview: "Baustellenübersicht", site: "Baustelle",
+    place: "Ort", projectStart: "Projektbeginn", projectEnd: "Projektende", roomCount: "Anzahl Räume",
+    workdayCount: "Anzahl Arbeitstage", worker: "Mitarbeiter", workHours: "Arbeitsstunden",
+    regieHours: "Regiestunden", totalWithRegie: "Gesamt inkl. Regie", allWorkHours: "Gesamtübersicht Arbeitsstunden",
+    noWorkHours: "Keine Arbeitsstunden vorhanden.", date: "Datum", room: "Raum", start: "Beginn",
+    end: "Ende", pause: "Pause", total: "Gesamt", activity: "Tätigkeit", totalRegie: "Gesamt Regiestunden",
+    reportCount: "Anzahl Regieberichte", regieTotal: "Regiestunden gesamt", regieEntries: "Einzelne Regieeinträge",
+    noRegie: "Keine Regiestunden vorhanden.", reportNo: "Bericht Nr.", from: "Von", to: "Bis",
+    hours: "Stunden", workDone: "Ausgeführte Arbeiten", roomOverview: "Raumübersicht", noRooms: "Keine Räume vorhanden.",
+    roomSum: "Summe Raum", noRoomHours: "Keine Arbeitsstunden für diesen Raum.", materialUse: "Materialverbrauch",
+    noRoomMaterial: "Kein Material für diesen Raum.", material: "Material", quantity: "Menge", unit: "Einheit",
+    performance: "Leistungsnachweis", noProductivity: "Keine Produktivitätsdaten für diesen Raum.", output: "Leistung",
+    note: "Notiz", photoDocs: "Fotodokumentation", noPhotos: "Keine Fotos für diesen Raum.", addedBy: "Hinzugefügt von",
+    description: "Beschreibung", totalEvaluation: "Gesamtauswertung", workerCount: "Anzahl Mitarbeiter",
+    photoCount: "Anzahl Fotos", createdAt: "Bericht erstellt am", unknownMaterial: "Unbekannter Materialeintrag",
+    notSaved: "Nicht gespeichert", photo: "Foto",
+  },
+  ba: {
+    loading: "Učitavanje izvještaja...", back: "← Nazad na Baustelle", download: "📥 Preuzmi PDF",
+    title: "ZAVRŠNI IZVJEŠTAJ BAUSTELLE", siteOverview: "Pregled Baustelle", site: "Baustelle",
+    place: "Lokacija", projectStart: "Početak projekta", projectEnd: "Kraj projekta", roomCount: "Broj prostorija",
+    workdayCount: "Broj radnih dana", worker: "Radnik", workHours: "Radni sati",
+    regieHours: "Regie sati", totalWithRegie: "Ukupno sa Regie satima", allWorkHours: "Ukupan pregled radnih sati",
+    noWorkHours: "Nema radnih sati.", date: "Datum", room: "Prostorija", start: "Početak",
+    end: "Kraj", pause: "Pauza", total: "Ukupno", activity: "Rad", totalRegie: "Ukupno Regie sati",
+    reportCount: "Broj Regieberichta", regieTotal: "Ukupno Regie sati", regieEntries: "Pojedinačni Regie unosi",
+    noRegie: "Nema Regie sati.", reportNo: "Broj izvještaja", from: "Od", to: "Do",
+    hours: "Sati", workDone: "Izvedeni radovi", roomOverview: "Pregled prostorija", noRooms: "Nema prostorija.",
+    roomSum: "Ukupno prostorija", noRoomHours: "Nema radnih sati za ovu prostoriju.", materialUse: "Potrošnja materijala",
+    noRoomMaterial: "Nema materijala za ovu prostoriju.", material: "Materijal", quantity: "Količina", unit: "Jedinica",
+    performance: "Učinak / produktivnost", noProductivity: "Nema podataka o produktivnosti za ovu prostoriju.", output: "Učinak",
+    note: "Napomena", photoDocs: "Fotodokumentacija", noPhotos: "Nema fotografija za ovu prostoriju.", addedBy: "Dodao",
+    description: "Opis", totalEvaluation: "Ukupna analiza", workerCount: "Broj radnika",
+    photoCount: "Broj fotografija", createdAt: "Izvještaj napravljen", unknownMaterial: "Nepoznat unos materijala",
+    notSaved: "Nije sačuvano", photo: "Fotografija",
+  },
+  uz: {
+    loading: "Hisobot yuklanmoqda...", back: "← Obyektga qaytish", download: "📥 PDF yuklab olish",
+    title: "OBYEKT YAKUNIY HISOBOTI", siteOverview: "Obyekt ko‘rinishi", site: "Obyekt",
+    place: "Manzil", projectStart: "Loyiha boshlanishi", projectEnd: "Loyiha tugashi", roomCount: "Xonalar soni",
+    workdayCount: "Ish kunlari soni", worker: "Ishchi", workHours: "Ish soatlari",
+    regieHours: "Regie soatlari", totalWithRegie: "Regie bilan jami", allWorkHours: "Ish soatlari umumiy ko‘rinishi",
+    noWorkHours: "Ish soatlari mavjud emas.", date: "Sana", room: "Xona", start: "Boshlanish",
+    end: "Tugash", pause: "Tanaffus", total: "Jami", activity: "Ish", totalRegie: "Jami Regie soatlari",
+    reportCount: "Regie hisobotlari soni", regieTotal: "Jami Regie soatlari", regieEntries: "Alohida Regie yozuvlari",
+    noRegie: "Regie soatlari mavjud emas.", reportNo: "Hisobot №", from: "Dan", to: "Gacha",
+    hours: "Soatlar", workDone: "Bajarilgan ishlar", roomOverview: "Xonalar ko‘rinishi", noRooms: "Xonalar yo‘q.",
+    roomSum: "Xona jami", noRoomHours: "Bu xona uchun ish soatlari yo‘q.", materialUse: "Material sarfi",
+    noRoomMaterial: "Bu xona uchun material yo‘q.", material: "Material", quantity: "Miqdor", unit: "Birlik",
+    performance: "Ish unumdorligi", noProductivity: "Bu xona uchun unumdorlik ma’lumoti yo‘q.", output: "Natija",
+    note: "Izoh", photoDocs: "Foto hujjatlar", noPhotos: "Bu xona uchun rasmlar yo‘q.", addedBy: "Qo‘shgan",
+    description: "Tavsif", totalEvaluation: "Umumiy tahlil", workerCount: "Ishchilar soni",
+    photoCount: "Rasmlar soni", createdAt: "Hisobot yaratilgan sana", unknownMaterial: "Noma’lum material yozuvi",
+    notSaved: "Saqlanmagan", photo: "Rasm",
+  },
+  cz: {
+    loading: "Načítání reportu...", back: "← Zpět na stavbu", download: "📥 Stáhnout PDF",
+    title: "ZÁVĚREČNÝ REPORT STAVBY", siteOverview: "Přehled stavby", site: "Stavba",
+    place: "Místo", projectStart: "Začátek projektu", projectEnd: "Konec projektu", roomCount: "Počet místností",
+    workdayCount: "Počet pracovních dnů", worker: "Pracovník", workHours: "Pracovní hodiny",
+    regieHours: "Regie hodiny", totalWithRegie: "Celkem včetně Regie", allWorkHours: "Celkový přehled pracovních hodin",
+    noWorkHours: "Nejsou žádné pracovní hodiny.", date: "Datum", room: "Místnost", start: "Začátek",
+    end: "Konec", pause: "Přestávka", total: "Celkem", activity: "Činnost", totalRegie: "Celkem Regie hodin",
+    reportCount: "Počet Regie reportů", regieTotal: "Regie hodiny celkem", regieEntries: "Jednotlivé Regie záznamy",
+    noRegie: "Nejsou žádné Regie hodiny.", reportNo: "Report č.", from: "Od", to: "Do",
+    hours: "Hodiny", workDone: "Provedené práce", roomOverview: "Přehled místností", noRooms: "Nejsou žádné místnosti.",
+    roomSum: "Součet místnosti", noRoomHours: "Pro tuto místnost nejsou pracovní hodiny.", materialUse: "Spotřeba materiálu",
+    noRoomMaterial: "Pro tuto místnost není žádný materiál.", material: "Materiál", quantity: "Množství", unit: "Jednotka",
+    performance: "Výkon", noProductivity: "Pro tuto místnost nejsou údaje o produktivitě.", output: "Výkon",
+    note: "Poznámka", photoDocs: "Fotodokumentace", noPhotos: "Pro tuto místnost nejsou fotografie.", addedBy: "Přidal",
+    description: "Popis", totalEvaluation: "Celkové vyhodnocení", workerCount: "Počet pracovníků",
+    photoCount: "Počet fotografií", createdAt: "Report vytvořen", unknownMaterial: "Neznámý záznam materiálu",
+    notSaved: "Neuloženo", photo: "Fotografie",
+  },
+  en: {
+    loading: "Loading report...", back: "← Back to site", download: "📥 Download PDF",
+    title: "FINAL CONSTRUCTION SITE REPORT", siteOverview: "Site overview", site: "Site",
+    place: "Location", projectStart: "Project start", projectEnd: "Project end", roomCount: "Number of rooms",
+    workdayCount: "Number of workdays", worker: "Worker", workHours: "Working hours",
+    regieHours: "Regie hours", totalWithRegie: "Total incl. Regie", allWorkHours: "Overall working hours overview",
+    noWorkHours: "No working hours available.", date: "Date", room: "Room", start: "Start",
+    end: "End", pause: "Break", total: "Total", activity: "Activity", totalRegie: "Total Regie hours",
+    reportCount: "Number of Regie reports", regieTotal: "Total Regie hours", regieEntries: "Individual Regie entries",
+    noRegie: "No Regie hours available.", reportNo: "Report no.", from: "From", to: "To",
+    hours: "Hours", workDone: "Work performed", roomOverview: "Room overview", noRooms: "No rooms available.",
+    roomSum: "Room total", noRoomHours: "No working hours for this room.", materialUse: "Material consumption",
+    noRoomMaterial: "No material for this room.", material: "Material", quantity: "Quantity", unit: "Unit",
+    performance: "Performance", noProductivity: "No productivity data for this room.", output: "Performance",
+    note: "Note", photoDocs: "Photo documentation", noPhotos: "No photos for this room.", addedBy: "Added by",
+    description: "Description", totalEvaluation: "Overall evaluation", workerCount: "Number of workers",
+    photoCount: "Number of photos", createdAt: "Report created on", unknownMaterial: "Unknown material entry",
+    notSaved: "Not saved", photo: "Photo",
+  },
+};
 
 export default function BaustellePregledPage() {
   const params = useParams();
   const baustelleId = String(params.id);
+  const [lang, setLang] = useState<AppLanguage>("de");
+  const t = reportTranslations[lang];
 
   const [loading, setLoading] = useState(true);
   const [baustelle, setBaustelle] = useState<any>(null);
@@ -22,6 +128,7 @@ export default function BaustellePregledPage() {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   useEffect(() => {
+    setLang(readAppLanguage("de"));
     loadReport();
   }, []);
 
@@ -35,7 +142,7 @@ export default function BaustellePregledPage() {
       .single();
 
     if (baustelleError) {
-      alert("Fehler beim Laden der Baustelle: " + baustelleError.message);
+      alert(`${t.loading}: ${baustelleError.message}`);
       setLoading(false);
       return;
     }
@@ -135,7 +242,7 @@ export default function BaustellePregledPage() {
       return "-";
     }
 
-    return date.toLocaleDateString("de-AT", {
+    return date.toLocaleDateString(localeForLanguage(lang), {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -151,7 +258,7 @@ export default function BaustellePregledPage() {
       return "-";
     }
 
-    return date.toLocaleString("de-AT", {
+    return date.toLocaleString(localeForLanguage(lang), {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -161,7 +268,7 @@ export default function BaustellePregledPage() {
   }
 
   function formatNumber(value: any) {
-    return Number(value || 0).toLocaleString("de-AT", {
+    return Number(value || 0).toLocaleString(localeForLanguage(lang), {
       minimumFractionDigits: 1,
       maximumFractionDigits: 2,
     });
@@ -171,48 +278,28 @@ export default function BaustellePregledPage() {
     const raw = String(position || "").trim();
     const value = raw.toLowerCase();
 
-    const translations: Record<string, string> = {
-      zid: "Wand",
-      devor: "Wand",
-      wall: "Wand",
-      wand: "Wand",
-
-      pod: "Boden",
-      pol: "Boden",
-      floor: "Boden",
-      boden: "Boden",
-
-      plintus: "Sockelleiste",
-      randlajsna: "Sockelleiste",
-      lajsna: "Sockelleiste",
-      sockelleiste: "Sockelleiste",
-
-      profil: "Profil",
-      profile: "Profil",
-
-      schiene: "Schiene",
-      "schiene / lajsna": "Schiene / Sockelleiste",
-      "schiene/lajsna": "Schiene / Sockelleiste",
-
-      silikon: "Silikon",
-      "silikon 5 mm gacha": "Silikon 5 mm",
-      "silikon 5mm gacha": "Silikon 5 mm",
-      silicone: "Silikon",
-
-      acryl: "Acryl",
-      akril: "Acryl",
-      "akril 5 mm gacha": "Acryl 5 mm",
-      "akril 5mm gacha": "Acryl 5 mm",
-
-      stepenice: "Stufen",
-      stufen: "Stufen",
-
-      fuge: "Fugen",
-      fugovanje: "Fugen",
-      fugen: "Fugen",
+    const aliases: Record<string, string> = {
+      zid: "wall", devor: "wall", wall: "wall", wand: "wall",
+      pod: "floor", pol: "floor", floor: "floor", boden: "floor",
+      plintus: "skirting", randlajsna: "skirting", lajsna: "skirting", sockelleiste: "skirting",
+      profil: "profile", profile: "profile",
+      schiene: "rail", "schiene / lajsna": "rail", "schiene/lajsna": "rail",
+      silikon: "silicone", "silikon 5 mm gacha": "silicone5", "silikon 5mm gacha": "silicone5", silicone: "silicone",
+      acryl: "acrylic", akril: "acrylic", "akril 5 mm gacha": "acrylic5", "akril 5mm gacha": "acrylic5",
+      stepenice: "steps", stufen: "steps",
+      fuge: "grout", fugovanje: "grout", fugen: "grout",
     };
 
-    return translations[value] || raw || "-";
+    const labels: Record<AppLanguage, Record<string, string>> = {
+      de: { wall: "Wand", floor: "Boden", skirting: "Sockelleiste", profile: "Profil", rail: "Schiene / Sockelleiste", silicone: "Silikon", silicone5: "Silikon 5 mm", acrylic: "Acryl", acrylic5: "Acryl 5 mm", steps: "Stufen", grout: "Fugen" },
+      ba: { wall: "Zid", floor: "Pod", skirting: "Sokl / lajsna", profile: "Profil", rail: "Schiene / lajsna", silicone: "Silikon", silicone5: "Silikon 5 mm", acrylic: "Akril", acrylic5: "Akril 5 mm", steps: "Stepenice", grout: "Fuge" },
+      uz: { wall: "Devor", floor: "Pol", skirting: "Plintus", profile: "Profil", rail: "Profil / plintus", silicone: "Silikon", silicone5: "Silikon 5 mm", acrylic: "Akril", acrylic5: "Akril 5 mm", steps: "Zinalar", grout: "Fuga" },
+      cz: { wall: "Stěna", floor: "Podlaha", skirting: "Sokl", profile: "Profil", rail: "Lišta / profil", silicone: "Silikon", silicone5: "Silikon 5 mm", acrylic: "Akryl", acrylic5: "Akryl 5 mm", steps: "Schody", grout: "Spáry" },
+      en: { wall: "Wall", floor: "Floor", skirting: "Skirting", profile: "Profile", rail: "Rail / skirting", silicone: "Silicone", silicone5: "Silicone 5 mm", acrylic: "Acrylic", acrylic5: "Acrylic 5 mm", steps: "Steps", grout: "Grout" },
+    };
+
+    const key = aliases[value];
+    return key ? labels[lang][key] || raw : raw || "-";
   }
 
   function getMaterialName(materialId: number) {
@@ -249,7 +336,7 @@ export default function BaustellePregledPage() {
       ? getMaterialName(item.material_id)
       : "";
 
-    return manualName || catalogName || "Unbekannter Materialeintrag";
+    return manualName || catalogName || t.unknownMaterial;
   }
 
   function getMaterialUnitFromRoomMaterial(item: any) {
@@ -294,7 +381,7 @@ export default function BaustellePregledPage() {
       lowerName === "nepoznat radnik" ||
       lowerName === "nicht gespeichert"
     ) {
-      return "Nicht gespeichert";
+      return t.notSaved;
     }
 
     return name;
@@ -325,7 +412,7 @@ export default function BaustellePregledPage() {
       (item: any) => Number(item.id) === Number(roomId)
     );
 
-    return room?.naziv || `Raum ${roomId}`;
+    return room?.naziv || `${t.room} ${roomId}`;
   }
 
   function getHoursForRoom(roomId: number) {
@@ -437,7 +524,7 @@ export default function BaustellePregledPage() {
   if (loading) {
     return (
       <main style={mainStyle}>
-        <p>Bericht wird geladen...</p>
+        <p>{t.loading}</p>
       </main>
     );
   }
@@ -543,7 +630,7 @@ export default function BaustellePregledPage() {
           href={`/baustellen/${baustelleId}`}
           style={backLinkStyle}
         >
-          ← Zurück zur Baustelle
+          {t.back}
         </Link>
 
         <button
@@ -551,74 +638,74 @@ export default function BaustellePregledPage() {
           style={pdfButtonStyle}
           className="report-pdf-button"
         >
-          📥 PDF herunterladen
+          {t.download}
         </button>
       </div>
 
       <h1 style={titleStyle} className="report-title">
-        ABSCHLUSSBERICHT BAUSTELLE
+        {t.title}
       </h1>
 
       <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>Baustellenübersicht</h2>
+        <h2 style={sectionTitleStyle}>{t.siteOverview}</h2>
 
         <div style={infoGridStyle}>
           <p>
-            <strong>Baustelle:</strong>
+            <strong>{t.site}:</strong>
             <br />
             {baustelle?.naziv || "-"}
           </p>
 
           <p>
-            <strong>Ort:</strong>
+            <strong>{t.place}:</strong>
             <br />
             {baustelle?.lokacija || "-"}
           </p>
 
           <p>
-            <strong>Projektbeginn:</strong>
+            <strong>{t.projectStart}:</strong>
             <br />
             {formatDate(startDate)}
           </p>
 
           <p>
-            <strong>Projektende:</strong>
+            <strong>{t.projectEnd}:</strong>
             <br />
             {formatDate(endDate)}
           </p>
 
           <p>
-            <strong>Anzahl Räume:</strong>
+            <strong>{t.roomCount}:</strong>
             <br />
             {rooms.length}
           </p>
 
           <p>
-            <strong>Anzahl Arbeitstage:</strong>
+            <strong>{t.workdayCount}:</strong>
             <br />
             {workDays.length}
           </p>
 
           <p>
-            <strong>Mitarbeiter:</strong>
+            <strong>{t.worker}:</strong>
             <br />
             {allWorkers.length > 0 ? allWorkers.join(", ") : "-"}
           </p>
 
           <p>
-            <strong>Arbeitsstunden:</strong>
+            <strong>{t.workHours}:</strong>
             <br />
             {formatNumber(totalHours)} h
           </p>
 
           <p>
-            <strong>Regiestunden:</strong>
+            <strong>{t.regieHours}:</strong>
             <br />
             {formatNumber(totalRegieHours)} h
           </p>
 
           <p>
-            <strong>Gesamt inkl. Regie:</strong>
+            <strong>{t.totalWithRegie}:</strong>
             <br />
             {formatNumber(totalHoursIncludingRegie)} h
           </p>
@@ -626,27 +713,23 @@ export default function BaustellePregledPage() {
       </section>
 
       <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>
-          Gesamtübersicht Arbeitsstunden
-        </h2>
+        <h2 style={sectionTitleStyle}>{t.allWorkHours}</h2>
 
         {hours.length === 0 ? (
-          <p style={mutedTextStyle}>
-            Keine Arbeitsstunden vorhanden.
-          </p>
+          <p style={mutedTextStyle}>{t.noWorkHours}</p>
         ) : (
           <div style={tableWrapStyle}>
             <table style={tableStyle}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Datum</th>
-                  <th style={thStyle}>Mitarbeiter</th>
-                  <th style={thStyle}>Raum</th>
-                  <th style={thStyle}>Beginn</th>
-                  <th style={thStyle}>Ende</th>
-                  <th style={thStyle}>Pause</th>
-                  <th style={thStyle}>Gesamt</th>
-                  <th style={thStyle}>Tätigkeit</th>
+                  <th style={thStyle}>{t.date}</th>
+                  <th style={thStyle}>{t.worker}</th>
+                  <th style={thStyle}>{t.room}</th>
+                  <th style={thStyle}>{t.start}</th>
+                  <th style={thStyle}>{t.end}</th>
+                  <th style={thStyle}>{t.pause}</th>
+                  <th style={thStyle}>{t.total}</th>
+                  <th style={thStyle}>{t.activity}</th>
                 </tr>
               </thead>
 
@@ -698,16 +781,16 @@ export default function BaustellePregledPage() {
       </section>
 
       <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>Regiestunden</h2>
+        <h2 style={sectionTitleStyle}>{t.regieHours}</h2>
 
         <div style={regieSummaryStyle}>
           <p>
-            <strong>Gesamt Regiestunden:</strong>{" "}
+            <strong>{t.totalRegie}:</strong>{" "}
             {formatNumber(totalRegieHours)} h
           </p>
 
           <p>
-            <strong>Anzahl Regieberichte:</strong>{" "}
+            <strong>{t.reportCount}:</strong>{" "}
             {regieberichte.length}
           </p>
         </div>
@@ -717,8 +800,8 @@ export default function BaustellePregledPage() {
             <table style={tableStyle}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Mitarbeiter</th>
-                  <th style={thStyle}>Regiestunden gesamt</th>
+                  <th style={thStyle}>{t.worker}</th>
+                  <th style={thStyle}>{t.regieTotal}</th>
                 </tr>
               </thead>
 
@@ -734,22 +817,22 @@ export default function BaustellePregledPage() {
           </div>
         )}
 
-        <h3 style={subTitleStyle}>Einzelne Regieeinträge</h3>
+        <h3 style={subTitleStyle}>{t.regieEntries}</h3>
 
         {regieHours.length === 0 ? (
-          <p style={mutedTextStyle}>Keine Regiestunden vorhanden.</p>
+          <p style={mutedTextStyle}>{t.noRegie}</p>
         ) : (
           <div style={tableWrapStyle}>
             <table style={tableStyle}>
               <thead>
                 <tr>
-                  <th style={thStyle}>Bericht Nr.</th>
-                  <th style={thStyle}>Datum</th>
-                  <th style={thStyle}>Mitarbeiter</th>
-                  <th style={thStyle}>Von</th>
-                  <th style={thStyle}>Bis</th>
-                  <th style={thStyle}>Stunden</th>
-                  <th style={thStyle}>Ausgeführte Arbeiten</th>
+                  <th style={thStyle}>{t.reportNo}</th>
+                  <th style={thStyle}>{t.date}</th>
+                  <th style={thStyle}>{t.worker}</th>
+                  <th style={thStyle}>{t.from}</th>
+                  <th style={thStyle}>{t.to}</th>
+                  <th style={thStyle}>{t.hours}</th>
+                  <th style={thStyle}>{t.workDone}</th>
                 </tr>
               </thead>
 
@@ -772,12 +855,10 @@ export default function BaustellePregledPage() {
       </section>
 
       <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>Raumübersicht</h2>
+        <h2 style={sectionTitleStyle}>{t.roomOverview}</h2>
 
         {rooms.length === 0 && (
-          <p style={mutedTextStyle}>
-            Keine Räume vorhanden.
-          </p>
+          <p style={mutedTextStyle}>{t.noRooms}</p>
         )}
 
         {rooms.map((room: any) => {
@@ -804,29 +885,27 @@ export default function BaustellePregledPage() {
                 Raum: {room.naziv}
               </h2>
 
-              <h3 style={subTitleStyle}>Arbeitsstunden</h3>
+              <h3 style={subTitleStyle}>{t.workHours}</h3>
 
               <p>
-                <strong>Summe Raum:</strong>{" "}
+                <strong>{t.roomSum}:</strong>{" "}
                 {formatNumber(roomTotalHours)} h
               </p>
 
               {roomHours.length === 0 ? (
-                <p style={mutedTextStyle}>
-                  Keine Arbeitsstunden für diesen Raum.
-                </p>
+                <p style={mutedTextStyle}>{t.noRoomHours}</p>
               ) : (
                 <div style={tableWrapStyle}>
                   <table style={tableStyle}>
                     <thead>
                       <tr>
-                        <th style={thStyle}>Datum</th>
-                        <th style={thStyle}>Mitarbeiter</th>
-                        <th style={thStyle}>Beginn</th>
-                        <th style={thStyle}>Ende</th>
-                        <th style={thStyle}>Pause</th>
-                        <th style={thStyle}>Gesamt</th>
-                        <th style={thStyle}>Tätigkeit</th>
+                        <th style={thStyle}>{t.date}</th>
+                        <th style={thStyle}>{t.worker}</th>
+                        <th style={thStyle}>{t.start}</th>
+                        <th style={thStyle}>{t.end}</th>
+                        <th style={thStyle}>{t.pause}</th>
+                        <th style={thStyle}>{t.total}</th>
+                        <th style={thStyle}>{t.activity}</th>
                       </tr>
                     </thead>
 
@@ -870,22 +949,18 @@ export default function BaustellePregledPage() {
                 </div>
               )}
 
-              <h3 style={subTitleStyle}>
-                Materialverbrauch
-              </h3>
+              <h3 style={subTitleStyle}>{t.materialUse}</h3>
 
               {roomMaterial.length === 0 ? (
-                <p style={mutedTextStyle}>
-                  Kein Material für diesen Raum.
-                </p>
+                <p style={mutedTextStyle}>{t.noRoomMaterial}</p>
               ) : (
                 <div style={tableWrapStyle}>
                   <table style={tableStyle}>
                     <thead>
                       <tr>
-                        <th style={thStyle}>Material</th>
-                        <th style={thStyle}>Menge</th>
-                        <th style={thStyle}>Einheit</th>
+                        <th style={thStyle}>{t.material}</th>
+                        <th style={thStyle}>{t.quantity}</th>
+                        <th style={thStyle}>{t.unit}</th>
                       </tr>
                     </thead>
 
@@ -914,25 +989,21 @@ export default function BaustellePregledPage() {
                 </div>
               )}
 
-              <h3 style={subTitleStyle}>
-                Leistungsnachweis
-              </h3>
+              <h3 style={subTitleStyle}>{t.performance}</h3>
 
               {roomProductivity.length === 0 ? (
-                <p style={mutedTextStyle}>
-                  Keine Produktivitätsdaten für diesen Raum.
-                </p>
+                <p style={mutedTextStyle}>{t.noProductivity}</p>
               ) : (
                 <div style={tableWrapStyle}>
                   <table style={tableStyle}>
                     <thead>
                       <tr>
-                        <th style={thStyle}>Datum</th>
-                        <th style={thStyle}>Mitarbeiter</th>
-                        <th style={thStyle}>Leistung</th>
-                        <th style={thStyle}>Menge</th>
-                        <th style={thStyle}>Einheit</th>
-                        <th style={thStyle}>Notiz</th>
+                        <th style={thStyle}>{t.date}</th>
+                        <th style={thStyle}>{t.worker}</th>
+                        <th style={thStyle}>{t.output}</th>
+                        <th style={thStyle}>{t.quantity}</th>
+                        <th style={thStyle}>{t.unit}</th>
+                        <th style={thStyle}>{t.note}</th>
                       </tr>
                     </thead>
 
@@ -969,14 +1040,10 @@ export default function BaustellePregledPage() {
                 </div>
               )}
 
-              <h3 style={subTitleStyle}>
-                Fotodokumentation
-              </h3>
+              <h3 style={subTitleStyle}>{t.photoDocs}</h3>
 
               {roomPhotos.length === 0 ? (
-                <p style={mutedTextStyle}>
-                  Keine Fotos für diesen Raum.
-                </p>
+                <p style={mutedTextStyle}>{t.noPhotos}</p>
               ) : (
                 <div
                   style={photoGridStyle}
@@ -1012,14 +1079,12 @@ export default function BaustellePregledPage() {
                           </p>
 
                           <p style={photoCaptionStyle}>
-                            <strong>
-                              Hinzugefügt von:
-                            </strong>{" "}
+                            <strong>{t.addedBy}:</strong>{" "}
                             {getPhotoWorker(photo)}
                           </p>
 
                           <p style={photoCaptionStyle}>
-                            <strong>Datum:</strong>{" "}
+                            <strong>{t.date}:</strong>{" "}
                             {formatDateTime(
                               getPhotoCreatedAt(photo)
                             )}
@@ -1027,9 +1092,7 @@ export default function BaustellePregledPage() {
 
                           {getPhotoDescription(photo) && (
                             <p style={photoCaptionStyle}>
-                              <strong>
-                                Beschreibung:
-                              </strong>{" "}
+                              <strong>{t.description}:</strong>{" "}
                               {getPhotoDescription(photo)}
                             </p>
                           )}
@@ -1045,51 +1108,49 @@ export default function BaustellePregledPage() {
       </section>
 
       <section style={boxStyle} className="print-box">
-        <h2 style={sectionTitleStyle}>
-          Gesamtauswertung
-        </h2>
+        <h2 style={sectionTitleStyle}>{t.totalEvaluation}</h2>
 
         <p>
-          <strong>Arbeitsstunden:</strong>{" "}
+          <strong>{t.workHours}:</strong>{" "}
           {formatNumber(totalHours)} h
         </p>
 
         <p>
-          <strong>Regiestunden:</strong>{" "}
+          <strong>{t.regieHours}:</strong>{" "}
           {formatNumber(totalRegieHours)} h
         </p>
 
         <p>
-          <strong>Gesamtstunden inkl. Regie:</strong>{" "}
+          <strong>{t.totalWithRegie}:</strong>{" "}
           {formatNumber(totalHoursIncludingRegie)} h
         </p>
 
         <p>
-          <strong>Anzahl Mitarbeiter:</strong>{" "}
+          <strong>{t.workerCount}:</strong>{" "}
           {allWorkers.length}
         </p>
 
         <p>
-          <strong>Anzahl Räume:</strong> {rooms.length}
+          <strong>{t.roomCount}:</strong> {rooms.length}
         </p>
 
         <p>
-          <strong>Anzahl Arbeitstage:</strong>{" "}
+          <strong>{t.workdayCount}:</strong>{" "}
           {workDays.length}
         </p>
 
         <p>
-          <strong>Anzahl Regieberichte:</strong>{" "}
+          <strong>{t.reportCount}:</strong>{" "}
           {regieberichte.length}
         </p>
 
         <p>
-          <strong>Anzahl Fotos:</strong> {photos.length}
+          <strong>{t.photoCount}:</strong> {photos.length}
         </p>
 
         <p>
-          <strong>Bericht erstellt am:</strong>{" "}
-          {new Date().toLocaleDateString("de-AT")}
+          <strong>{t.createdAt}:</strong>{" "}
+          {new Date().toLocaleDateString(localeForLanguage(lang))}
         </p>
       </section>
 
@@ -1101,7 +1162,7 @@ export default function BaustellePregledPage() {
         >
           <img
             src={selectedPhoto}
-            alt="Foto"
+            alt={t.photo}
             style={modalImageStyle}
           />
         </div>

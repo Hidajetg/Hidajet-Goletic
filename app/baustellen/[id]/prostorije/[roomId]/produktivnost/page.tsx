@@ -147,6 +147,42 @@ const translations: any = {
     updateError: "UPDATE PRODUCTIVITY ERROR: ",
     deleteError: "DELETE PRODUCTIVITY ERROR: ",
   },
+
+  cz: {
+    back: "Zpět do místnosti",
+    title: "Produktivita",
+    workDuration: "Doba práce",
+    workHours: "Pracovní hodiny",
+    productivityHours: "Hodiny produktivity",
+    difference: "Rozdíl",
+    workHoursText: "Součet všech pracovních hodin přidaných k této místnosti",
+    productivityHoursText: "Součet všech volných záznamů s jednotkou h",
+    worker: "Pracovník",
+    workerMissing: "Přihlášený pracovník nebyl nalezen",
+    selectPosition: "Vyberte pozici",
+    freeInput: "Volný zápis",
+    manualInput: "ruční zadání",
+    backPositions: "Zpět na pozice",
+    workName: "Název práce",
+    format: "Formát dlaždice, např. 60x120",
+    quantity: "Množství",
+    add: "Přidat",
+    list: "Seznam produktivity",
+    noEntries: "Zatím žádné záznamy.",
+    employee: "Pracovník",
+    date: "Datum",
+    delete: "Smazat",
+    choosePosition: "Vyberte pozici.",
+    loginAgain: "Přihlášený pracovník nebyl nalezen. Přihlaste se znovu.",
+    enterQuantity: "Zadejte množství.",
+    enterWorkName: "Zadejte název práce.",
+    deleteConfirm: "Chcete tento záznam smazat?",
+    loadError: "CHYBA NAČTENÍ PRODUKTIVITY: ",
+    loadHoursError: "CHYBA NAČTENÍ HODIN: ",
+    saveError: "CHYBA ULOŽENÍ PRODUKTIVITY: ",
+    updateError: "CHYBA AKTUALIZACE PRODUKTIVITY: ",
+    deleteError: "CHYBA SMAZÁNÍ PRODUKTIVITY: ",
+  },
 };
 
 const pozicije = [
@@ -158,6 +194,7 @@ const pozicije = [
       ba: "Pod",
       uz: "Pol",
       en: "Floor",
+      cz: "Podlaha",
     },
   },
   {
@@ -168,6 +205,7 @@ const pozicije = [
       ba: "Zid",
       uz: "Devor",
       en: "Wall",
+      cz: "Stěna",
     },
   },
   {
@@ -178,6 +216,7 @@ const pozicije = [
       ba: "Sockel / lajsna",
       uz: "Plintus",
       en: "Skirting",
+      cz: "Sokl / lišta",
     },
   },
   {
@@ -188,6 +227,7 @@ const pozicije = [
       ba: "Sockel stepenice",
       uz: "Zina plintusi",
       en: "Stair skirting",
+      cz: "Schodový sokl",
     },
   },
   {
@@ -198,6 +238,7 @@ const pozicije = [
       ba: "Schiene / lajsna",
       uz: "Profil",
       en: "Profile",
+      cz: "Profil / lišta",
     },
   },
   {
@@ -208,6 +249,7 @@ const pozicije = [
       ba: "Silikon do 5 mm",
       uz: "Silikon 5 mm gacha",
       en: "Silicone up to 5 mm",
+      cz: "Silikon do 5 mm",
     },
   },
   {
@@ -218,6 +260,7 @@ const pozicije = [
       ba: "Acryl do 5 mm",
       uz: "Akril 5 mm gacha",
       en: "Acrylic up to 5 mm",
+      cz: "Akryl do 5 mm",
     },
   },
   {
@@ -228,6 +271,7 @@ const pozicije = [
       ba: "Stepenice",
       uz: "Zinalar",
       en: "Stairs",
+      cz: "Schody",
     },
   },
   {
@@ -238,6 +282,7 @@ const pozicije = [
       ba: "Slobodno dodavanje",
       uz: "Erkin kiritish",
       en: "Free input",
+      cz: "Volný zápis",
     },
   },
 ];
@@ -304,6 +349,26 @@ export default function ProduktivnostPage() {
 
   function labelPozicije(p: any) {
     return p.label?.[lang] || p.label?.ba || p.key;
+  }
+
+  function prikazSpremljenePozicije(value: string) {
+    const raw = String(value || "").trim();
+    const normalized = raw.toLocaleLowerCase();
+
+    for (const p of pozicije) {
+      if (p.key === "FREE") continue;
+
+      const knownValues = [p.key, ...Object.values(p.label || {})].map((v) =>
+        String(v).trim().toLocaleLowerCase()
+      );
+
+      if (knownValues.includes(normalized)) {
+        return labelPozicije(p);
+      }
+    }
+
+    // Slobodno upisan naziv korisnika ostaje nepromijenjen.
+    return raw;
   }
 
   function isFreePosition(p: any) {
@@ -604,7 +669,7 @@ export default function ProduktivnostPage() {
 
         {unosi.map((u) => (
           <div key={u.id} style={styles.savedCard}>
-            <strong>{u.pozicija}</strong>
+            <strong>{prikazSpremljenePozicije(u.pozicija)}</strong>
 
             <div style={styles.savedQuantity}>
               {u.kolicina} {u.jedinica}

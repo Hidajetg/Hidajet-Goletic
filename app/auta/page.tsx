@@ -50,6 +50,8 @@ const translations: any = {
     totalTrips: "Fahrten",
     activeDamages: "Offene Schäden",
     sending: "Wird gesendet...",
+    deleteCarConfirm: "Auto wirklich löschen?",
+    deleteDamageConfirm: "Schaden wirklich löschen?",
   },
   ba: {
     title: "Auta",
@@ -94,6 +96,8 @@ const translations: any = {
     totalTrips: "Vožnje",
     activeDamages: "Otvoreni kvarovi",
     sending: "Šalje se...",
+    deleteCarConfirm: "Da li stvarno želiš obrisati auto?",
+    deleteDamageConfirm: "Da li stvarno želiš obrisati kvar?",
   },
   uz: {
     title: "Mashinalar",
@@ -138,6 +142,8 @@ const translations: any = {
     totalTrips: "Safarlar",
     activeDamages: "Ochiq nosozliklar",
     sending: "Yuborilmoqda...",
+    deleteCarConfirm: "Mashinani o‘chirmoqchimisiz?",
+    deleteDamageConfirm: "Nosozlikni o‘chirmoqchimisiz?",
   },
   en: {
     title: "Cars",
@@ -182,6 +188,55 @@ const translations: any = {
     totalTrips: "Trips",
     activeDamages: "Open damages",
     sending: "Sending...",
+    deleteCarConfirm: "Do you really want to delete this car?",
+    deleteDamageConfirm: "Do you really want to delete this damage report?",
+  },
+
+  cz: {
+    title: "Auta",
+    back: "← Zpět",
+    myCar: "Moje auto",
+    takeCar: "Převzít auto",
+    returnCar: "Vrátit auto",
+    freeCars: "Volná auta",
+    currentUse: "Aktuální používání",
+    fleet: "Vozový park",
+    damages: "Poškození / závady",
+    reportDamage: "Nahlásit závadu",
+    damageText: "Popište závadu",
+    chooseCar: "Vyberte auto",
+    send: "Odeslat",
+    history: "Historie jízd",
+    statistics: "Statistika",
+    addCar: "Přidat auto",
+    edit: "Upravit",
+    delete: "Smazat",
+    cancel: "Zrušit",
+    name: "Název auta",
+    plate: "SPZ",
+    registration: "Registrace platná do",
+    warning: "Registrace brzy vyprší!",
+    noCars: "Žádná auta.",
+    noFreeCars: "Žádná volná auta.",
+    noActive: "Aktuálně nikdo nejede.",
+    noHistory: "Žádná historie.",
+    noDamages: "Žádné závady.",
+    enterName: "Zadejte název auta.",
+    alreadyTaken: "Toto auto je již obsazené.",
+    alreadyHaveCar: "Už máte auto. Nejprve ho vraťte.",
+    notLoggedIn: "Nejste přihlášen.",
+    enterDamage: "Vyberte auto a zadejte popis závady.",
+    repaired: "Vyřešeno",
+    open: "Otevřeno",
+    active: "Aktivní",
+    free: "Volné",
+    since: "Od",
+    returned: "Vráceno",
+    totalTrips: "Jízdy",
+    activeDamages: "Otevřené závady",
+    sending: "Odesílání...",
+    deleteCarConfirm: "Opravdu chcete toto auto smazat?",
+    deleteDamageConfirm: "Opravdu chcete tuto závadu smazat?",
   },
 };
 
@@ -380,7 +435,7 @@ export default function AutaPage() {
   }
 
   async function deleteCar(id: number) {
-    if (!confirm("Auto löschen / obrisati?")) return;
+    if (!confirm(t.deleteCarConfirm)) return;
 
     const { error } = await supabase.from("cars").delete().eq("id", id);
 
@@ -480,7 +535,7 @@ export default function AutaPage() {
   }
 
   async function deleteDamage(damage: any) {
-    if (!confirm("Schaden löschen / obrisati?")) return;
+    if (!confirm(t.deleteDamageConfirm)) return;
 
     if (damage.storage_path) {
       await supabase.storage.from("car-damages").remove([damage.storage_path]);

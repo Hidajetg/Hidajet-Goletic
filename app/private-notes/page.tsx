@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
+import { localeForLanguage, normalizeAppLanguage } from "../lib/language";
 
 const ADMINI = ["Hido", "Steffi", "Admin"];
 
@@ -26,6 +27,8 @@ const translations: any = {
     delete: "Löschen",
     empty: "Noch keine Notizen vorhanden.",
     search: "Suchen...",
+    deleteConfirm: "Notiz wirklich löschen?",
+    unknown: "Unbekannt",
   },
   ba: {
     back: "← Nazad na Dashboard",
@@ -46,6 +49,8 @@ const translations: any = {
     delete: "Obriši",
     empty: "Još nema bilješki.",
     search: "Pretraga...",
+    deleteConfirm: "Da li stvarno želiš obrisati bilješku?",
+    unknown: "Nepoznato",
   },
   uz: {
     back: "← Dashboardga qaytish",
@@ -66,6 +71,8 @@ const translations: any = {
     delete: "O‘chirish",
     empty: "Hozircha eslatmalar yo‘q.",
     search: "Qidirish...",
+    deleteConfirm: "Eslatmani o‘chirmoqchimisiz?",
+    unknown: "Noma’lum",
   },
   en: {
     back: "← Back to Dashboard",
@@ -86,6 +93,31 @@ const translations: any = {
     delete: "Delete",
     empty: "No notes yet.",
     search: "Search...",
+    deleteConfirm: "Do you really want to delete this note?",
+    unknown: "Unknown",
+  },
+
+  cz: {
+    back: "← Zpět na Dashboard",
+    title: "Soukromá poznámka",
+    newNote: "Nová poznámka",
+    baustelle: "Stavba",
+    chooseBaustelle: "Vyberte stavbu",
+    titleInput: "Název",
+    noteInput: "Poznámka",
+    save: "Uložit",
+    update: "Aktualizovat",
+    cancel: "Zrušit",
+    myNotes: "Moje poznámky",
+    allNotes: "Všechny poznámky",
+    worker: "Pracovník",
+    date: "Datum",
+    edit: "Upravit",
+    delete: "Smazat",
+    empty: "Zatím nejsou žádné poznámky.",
+    search: "Hledat...",
+    deleteConfirm: "Opravdu chcete tuto poznámku smazat?",
+    unknown: "Neznámý",
   },
 };
 
@@ -153,7 +185,7 @@ export default function PrivateNotesPage() {
   }
 
   function formatDateTime(value: string) {
-    return new Date(value).toLocaleString("de-AT", {
+    return new Date(value).toLocaleString(localeForLanguage(normalizeAppLanguage(lang)), {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -197,7 +229,7 @@ export default function PrivateNotesPage() {
     } else {
       const { error } = await supabase.from("private_notes").insert([
         {
-          worker_name: workerName || "Unbekannt",
+          worker_name: workerName || t.unknown,
           baustelle_id: baustelleId ? Number(baustelleId) : null,
           naslov: naslov.trim(),
           biljeska: biljeska.trim(),
@@ -223,7 +255,7 @@ export default function PrivateNotesPage() {
   }
 
   async function deleteNote(id: number) {
-    const potvrda = confirm("Notiz wirklich löschen?");
+    const potvrda = confirm(t.deleteConfirm);
 
     if (!potvrda) return;
 

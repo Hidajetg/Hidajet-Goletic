@@ -94,6 +94,29 @@ const translations: any = {
     telefone: "Muhim telefonlar",
     notizen: "Qo‘shimcha eslatmalar",
   },
+
+  cz: {
+    back: "Zpět na stavbu",
+    title: "Informace o stavbě",
+    edit: "Upravit",
+    save: "Uložit",
+    close: "Zavřít",
+    loading: "Načítání...",
+    empty: "Nejsou zadány žádné informace.",
+    openMaps: "Otevřít Google Maps",
+    google_maps: "Poloha v Google Maps",
+    ansprechpartner: "Stavbyvedoucí / kontaktní osoba",
+    zugang: "Přístup / číslo dveří",
+    parking: "Parkování",
+    schluessel: "Klíče",
+    wc: "WC",
+    strom: "Elektřina",
+    wasser: "Voda",
+    lift: "Výtah",
+    arbeitszeit: "Pracovní doba",
+    telefone: "Důležitá telefonní čísla",
+    notizen: "Další poznámky",
+  },
 };
 
 const fields = [

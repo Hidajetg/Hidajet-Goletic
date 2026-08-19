@@ -74,6 +74,24 @@ const translations: any = {
     planned: "Planned",
     active: "Active",
   },
+
+  cz: {
+    back: "← Zpět",
+    title: "👷 Moje projekty",
+    loggedAs: "Přihlášen jako",
+    searchLabel: "Hledat projekt",
+    searchPlaceholder: "Hledat projekt, místo nebo zákazníka...",
+    noProjectsTitle: "Žádné aktivní projekty",
+    noProjectsText: "Aktuálně nejsou žádné aktivní projekty.",
+    client: "Objednatel",
+    manager: "Stavbyvedoucí",
+    place: "Místo",
+    execution: "Realizace",
+    open: "Otevřít →",
+    loading: "Načítání...",
+    planned: "Plánováno",
+    active: "Aktivní",
+  },
 };
 
 export default function RadnikProjektePage() {
@@ -184,7 +202,7 @@ export default function RadnikProjektePage() {
       </p>
 
       <div style={languageBoxStyle}>
-        {["de", "ba", "uz", "en"].map((code) => (
+        {["de", "ba", "uz", "cz", "en"].map((code) => (
           <button
             key={code}
             onClick={() => changeLanguage(code)}

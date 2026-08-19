@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
+import { type AppLanguage, saveAppLanguage } from "../lib/language";
 
 type UserRole = "admin" | "worker";
 
@@ -88,6 +89,25 @@ const translations: Record<string, Record<string, string>> = {
     noMessages: "There are currently no info messages.",
     message: "message",
     checking: "Checking login...",
+  },
+
+  cz: {
+    welcome: "Vítejte",
+    baustelle: "Stavba",
+    hours: "Hodiny",
+    calendar: "Kalendář",
+    info: "Info",
+    cars: "Auta",
+    materialOrder: "Objednat materiál",
+    adminMaterial: "Materiál",
+    privateNote: "Soukromá poznámka",
+    projects: "Projekty",
+    workerProjects: "Moje projekty",
+    employees: "Pracovníci",
+    logout: "Odhlásit se",
+    noMessages: "Aktuálně nejsou žádné informační zprávy.",
+    message: "zpráva",
+    checking: "Kontrola přihlášení...",
   },
 };
 
@@ -413,8 +433,8 @@ export default function DashboardPage() {
     setCarWarnings(data || []);
   }
 
-  function changeLanguage(newLang: string) {
-    localStorage.setItem("lang", newLang);
+  function changeLanguage(newLang: AppLanguage) {
+    saveAppLanguage(newLang);
     setLang(newLang);
   }
 
@@ -469,7 +489,7 @@ export default function DashboardPage() {
       </h2>
 
       <div style={languageBoxStyle}>
-        {["de", "ba", "uz", "en"].map((code) => (
+        {(["de", "ba", "uz", "cz", "en"] as AppLanguage[]).map((code) => (
           <button
             key={code}
             type="button"

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
-type Language = "de" | "ba" | "uz" | "en";
+type Language = "de" | "ba" | "uz" | "cz" | "en";
 
 type MaterialRow = {
   id: number;
@@ -68,6 +68,7 @@ const LANGUAGE_OPTIONS: Array<{ code: Language; label: string }> = [
   { code: "de", label: "DE" },
   { code: "ba", label: "BA" },
   { code: "uz", label: "UZ" },
+  { code: "cz", label: "CZ" },
   { code: "en", label: "EN" },
 ];
 
@@ -75,6 +76,7 @@ const LOCALES: Record<Language, string> = {
   de: "de-AT",
   ba: "bs-BA",
   uz: "uz-UZ",
+  cz: "cs-CZ",
   en: "en-GB",
 };
 
@@ -324,6 +326,68 @@ const translations = {
     statusDelivered: "Delivered",
     statusCancelled: "Cancelled",
   },
+
+  cz: {
+    loading: "Načítání objednávek materiálu...",
+    pageTitle: "Objednat materiál",
+    loggedInAs: "Přihlášen jako",
+    dashboard: "Dashboard",
+    addMissingMaterial: "Přidat chybějící materiál",
+    searchMaterial: "Hledat materiál",
+    materialSearchPlaceholder: "Zadejte název materiálu...",
+    selectMaterial: "Vyberte materiál",
+    materialSelectPlaceholder: "Vyberte materiál...",
+    quantity: "Množství",
+    unit: "Jednotka",
+    unitPlaceholder: "ks, kg, pytel...",
+    selectDestination: "Vyberte místo dodání",
+    warehouse: "Sklad",
+    activeSite: "Aktivní stavba",
+    selectSite: "Vyberte stavbu",
+    activeSitePlaceholder: "Vyberte aktivní stavbu...",
+    noActiveSite: "Nebyla nalezena žádná aktivní stavba.",
+    note: "Poznámka",
+    notePlaceholder: "Další informace...",
+    addToOrder: "+ Přidat materiál do objednávky",
+    orderList: "Seznam objednávky",
+    noMaterialAdded: "Zatím nebyl přidán žádný materiál.",
+    remove: "Odebrat",
+    target: "Cíl",
+    employee: "Pracovník",
+    addedAt: "Přidáno",
+    savingOrder: "Ukládání objednávky...",
+    orderMaterial: "OBJEDNAT MATERIÁL",
+    orderMaterialCount: "🔴 OBJEDNAT MATERIÁL ({count})",
+    redButtonInfo:
+      "Tlačítko objednávky je červené, protože seznam obsahuje materiál.",
+    openOrders: "Otevřené objednávky materiálu",
+    openOrdersDescription:
+      "Zde vidíte, kdo a kdy materiál objednal.",
+    openCount: "{count} otevřených",
+    noOpenOrders: "Nejsou žádné otevřené objednávky materiálu.",
+    orderedBy: "Objednal",
+    dateTime: "Datum / čas",
+    status: "Stav",
+    myOrders: "Moje objednávky",
+    noMyOrders: "Zatím jste neobjednal žádný materiál.",
+    orderedAt: "Objednáno",
+    site: "Stavba",
+    unknownWorker: "Neznámý pracovník",
+    materialFallback: "Materiál",
+    siteFallback: "Stavba",
+    loadMaterialsError: "Materiály se nepodařilo načíst",
+    loadSitesError: "Stavby se nepodařilo načíst",
+    loadOrdersError: "Objednávky se nepodařilo načíst",
+    selectMaterialError: "Vyberte materiál.",
+    validQuantityError: "Zadejte platné množství.",
+    selectActiveSiteError: "Vyberte aktivní stavbu.",
+    orderSuccess: "Úspěšně objednáno {count} položek materiálu.",
+    saveOrderError: "Objednávku materiálu se nepodařilo uložit",
+    statusOpen: "Otevřeno",
+    statusOrdered: "Objednáno",
+    statusDelivered: "Doručeno",
+    statusCancelled: "Zrušeno",
+  },
 } as const;
 
 type TranslationKey = keyof typeof translations.de;
@@ -348,12 +412,17 @@ const LOCAL_STORAGE_USER_KEYS = [
 function getSavedLanguage(): Language {
   if (typeof window === "undefined") return "de";
 
-  const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  const savedLanguage =
+    localStorage.getItem(LANGUAGE_STORAGE_KEY) ||
+    localStorage.getItem("lang") ||
+    localStorage.getItem("appLanguage") ||
+    localStorage.getItem("language");
 
   if (
     savedLanguage === "de" ||
     savedLanguage === "ba" ||
     savedLanguage === "uz" ||
+    savedLanguage === "cz" ||
     savedLanguage === "en"
   ) {
     return savedLanguage;
@@ -562,6 +631,9 @@ export default function MaterialOrdersPage() {
   function changeLanguage(newLanguage: Language) {
     setLanguage(newLanguage);
     localStorage.setItem(LANGUAGE_STORAGE_KEY, newLanguage);
+    localStorage.setItem("lang", newLanguage);
+    localStorage.setItem("appLanguage", newLanguage);
+    localStorage.setItem("language", newLanguage);
 
     if (
       !loggedUserName ||

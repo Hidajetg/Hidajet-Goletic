@@ -73,6 +73,23 @@ const translations: any = {
     edit: "Edit",
     delete: "Delete",
   },
+
+  cz: {
+    dashboard: "Dashboard",
+    back: "Zpět na stavbu",
+    rooms: "Místnosti",
+    siteId: "ID stavby",
+    addRoom: "Přidat místnost",
+    roomName: "Název místnosti",
+    saveRoom: "Uložit místnost",
+    roomList: "Seznam místností",
+    noRooms: "Nejsou zadány žádné místnosti.",
+    enterRoom: "Zadejte název místnosti",
+    renameRoom: "Nový název místnosti:",
+    deleteQuestion: "Opravdu chcete tuto místnost smazat?",
+    edit: "Upravit",
+    delete: "Smazat",
+  },
 };
 
 export default function ProstorijePage() {

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
+import { type AppLanguage, readAppLanguage } from "../../../lib/language";
 
 const FIRMA = "Nocker & Bernardi GmbH / Stone Boutique";
 const FIRMA_ADRESA = "Innweg 3, A-6170 Zirl";
@@ -14,9 +15,140 @@ const PDF_LOGO_TOP = "gore.png";
 const PDF_SIDE_IMAGE = "strana.png";
 const PDF_MOUNTAIN_BG = "pozadina.png";
 
+const regieTranslations: Record<AppLanguage, Record<string, string>> = {
+  de: {
+    back: "← Zurück zur Baustelle", showForm: "Formular anzeigen", list: "Liste Regieberichte",
+    newReport: "Neuer Regiebericht", previewPrint: "Vorschau / Drucken", total: "Gesamt",
+    noReports: "Noch keine Regieberichte gespeichert.", reportNo: "Regiebericht Nr.",
+    date: "Datum", place: "Ort", client: "Auftraggeber", manager: "Bauleiter",
+    workDone: "Ausgeführte Arbeiten", totalHours: "Gesamtstunden", openEdit: "Öffnen / Bearbeiten",
+    delete: "Löschen", editReport: "Regiebericht bearbeiten", createReport: "Regiebericht erfassen",
+    editing: "Du bearbeitest gespeicherten Regiebericht ID:", reportNumber: "Bericht Nr.",
+    managerName: "Name Bauleiter", inherited: "Wird automatisch vom ersten Regiebericht übernommen.",
+    site: "Baustelle", componentsRooms: "Bauteile / Räume", chooseRoom: "Raum auswählen",
+    addRoom: "Raum hinzufügen", workPlaceholder: "Beschreibung der ausgeführten Arbeiten...",
+    workers: "Arbeitskräfte", chooseWorker: "Mitarbeiter auswählen", pause: "Pause",
+    remark: "Bemerkung", add: "Hinzufügen", materialOther: "Material / Sonstiges",
+    catalogMaterial: "Material aus Katalog", freeDescription: "Freie Bezeichnung", quantity: "Menge",
+    unit: "EH", photos: "Fotos", photoRemark: "Fotobemerkung",
+    photoHint: "Die ersten 2 Bilder erscheinen am Hauptblatt. Weitere Bilder und PDFs werden als Beilage geführt.",
+    image: "Bild", attachment: "Beilage", remove: "Entfernen", saveChanges: "Änderungen speichern",
+    saveReport: "Regiebericht speichern", exportPrint: "Export / Drucken",
+    deleteConfirm: "Regiebericht wirklich löschen?", deleted: "Regiebericht wurde gelöscht.",
+    chooseWorkerAlert: "Mitarbeiter auswählen.", materialAlert: "Material auswählen oder Bezeichnung eingeben.",
+    quantityAlert: "Menge eingeben.", fileAlert: "Bitte nur Bilder oder PDF-Dateien auswählen.",
+    siteMissing: "Baustelle wurde nicht geladen.", clientAlert: "Auftraggeber eingeben.",
+    managerAlert: "Bauleiter eingeben.", workAlert: "Ausgeführte Arbeiten eingeben.",
+    updated: "Regiebericht wurde aktualisiert.", saved: "Regiebericht wurde gespeichert.",
+  },
+  ba: {
+    back: "← Nazad na Baustelle", showForm: "Prikaži formular", list: "Lista Regieberichta",
+    newReport: "Novi Regiebericht", previewPrint: "Pregled / štampa", total: "Ukupno",
+    noReports: "Još nema sačuvanih Regieberichta.", reportNo: "Regiebericht br.",
+    date: "Datum", place: "Mjesto", client: "Naručilac", manager: "Bauleiter",
+    workDone: "Izvedeni radovi", totalHours: "Ukupno sati", openEdit: "Otvori / Uredi",
+    delete: "Obriši", editReport: "Uredi Regiebericht", createReport: "Unesi Regiebericht",
+    editing: "Uređuješ sačuvani Regiebericht ID:", reportNumber: "Broj izvještaja",
+    managerName: "Ime Bauleitera", inherited: "Automatski se preuzima iz prvog Regieberichta.",
+    site: "Baustelle", componentsRooms: "Dijelovi / prostorije", chooseRoom: "Odaberi prostoriju",
+    addRoom: "Dodaj prostoriju", workPlaceholder: "Opis izvedenih radova...",
+    workers: "Radnici", chooseWorker: "Odaberi radnika", pause: "Pauza",
+    remark: "Napomena", add: "Dodaj", materialOther: "Materijal / Ostalo",
+    catalogMaterial: "Materijal iz kataloga", freeDescription: "Slobodan naziv", quantity: "Količina",
+    unit: "JM", photos: "Fotografije", photoRemark: "Napomena uz fotografiju",
+    photoHint: "Prve 2 slike prikazuju se na glavnom listu. Ostale slike i PDF dokumenti idu kao prilog.",
+    image: "Slika", attachment: "Prilog", remove: "Ukloni", saveChanges: "Sačuvaj izmjene",
+    saveReport: "Sačuvaj Regiebericht", exportPrint: "Izvoz / štampa",
+    deleteConfirm: "Da li stvarno želiš obrisati Regiebericht?", deleted: "Regiebericht je obrisan.",
+    chooseWorkerAlert: "Odaberi radnika.", materialAlert: "Odaberi materijal ili unesi naziv.",
+    quantityAlert: "Unesi količinu.", fileAlert: "Odaberi samo slike ili PDF fajlove.",
+    siteMissing: "Baustelle nije učitana.", clientAlert: "Unesi naručioca.",
+    managerAlert: "Unesi Bauleitera.", workAlert: "Unesi izvedene radove.",
+    updated: "Regiebericht je ažuriran.", saved: "Regiebericht je sačuvan.",
+  },
+  uz: {
+    back: "← Obyektga qaytish", showForm: "Formani ko‘rsatish", list: "Regie hisobotlari ro‘yxati",
+    newReport: "Yangi Regie hisoboti", previewPrint: "Ko‘rish / Chop etish", total: "Jami",
+    noReports: "Hali Regie hisoboti saqlanmagan.", reportNo: "Regie hisoboti №",
+    date: "Sana", place: "Joy", client: "Buyurtmachi", manager: "Qurilish rahbari",
+    workDone: "Bajarilgan ishlar", totalHours: "Jami soat", openEdit: "Ochish / Tahrirlash",
+    delete: "O‘chirish", editReport: "Regie hisobotini tahrirlash", createReport: "Regie hisobotini kiritish",
+    editing: "Saqlangan Regie hisoboti tahrirlanmoqda, ID:", reportNumber: "Hisobot raqami",
+    managerName: "Qurilish rahbari ismi", inherited: "Birinchi Regie hisobotidan avtomatik olinadi.",
+    site: "Obyekt", componentsRooms: "Qismlar / xonalar", chooseRoom: "Xonani tanlang",
+    addRoom: "Xona qo‘shish", workPlaceholder: "Bajarilgan ishlar tavsifi...",
+    workers: "Ishchilar", chooseWorker: "Ishchini tanlang", pause: "Tanaffus",
+    remark: "Izoh", add: "Qo‘shish", materialOther: "Material / Boshqa",
+    catalogMaterial: "Katalogdan material", freeDescription: "Erkin nom", quantity: "Miqdor",
+    unit: "Birlik", photos: "Rasmlar", photoRemark: "Rasm izohi",
+    photoHint: "Birinchi 2 ta rasm asosiy sahifada ko‘rinadi. Qolgan rasmlar va PDFlar ilova sifatida beriladi.",
+    image: "Rasm", attachment: "Ilova", remove: "Olib tashlash", saveChanges: "O‘zgarishlarni saqlash",
+    saveReport: "Regie hisobotini saqlash", exportPrint: "Eksport / Chop etish",
+    deleteConfirm: "Regie hisobotini o‘chirmoqchimisiz?", deleted: "Regie hisoboti o‘chirildi.",
+    chooseWorkerAlert: "Ishchini tanlang.", materialAlert: "Materialni tanlang yoki nomini kiriting.",
+    quantityAlert: "Miqdorni kiriting.", fileAlert: "Faqat rasm yoki PDF fayl tanlang.",
+    siteMissing: "Obyekt yuklanmadi.", clientAlert: "Buyurtmachini kiriting.",
+    managerAlert: "Qurilish rahbarini kiriting.", workAlert: "Bajarilgan ishlarni kiriting.",
+    updated: "Regie hisoboti yangilandi.", saved: "Regie hisoboti saqlandi.",
+  },
+  cz: {
+    back: "← Zpět na stavbu", showForm: "Zobrazit formulář", list: "Seznam Regie reportů",
+    newReport: "Nový Regie report", previewPrint: "Náhled / Tisk", total: "Celkem",
+    noReports: "Zatím není uložen žádný Regie report.", reportNo: "Regie report č.",
+    date: "Datum", place: "Místo", client: "Objednatel", manager: "Stavbyvedoucí",
+    workDone: "Provedené práce", totalHours: "Celkem hodin", openEdit: "Otevřít / Upravit",
+    delete: "Smazat", editReport: "Upravit Regie report", createReport: "Zadat Regie report",
+    editing: "Upravujete uložený Regie report ID:", reportNumber: "Číslo reportu",
+    managerName: "Jméno stavbyvedoucího", inherited: "Automaticky se převezme z prvního Regie reportu.",
+    site: "Stavba", componentsRooms: "Části / místnosti", chooseRoom: "Vyberte místnost",
+    addRoom: "Přidat místnost", workPlaceholder: "Popis provedených prací...",
+    workers: "Pracovníci", chooseWorker: "Vyberte pracovníka", pause: "Přestávka",
+    remark: "Poznámka", add: "Přidat", materialOther: "Materiál / Ostatní",
+    catalogMaterial: "Materiál z katalogu", freeDescription: "Volný název", quantity: "Množství",
+    unit: "MJ", photos: "Fotografie", photoRemark: "Poznámka k fotografii",
+    photoHint: "První 2 fotografie se zobrazí na hlavním listu. Další obrázky a PDF budou vedeny jako přílohy.",
+    image: "Obrázek", attachment: "Příloha", remove: "Odstranit", saveChanges: "Uložit změny",
+    saveReport: "Uložit Regie report", exportPrint: "Export / Tisk",
+    deleteConfirm: "Opravdu chcete Regie report smazat?", deleted: "Regie report byl smazán.",
+    chooseWorkerAlert: "Vyberte pracovníka.", materialAlert: "Vyberte materiál nebo zadejte název.",
+    quantityAlert: "Zadejte množství.", fileAlert: "Vyberte pouze obrázky nebo PDF soubory.",
+    siteMissing: "Stavba nebyla načtena.", clientAlert: "Zadejte objednatele.",
+    managerAlert: "Zadejte stavbyvedoucího.", workAlert: "Zadejte provedené práce.",
+    updated: "Regie report byl aktualizován.", saved: "Regie report byl uložen.",
+  },
+  en: {
+    back: "← Back to site", showForm: "Show form", list: "Regie report list",
+    newReport: "New Regie report", previewPrint: "Preview / Print", total: "Total",
+    noReports: "No Regie reports saved yet.", reportNo: "Regie report no.",
+    date: "Date", place: "Location", client: "Client", manager: "Site manager",
+    workDone: "Work performed", totalHours: "Total hours", openEdit: "Open / Edit",
+    delete: "Delete", editReport: "Edit Regie report", createReport: "Create Regie report",
+    editing: "You are editing saved Regie report ID:", reportNumber: "Report no.",
+    managerName: "Site manager name", inherited: "Automatically copied from the first Regie report.",
+    site: "Site", componentsRooms: "Components / Rooms", chooseRoom: "Select room",
+    addRoom: "Add room", workPlaceholder: "Description of work performed...",
+    workers: "Workers", chooseWorker: "Select worker", pause: "Break",
+    remark: "Remark", add: "Add", materialOther: "Material / Other",
+    catalogMaterial: "Material from catalogue", freeDescription: "Free description", quantity: "Quantity",
+    unit: "Unit", photos: "Photos", photoRemark: "Photo note",
+    photoHint: "The first 2 images appear on the main sheet. Additional images and PDFs are included as attachments.",
+    image: "Image", attachment: "Attachment", remove: "Remove", saveChanges: "Save changes",
+    saveReport: "Save Regie report", exportPrint: "Export / Print",
+    deleteConfirm: "Do you really want to delete this Regie report?", deleted: "Regie report was deleted.",
+    chooseWorkerAlert: "Select a worker.", materialAlert: "Select material or enter a description.",
+    quantityAlert: "Enter quantity.", fileAlert: "Please select images or PDF files only.",
+    siteMissing: "Site was not loaded.", clientAlert: "Enter the client.",
+    managerAlert: "Enter the site manager.", workAlert: "Enter the work performed.",
+    updated: "Regie report was updated.", saved: "Regie report was saved.",
+  },
+};
+
+
 export default function RegieberichtPage() {
   const params = useParams();
   const baustelleId = String(params.id);
+  const [lang, setLang] = useState<AppLanguage>("de");
+  const t = regieTranslations[lang];
 
   const [baustelle, setBaustelle] = useState<any>(null);
   const [rooms, setRooms] = useState<any[]>([]);
@@ -70,6 +202,7 @@ export default function RegieberichtPage() {
   }
 
   useEffect(() => {
+    setLang(readAppLanguage("de"));
     loadPdfImages();
     loadData();
     loadBerichte();
@@ -448,7 +581,7 @@ export default function RegieberichtPage() {
   }
 
   async function deleteBericht(berichtId: number) {
-    const ok = confirm("Regiebericht wirklich löschen?");
+    const ok = confirm(t.deleteConfirm);
     if (!ok) return;
 
     await supabase
@@ -487,7 +620,7 @@ export default function RegieberichtPage() {
 
     await loadBerichte();
     await loadFirstMeta();
-    alert("Regiebericht wurde gelöscht.");
+    alert(t.deleted);
   }
 
   function addRoom() {
@@ -517,7 +650,7 @@ export default function RegieberichtPage() {
 
   function addWorker() {
     if (!workerName) {
-      alert("Mitarbeiter auswählen.");
+      alert(t.chooseWorkerAlert);
       return;
     }
 
@@ -565,12 +698,12 @@ export default function RegieberichtPage() {
 
   function addMaterial() {
     if (!materialName.trim()) {
-      alert("Material auswählen oder Bezeichnung eingeben.");
+      alert(t.materialAlert);
       return;
     }
 
     if (!menge || Number(menge) <= 0) {
-      alert("Menge eingeben.");
+      alert(t.quantityAlert);
       return;
     }
 
@@ -615,7 +748,7 @@ export default function RegieberichtPage() {
       });
 
     if (newFiles.length === 0) {
-      alert("Bitte nur Bilder oder PDF-Dateien auswählen.");
+      alert(t.fileAlert);
       return;
     }
 
@@ -761,7 +894,7 @@ export default function RegieberichtPage() {
 
   async function saveBericht() {
     if (!baustelle) {
-      alert("Baustelle wurde nicht geladen.");
+      alert(t.siteMissing);
       return;
     }
 
@@ -774,17 +907,17 @@ export default function RegieberichtPage() {
       : bauleiter.trim();
 
     if (!finalAuftraggeber.trim()) {
-      alert("Auftraggeber eingeben.");
+      alert(t.clientAlert);
       return;
     }
 
     if (!finalBauleiter.trim()) {
-      alert("Bauleiter eingeben.");
+      alert(t.managerAlert);
       return;
     }
 
     if (!arbeiten.trim()) {
-      alert("Ausgeführte Arbeiten eingeben.");
+      alert(t.workAlert);
       return;
     }
 
@@ -844,11 +977,7 @@ export default function RegieberichtPage() {
     await loadBerichte();
     await loadFirstMeta();
 
-    alert(
-      wasExisting
-        ? "Regiebericht wurde aktualisiert."
-        : "Regiebericht wurde gespeichert."
-    );
+    alert(wasExisting ? t.updated : t.saved);
   }
 
   function exportPrint() {
@@ -861,20 +990,20 @@ export default function RegieberichtPage() {
     <main style={styles.page}>
       <div className="no-print" style={styles.topBar}>
         <Link href={`/baustellen/${baustelleId}`} style={styles.backLink}>
-          ← Zurück zur Baustelle
+          {t.back}
         </Link>
 
         <div style={styles.topButtons}>
           <button onClick={() => setShowList(!showList)} style={styles.listButton}>
-            {showList ? "Formular anzeigen" : "Liste Regieberichte"}
+            {showList ? t.showForm : t.list}
           </button>
 
           <button onClick={resetForm} style={styles.newButton}>
-            Neuer Regiebericht
+            {t.newReport}
           </button>
 
           <button onClick={exportPrint} style={styles.printButtonSmall}>
-            Vorschau / Drucken
+            {t.previewPrint}
           </button>
         </div>
       </div>
@@ -882,16 +1011,16 @@ export default function RegieberichtPage() {
       {showList && (
         <section className="no-print" style={styles.inputPanel}>
           <div style={styles.listTitleRow}>
-            <h1 style={styles.inputTitle}>Liste Regieberichte</h1>
+            <h1 style={styles.inputTitle}>{t.list}</h1>
 
             <div style={styles.listTotalBadge}>
-              Gesamt: {listeGesamtStunden.toFixed(2)} h
+              {t.total}: {listeGesamtStunden.toFixed(2)} h
             </div>
           </div>
 
           {berichte.length === 0 ? (
             <div style={styles.emptyListBox}>
-              Noch keine Regieberichte gespeichert.
+              {t.noReports}
             </div>
           ) : (
             <div style={styles.listBox}>
@@ -899,21 +1028,21 @@ export default function RegieberichtPage() {
                 <div key={b.id} style={styles.berichtCard}>
                   <div style={styles.berichtListContent}>
                     <div style={styles.berichtTitle}>
-                      Regiebericht Nr. {b.bericht_nr || "-"}
+                      {t.reportNo} {b.bericht_nr || "-"}
                     </div>
 
                     <div style={styles.berichtInfo}>
-                      Datum: {formatDatum(b.datum)} | Ort: {b.ort || "-"}
+                      {t.date}: {formatDatum(b.datum)} | {t.place}: {b.ort || "-"}
                     </div>
 
                     <div style={styles.berichtInfo}>
-                      Auftraggeber: {b.auftraggeber || "-"} | Bauleiter:{" "}
+                      {t.client}: {b.auftraggeber || "-"} | {t.manager}:{" "}
                       {b.bauleiter || "-"}
                     </div>
 
                     <div style={styles.berichtWorkBlock}>
                       <div style={styles.berichtWorkTitle}>
-                        Ausgeführte Arbeiten
+                        {t.workDone}
                       </div>
 
                       <div style={styles.berichtWorkText}>
@@ -921,7 +1050,7 @@ export default function RegieberichtPage() {
                       </div>
 
                       <div style={styles.berichtTotalHours}>
-                        Gesamtstunden: {toNumberValue(b.gesamtstunden).toFixed(2)} h
+                        {t.totalHours}: {toNumberValue(b.gesamtstunden).toFixed(2)} h
                       </div>
                     </div>
                   </div>
@@ -931,14 +1060,14 @@ export default function RegieberichtPage() {
                       onClick={() => openBericht(b.id)}
                       style={styles.blueButton}
                     >
-                      Öffnen / Bearbeiten
+                      {t.openEdit}
                     </button>
 
                     <button
                       onClick={() => deleteBericht(b.id)}
                       style={styles.deleteButton}
                     >
-                      Löschen
+                      {t.delete}
                     </button>
                   </div>
                 </div>
@@ -952,20 +1081,18 @@ export default function RegieberichtPage() {
         <>
           <section className="no-print" style={styles.inputPanel}>
             <h1 style={styles.inputTitle}>
-              {activeBerichtId
-                ? "Regiebericht bearbeiten"
-                : "Regiebericht erfassen"}
+              {activeBerichtId ? t.editReport : t.createReport}
             </h1>
 
             {activeBerichtId && (
               <div style={styles.editNotice}>
-                Du bearbeitest gespeicherten Regiebericht ID: {activeBerichtId}
+                {t.editing} {activeBerichtId}
               </div>
             )}
 
             <div style={styles.formGrid}>
               <div>
-                <label style={styles.label}>Bericht Nr.</label>
+                <label style={styles.label}>{t.reportNumber}</label>
                 <input
                   value={berichtNr}
                   onChange={(e) => setBerichtNr(e.target.value)}
@@ -975,7 +1102,7 @@ export default function RegieberichtPage() {
               </div>
 
               <div>
-                <label style={styles.label}>Datum</label>
+                <label style={styles.label}>{t.date}</label>
                 <input
                   type="date"
                   value={datum}
@@ -985,52 +1112,52 @@ export default function RegieberichtPage() {
               </div>
 
               <div>
-                <label style={styles.label}>Auftraggeber</label>
+                <label style={styles.label}>{t.client}</label>
                 <input
                   value={auftraggeber}
                   onChange={(e) => setAuftraggeber(e.target.value)}
                   style={metaKommtVomErstenBericht ? styles.readonlyInput : styles.input}
-                  placeholder="Auftraggeber"
+                  placeholder={t.client}
                   disabled={metaKommtVomErstenBericht}
                 />
                 {metaKommtVomErstenBericht && (
-                  <div style={styles.smallHint}>Wird automatisch vom ersten Regiebericht übernommen.</div>
+                  <div style={styles.smallHint}>{t.inherited}</div>
                 )}
               </div>
 
               <div>
-                <label style={styles.label}>Bauleiter</label>
+                <label style={styles.label}>{t.manager}</label>
                 <input
                   value={bauleiter}
                   onChange={(e) => setBauleiter(e.target.value)}
                   style={metaKommtVomErstenBericht ? styles.readonlyInput : styles.input}
-                  placeholder="Name Bauleiter"
+                  placeholder={t.managerName}
                   disabled={metaKommtVomErstenBericht}
                 />
                 {metaKommtVomErstenBericht && (
-                  <div style={styles.smallHint}>Wird automatisch vom ersten Regiebericht übernommen.</div>
+                  <div style={styles.smallHint}>{t.inherited}</div>
                 )}
               </div>
 
               <div>
-                <label style={styles.label}>Baustelle</label>
+                <label style={styles.label}>{t.site}</label>
                 <div style={styles.readonlyBox}>{baustelle?.naziv || "-"}</div>
               </div>
 
               <div>
-                <label style={styles.label}>Ort</label>
+                <label style={styles.label}>{t.place}</label>
                 <input
                   value={ort}
                   onChange={(e) => setOrt(e.target.value)}
                   style={styles.input}
-                  placeholder="Ort"
+                  placeholder={t.place}
                 />
               </div>
             </div>
           </section>
 
           <section className="no-print" style={styles.inputPanel}>
-            <h2 style={styles.panelTitle}>Bauteile / Räume</h2>
+            <h2 style={styles.panelTitle}>{t.componentsRooms}</h2>
 
             <div style={styles.inlineGrid}>
               <select
@@ -1038,7 +1165,7 @@ export default function RegieberichtPage() {
                 onChange={(e) => setSelectedRoom(e.target.value)}
                 style={styles.input}
               >
-                <option value="">Raum auswählen</option>
+                <option value="">{t.chooseRoom}</option>
                 {rooms.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.naziv}
@@ -1047,7 +1174,7 @@ export default function RegieberichtPage() {
               </select>
 
               <button onClick={addRoom} style={styles.blueButton}>
-                Raum hinzufügen
+                {t.addRoom}
               </button>
             </div>
 
@@ -1067,18 +1194,18 @@ export default function RegieberichtPage() {
           </section>
 
           <section className="no-print" style={styles.inputPanel}>
-            <h2 style={styles.panelTitle}>Ausgeführte Arbeiten</h2>
+            <h2 style={styles.panelTitle}>{t.workDone}</h2>
 
             <textarea
               value={arbeiten}
               onChange={(e) => setArbeiten(e.target.value)}
               style={styles.textarea}
-              placeholder="Beschreibung der ausgeführten Arbeiten..."
+              placeholder={t.workPlaceholder}
             />
           </section>
 
           <section className="no-print" style={styles.inputPanel}>
-            <h2 style={styles.panelTitle}>Arbeitskräfte</h2>
+            <h2 style={styles.panelTitle}>{t.workers}</h2>
 
             <div style={styles.workerGrid}>
               <select
@@ -1086,7 +1213,7 @@ export default function RegieberichtPage() {
                 onChange={(e) => setWorkerName(e.target.value)}
                 style={styles.input}
               >
-                <option value="">Mitarbeiter auswählen</option>
+                <option value="">{t.chooseWorker}</option>
                 {workers.map((w) => (
                   <option key={w.id} value={w.name}>
                     {w.name}
@@ -1113,29 +1240,29 @@ export default function RegieberichtPage() {
                 onChange={(e) => setPause(e.target.value)}
                 style={styles.input}
               >
-                <option value="0">Pause 0 h</option>
-                <option value="0.5">Pause 0.5 h</option>
-                <option value="1">Pause 1 h</option>
-                <option value="1.5">Pause 1.5 h</option>
-                <option value="2">Pause 2 h</option>
-                <option value="2.5">Pause 2.5 h</option>
+                <option value="0">{t.pause} 0 h</option>
+                <option value="0.5">{t.pause} 0.5 h</option>
+                <option value="1">{t.pause} 1 h</option>
+                <option value="1.5">{t.pause} 1.5 h</option>
+                <option value="2">{t.pause} 2 h</option>
+                <option value="2.5">{t.pause} 2.5 h</option>
               </select>
 
               <input
                 value={bemerkung}
                 onChange={(e) => setBemerkung(e.target.value)}
                 style={styles.input}
-                placeholder="Bemerkung"
+                placeholder={t.remark}
               />
 
               <button onClick={addWorker} style={styles.blueButton}>
-                Hinzufügen
+                {t.add}
               </button>
             </div>
           </section>
 
           <section className="no-print" style={styles.inputPanel}>
-            <h2 style={styles.panelTitle}>Material / Sonstiges</h2>
+            <h2 style={styles.panelTitle}>{t.materialOther}</h2>
 
             <div style={styles.materialGrid}>
               <select
@@ -1143,7 +1270,7 @@ export default function RegieberichtPage() {
                 onChange={(e) => onMaterialSelect(e.target.value)}
                 style={styles.input}
               >
-                <option value="">Material aus Katalog</option>
+                <option value="">{t.catalogMaterial}</option>
                 {materials.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.naziv} {m.jedinica ? `(${m.jedinica})` : ""}
@@ -1155,7 +1282,7 @@ export default function RegieberichtPage() {
                 value={materialName}
                 onChange={(e) => setMaterialName(e.target.value)}
                 style={styles.input}
-                placeholder="Freie Bezeichnung"
+                placeholder={t.freeDescription}
               />
 
               <input
@@ -1163,30 +1290,30 @@ export default function RegieberichtPage() {
                 value={menge}
                 onChange={(e) => setMenge(e.target.value)}
                 style={styles.input}
-                placeholder="Menge"
+                placeholder={t.quantity}
               />
 
               <input
                 value={einheit}
                 onChange={(e) => setEinheit(e.target.value)}
                 style={styles.input}
-                placeholder="EH"
+                placeholder={t.unit}
               />
 
               <button onClick={addMaterial} style={styles.blueButton}>
-                Hinzufügen
+                {t.add}
               </button>
             </div>
           </section>
 
           <section className="no-print" style={styles.inputPanel}>
-            <h2 style={styles.panelTitle}>Fotos</h2>
+            <h2 style={styles.panelTitle}>{t.photos}</h2>
 
             <input
               value={photoNote}
               onChange={(e) => setPhotoNote(e.target.value)}
               style={styles.input}
-              placeholder="Fotobemerkung"
+              placeholder={t.photoRemark}
             />
 
             <input
@@ -1197,19 +1324,19 @@ export default function RegieberichtPage() {
               style={styles.fileInput}
             />
 
-            <p style={styles.hint}>Die ersten 2 Bilder erscheinen am Hauptblatt. Weitere Bilder und PDFs werden als Beilage geführt.</p>
+            <p style={styles.hint}>{t.photoHint}</p>
 
             {photos.length > 0 && (
               <div style={styles.attachmentPreviewGrid}>
                 {photos.map((p, index) => (
                   <div key={index} style={styles.attachmentPreviewCard}>
                     <div style={styles.attachmentPreviewTitle}>
-                      {p.kind === "pdf" ? "PDF" : `Bild ${index + 1}`}
+                      {p.kind === "pdf" ? "PDF" : `${t.image} ${index + 1}`}
                     </div>
 
                     {p.kind === "pdf" ? (
                       <div style={styles.pdfPreviewBox}>
-                        PDF: {p.file_name || "Beilage"}
+                        PDF: {p.file_name || t.attachment}
                       </div>
                     ) : (
                       <img
@@ -1225,7 +1352,7 @@ export default function RegieberichtPage() {
                       onClick={() => removePhoto(index)}
                       style={styles.deleteButton}
                     >
-                      Entfernen
+                      {t.remove}
                     </button>
                   </div>
                 ))}
@@ -1612,15 +1739,15 @@ export default function RegieberichtPage() {
 
       <div className="no-print" style={styles.actionRow}>
         <button onClick={saveBericht} style={styles.saveButton}>
-          {activeBerichtId ? "Änderungen speichern" : "Regiebericht speichern"}
+          {activeBerichtId ? t.saveChanges : t.saveReport}
         </button>
 
         <button onClick={() => setShowList(true)} style={styles.listButton}>
-          Liste Regieberichte
+          {t.list}
         </button>
 
         <button onClick={exportPrint} style={styles.printButton}>
-          Export / Drucken
+          {t.exportPrint}
         </button>
       </div>
 

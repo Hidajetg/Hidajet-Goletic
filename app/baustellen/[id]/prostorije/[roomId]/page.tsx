@@ -57,6 +57,19 @@ const translations: any = {
     loadSiteError: "Error loading site: ",
     loadRoomError: "Error loading room: ",
   },
+
+  cz: {
+    back: "Zpět na místnosti",
+    room: "Místnost",
+    site: "Stavba",
+    material: "Materiál",
+    workHours: "Pracovní hodiny",
+    photos: "Fotografie",
+    productivity: "Produktivita",
+    loading: "Načítání...",
+    loadSiteError: "Chyba při načítání stavby: ",
+    loadRoomError: "Chyba při načítání místnosti: ",
+  },
 };
 
 export default function RoomDetailPage() {

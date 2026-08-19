@@ -44,6 +44,21 @@ const translations: any = {
     arbeitszeit: "Arbeitszeit",
     telefone: "Wichtige Telefonnummern",
     notizen: "Zusätzliche Hinweise",
+    noRooms: "Keine Räume vorhanden.",
+    room: "Raum",
+    noGoogle: "Keine Google Maps Adresse eingetragen.",
+    no3d: "Keine 3D Visualisierung eingetragen.",
+    deleteInfoConfirm: "Information wirklich löschen?",
+    archiveConfirm: "Möchten Sie diese Baustelle wirklich abschließen und ins Archiv verschieben?",
+    hasEntriesNoAdmin: "Diese Baustelle hat Einträge. Nur Admin kann eine Baustelle mit bestehenden Einträgen löschen.",
+    deleteWithEntries: "Diese Baustelle hat Einträge. Möchte der Admin diese Baustelle wirklich dauerhaft löschen?",
+    deleteEmpty: "Möchten Sie diese leere Baustelle wirklich löschen?",
+    errorLoadSite: "Fehler beim Laden der Baustelle",
+    errorLoadRooms: "Fehler beim Laden der Räume",
+    errorLoadInfo: "Fehler beim Laden der Baustelle-Info",
+    errorSave: "Fehler beim Speichern",
+    errorDelete: "Fehler beim Löschen",
+    errorArchive: "Fehler beim Archivieren",
   },
   ba: {
     back: "Nazad na Baustelle",
@@ -83,6 +98,21 @@ const translations: any = {
     arbeitszeit: "Radno vrijeme objekta",
     telefone: "Važni telefoni",
     notizen: "Dodatne napomene",
+    noRooms: "Nema prostorija.",
+    room: "Prostorija",
+    noGoogle: "Google Maps adresa nije unesena.",
+    no3d: "3D vizualizacija nije unesena.",
+    deleteInfoConfirm: "Da li stvarno želiš obrisati informaciju?",
+    archiveConfirm: "Da li stvarno želiš zatvoriti ovu Baustelle i premjestiti je u arhivu?",
+    hasEntriesNoAdmin: "Ova Baustelle ima unose. Samo admin može obrisati Baustelle koja već ima unose.",
+    deleteWithEntries: "Ova Baustelle ima unose. Da li admin stvarno želi trajno obrisati ovu Baustelle?",
+    deleteEmpty: "Da li stvarno želiš obrisati ovu praznu Baustelle?",
+    errorLoadSite: "Greška pri učitavanju Baustelle",
+    errorLoadRooms: "Greška pri učitavanju prostorija",
+    errorLoadInfo: "Greška pri učitavanju informacija",
+    errorSave: "Greška pri čuvanju",
+    errorDelete: "Greška pri brisanju",
+    errorArchive: "Greška pri arhiviranju",
   },
   en: {
     back: "Back to Sites",
@@ -122,6 +152,21 @@ const translations: any = {
     arbeitszeit: "Working hours",
     telefone: "Important phone numbers",
     notizen: "Additional notes",
+    noRooms: "No rooms available.",
+    room: "Room",
+    noGoogle: "No Google Maps address has been entered.",
+    no3d: "No 3D visualization has been entered.",
+    deleteInfoConfirm: "Do you really want to delete this information?",
+    archiveConfirm: "Do you really want to close this site and move it to the archive?",
+    hasEntriesNoAdmin: "This site has entries. Only an admin can delete a site with existing entries.",
+    deleteWithEntries: "This site has entries. Does the admin really want to delete this site permanently?",
+    deleteEmpty: "Do you really want to delete this empty site?",
+    errorLoadSite: "Error loading site",
+    errorLoadRooms: "Error loading rooms",
+    errorLoadInfo: "Error loading site information",
+    errorSave: "Error saving",
+    errorDelete: "Error deleting",
+    errorArchive: "Error archiving",
   },
   uz: {
     back: "Obyektlarga qaytish",
@@ -161,6 +206,76 @@ const translations: any = {
     arbeitszeit: "Ish vaqti",
     telefone: "Muhim telefonlar",
     notizen: "Qo‘shimcha eslatmalar",
+    noRooms: "Xonalar yo‘q.",
+    room: "Xona",
+    noGoogle: "Google Maps manzili kiritilmagan.",
+    no3d: "3D vizualizatsiya kiritilmagan.",
+    deleteInfoConfirm: "Bu ma’lumotni o‘chirmoqchimisiz?",
+    archiveConfirm: "Bu obyektni yopib, arxivga ko‘chirmoqchimisiz?",
+    hasEntriesNoAdmin: "Bu obyektga ma’lumotlar kiritilgan. Faqat admin bunday obyektni o‘chira oladi.",
+    deleteWithEntries: "Bu obyektga ma’lumotlar kiritilgan. Admin uni butunlay o‘chirmoqchimi?",
+    deleteEmpty: "Bu bo‘sh obyektni o‘chirmoqchimisiz?",
+    errorLoadSite: "Obyektni yuklashda xato",
+    errorLoadRooms: "Xonalarni yuklashda xato",
+    errorLoadInfo: "Obyekt ma’lumotini yuklashda xato",
+    errorSave: "Saqlashda xato",
+    errorDelete: "O‘chirishda xato",
+    errorArchive: "Arxivlashda xato",
+  },
+
+  cz: {
+    back: "Zpět na stavby",
+    loading: "Načítání...",
+    location: "Místo",
+    status: "Stav",
+    active: "Aktivní",
+    addedRooms: "Přidané místnosti",
+    addRooms: "Přidat místnosti",
+    overview: "Přehled",
+    arbeitsinfo: "Pracovní informace",
+    regiebericht: "Denní Regie report",
+    closeSite: "Uzavřít stavbu",
+    deleteSite: "Smazat stavbu",
+    googleLocation: "Google poloha",
+    openGoogle: "Otevřít v Google Maps",
+    visualization3d: "3D vizualizace",
+    openVisualization3d: "Otevřít 3D náhled",
+    bauDocumentation: "Stavební dokumentace",
+    openBauDocumentation: "Denní zprávy, fotografie a plány",
+    siteInfo: "Informace o stavbě",
+    addInfo: "Přidat informaci",
+    close: "Zavřít",
+    save: "Uložit",
+    edit: "Upravit",
+    delete: "Smazat",
+    value: "Informace / text",
+    emptyInfo: "Zatím nebyly přidány žádné informace.",
+    ansprechpartner: "Stavbyvedoucí / kontaktní osoba",
+    zugang: "Přístup / číslo dveří",
+    parking: "Parkování",
+    schluessel: "Klíče",
+    wc: "WC",
+    strom: "Elektřina",
+    wasser: "Voda",
+    lift: "Výtah",
+    arbeitszeit: "Pracovní doba",
+    telefone: "Důležitá telefonní čísla",
+    notizen: "Další poznámky",
+    noRooms: "Nejsou žádné místnosti.",
+    room: "Místnost",
+    noGoogle: "Není zadána žádná adresa Google Maps.",
+    no3d: "Není zadána žádná 3D vizualizace.",
+    deleteInfoConfirm: "Opravdu chcete tuto informaci smazat?",
+    archiveConfirm: "Opravdu chcete tuto stavbu uzavřít a přesunout do archivu?",
+    hasEntriesNoAdmin: "Tato stavba obsahuje záznamy. Stavbu s existujícími záznamy může smazat pouze admin.",
+    deleteWithEntries: "Tato stavba obsahuje záznamy. Opravdu ji chce admin trvale smazat?",
+    deleteEmpty: "Opravdu chcete tuto prázdnou stavbu smazat?",
+    errorLoadSite: "Chyba při načítání stavby",
+    errorLoadRooms: "Chyba při načítání místností",
+    errorLoadInfo: "Chyba při načítání informací o stavbě",
+    errorSave: "Chyba při ukládání",
+    errorDelete: "Chyba při mazání",
+    errorArchive: "Chyba při archivaci",
   },
 };
 
@@ -248,7 +363,7 @@ export default function BaustelleDetailPage() {
       .single();
 
     if (error) {
-      alert("Fehler beim Laden der Baustelle: " + error.message);
+      alert(t.errorLoadSite + ": " + error.message);
       return;
     }
 
@@ -263,7 +378,7 @@ export default function BaustelleDetailPage() {
       .order("id", { ascending: true });
 
     if (error) {
-      alert("Fehler beim Laden der Räume: " + error.message);
+      alert(t.errorLoadRooms + ": " + error.message);
       return;
     }
 
@@ -277,7 +392,7 @@ export default function BaustelleDetailPage() {
       .eq("baustelle_id", Number(baustelleId));
 
     if (error) {
-      alert("Fehler beim Laden der Baustelle-Info: " + error.message);
+      alert(t.errorLoadInfo + ": " + error.message);
       return;
     }
 
@@ -391,7 +506,7 @@ export default function BaustelleDetailPage() {
     const { error } = await supabase.from("baustelle_info").insert([payload]);
 
     if (error) {
-      alert("Fehler beim Speichern: " + error.message);
+      alert(t.errorSave + ": " + error.message);
       return;
     }
 
@@ -404,7 +519,7 @@ export default function BaustelleDetailPage() {
   }
 
   async function deleteInfoField(field: string) {
-    const ok = confirm("Information wirklich löschen?");
+    const ok = confirm(t.deleteInfoConfirm);
     if (!ok) return;
 
     const { error } = await supabase
@@ -414,7 +529,7 @@ export default function BaustelleDetailPage() {
       .eq("type", field);
 
     if (error) {
-      alert("Fehler beim Löschen: " + error.message);
+      alert(t.errorDelete + ": " + error.message);
       return;
     }
 
@@ -450,9 +565,7 @@ export default function BaustelleDetailPage() {
   }
 
   async function archiveBaustelle() {
-    const ok = confirm(
-      "Möchten Sie diese Baustelle wirklich abschließen und ins Archiv verschieben?"
-    );
+    const ok = confirm(t.archiveConfirm);
 
     if (!ok) return;
 
@@ -462,7 +575,7 @@ export default function BaustelleDetailPage() {
       .eq("id", baustelleId);
 
     if (error) {
-      alert("Fehler beim Archivieren: " + error.message);
+      alert(t.errorArchive + ": " + error.message);
       return;
     }
 
@@ -473,17 +586,11 @@ export default function BaustelleDetailPage() {
     const hasEntries = await checkIfBaustelleHasEntries();
 
     if (hasEntries && workerRole !== "admin") {
-      alert(
-        "Diese Baustelle hat Einträge. Nur Admin kann eine Baustelle mit bestehenden Einträgen löschen."
-      );
+      alert(t.hasEntriesNoAdmin);
       return;
     }
 
-    const ok = confirm(
-      hasEntries
-        ? "Diese Baustelle hat Einträge. Möchte der Admin diese Baustelle wirklich dauerhaft löschen?"
-        : "Möchten Sie diese leere Baustelle wirklich löschen?"
-    );
+    const ok = confirm(hasEntries ? t.deleteWithEntries : t.deleteEmpty);
 
     if (!ok) return;
 
@@ -493,7 +600,7 @@ export default function BaustelleDetailPage() {
       .eq("id", baustelleId);
 
     if (error) {
-      alert("Fehler beim Löschen: " + error.message);
+      alert(t.errorDelete + ": " + error.message);
       return;
     }
 
@@ -525,7 +632,7 @@ export default function BaustelleDetailPage() {
           onClick={(e) => {
             if (!info.google_maps) {
               e.preventDefault();
-              alert("Keine Google Maps Adresse eingetragen.");
+              alert(t.noGoogle);
             }
           }}
           style={googleButtonStyle}
@@ -541,7 +648,7 @@ export default function BaustelleDetailPage() {
           onClick={(e) => {
             if (!info.visualization_3d) {
               e.preventDefault();
-              alert("Keine 3D Visualisierung eingetragen.");
+              alert(t.no3d);
             }
           }}
           style={visualizationButtonStyle}
@@ -678,7 +785,7 @@ export default function BaustelleDetailPage() {
         <h2 style={sectionTitleStyle}>{t.addedRooms}</h2>
 
         {rooms.length === 0 ? (
-          <p style={emptyInfoStyle}>Keine Räume vorhanden.</p>
+          <p style={emptyInfoStyle}>{t.noRooms}</p>
         ) : (
           <div style={roomListStyle}>
             {rooms.map((room) => (
@@ -687,7 +794,7 @@ export default function BaustelleDetailPage() {
                 href={`/baustellen/${baustelleId}/prostorije/${room.id}`}
                 style={roomBadgeStyle}
               >
-                {room.naziv || room.name || "Raum"}
+                {room.naziv || room.name || t.room}
               </Link>
             ))}
           </div>

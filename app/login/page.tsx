@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
+import {
+  APP_LANGUAGES,
+  type AppLanguage,
+  readAppLanguage,
+  saveAppLanguage,
+} from "../lib/language";
 
 const LOGO_URL =
   "https://axpfymarrqjebpwosidr.supabase.co/storage/v1/object/public/pdf-assets/logo.png";
@@ -33,6 +39,89 @@ const ADMIN_NAMES = new Set([
   "hidajet goletić",
 ]);
 
+const translations: Record<AppLanguage, Record<string, string>> = {
+  de: {
+    app: "Baustellen App",
+    worker: "Mitarbeiter",
+    showPin: "PIN anzeigen",
+    hidePin: "PIN verbergen",
+    remember: "Login speichern",
+    rememberHint: "Auf diesem Gerät 30 Tage angemeldet bleiben",
+    login: "Anmelden",
+    loggingIn: "Anmeldung...",
+    checking: "Gespeicherte Anmeldung wird geprüft...",
+    chooseWorker: "Bitte Mitarbeiter auswählen.",
+    pinRule: "PIN muss aus 4 bis 8 Zahlen bestehen.",
+    wrongLogin: "Name oder PIN ist falsch.",
+    failed: "Anmeldung fehlgeschlagen.",
+    language: "Sprache",
+  },
+  ba: {
+    app: "Aplikacija za gradilišta",
+    worker: "Radnik",
+    showPin: "Prikaži PIN",
+    hidePin: "Sakrij PIN",
+    remember: "Sačuvaj prijavu",
+    rememberHint: "Ostani prijavljen 30 dana na ovom uređaju",
+    login: "Prijava",
+    loggingIn: "Prijava...",
+    checking: "Provjera sačuvane prijave...",
+    chooseWorker: "Odaberi radnika.",
+    pinRule: "PIN mora imati 4 do 8 brojeva.",
+    wrongLogin: "Ime ili PIN nisu tačni.",
+    failed: "Prijava nije uspjela.",
+    language: "Jezik",
+  },
+  uz: {
+    app: "Qurilish maydoni ilovasi",
+    worker: "Ishchi",
+    showPin: "PINni ko‘rsatish",
+    hidePin: "PINni yashirish",
+    remember: "Kirishni saqlash",
+    rememberHint: "Ushbu qurilmada 30 kun tizimda qolish",
+    login: "Kirish",
+    loggingIn: "Kirilmoqda...",
+    checking: "Saqlangan kirish tekshirilmoqda...",
+    chooseWorker: "Ishchini tanlang.",
+    pinRule: "PIN 4 dan 8 tagacha raqamdan iborat bo‘lishi kerak.",
+    wrongLogin: "Ism yoki PIN noto‘g‘ri.",
+    failed: "Kirish amalga oshmadi.",
+    language: "Til",
+  },
+  cz: {
+    app: "Aplikace stavby",
+    worker: "Pracovník",
+    showPin: "Zobrazit PIN",
+    hidePin: "Skrýt PIN",
+    remember: "Uložit přihlášení",
+    rememberHint: "Zůstat přihlášen 30 dní na tomto zařízení",
+    login: "Přihlásit se",
+    loggingIn: "Přihlašování...",
+    checking: "Kontrola uloženého přihlášení...",
+    chooseWorker: "Vyberte pracovníka.",
+    pinRule: "PIN musí obsahovat 4 až 8 číslic.",
+    wrongLogin: "Jméno nebo PIN není správný.",
+    failed: "Přihlášení se nezdařilo.",
+    language: "Jazyk",
+  },
+  en: {
+    app: "Construction Site App",
+    worker: "Worker",
+    showPin: "Show PIN",
+    hidePin: "Hide PIN",
+    remember: "Save login",
+    rememberHint: "Stay logged in for 30 days on this device",
+    login: "Login",
+    loggingIn: "Logging in...",
+    checking: "Checking saved login...",
+    chooseWorker: "Please select a worker.",
+    pinRule: "PIN must contain 4 to 8 digits.",
+    wrongLogin: "Name or PIN is incorrect.",
+    failed: "Login failed.",
+    language: "Language",
+  },
+};
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -41,25 +130,33 @@ export default function LoginPage() {
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [rememberLogin, setRememberLogin] = useState(false);
+  const [lang, setLang] = useState<AppLanguage>("de");
 
   const [checkingSavedLogin, setCheckingSavedLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const t = translations[lang];
 
   useEffect(() => {
     const savedName = localStorage.getItem("solstone_saved_worker");
     const savedRemember =
       localStorage.getItem("solstone_remember_login") === "true";
 
-    if (savedName) {
-      setName(savedName);
-    }
+    setLang(readAppLanguage("de"));
 
+    if (savedName) setName(savedName);
     setRememberLogin(savedRemember);
 
     loadWorkers();
     checkSavedLogin(savedRemember);
   }, []);
+
+  function changeLanguage(next: AppLanguage) {
+    setLang(next);
+    saveAppLanguage(next);
+    setError("");
+  }
 
   async function checkSavedLogin(shouldCheck: boolean) {
     if (!shouldCheck) {
@@ -123,8 +220,7 @@ export default function LoginPage() {
         if (
           savedName &&
           dbWorkers.some(
-            (worker) =>
-              worker.name.toLowerCase() === savedName.toLowerCase(),
+            (worker) => worker.name.toLowerCase() === savedName.toLowerCase(),
           )
         ) {
           setName(savedName);
@@ -179,12 +275,12 @@ export default function LoginPage() {
     setError("");
 
     if (!name.trim()) {
-      setError("Bitte Mitarbeiter auswählen.");
+      setError(t.chooseWorker);
       return;
     }
 
     if (!/^\d{4,8}$/.test(pin)) {
-      setError("PIN muss aus 4 bis 8 Zahlen bestehen.");
+      setError(t.pinRule);
       return;
     }
 
@@ -208,17 +304,15 @@ export default function LoginPage() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data?.error || "Name oder PIN ist falsch.");
+        throw new Error(data?.error || t.wrongLogin);
       }
 
       saveUser(data.user);
+      saveAppLanguage(lang);
 
       if (rememberLogin) {
         localStorage.setItem("solstone_remember_login", "true");
-        localStorage.setItem(
-          "solstone_saved_worker",
-          String(data.user.name),
-        );
+        localStorage.setItem("solstone_saved_worker", String(data.user.name));
       } else {
         localStorage.removeItem("solstone_remember_login");
         localStorage.removeItem("solstone_saved_worker");
@@ -229,7 +323,7 @@ export default function LoginPage() {
       router.replace("/dashboard");
       router.refresh();
     } catch (e: any) {
-      setError(e?.message || "Anmeldung fehlgeschlagen.");
+      setError(e?.message || t.failed);
     } finally {
       setLoading(false);
     }
@@ -243,9 +337,7 @@ export default function LoginPage() {
 
         <div style={checkingCardStyle}>
           <img src={LOGO_URL} alt="SolStone" style={logoStyle} />
-          <div style={checkingTextStyle}>
-            Gespeicherte Anmeldung wird geprüft...
-          </div>
+          <div style={checkingTextStyle}>{t.checking}</div>
         </div>
       </main>
     );
@@ -260,9 +352,22 @@ export default function LoginPage() {
         <img src={LOGO_URL} alt="SolStone" style={logoStyle} />
 
         <h1 style={titleStyle}>STONE BOUTIQUE</h1>
-        <p style={subStyle}>Baustellen App</p>
+        <p style={subStyle}>{t.app}</p>
 
-        <label style={labelStyle}>Mitarbeiter</label>
+        <div style={languageBoxStyle} aria-label={t.language}>
+          {APP_LANGUAGES.map((code) => (
+            <button
+              key={code}
+              type="button"
+              onClick={() => changeLanguage(code)}
+              style={lang === code ? activeLanguageButtonStyle : languageButtonStyle}
+            >
+              {code.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        <label style={labelStyle}>{t.worker}</label>
 
         <select
           value={name}
@@ -287,13 +392,9 @@ export default function LoginPage() {
           <input
             type={showPin ? "text" : "password"}
             value={pin}
-            onChange={(e) =>
-              setPin(e.target.value.replace(/\D/g, ""))
-            }
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                login();
-              }
+              if (e.key === "Enter") login();
             }}
             inputMode="numeric"
             maxLength={8}
@@ -305,7 +406,7 @@ export default function LoginPage() {
             type="button"
             onClick={() => setShowPin((value) => !value)}
             style={eyeStyle}
-            title={showPin ? "PIN verbergen" : "PIN anzeigen"}
+            title={showPin ? t.hidePin : t.showPin}
           >
             {showPin ? "🙈" : "👁"}
           </button>
@@ -315,17 +416,13 @@ export default function LoginPage() {
           <input
             type="checkbox"
             checked={rememberLogin}
-            onChange={(e) =>
-              changeRememberLogin(e.target.checked)
-            }
+            onChange={(e) => changeRememberLogin(e.target.checked)}
             style={checkboxStyle}
           />
 
           <span>
-            <strong>Login speichern</strong>
-            <small style={rememberHintStyle}>
-              Auf diesem Gerät 30 Tage angemeldet bleiben
-            </small>
+            <strong>{t.remember}</strong>
+            <small style={rememberHintStyle}>{t.rememberHint}</small>
           </span>
         </label>
 
@@ -340,7 +437,7 @@ export default function LoginPage() {
             opacity: loading ? 0.65 : 1,
           }}
         >
-          {loading ? "Anmeldung..." : "Anmelden"}
+          {loading ? t.loggingIn : t.login}
         </button>
       </div>
     </main>
@@ -413,8 +510,31 @@ const titleStyle: React.CSSProperties = {
 
 const subStyle: React.CSSProperties = {
   textAlign: "center",
-  margin: "9px 0 28px",
+  margin: "9px 0 16px",
   color: "#ffffff",
+};
+
+const languageBoxStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(5, 1fr)",
+  gap: 6,
+  marginBottom: 22,
+};
+
+const languageButtonStyle: React.CSSProperties = {
+  height: 34,
+  borderRadius: 8,
+  border: "1px solid #555",
+  background: "#171717",
+  color: "#fff",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const activeLanguageButtonStyle: React.CSSProperties = {
+  ...languageButtonStyle,
+  background: "#ff7417",
+  borderColor: "#ff7417",
 };
 
 const labelStyle: React.CSSProperties = {

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
-type Lang = "de" | "ba" | "en" | "uz";
+type Lang = "de" | "ba" | "en" | "uz" | "cz";
 type RelationType = "projekt" | "raum" | "position" | "leistung" | "regie";
 
 type Projekt = {
@@ -218,6 +218,55 @@ const t: Record<Lang, any> = {
         "Baza to‘liq emas. Avval SQL 001_kontrola_radnika_lv_regie ni ishga tushiring.",
     },
   },
+
+  cz: {
+    back: "Zpět",
+    title: "Fotografie",
+    subtitle:
+      "Fotografie musí být propojeny s projektem, místností, LV pozicí, výkonem nebo Regie.",
+    language: "Jazyk",
+    worker: "Pracovník",
+    selectWorker: "Vyberte pracovníka",
+    date: "Datum",
+    relation: "Fotografie patří k",
+    project: "Projekt",
+    room: "Místnost",
+    position: "LV pozice",
+    performance: "Provedená práce",
+    regie: "Regie",
+    selectRoom: "Vyberte místnost",
+    selectPosition: "Vyberte LV pozici",
+    selectPerformance: "Vyberte provedenou práci",
+    selectRegie: "Vyberte Regie",
+    photoType: "Typ fotografie",
+    before: "Před",
+    during: "Během",
+    after: "Po",
+    problem: "Problém",
+    proof: "Doklad",
+    titleInput: "Název fotografie",
+    titlePlaceholder: "např. stěna koupelny před",
+    description: "Popis",
+    descriptionPlaceholder: "Krátký popis fotografie",
+    addPhotos: "Vybrat fotografie",
+    save: "Uložit fotografie",
+    saving: "Ukládání...",
+    todayPhotos: "Dnešní fotografie",
+    noPhotos: "Pro dnešek nejsou žádné fotografie.",
+    successSaved: "Fotografie byly uloženy.",
+    errors: {
+      selectWorker: "Vyberte pracovníka.",
+      selectRelation: "Vyberte, k čemu fotografie patří.",
+      selectRoom: "Vyberte místnost.",
+      selectPosition: "Vyberte LV pozici.",
+      selectPerformance: "Vyberte provedenou práci.",
+      selectRegie: "Vyberte Regie.",
+      selectFiles: "Vyberte fotografie.",
+      saveFailed: "Fotografie se nepodařilo uložit.",
+      sqlMissing:
+        "Databáze není kompletní. Nejprve spusťte SQL 001_kontrola_radnika_lv_regie.",
+    },
+  },
 };
 
 export default function RadnikFotosPage() {
@@ -260,7 +309,7 @@ export default function RadnikFotosPage() {
       localStorage.getItem("radnik") ||
       "";
 
-    if (["de", "ba", "en", "uz"].includes(savedLang)) {
+    if (["de", "ba", "en", "uz", "cz"].includes(savedLang)) {
       setLang(savedLang);
     }
 
@@ -303,6 +352,8 @@ export default function RadnikFotosPage() {
   function changeLang(next: Lang) {
     setLang(next);
     localStorage.setItem("appLanguage", next);
+    localStorage.setItem("lang", next);
+    localStorage.setItem("language", next);
   }
 
   function changeWorker(next: string) {
@@ -812,7 +863,7 @@ export default function RadnikFotosPage() {
         <label>{tr("language")}</label>
 
         <div className="langGrid">
-          {(["de", "ba", "en", "uz"] as Lang[]).map((x) => (
+          {(["de", "ba", "en", "uz", "cz"] as Lang[]).map((x) => (
             <button
               key={x}
               className={lang === x ? "active" : ""}

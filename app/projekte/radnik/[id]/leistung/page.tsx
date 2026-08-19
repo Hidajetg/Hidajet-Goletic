@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
-type Lang = "de" | "ba" | "en" | "uz";
+type Lang = "de" | "ba" | "en" | "uz" | "cz";
 
 type Projekt = {
   id: number | string;
@@ -207,6 +207,53 @@ const t: Record<Lang, any> = {
       saveFailed: "Bajarilgan ishni saqlab bo‘lmadi.",
     },
   },
+
+  cz: {
+    back: "Zpět",
+    title: "Provedená práce",
+    subtitle:
+      "Provedená práce musí být propojena s místností a LV pozicí. Jen tak lze práci správně kontrolovat.",
+    language: "Jazyk",
+    worker: "Přihlášený pracovník",
+    noWorker:
+      "Není přihlášen žádný pracovník. Nejprve se přihlaste pomocí PINu na přihlašovací stránce.",
+    date: "Datum",
+    room: "Místnost",
+    selectRoom: "Vyberte místnost",
+    position: "LV pozice",
+    selectPosition: "Vyberte LV pozici",
+    noPositions:
+      "Nejsou k dispozici žádné LV pozice. Nejprve je přidejte nebo importujte v administraci.",
+    work: "Provedená práce",
+    workPlaceholder: "Zadejte, co bylo provedeno",
+    quantity: "Množství",
+    unit: "Jednotka",
+    planned: "Plánováno",
+    doneBefore: "Již zadáno",
+    remaining: "Zbývá",
+    note: "Poznámka",
+    notePlaceholder: "Poznámka k provedené práci",
+    photos: "Fotografie",
+    photoTitle: "Název fotografie",
+    photoNote: "Poznámka k fotografii",
+    addPhotos: "Přidat fotografie",
+    save: "Uložit provedenou práci",
+    saving: "Ukládání...",
+    todayEntries: "Dnešní provedená práce",
+    noEntries: "Pro dnešek nejsou žádné záznamy.",
+    successSaved: "Provedená práce byla uložena.",
+    errors: {
+      noWorker:
+        "Není přihlášen žádný pracovník. Nejprve se přihlaste pomocí PINu na přihlašovací stránce.",
+      selectRoom: "Vyberte místnost.",
+      selectPosition: "Vyberte LV pozici.",
+      enterWork: "Zadejte, co bylo provedeno.",
+      enterQuantity: "Zadejte množství.",
+      invalidQuantity: "Zadejte platné množství.",
+      duplicate: "Tato provedená práce již byla zadána.",
+      saveFailed: "Provedenou práci se nepodařilo uložit.",
+    },
+  },
 };
 
 export default function RadnikLeistungPage() {
@@ -272,7 +319,7 @@ export default function RadnikLeistungPage() {
       localStorage.getItem("language") ||
       "ba";
 
-    if (["de", "ba", "en", "uz"].includes(value)) {
+    if (["de", "ba", "en", "uz", "cz"].includes(value)) {
       return value as Lang;
     }
 
@@ -353,6 +400,8 @@ export default function RadnikLeistungPage() {
   function changeLang(next: Lang) {
     setLang(next);
     localStorage.setItem("appLanguage", next);
+    localStorage.setItem("lang", next);
+    localStorage.setItem("language", next);
     localStorage.setItem("lang", next);
     localStorage.setItem("language", next);
   }
@@ -890,7 +939,7 @@ export default function RadnikLeistungPage() {
         <label>{tr("language")}</label>
 
         <div className="langGrid">
-          {(["de", "ba", "en", "uz"] as Lang[]).map((x) => (
+          {(["de", "ba", "en", "uz", "cz"] as Lang[]).map((x) => (
             <button
               key={x}
               className={lang === x ? "active" : ""}

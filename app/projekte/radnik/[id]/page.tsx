@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-type Lang = "de" | "ba" | "en" | "uz";
+type Lang = "de" | "ba" | "en" | "uz" | "cz";
 
 type Projekt = {
   id: number | string;
@@ -129,6 +129,32 @@ const t: Record<Lang, any> = {
     controlText:
       "Har bir yozuv avtomatik ravishda kirgan ishchi nomiga saqlanadi.",
   },
+
+  cz: {
+    app: "Mobilní aplikace pracovníka",
+    language: "Jazyk",
+    worker: "Přihlášený pracovník",
+    noWorker:
+      "Není přihlášen žádný pracovník. Nejprve se přihlaste pomocí PINu na přihlašovací stránce.",
+    date: "Datum",
+    siteInfo: "Informace o stavbě",
+    location: "Otevřít polohu",
+    workTime: "Pracovní doba",
+    photos: "Fotografie",
+    performance: "Provedená práce",
+    regie: "Vícepráce / Regie",
+    todayEntries: "Dnešní přehled",
+    noEntries: "Dnes nejsou žádné záznamy.",
+    hours: "Hodiny",
+    room: "Místnost",
+    position: "LV pozice",
+    signed: "Podepsáno",
+    waiting: "Čeká",
+    open: "Otevřít",
+    control: "Kontrola",
+    controlText:
+      "Každý záznam se automaticky uloží pod přihlášeného pracovníka.",
+  },
 };
 
 export default function RadnikStartPage() {
@@ -182,7 +208,7 @@ export default function RadnikStartPage() {
       localStorage.getItem("language") ||
       "ba";
 
-    if (["de", "ba", "en", "uz"].includes(value)) {
+    if (["de", "ba", "en", "uz", "cz"].includes(value)) {
       return value as Lang;
     }
 
@@ -247,6 +273,8 @@ export default function RadnikStartPage() {
   function changeLang(next: Lang) {
     setLang(next);
     localStorage.setItem("appLanguage", next);
+    localStorage.setItem("lang", next);
+    localStorage.setItem("language", next);
     localStorage.setItem("lang", next);
     localStorage.setItem("language", next);
   }
@@ -497,7 +525,7 @@ export default function RadnikStartPage() {
         <label>{tr("language")}</label>
 
         <div className="langGrid">
-          {(["de", "ba", "en", "uz"] as Lang[]).map((x) => (
+          {(["de", "ba", "en", "uz", "cz"] as Lang[]).map((x) => (
             <button
               key={x}
               className={lang === x ? "active" : ""}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../../lib/supabase";
+import { type AppLanguage, readAppLanguage } from "../../../../../lib/language";
 
 const UNIT_OPTIONS = [
   "kom",
@@ -30,6 +31,92 @@ const DEFAULT_GROUP_ORDER = [
   "Terase",
   "Dodaci",
 ];
+
+
+const GROUP_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
+  de: {
+    "priprema podloge": "Untergrundvorbereitung",
+    "primer podloge": "Grundierung",
+    estrich: "Estrich",
+    hidroizolacija: "Abdichtung",
+    ljepilo: "Kleber",
+    schienen: "Schienen",
+    fuge: "Fugen",
+    silikoni: "Silikone",
+    terase: "Terrassen",
+    dodaci: "Zubehör",
+  },
+  ba: {
+    "priprema podloge": "Priprema podloge",
+    "primer podloge": "Primer podloge",
+    estrich: "Estrih",
+    hidroizolacija: "Hidroizolacija",
+    ljepilo: "Ljepilo",
+    schienen: "Lajsne / profili",
+    fuge: "Fuge",
+    silikoni: "Silikoni",
+    terase: "Terase",
+    dodaci: "Dodaci",
+  },
+  uz: {
+    "priprema podloge": "Sirtni tayyorlash",
+    "primer podloge": "Gruntovka",
+    estrich: "Styajka",
+    hidroizolacija: "Gidroizolyatsiya",
+    ljepilo: "Yelim",
+    schienen: "Profillar",
+    fuge: "Fuga",
+    silikoni: "Silikonlar",
+    terase: "Terasalar",
+    dodaci: "Qo‘shimchalar",
+  },
+  cz: {
+    "priprema podloge": "Příprava podkladu",
+    "primer podloge": "Penetrace",
+    estrich: "Potěr",
+    hidroizolacija: "Hydroizolace",
+    ljepilo: "Lepidlo",
+    schienen: "Lišty / profily",
+    fuge: "Spárování",
+    silikoni: "Silikony",
+    terase: "Terasy",
+    dodaci: "Doplňky",
+  },
+  en: {
+    "priprema podloge": "Surface preparation",
+    "primer podloge": "Primer",
+    estrich: "Screed",
+    hidroizolacija: "Waterproofing",
+    ljepilo: "Adhesive",
+    schienen: "Trims / profiles",
+    fuge: "Grout",
+    silikoni: "Silicones",
+    terase: "Terraces",
+    dodaci: "Accessories",
+  },
+};
+
+function translatedGroupName(name: unknown, lang: AppLanguage) {
+  const original = String(name ?? "").trim();
+  const key = original.toLowerCase();
+  return GROUP_TRANSLATIONS[lang]?.[key] || original;
+}
+
+function materialCountLabel(count: number, lang: AppLanguage) {
+  if (lang === "de") return count === 1 ? "Material" : "Materialien";
+  if (lang === "ba") return "materijala";
+  if (lang === "uz") return "material";
+  if (lang === "cz") return count === 1 ? "materiál" : "materiálů";
+  return count === 1 ? "material" : "materials";
+}
+
+const materialTranslations: Record<AppLanguage, Record<string, string>> = {
+  de: { backSite: "← Zurück zur Baustelle", backRooms: "← Zurück zu den Räumen", siteTitle: "Material der Baustelle", roomTitle: "Material im Raum", freeMaterial: "+ Freies Material", materialName: "Materialname", quantity: "Menge", add: "Hinzufügen", chooseGroup: "Gruppe auswählen", groupHint: "Eine Gruppe auswählen, um nur die Materialien dieser Gruppe zu sehen.", tiles: "Fliesen", manual: "Manuelle Eingabe", backGroups: "← Zurück zu den Gruppen", tileFormat: "Format / Fliesenname", packageQuantity: "Anzahl Pakete", addTiles: "Fliesen hinzufügen", extraName: "Zusatzbezeichnung eingeben", addExtra: "Zusatz hinzufügen", search: "Material in dieser Gruppe suchen...", noMaterials: "Keine Materialien in dieser Gruppe.", addedSite: "Materialliste der Baustelle", addedRoom: "Hinzugefügte Materialien im Raum", emptyAdded: "Noch kein Material eingetragen.", delete: "Löschen", loading: "Wird geladen...", enterQuantity: "Menge eingeben.", enterTile: "Fliesenname/Format und Paketmenge eingeben.", enterFields: "Name, Einheit und Menge eingeben.", enterFree: "Materialname, Einheit und Menge eingeben.", deleteConfirm: "Möchten Sie dieses Material wirklich löschen?" },
+  ba: { backSite: "← Nazad na Baustelle", backRooms: "← Nazad na prostorije", siteTitle: "Materijal gradilišta", roomTitle: "Materijal u prostoriji", freeMaterial: "+ Slobodni materijal", materialName: "Naziv materijala", quantity: "Količina", add: "Dodaj", chooseGroup: "Odaberi grupu", groupHint: "Radnik odabere jednu grupu i vidi samo materijale iz te grupe.", tiles: "Keramika", manual: "Ručni unos", backGroups: "← Nazad na grupe", tileFormat: "Format / naziv keramike", packageQuantity: "Količina paketa", addTiles: "Dodaj keramiku", extraName: "Unesi naziv dodatka", addExtra: "Dodaj dodatak", search: "Pretraga materijala u ovoj grupi...", noMaterials: "Nema materijala u ovoj grupi.", addedSite: "Lista materijala za gradilište", addedRoom: "Dodani materijali u prostoriji", emptyAdded: "Još nema unesenog materijala.", delete: "Obriši", loading: "Učitavanje...", enterQuantity: "Unesi količinu.", enterTile: "Unesi naziv/format keramike i količinu paketa.", enterFields: "Unesi naziv, jedinicu i količinu.", enterFree: "Unesi naziv materijala, jedinicu i količinu.", deleteConfirm: "Da li želiš obrisati ovaj materijal?" },
+  uz: { backSite: "← Obyektga qaytish", backRooms: "← Xonalarga qaytish", siteTitle: "Obyekt materiali", roomTitle: "Xonadagi material", freeMaterial: "+ Erkin material", materialName: "Material nomi", quantity: "Miqdor", add: "Qo‘shish", chooseGroup: "Guruhni tanlang", groupHint: "Faqat shu guruh materiallarini ko‘rish uchun bitta guruhni tanlang.", tiles: "Plitka", manual: "Qo‘lda kiritish", backGroups: "← Guruhlarga qaytish", tileFormat: "Format / plitka nomi", packageQuantity: "Paket miqdori", addTiles: "Plitka qo‘shish", extraName: "Qo‘shimcha nomini kiriting", addExtra: "Qo‘shimcha qo‘shish", search: "Bu guruhda material qidirish...", noMaterials: "Bu guruhda material yo‘q.", addedSite: "Obyekt materiallari ro‘yxati", addedRoom: "Xonaga qo‘shilgan materiallar", emptyAdded: "Hali material kiritilmagan.", delete: "O‘chirish", loading: "Yuklanmoqda...", enterQuantity: "Miqdorni kiriting.", enterTile: "Plitka nomi/formatini va paket miqdorini kiriting.", enterFields: "Nom, birlik va miqdorni kiriting.", enterFree: "Material nomi, birlik va miqdorni kiriting.", deleteConfirm: "Bu materialni o‘chirmoqchimisiz?" },
+  cz: { backSite: "← Zpět na stavbu", backRooms: "← Zpět na místnosti", siteTitle: "Materiál stavby", roomTitle: "Materiál v místnosti", freeMaterial: "+ Volný materiál", materialName: "Název materiálu", quantity: "Množství", add: "Přidat", chooseGroup: "Vyberte skupinu", groupHint: "Vyberte jednu skupinu a zobrazí se pouze materiály z této skupiny.", tiles: "Dlažba / obklady", manual: "Ruční zadání", backGroups: "← Zpět na skupiny", tileFormat: "Formát / název dlažby", packageQuantity: "Počet balení", addTiles: "Přidat dlažbu / obklady", extraName: "Zadejte název doplňku", addExtra: "Přidat doplněk", search: "Hledat materiál v této skupině...", noMaterials: "V této skupině nejsou žádné materiály.", addedSite: "Seznam materiálu pro stavbu", addedRoom: "Materiály přidané do místnosti", emptyAdded: "Zatím nebyl zadán žádný materiál.", delete: "Smazat", loading: "Načítání...", enterQuantity: "Zadejte množství.", enterTile: "Zadejte název/formát dlažby a počet balení.", enterFields: "Zadejte název, jednotku a množství.", enterFree: "Zadejte název materiálu, jednotku a množství.", deleteConfirm: "Opravdu chcete tento materiál smazat?" },
+  en: { backSite: "← Back to site", backRooms: "← Back to rooms", siteTitle: "Site material", roomTitle: "Material in room", freeMaterial: "+ Free material", materialName: "Material name", quantity: "Quantity", add: "Add", chooseGroup: "Choose group", groupHint: "Choose one group to see only materials from that group.", tiles: "Tiles", manual: "Manual entry", backGroups: "← Back to groups", tileFormat: "Format / tile name", packageQuantity: "Package quantity", addTiles: "Add tiles", extraName: "Enter extra item name", addExtra: "Add extra item", search: "Search material in this group...", noMaterials: "No materials in this group.", addedSite: "Material list for site", addedRoom: "Materials added to room", emptyAdded: "No material entered yet.", delete: "Delete", loading: "Loading...", enterQuantity: "Enter quantity.", enterTile: "Enter tile name/format and package quantity.", enterFields: "Enter name, unit and quantity.", enterFree: "Enter material name, unit and quantity.", deleteConfirm: "Do you really want to delete this material?" },
+};
 
 function getGroupIcon(name: string) {
   const n = String(name || "").toLowerCase();
@@ -58,6 +145,8 @@ function cleanText(value: any) {
 }
 
 export default function RoomMaterialPage() {
+  const [lang, setLang] = useState<AppLanguage>("de");
+  const t = materialTranslations[lang];
   const params = useParams();
 
   const baustelleId = String(params.id);
@@ -89,6 +178,7 @@ export default function RoomMaterialPage() {
   const [slobodnaKolicina, setSlobodnaKolicina] = useState("");
 
   useEffect(() => {
+    setLang(readAppLanguage("de"));
     loadData();
   }, []);
 
@@ -270,7 +360,7 @@ export default function RoomMaterialPage() {
     const kolicina = kolicine[material.id];
 
     if (!kolicina || toNumber(kolicina) <= 0) {
-      alert("Unesi količinu.");
+      alert(t.enterQuantity);
       return;
     }
 
@@ -326,7 +416,7 @@ export default function RoomMaterialPage() {
       !keramikaKolicina ||
       toNumber(keramikaKolicina) <= 0
     ) {
-      alert("Unesi naziv/format keramike i količinu paketa.");
+      alert(t.enterTile);
       return;
     }
 
@@ -360,7 +450,7 @@ export default function RoomMaterialPage() {
       !dodatakKolicina ||
       toNumber(dodatakKolicina) <= 0
     ) {
-      alert("Unesi naziv, jedinicu i količinu.");
+      alert(t.enterFields);
       return;
     }
 
@@ -393,7 +483,7 @@ export default function RoomMaterialPage() {
       !slobodnaKolicina ||
       toNumber(slobodnaKolicina) <= 0
     ) {
-      alert("Unesi naziv materijala, jedinicu i količinu.");
+      alert(t.enterFree);
       return;
     }
 
@@ -445,7 +535,7 @@ export default function RoomMaterialPage() {
   }
 
   async function obrisiMaterijal(id: number) {
-    const potvrda = confirm("Da li želiš obrisati ovaj materijal?");
+    const potvrda = confirm(t.deleteConfirm);
 
     if (!potvrda) return;
 
@@ -491,23 +581,23 @@ export default function RoomMaterialPage() {
         href={`/baustellen/${baustelleId}/prostorije`}
         style={styles.backLink}
       >
-        ← Nazad na prostorije
+        {t.backRooms}
       </Link>
 
-      <h1 style={styles.title}>Materijal u prostoriji</h1>
+      <h1 style={styles.title}>{t.roomTitle}</h1>
 
       <div style={styles.contextText}>
         {baustelleTitle} / {roomTitle}
       </div>
 
       <section style={styles.freeBox}>
-        <h2 style={styles.subtitle}>+ Slobodni materijal</h2>
+        <h2 style={styles.subtitle}>{t.freeMaterial}</h2>
 
         <div style={styles.freeGrid}>
           <input
             value={slobodniNaziv}
             onChange={(e) => setSlobodniNaziv(e.target.value)}
-            placeholder="Naziv materijala"
+            placeholder={t.materialName}
             style={styles.input}
           />
 
@@ -526,31 +616,31 @@ export default function RoomMaterialPage() {
           <input
             value={slobodnaKolicina}
             onChange={(e) => setSlobodnaKolicina(e.target.value)}
-            placeholder="Količina"
+            placeholder={t.quantity}
             type="number"
             inputMode="decimal"
             style={styles.input}
           />
 
           <button onClick={dodajSlobodniMaterijal} style={styles.saveButton}>
-            Dodaj
+            {t.add}
           </button>
         </div>
       </section>
 
       {!aktivnaGrupa && !showKeramika && (
         <section style={styles.box}>
-          <h2 style={styles.subtitle}>Odaberi grupu</h2>
+          <h2 style={styles.subtitle}>{t.chooseGroup}</h2>
 
           <div style={styles.mobileHint}>
-            Radnik odabere jednu grupu i vidi samo materijale iz te grupe.
+            {t.groupHint}
           </div>
 
           <div style={styles.groupGrid}>
             <button onClick={openKeramika} style={styles.groupCardSpecial}>
               <div style={styles.groupIcon}>▧</div>
-              <div style={styles.groupName}>Keramika</div>
-              <div style={styles.groupCount}>Ručni unos</div>
+              <div style={styles.groupName}>{t.tiles}</div>
+              <div style={styles.groupCount}>{t.manual}</div>
             </button>
 
             {grupe.map((g) => (
@@ -560,8 +650,8 @@ export default function RoomMaterialPage() {
                 style={styles.groupCard}
               >
                 <div style={styles.groupIcon}>{getGroupIcon(g.naziv)}</div>
-                <div style={styles.groupName}>{g.naziv}</div>
-                <div style={styles.groupCount}>{getGroupCount(g.id)} mat.</div>
+                <div style={styles.groupName}>{translatedGroupName(g.naziv, lang)}</div>
+                <div style={styles.groupCount}>{getGroupCount(g.id)} {materialCountLabel(getGroupCount(g.id), lang)}</div>
               </button>
             ))}
           </div>
@@ -571,30 +661,30 @@ export default function RoomMaterialPage() {
       {showKeramika && (
         <section style={styles.box}>
           <button onClick={closeActiveView} style={styles.backButton}>
-            ← Nazad na grupe
+            {t.backGroups}
           </button>
 
-          <h2 style={styles.groupTitle}>Keramika</h2>
+          <h2 style={styles.groupTitle}>{t.tiles}</h2>
 
           <div style={styles.manualBox}>
             <input
               value={keramikaNaziv}
               onChange={(e) => setKeramikaNaziv(e.target.value)}
-              placeholder="Format / naziv keramike"
+              placeholder={t.tileFormat}
               style={styles.input}
             />
 
             <input
               value={keramikaKolicina}
               onChange={(e) => setKeramikaKolicina(e.target.value)}
-              placeholder="Količina paketa"
+              placeholder={t.packageQuantity}
               type="number"
               inputMode="decimal"
               style={styles.input}
             />
 
             <button onClick={dodajKeramiku} style={styles.saveButton}>
-              Dodaj keramiku
+              {t.addTiles}
             </button>
           </div>
         </section>
@@ -603,11 +693,11 @@ export default function RoomMaterialPage() {
       {aktivnaGrupa && (
         <section style={styles.box}>
           <button onClick={closeActiveView} style={styles.backButton}>
-            ← Nazad na grupe
+            {t.backGroups}
           </button>
 
           <h2 style={styles.groupTitle}>
-            {getGroupIcon(aktivnaGrupa.naziv)} {aktivnaGrupa.naziv}
+            {getGroupIcon(aktivnaGrupa.naziv)} {translatedGroupName(aktivnaGrupa.naziv, lang)}
           </h2>
 
           {aktivnaGrupa.naziv === "Dodaci" && (
@@ -615,7 +705,7 @@ export default function RoomMaterialPage() {
               <input
                 value={dodatakNaziv}
                 onChange={(e) => setDodatakNaziv(e.target.value)}
-                placeholder="Unesi naziv dodatka"
+                placeholder={t.extraName}
                 style={styles.input}
               />
 
@@ -634,14 +724,14 @@ export default function RoomMaterialPage() {
               <input
                 value={dodatakKolicina}
                 onChange={(e) => setDodatakKolicina(e.target.value)}
-                placeholder="Količina"
+                placeholder={t.quantity}
                 type="number"
                 inputMode="decimal"
                 style={styles.input}
               />
 
               <button onClick={dodajDodatak} style={styles.saveButton}>
-                Dodaj dodatak
+                {t.addExtra}
               </button>
             </div>
           )}
@@ -649,14 +739,14 @@ export default function RoomMaterialPage() {
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Pretraga materijala u ovoj grupi..."
+            placeholder={t.search}
             style={styles.searchInput}
           />
 
           {loading ? (
-            <div style={styles.emptyBox}>Učitavanje...</div>
+            <div style={styles.emptyBox}>{t.loading}</div>
           ) : materijaliAktivneGrupe.length === 0 ? (
-            <div style={styles.emptyBox}>Nema materijala u ovoj grupi.</div>
+            <div style={styles.emptyBox}>{t.noMaterials}</div>
           ) : (
             <div style={styles.materialList}>
               {materijaliAktivneGrupe.map((m) => (
@@ -685,7 +775,7 @@ export default function RoomMaterialPage() {
                       onClick={() => dodajKataloskiMaterijal(m)}
                       style={styles.smallSaveButton}
                     >
-                      Dodaj
+                      {t.add}
                     </button>
                   </div>
                 </div>
@@ -697,11 +787,11 @@ export default function RoomMaterialPage() {
 
       <section style={styles.box}>
         <h2 style={styles.subtitle}>
-          Dodani materijali u prostoriji ({roomMaterial.length})
+          {t.addedRoom} ({roomMaterial.length})
         </h2>
 
         {roomMaterial.length === 0 ? (
-          <div style={styles.emptyBox}>Još nema unesenog materijala.</div>
+          <div style={styles.emptyBox}>{t.emptyAdded}</div>
         ) : (
           <div style={styles.addedList}>
             {roomMaterial.map((unos) => (
@@ -736,7 +826,7 @@ export default function RoomMaterialPage() {
                     onClick={() => obrisiMaterijal(unos.id)}
                     style={styles.deleteButton}
                   >
-                    Obriši
+                    {t.delete}
                   </button>
                 </div>
               </div>

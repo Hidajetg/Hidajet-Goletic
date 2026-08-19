@@ -3,10 +3,22 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
+import { type AppLanguage, readAppLanguage, localeForLanguage } from "../lib/language";
 
 const ADMINI = ["Hido", "Steffi", "Admin"];
+const translations: Record<AppLanguage, Record<string, string>> = {
+  de: { back: "← Dashboard", title: "Kalender", logged: "Angemeldet", newPlan: "Neuer Arbeitsplan", date: "Datum", worker: "Mitarbeiter", selectAll: "Alle auswählen", clear: "Auswahl löschen", selected: "Ausgewählt", site: "Baustelle", chooseSite: "Baustelle wählen", note: "Notiz", notePlaceholder: "Notiz...", save: "Speichern", allPlans: "Alle Arbeitspläne", myPlan: "Mein Arbeitsplan", noPlans: "Keine Pläne vorhanden.", place: "Ort", delete: "Löschen", loadError: "Fehler beim Laden des Kalenders", adminAdd: "Nur Admin kann einen Plan hinzufügen.", selectWorker: "Mindestens einen Mitarbeiter auswählen.", selectSiteError: "Baustelle auswählen.", adminDelete: "Nur Admin kann einen Plan löschen.", deleteConfirm: "Plan wirklich löschen?" },
+  ba: { back: "← Dashboard", title: "Kalendar", logged: "Prijavljen", newPlan: "Novi radni plan", date: "Datum", worker: "Radnik", selectAll: "Odaberi sve", clear: "Poništi odabir", selected: "Odabrano", site: "Baustelle", chooseSite: "Odaberi Baustelle", note: "Napomena", notePlaceholder: "Napomena...", save: "Sačuvaj", allPlans: "Svi radni planovi", myPlan: "Moj radni plan", noPlans: "Nema planova.", place: "Mjesto", delete: "Obriši", loadError: "Greška kod učitavanja kalendara", adminAdd: "Samo admin može dodavati plan.", selectWorker: "Odaberi najmanje jednog radnika.", selectSiteError: "Odaberi Baustelle.", adminDelete: "Samo admin može brisati plan.", deleteConfirm: "Da li stvarno želiš obrisati plan?" },
+  uz: { back: "← Dashboard", title: "Kalendar", logged: "Kirilgan", newPlan: "Yangi ish rejasi", date: "Sana", worker: "Ishchi", selectAll: "Barchasini tanlash", clear: "Tanlovni tozalash", selected: "Tanlangan", site: "Qurilish obyekti", chooseSite: "Obyektni tanlang", note: "Izoh", notePlaceholder: "Izoh...", save: "Saqlash", allPlans: "Barcha ish rejalari", myPlan: "Mening ish rejam", noPlans: "Rejalar yo‘q.", place: "Joy", delete: "O‘chirish", loadError: "Kalendarni yuklashda xato", adminAdd: "Faqat admin reja qo‘sha oladi.", selectWorker: "Kamida bitta ishchini tanlang.", selectSiteError: "Qurilish obyektini tanlang.", adminDelete: "Faqat admin rejani o‘chira oladi.", deleteConfirm: "Rejani o‘chirmoqchimisiz?" },
+  cz: { back: "← Dashboard", title: "Kalendář", logged: "Přihlášen", newPlan: "Nový pracovní plán", date: "Datum", worker: "Pracovník", selectAll: "Vybrat všechny", clear: "Zrušit výběr", selected: "Vybráno", site: "Stavba", chooseSite: "Vyberte stavbu", note: "Poznámka", notePlaceholder: "Poznámka...", save: "Uložit", allPlans: "Všechny pracovní plány", myPlan: "Můj pracovní plán", noPlans: "Nejsou žádné plány.", place: "Místo", delete: "Smazat", loadError: "Chyba při načítání kalendáře", adminAdd: "Pouze admin může přidat plán.", selectWorker: "Vyberte alespoň jednoho pracovníka.", selectSiteError: "Vyberte stavbu.", adminDelete: "Pouze admin může mazat plány.", deleteConfirm: "Opravdu chcete plán smazat?" },
+  en: { back: "← Dashboard", title: "Calendar", logged: "Logged in", newPlan: "New work plan", date: "Date", worker: "Worker", selectAll: "Select all", clear: "Clear selection", selected: "Selected", site: "Construction site", chooseSite: "Choose construction site", note: "Note", notePlaceholder: "Note...", save: "Save", allPlans: "All work plans", myPlan: "My work plan", noPlans: "No plans available.", place: "Place", delete: "Delete", loadError: "Error loading calendar", adminAdd: "Only an admin can add a plan.", selectWorker: "Select at least one worker.", selectSiteError: "Select a construction site.", adminDelete: "Only an admin can delete a plan.", deleteConfirm: "Do you really want to delete this plan?" },
+};
+
 
 export default function KalendarPage() {
+  const [lang, setLang] = useState<AppLanguage>("de");
+  const t = translations[lang];
+
   const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
 
   const [currentUser, setCurrentUser] = useState("");
@@ -21,6 +33,7 @@ export default function KalendarPage() {
   const [planovi, setPlanovi] = useState<any[]>([]);
 
   useEffect(() => {
+    setLang(readAppLanguage("de"));
     const name = localStorage.getItem("worker_name") || "";
     const adminStatus = ADMINI.includes(name);
 
@@ -103,7 +116,7 @@ export default function KalendarPage() {
     const { data, error } = await query;
 
     if (error) {
-      alert("Greška kod učitavanja kalendara: " + error.message);
+      alert(t.loadError + ": " + error.message);
       return;
     }
 
@@ -129,17 +142,17 @@ export default function KalendarPage() {
 
   async function savePlan() {
     if (!isAdmin) {
-      alert("Samo admin može dodavati plan.");
+      alert(t.adminAdd);
       return;
     }
 
     if (selectedWorkers.length === 0) {
-      alert("Odaberi najmanje jednog radnika.");
+      alert(t.selectWorker);
       return;
     }
 
     if (!baustelleId) {
-      alert("Odaberi Baustelle.");
+      alert(t.selectSiteError);
       return;
     }
 
@@ -169,11 +182,11 @@ export default function KalendarPage() {
 
   async function deletePlan(id: number) {
     if (!isAdmin) {
-      alert("Samo admin može brisati plan.");
+      alert(t.adminDelete);
       return;
     }
 
-    const potvrda = confirm("Plan wirklich löschen?");
+    const potvrda = confirm(t.deleteConfirm);
 
     if (!potvrda) return;
 
@@ -188,7 +201,7 @@ export default function KalendarPage() {
   }
 
   function formatDate(value: string) {
-    return new Date(value).toLocaleDateString("de-AT", {
+    return new Date(value).toLocaleDateString(localeForLanguage(lang), {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -198,20 +211,20 @@ export default function KalendarPage() {
   return (
     <main style={mainStyle}>
       <Link href="/dashboard" style={backLinkStyle}>
-        ← Dashboard
+        {t.back}
       </Link>
 
-      <h1 style={titleStyle}>Kalender</h1>
+      <h1 style={titleStyle}>{t.title}</h1>
 
       <p style={{ color: "#aaa", marginBottom: "30px" }}>
-        Angemeldet: {currentUser}
+        {t.logged}: {currentUser}
       </p>
 
       {isAdmin && (
         <div style={boxStyle}>
-          <h2>Neuer Arbeitsplan</h2>
+          <h2>{t.newPlan}</h2>
 
-          <label style={labelStyle}>Datum</label>
+          <label style={labelStyle}>{t.date}</label>
           <input
             type="date"
             value={datum}
@@ -219,15 +232,15 @@ export default function KalendarPage() {
             style={inputStyle}
           />
 
-          <label style={labelStyle}>Mitarbeiter</label>
+          <label style={labelStyle}>{t.worker}</label>
 
           <div style={smallButtonRowStyle}>
             <button onClick={selectAllWorkers} style={smallButtonStyle}>
-              Alle auswählen
+              {t.selectAll}
             </button>
 
             <button onClick={clearWorkers} style={smallRedButtonStyle}>
-              Auswahl löschen
+              {t.clear}
             </button>
           </div>
 
@@ -246,16 +259,16 @@ export default function KalendarPage() {
           </div>
 
           <p style={{ color: "#aaa", marginTop: "10px" }}>
-            Ausgewählt: {selectedWorkers.length}
+            {t.selected}: {selectedWorkers.length}
           </p>
 
-          <label style={labelStyle}>Baustelle</label>
+          <label style={labelStyle}>{t.site}</label>
           <select
             value={baustelleId}
             onChange={(e) => setBaustelleId(e.target.value)}
             style={inputStyle}
           >
-            <option value="">Baustelle wählen</option>
+            <option value="">{t.chooseSite}</option>
 
             {baustellen.map((b) => (
               <option key={b.id} value={b.id}>
@@ -264,25 +277,25 @@ export default function KalendarPage() {
             ))}
           </select>
 
-          <label style={labelStyle}>Notiz</label>
+          <label style={labelStyle}>{t.note}</label>
           <textarea
-            placeholder="Notiz..."
+            placeholder={t.notePlaceholder}
             value={napomena}
             onChange={(e) => setNapomena(e.target.value)}
             style={textareaStyle}
           />
 
           <button onClick={savePlan} style={saveButtonStyle}>
-            Speichern
+            {t.save}
           </button>
         </div>
       )}
 
       <div style={boxStyle}>
-        <h2>{isAdmin ? "Alle Arbeitspläne" : "Mein Arbeitsplan"}</h2>
+        <h2>{isAdmin ? t.allPlans : t.myPlan}</h2>
 
         {planovi.length === 0 && (
-          <p style={{ color: "#aaa" }}>Keine Pläne vorhanden.</p>
+          <p style={{ color: "#aaa" }}>{t.noPlans}</p>
         )}
 
         {planovi.map((p) => (
@@ -291,29 +304,29 @@ export default function KalendarPage() {
               <strong style={{ color: "#f97316" }}>{formatDate(p.datum)}</strong>
 
               <p>
-                <strong>Mitarbeiter:</strong> {p.worker_name}
+                <strong>{t.worker}:</strong> {p.worker_name}
               </p>
 
               <p>
-                <strong>Baustelle:</strong> {p.baustellen?.naziv || "-"}
+                <strong>{t.site}:</strong> {p.baustellen?.naziv || "-"}
               </p>
 
               {p.baustellen?.lokacija && (
                 <p>
-                  <strong>Ort:</strong> {p.baustellen.lokacija}
+                  <strong>{t.place}:</strong> {p.baustellen.lokacija}
                 </p>
               )}
 
               {p.napomena && (
                 <p>
-                  <strong>Notiz:</strong> {p.napomena}
+                  <strong>{t.note}:</strong> {p.napomena}
                 </p>
               )}
             </div>
 
             {isAdmin && (
               <button onClick={() => deletePlan(p.id)} style={deleteButtonStyle}>
-                Löschen
+                {t.delete}
               </button>
             )}
           </div>
