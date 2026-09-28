@@ -17,14 +17,21 @@ const translations: any = {
     overview: "Übersicht",
     arbeitsinfo: "Arbeitsinfo",
     regiebericht: "Regietagesbericht",
+
+    groupProductivity: "Produktivität – Gruppeneingabe",
+
     closeSite: "Baustelle abschließen",
     deleteSite: "Baustelle löschen",
+
     googleLocation: "Google Standort",
     openGoogle: "Auf Google Maps öffnen",
+
     visualization3d: "3D Visualisierung",
     openVisualization3d: "3D Ansicht öffnen",
+
     bauDocumentation: "Bau-Dokumentation",
     openBauDocumentation: "Tagesberichte, Fotos und Pläne",
+
     siteInfo: "Informationen zur Baustelle",
     addInfo: "Information hinzufügen",
     close: "Schließen",
@@ -33,6 +40,7 @@ const translations: any = {
     delete: "Löschen",
     value: "Information / Text",
     emptyInfo: "Noch keine Informationen eingetragen.",
+
     ansprechpartner: "Bauleiter / Ansprechpartner",
     zugang: "Zugang / Türnummer",
     parking: "Parking",
@@ -44,15 +52,26 @@ const translations: any = {
     arbeitszeit: "Arbeitszeit",
     telefone: "Wichtige Telefonnummern",
     notizen: "Zusätzliche Hinweise",
+
     noRooms: "Keine Räume vorhanden.",
     room: "Raum",
+
     noGoogle: "Keine Google Maps Adresse eingetragen.",
     no3d: "Keine 3D Visualisierung eingetragen.",
+
     deleteInfoConfirm: "Information wirklich löschen?",
-    archiveConfirm: "Möchten Sie diese Baustelle wirklich abschließen und ins Archiv verschieben?",
-    hasEntriesNoAdmin: "Diese Baustelle hat Einträge. Nur Admin kann eine Baustelle mit bestehenden Einträgen löschen.",
-    deleteWithEntries: "Diese Baustelle hat Einträge. Möchte der Admin diese Baustelle wirklich dauerhaft löschen?",
+
+    archiveConfirm:
+      "Möchten Sie diese Baustelle wirklich abschließen und ins Archiv verschieben?",
+
+    hasEntriesNoAdmin:
+      "Diese Baustelle hat Einträge. Nur Admin kann eine Baustelle mit bestehenden Einträgen löschen.",
+
+    deleteWithEntries:
+      "Diese Baustelle hat Einträge. Möchte der Admin diese Baustelle wirklich dauerhaft löschen?",
+
     deleteEmpty: "Möchten Sie diese leere Baustelle wirklich löschen?",
+
     errorLoadSite: "Fehler beim Laden der Baustelle",
     errorLoadRooms: "Fehler beim Laden der Räume",
     errorLoadInfo: "Fehler beim Laden der Baustelle-Info",
@@ -60,6 +79,7 @@ const translations: any = {
     errorDelete: "Fehler beim Löschen",
     errorArchive: "Fehler beim Archivieren",
   },
+
   ba: {
     back: "Nazad na Baustelle",
     loading: "Učitavanje...",
@@ -71,14 +91,21 @@ const translations: any = {
     overview: "Pregled",
     arbeitsinfo: "Arbeitsinfo",
     regiebericht: "Regietagesbericht",
+
+    groupProductivity: "Produktivnost – grupni unos",
+
     closeSite: "Zatvori Baustelle",
     deleteSite: "Obriši Baustelle",
+
     googleLocation: "Google lokacija",
     openGoogle: "Otvori na Google Maps",
+
     visualization3d: "3D Vizualizacija",
     openVisualization3d: "Otvori 3D prikaz",
+
     bauDocumentation: "Bau-Dokumentation",
     openBauDocumentation: "Dnevni izvještaji, slike i planovi",
+
     siteInfo: "Informacije o Baustelle",
     addInfo: "Dodaj informaciju",
     close: "Zatvori",
@@ -87,6 +114,7 @@ const translations: any = {
     delete: "Obriši",
     value: "Informacija / tekst",
     emptyInfo: "Još nema dodanih informacija.",
+
     ansprechpartner: "Bauleiter / Ansprechpartner",
     zugang: "Zugang / broj vrata",
     parking: "Parking",
@@ -98,15 +126,26 @@ const translations: any = {
     arbeitszeit: "Radno vrijeme objekta",
     telefone: "Važni telefoni",
     notizen: "Dodatne napomene",
+
     noRooms: "Nema prostorija.",
     room: "Prostorija",
+
     noGoogle: "Google Maps adresa nije unesena.",
     no3d: "3D vizualizacija nije unesena.",
+
     deleteInfoConfirm: "Da li stvarno želiš obrisati informaciju?",
-    archiveConfirm: "Da li stvarno želiš zatvoriti ovu Baustelle i premjestiti je u arhivu?",
-    hasEntriesNoAdmin: "Ova Baustelle ima unose. Samo admin može obrisati Baustelle koja već ima unose.",
-    deleteWithEntries: "Ova Baustelle ima unose. Da li admin stvarno želi trajno obrisati ovu Baustelle?",
+
+    archiveConfirm:
+      "Da li stvarno želiš zatvoriti ovu Baustelle i premjestiti je u arhivu?",
+
+    hasEntriesNoAdmin:
+      "Ova Baustelle ima unose. Samo admin može obrisati Baustelle koja već ima unose.",
+
+    deleteWithEntries:
+      "Ova Baustelle ima unose. Da li admin stvarno želi trajno obrisati ovu Baustelle?",
+
     deleteEmpty: "Da li stvarno želiš obrisati ovu praznu Baustelle?",
+
     errorLoadSite: "Greška pri učitavanju Baustelle",
     errorLoadRooms: "Greška pri učitavanju prostorija",
     errorLoadInfo: "Greška pri učitavanju informacija",
@@ -114,6 +153,7 @@ const translations: any = {
     errorDelete: "Greška pri brisanju",
     errorArchive: "Greška pri arhiviranju",
   },
+
   en: {
     back: "Back to Sites",
     loading: "Loading...",
@@ -125,14 +165,21 @@ const translations: any = {
     overview: "Overview",
     arbeitsinfo: "Work info",
     regiebericht: "Regie daily report",
+
+    groupProductivity: "Productivity – group input",
+
     closeSite: "Close Site",
     deleteSite: "Delete Site",
+
     googleLocation: "Google location",
     openGoogle: "Open in Google Maps",
+
     visualization3d: "3D Visualization",
     openVisualization3d: "Open 3D view",
+
     bauDocumentation: "Construction documentation",
     openBauDocumentation: "Daily reports, photos and plans",
+
     siteInfo: "Site information",
     addInfo: "Add information",
     close: "Close",
@@ -141,6 +188,7 @@ const translations: any = {
     delete: "Delete",
     value: "Information / text",
     emptyInfo: "No information added yet.",
+
     ansprechpartner: "Site manager / contact person",
     zugang: "Access / door number",
     parking: "Parking",
@@ -152,15 +200,26 @@ const translations: any = {
     arbeitszeit: "Working hours",
     telefone: "Important phone numbers",
     notizen: "Additional notes",
+
     noRooms: "No rooms available.",
     room: "Room",
+
     noGoogle: "No Google Maps address has been entered.",
     no3d: "No 3D visualization has been entered.",
+
     deleteInfoConfirm: "Do you really want to delete this information?",
-    archiveConfirm: "Do you really want to close this site and move it to the archive?",
-    hasEntriesNoAdmin: "This site has entries. Only an admin can delete a site with existing entries.",
-    deleteWithEntries: "This site has entries. Does the admin really want to delete this site permanently?",
+
+    archiveConfirm:
+      "Do you really want to close this site and move it to the archive?",
+
+    hasEntriesNoAdmin:
+      "This site has entries. Only an admin can delete a site with existing entries.",
+
+    deleteWithEntries:
+      "This site has entries. Does the admin really want to delete this site permanently?",
+
     deleteEmpty: "Do you really want to delete this empty site?",
+
     errorLoadSite: "Error loading site",
     errorLoadRooms: "Error loading rooms",
     errorLoadInfo: "Error loading site information",
@@ -168,6 +227,7 @@ const translations: any = {
     errorDelete: "Error deleting",
     errorArchive: "Error archiving",
   },
+
   uz: {
     back: "Obyektlarga qaytish",
     loading: "Yuklanmoqda...",
@@ -179,14 +239,21 @@ const translations: any = {
     overview: "Ko‘rinish",
     arbeitsinfo: "Ish ma’lumoti",
     regiebericht: "Regie hisoboti",
+
+    groupProductivity: "Unumdorlik – guruhli kiritish",
+
     closeSite: "Obyektni yopish",
     deleteSite: "Obyektni o‘chirish",
+
     googleLocation: "Google manzil",
     openGoogle: "Google Maps’da ochish",
+
     visualization3d: "3D vizualizatsiya",
     openVisualization3d: "3D ko‘rinishni ochish",
+
     bauDocumentation: "Qurilish hujjatlari",
     openBauDocumentation: "Kunlik hisobotlar, rasmlar va rejalar",
+
     siteInfo: "Obyekt ma’lumoti",
     addInfo: "Ma’lumot qo‘shish",
     close: "Yopish",
@@ -195,6 +262,7 @@ const translations: any = {
     delete: "O‘chirish",
     value: "Ma’lumot / matn",
     emptyInfo: "Hali ma’lumot qo‘shilmagan.",
+
     ansprechpartner: "Bauleiter / mas’ul shaxs",
     zugang: "Kirish / eshik raqami",
     parking: "Parking",
@@ -206,15 +274,26 @@ const translations: any = {
     arbeitszeit: "Ish vaqti",
     telefone: "Muhim telefonlar",
     notizen: "Qo‘shimcha eslatmalar",
+
     noRooms: "Xonalar yo‘q.",
     room: "Xona",
+
     noGoogle: "Google Maps manzili kiritilmagan.",
     no3d: "3D vizualizatsiya kiritilmagan.",
+
     deleteInfoConfirm: "Bu ma’lumotni o‘chirmoqchimisiz?",
-    archiveConfirm: "Bu obyektni yopib, arxivga ko‘chirmoqchimisiz?",
-    hasEntriesNoAdmin: "Bu obyektga ma’lumotlar kiritilgan. Faqat admin bunday obyektni o‘chira oladi.",
-    deleteWithEntries: "Bu obyektga ma’lumotlar kiritilgan. Admin uni butunlay o‘chirmoqchimi?",
+
+    archiveConfirm:
+      "Bu obyektni yopib, arxivga ko‘chirmoqchimisiz?",
+
+    hasEntriesNoAdmin:
+      "Bu obyektga ma’lumotlar kiritilgan. Faqat admin bunday obyektni o‘chira oladi.",
+
+    deleteWithEntries:
+      "Bu obyektga ma’lumotlar kiritilgan. Admin uni butunlay o‘chirmoqchimi?",
+
     deleteEmpty: "Bu bo‘sh obyektni o‘chirmoqchimisiz?",
+
     errorLoadSite: "Obyektni yuklashda xato",
     errorLoadRooms: "Xonalarni yuklashda xato",
     errorLoadInfo: "Obyekt ma’lumotini yuklashda xato",
@@ -234,14 +313,21 @@ const translations: any = {
     overview: "Přehled",
     arbeitsinfo: "Pracovní informace",
     regiebericht: "Denní Regie report",
+
+    groupProductivity: "Produktivita – skupinový zápis",
+
     closeSite: "Uzavřít stavbu",
     deleteSite: "Smazat stavbu",
+
     googleLocation: "Google poloha",
     openGoogle: "Otevřít v Google Maps",
+
     visualization3d: "3D vizualizace",
     openVisualization3d: "Otevřít 3D náhled",
+
     bauDocumentation: "Stavební dokumentace",
     openBauDocumentation: "Denní zprávy, fotografie a plány",
+
     siteInfo: "Informace o stavbě",
     addInfo: "Přidat informaci",
     close: "Zavřít",
@@ -250,6 +336,7 @@ const translations: any = {
     delete: "Smazat",
     value: "Informace / text",
     emptyInfo: "Zatím nebyly přidány žádné informace.",
+
     ansprechpartner: "Stavbyvedoucí / kontaktní osoba",
     zugang: "Přístup / číslo dveří",
     parking: "Parkování",
@@ -261,15 +348,26 @@ const translations: any = {
     arbeitszeit: "Pracovní doba",
     telefone: "Důležitá telefonní čísla",
     notizen: "Další poznámky",
+
     noRooms: "Nejsou žádné místnosti.",
     room: "Místnost",
+
     noGoogle: "Není zadána žádná adresa Google Maps.",
     no3d: "Není zadána žádná 3D vizualizace.",
+
     deleteInfoConfirm: "Opravdu chcete tuto informaci smazat?",
-    archiveConfirm: "Opravdu chcete tuto stavbu uzavřít a přesunout do archivu?",
-    hasEntriesNoAdmin: "Tato stavba obsahuje záznamy. Stavbu s existujícími záznamy může smazat pouze admin.",
-    deleteWithEntries: "Tato stavba obsahuje záznamy. Opravdu ji chce admin trvale smazat?",
+
+    archiveConfirm:
+      "Opravdu chcete tuto stavbu uzavřít a přesunout do archivu?",
+
+    hasEntriesNoAdmin:
+      "Tato stavba obsahuje záznamy. Stavbu s existujícími záznamy může smazat pouze admin.",
+
+    deleteWithEntries:
+      "Tato stavba obsahuje záznamy. Opravdu ji chce admin trvale smazat?",
+
     deleteEmpty: "Opravdu chcete tuto prázdnou stavbu smazat?",
+
     errorLoadSite: "Chyba při načítání stavby",
     errorLoadRooms: "Chyba při načítání místností",
     errorLoadInfo: "Chyba při načítání informací o stavbě",
@@ -349,9 +447,11 @@ export default function BaustelleDetailPage() {
 
   async function loadAll() {
     setLoading(true);
+
     await loadBaustelle();
     await loadRooms();
     await loadInfo();
+
     setLoading(false);
   }
 
@@ -404,7 +504,10 @@ export default function BaustelleDetailPage() {
           row.google_maps_url || row.note_bs || row.note_de || "";
       } else if (row.type === "visualization_3d") {
         nextInfo.visualization_3d =
-          row.visualization_url || row.google_maps_url || row.note_bs || "";
+          row.visualization_url ||
+          row.google_maps_url ||
+          row.note_bs ||
+          "";
       } else if (row.type) {
         nextInfo[row.type] =
           row.note_bs ||
@@ -436,6 +539,7 @@ export default function BaustelleDetailPage() {
   function getInfoLabel(field: string) {
     if (field === "google_maps") return t.googleLocation;
     if (field === "visualization_3d") return t.visualization3d;
+
     return t[field] || field;
   }
 
@@ -472,20 +576,36 @@ export default function BaustelleDetailPage() {
       baustelle_id: Number(baustelleId),
       room_id: null,
       type: field,
+
       title_de: labelDe,
       title_bs: labelBs,
       title_uz: labelUz,
       title_en: labelEn,
+
       note_de:
-        field === "google_maps" || field === "visualization_3d" ? "" : value,
+        field === "google_maps" || field === "visualization_3d"
+          ? ""
+          : value,
+
       note_bs:
-        field === "google_maps" || field === "visualization_3d" ? "" : value,
+        field === "google_maps" || field === "visualization_3d"
+          ? ""
+          : value,
+
       note_uz:
-        field === "google_maps" || field === "visualization_3d" ? "" : value,
+        field === "google_maps" || field === "visualization_3d"
+          ? ""
+          : value,
+
       note_en:
-        field === "google_maps" || field === "visualization_3d" ? "" : value,
+        field === "google_maps" || field === "visualization_3d"
+          ? ""
+          : value,
+
       google_maps_url: field === "google_maps" ? value : "",
-      visualization_url: field === "visualization_3d" ? value : "",
+
+      visualization_url:
+        field === "visualization_3d" ? value : "",
     };
   }
 
@@ -501,9 +621,14 @@ export default function BaustelleDetailPage() {
       .eq("baustelle_id", Number(baustelleId))
       .eq("type", infoField);
 
-    const payload = buildInfoPayload(infoField, infoValue.trim());
+    const payload = buildInfoPayload(
+      infoField,
+      infoValue.trim()
+    );
 
-    const { error } = await supabase.from("baustelle_info").insert([payload]);
+    const { error } = await supabase
+      .from("baustelle_info")
+      .insert([payload]);
 
     if (error) {
       alert(t.errorSave + ": " + error.message);
@@ -515,11 +640,13 @@ export default function BaustelleDetailPage() {
     setShowInfoForm(false);
     setEditingField("");
     setInfoValue("");
+
     await loadInfo();
   }
 
   async function deleteInfoField(field: string) {
     const ok = confirm(t.deleteInfoConfirm);
+
     if (!ok) return;
 
     const { error } = await supabase
@@ -539,7 +666,10 @@ export default function BaustelleDetailPage() {
   async function countRows(tableName: string) {
     const { count } = await supabase
       .from(tableName)
-      .select("*", { count: "exact", head: true })
+      .select("*", {
+        count: "exact",
+        head: true,
+      })
       .eq("baustelle_id", baustelleId);
 
     return count || 0;
@@ -571,7 +701,9 @@ export default function BaustelleDetailPage() {
 
     const { error } = await supabase
       .from("baustellen")
-      .update({ status: "Archiv" })
+      .update({
+        status: "Archiv",
+      })
       .eq("id", baustelleId);
 
     if (error) {
@@ -583,14 +715,19 @@ export default function BaustelleDetailPage() {
   }
 
   async function deleteBaustelle() {
-    const hasEntries = await checkIfBaustelleHasEntries();
+    const hasEntries =
+      await checkIfBaustelleHasEntries();
 
     if (hasEntries && workerRole !== "admin") {
       alert(t.hasEntriesNoAdmin);
       return;
     }
 
-    const ok = confirm(hasEntries ? t.deleteWithEntries : t.deleteEmpty);
+    const ok = confirm(
+      hasEntries
+        ? t.deleteWithEntries
+        : t.deleteEmpty
+    );
 
     if (!ok) return;
 
@@ -607,7 +744,9 @@ export default function BaustelleDetailPage() {
     router.push("/baustellen");
   }
 
-  const visibleInfoFields = infoFields.filter((field) => info[field.key]);
+  const visibleInfoFields = infoFields.filter(
+    (field) => info[field.key]
+  );
 
   if (loading || !baustelle) {
     return (
@@ -619,16 +758,26 @@ export default function BaustelleDetailPage() {
 
   return (
     <main style={mainStyle}>
-      <Link href="/baustellen" style={backLinkStyle}>
+      <Link
+        href="/baustellen"
+        style={backLinkStyle}
+      >
         ← {t.back}
       </Link>
 
-      <h1 style={titleStyle}>{baustelle.naziv || "Baustelle"}</h1>
+      <h1 style={titleStyle}>
+        {baustelle.naziv || "Baustelle"}
+      </h1>
 
+      {/* GORNJI BLOK */}
       <div style={topInfoBoxStyle}>
         <a
           href={info.google_maps || "#"}
-          target={info.google_maps ? "_blank" : "_self"}
+          target={
+            info.google_maps
+              ? "_blank"
+              : "_self"
+          }
           onClick={(e) => {
             if (!info.google_maps) {
               e.preventDefault();
@@ -637,14 +786,28 @@ export default function BaustelleDetailPage() {
           }}
           style={googleButtonStyle}
         >
-          <div style={googleIconStyle}>📍</div>
-          <div style={googleTitleStyle}>{t.googleLocation}</div>
-          <div style={googleSmallTextStyle}>{t.openGoogle}</div>
+          <div style={googleIconStyle}>
+            📍
+          </div>
+
+          <div style={googleTitleStyle}>
+            {t.googleLocation}
+          </div>
+
+          <div style={googleSmallTextStyle}>
+            {t.openGoogle}
+          </div>
         </a>
 
         <a
-          href={info.visualization_3d || "#"}
-          target={info.visualization_3d ? "_blank" : "_self"}
+          href={
+            info.visualization_3d || "#"
+          }
+          target={
+            info.visualization_3d
+              ? "_blank"
+              : "_self"
+          }
           onClick={(e) => {
             if (!info.visualization_3d) {
               e.preventDefault();
@@ -653,19 +816,37 @@ export default function BaustelleDetailPage() {
           }}
           style={visualizationButtonStyle}
         >
-          <div style={googleIconStyle}>🏗️</div>
-          <div style={googleTitleStyle}>{t.visualization3d}</div>
-          <div style={googleSmallTextStyle}>{t.openVisualization3d}</div>
+          <div style={googleIconStyle}>
+            🏗️
+          </div>
+
+          <div style={googleTitleStyle}>
+            {t.visualization3d}
+          </div>
+
+          <div style={googleSmallTextStyle}>
+            {t.openVisualization3d}
+          </div>
         </a>
 
         {isAdmin && (
           <Link
             href={`/baustellen/${baustelleId}/bau-dokumentation`}
-            style={bauDocumentationButtonStyle}
+            style={
+              bauDocumentationButtonStyle
+            }
           >
-            <div style={googleIconStyle}>📋</div>
-            <div style={googleTitleStyle}>{t.bauDocumentation}</div>
-            <div style={googleSmallTextStyle}>
+            <div style={googleIconStyle}>
+              📋
+            </div>
+
+            <div style={googleTitleStyle}>
+              {t.bauDocumentation}
+            </div>
+
+            <div
+              style={googleSmallTextStyle}
+            >
               {t.openBauDocumentation}
             </div>
           </Link>
@@ -676,23 +857,36 @@ export default function BaustelleDetailPage() {
         <div style={basicInfoStyle}>
           {baustelle.lokacija && (
             <p>
-              <strong>{t.location}:</strong> {baustelle.lokacija}
+              <strong>
+                {t.location}:
+              </strong>{" "}
+              {baustelle.lokacija}
             </p>
           )}
 
           <p>
-            <strong>{t.status}:</strong>{" "}
-            {baustelle.status === "Aktiv" ? t.active : baustelle.status}
+            <strong>
+              {t.status}:
+            </strong>{" "}
+            {baustelle.status === "Aktiv"
+              ? t.active
+              : baustelle.status}
           </p>
         </div>
       </div>
 
+      {/* INFORMACIJE */}
       <div style={infoSectionStyle}>
         <div style={infoHeaderStyle}>
-          <h2 style={sectionTitleStyle}>ℹ️ {t.siteInfo}</h2>
+          <h2 style={sectionTitleStyle}>
+            ℹ️ {t.siteInfo}
+          </h2>
 
           {isAdmin && (
-            <button onClick={startAddInfo} style={buttonStyle}>
+            <button
+              onClick={startAddInfo}
+              style={buttonStyle}
+            >
               + {t.addInfo}
             </button>
           )}
@@ -703,31 +897,55 @@ export default function BaustelleDetailPage() {
             <select
               value={infoField}
               onChange={(e) => {
-                setInfoField(e.target.value);
-                setInfoValue(info[e.target.value] || "");
+                setInfoField(
+                  e.target.value
+                );
+
+                setInfoValue(
+                  info[e.target.value] ||
+                    ""
+                );
               }}
               disabled={!!editingField}
               style={inputStyle}
             >
-              <option value="google_maps">📍 {t.googleLocation}</option>
-              <option value="visualization_3d">🏗️ {t.visualization3d}</option>
+              <option value="google_maps">
+                📍 {t.googleLocation}
+              </option>
+
+              <option value="visualization_3d">
+                🏗️ {t.visualization3d}
+              </option>
 
               {infoFields.map((field) => (
-                <option key={field.key} value={field.key}>
-                  {field.icon} {getInfoLabel(field.key)}
+                <option
+                  key={field.key}
+                  value={field.key}
+                >
+                  {field.icon}{" "}
+                  {getInfoLabel(
+                    field.key
+                  )}
                 </option>
               ))}
             </select>
 
             <textarea
               value={infoValue}
-              onChange={(e) => setInfoValue(e.target.value)}
+              onChange={(e) =>
+                setInfoValue(
+                  e.target.value
+                )
+              }
               placeholder={t.value}
               style={textareaStyle}
             />
 
             <div style={formButtonsStyle}>
-              <button onClick={saveInfoField} style={saveButtonStyle}>
+              <button
+                onClick={saveInfoField}
+                style={saveButtonStyle}
+              >
                 {t.save}
               </button>
 
@@ -737,7 +955,9 @@ export default function BaustelleDetailPage() {
                   setEditingField("");
                   setInfoValue("");
                 }}
-                style={smallDarkButtonStyle}
+                style={
+                  smallDarkButtonStyle
+                }
               >
                 {t.close}
               </button>
@@ -745,47 +965,93 @@ export default function BaustelleDetailPage() {
           </div>
         )}
 
-        {visibleInfoFields.length === 0 ? (
-          <p style={emptyInfoStyle}>{t.emptyInfo}</p>
+        {visibleInfoFields.length ===
+        0 ? (
+          <p style={emptyInfoStyle}>
+            {t.emptyInfo}
+          </p>
         ) : (
           <div style={infoGridStyle}>
-            {visibleInfoFields.map((field) => (
-              <div key={field.key} style={infoItemStyle}>
-                <div style={infoIconStyle}>{field.icon}</div>
+            {visibleInfoFields.map(
+              (field) => (
+                <div
+                  key={field.key}
+                  style={infoItemStyle}
+                >
+                  <div
+                    style={infoIconStyle}
+                  >
+                    {field.icon}
+                  </div>
 
-                <div style={infoTextWrapStyle}>
-                  <strong>{getInfoLabel(field.key)}</strong>
-                  <p style={infoTextStyle}>{info[field.key]}</p>
+                  <div
+                    style={
+                      infoTextWrapStyle
+                    }
+                  >
+                    <strong>
+                      {getInfoLabel(
+                        field.key
+                      )}
+                    </strong>
 
-                  {isAdmin && (
-                    <div style={smallActionRowStyle}>
-                      <button
-                        onClick={() => startEditInfo(field.key)}
-                        style={smallEditButtonStyle}
+                    <p
+                      style={infoTextStyle}
+                    >
+                      {info[field.key]}
+                    </p>
+
+                    {isAdmin && (
+                      <div
+                        style={
+                          smallActionRowStyle
+                        }
                       >
-                        {t.edit}
-                      </button>
+                        <button
+                          onClick={() =>
+                            startEditInfo(
+                              field.key
+                            )
+                          }
+                          style={
+                            smallEditButtonStyle
+                          }
+                        >
+                          {t.edit}
+                        </button>
 
-                      <button
-                        onClick={() => deleteInfoField(field.key)}
-                        style={smallDeleteButtonStyle}
-                      >
-                        {t.delete}
-                      </button>
-                    </div>
-                  )}
+                        <button
+                          onClick={() =>
+                            deleteInfoField(
+                              field.key
+                            )
+                          }
+                          style={
+                            smallDeleteButtonStyle
+                          }
+                        >
+                          {t.delete}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
           </div>
         )}
       </div>
 
+      {/* PROSTORIJE */}
       <div style={roomsBoxStyle}>
-        <h2 style={sectionTitleStyle}>{t.addedRooms}</h2>
+        <h2 style={sectionTitleStyle}>
+          {t.addedRooms}
+        </h2>
 
         {rooms.length === 0 ? (
-          <p style={emptyInfoStyle}>{t.noRooms}</p>
+          <p style={emptyInfoStyle}>
+            {t.noRooms}
+          </p>
         ) : (
           <div style={roomListStyle}>
             {rooms.map((room) => (
@@ -794,19 +1060,38 @@ export default function BaustelleDetailPage() {
                 href={`/baustellen/${baustelleId}/prostorije/${room.id}`}
                 style={roomBadgeStyle}
               >
-                {room.naziv || room.name || t.room}
+                {room.naziv ||
+                  room.name ||
+                  t.room}
               </Link>
             ))}
           </div>
         )}
       </div>
 
+      {/* NOVO: GRUPNA PRODUKTIVNOST */}
+      <Link
+        href={`/baustellen/${baustelleId}/produktivnost-grupno`}
+        style={
+          groupProductivityButtonStyle
+        }
+      >
+        📊 {t.groupProductivity}
+      </Link>
+
+      {/* GLAVNA DUGMAD */}
       <div style={gridStyle}>
-        <Link href={`/baustellen/${baustelleId}/prostorije`} style={buttonStyle}>
+        <Link
+          href={`/baustellen/${baustelleId}/prostorije`}
+          style={buttonStyle}
+        >
           {t.addRooms}
         </Link>
 
-        <Link href={`/baustellen/${baustelleId}/pregled`} style={buttonStyle}>
+        <Link
+          href={`/baustellen/${baustelleId}/pregled`}
+          style={buttonStyle}
+        >
           {t.overview}
         </Link>
 
@@ -825,18 +1110,29 @@ export default function BaustelleDetailPage() {
         </Link>
       </div>
 
+      {/* ARHIVA / BRISANJE */}
       <div style={actionBoxStyle}>
-        <button onClick={archiveBaustelle} style={archiveButtonStyle}>
+        <button
+          onClick={archiveBaustelle}
+          style={archiveButtonStyle}
+        >
           {t.closeSite}
         </button>
 
-        <button onClick={deleteBaustelle} style={deleteButtonStyle}>
+        <button
+          onClick={deleteBaustelle}
+          style={deleteButtonStyle}
+        >
           {t.deleteSite}
         </button>
       </div>
     </main>
   );
 }
+
+/* =========================
+   STILOVI
+========================= */
 
 const mainStyle: any = {
   background: "#000",
@@ -994,7 +1290,8 @@ const formButtonsStyle: any = {
 
 const infoGridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(260px, 1fr))",
   gap: "18px",
 };
 
@@ -1071,9 +1368,39 @@ const roomBadgeStyle: any = {
   fontWeight: "bold",
 };
 
+/* NOVO ZELENO DUGME */
+
+const groupProductivityButtonStyle: any = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+
+  width: "100%",
+
+  padding: "24px",
+
+  marginBottom: "25px",
+
+  background: "#059669",
+
+  color: "white",
+
+  borderRadius: "16px",
+
+  fontSize: "22px",
+  fontWeight: "bold",
+
+  textDecoration: "none",
+
+  boxSizing: "border-box",
+
+  cursor: "pointer",
+};
+
 const gridStyle: any = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(260px, 1fr))",
   gap: "20px",
   marginBottom: "25px",
 };
