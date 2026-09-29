@@ -12,13 +12,15 @@ const translations: any = {
     location: "Ort",
     status: "Status",
     active: "Aktiv",
+
     addedRooms: "Hinzugefügte Räume",
     addRooms: "Räume hinzufügen",
+
+    groupProductivity: "Produktivität – Gruppeneingabe",
+
     overview: "Übersicht",
     arbeitsinfo: "Arbeitsinfo",
     regiebericht: "Regietagesbericht",
-
-    groupProductivity: "Produktivität – Gruppeneingabe",
 
     closeSite: "Baustelle abschließen",
     deleteSite: "Baustelle löschen",
@@ -34,10 +36,12 @@ const translations: any = {
 
     siteInfo: "Informationen zur Baustelle",
     addInfo: "Information hinzufügen",
+
     close: "Schließen",
     save: "Speichern",
     edit: "Bearbeiten",
     delete: "Löschen",
+
     value: "Information / Text",
     emptyInfo: "Noch keine Informationen eingetragen.",
 
@@ -70,7 +74,8 @@ const translations: any = {
     deleteWithEntries:
       "Diese Baustelle hat Einträge. Möchte der Admin diese Baustelle wirklich dauerhaft löschen?",
 
-    deleteEmpty: "Möchten Sie diese leere Baustelle wirklich löschen?",
+    deleteEmpty:
+      "Möchten Sie diese leere Baustelle wirklich löschen?",
 
     errorLoadSite: "Fehler beim Laden der Baustelle",
     errorLoadRooms: "Fehler beim Laden der Räume",
@@ -86,13 +91,15 @@ const translations: any = {
     location: "Lokacija",
     status: "Status",
     active: "Aktiv",
+
     addedRooms: "Dodane prostorije",
     addRooms: "Dodaj prostorije",
+
+    groupProductivity: "Produktivnost – grupni unos",
+
     overview: "Pregled",
     arbeitsinfo: "Arbeitsinfo",
     regiebericht: "Regietagesbericht",
-
-    groupProductivity: "Produktivnost – grupni unos",
 
     closeSite: "Zatvori Baustelle",
     deleteSite: "Obriši Baustelle",
@@ -108,10 +115,12 @@ const translations: any = {
 
     siteInfo: "Informacije o Baustelle",
     addInfo: "Dodaj informaciju",
+
     close: "Zatvori",
     save: "Sačuvaj",
     edit: "Uredi",
     delete: "Obriši",
+
     value: "Informacija / tekst",
     emptyInfo: "Još nema dodanih informacija.",
 
@@ -133,7 +142,8 @@ const translations: any = {
     noGoogle: "Google Maps adresa nije unesena.",
     no3d: "3D vizualizacija nije unesena.",
 
-    deleteInfoConfirm: "Da li stvarno želiš obrisati informaciju?",
+    deleteInfoConfirm:
+      "Da li stvarno želiš obrisati informaciju?",
 
     archiveConfirm:
       "Da li stvarno želiš zatvoriti ovu Baustelle i premjestiti je u arhivu?",
@@ -144,7 +154,8 @@ const translations: any = {
     deleteWithEntries:
       "Ova Baustelle ima unose. Da li admin stvarno želi trajno obrisati ovu Baustelle?",
 
-    deleteEmpty: "Da li stvarno želiš obrisati ovu praznu Baustelle?",
+    deleteEmpty:
+      "Da li stvarno želiš obrisati ovu praznu Baustelle?",
 
     errorLoadSite: "Greška pri učitavanju Baustelle",
     errorLoadRooms: "Greška pri učitavanju prostorija",
@@ -160,13 +171,15 @@ const translations: any = {
     location: "Location",
     status: "Status",
     active: "Active",
+
     addedRooms: "Added rooms",
     addRooms: "Add rooms",
+
+    groupProductivity: "Productivity – group input",
+
     overview: "Overview",
     arbeitsinfo: "Work info",
     regiebericht: "Regie daily report",
-
-    groupProductivity: "Productivity – group input",
 
     closeSite: "Close Site",
     deleteSite: "Delete Site",
@@ -182,10 +195,12 @@ const translations: any = {
 
     siteInfo: "Site information",
     addInfo: "Add information",
+
     close: "Close",
     save: "Save",
     edit: "Edit",
     delete: "Delete",
+
     value: "Information / text",
     emptyInfo: "No information added yet.",
 
@@ -207,7 +222,8 @@ const translations: any = {
     noGoogle: "No Google Maps address has been entered.",
     no3d: "No 3D visualization has been entered.",
 
-    deleteInfoConfirm: "Do you really want to delete this information?",
+    deleteInfoConfirm:
+      "Do you really want to delete this information?",
 
     archiveConfirm:
       "Do you really want to close this site and move it to the archive?",
@@ -218,7 +234,8 @@ const translations: any = {
     deleteWithEntries:
       "This site has entries. Does the admin really want to delete this site permanently?",
 
-    deleteEmpty: "Do you really want to delete this empty site?",
+    deleteEmpty:
+      "Do you really want to delete this empty site?",
 
     errorLoadSite: "Error loading site",
     errorLoadRooms: "Error loading rooms",
@@ -234,13 +251,15 @@ const translations: any = {
     location: "Manzil",
     status: "Holat",
     active: "Faol",
+
     addedRooms: "Qo‘shilgan xonalar",
     addRooms: "Xona qo‘shish",
+
+    groupProductivity: "Unumdorlik – guruhli kiritish",
+
     overview: "Ko‘rinish",
     arbeitsinfo: "Ish ma’lumoti",
     regiebericht: "Regie hisoboti",
-
-    groupProductivity: "Unumdorlik – guruhli kiritish",
 
     closeSite: "Obyektni yopish",
     deleteSite: "Obyektni o‘chirish",
@@ -256,10 +275,12 @@ const translations: any = {
 
     siteInfo: "Obyekt ma’lumoti",
     addInfo: "Ma’lumot qo‘shish",
+
     close: "Yopish",
     save: "Saqlash",
     edit: "Tahrirlash",
     delete: "O‘chirish",
+
     value: "Ma’lumot / matn",
     emptyInfo: "Hali ma’lumot qo‘shilmagan.",
 
@@ -281,7 +302,8 @@ const translations: any = {
     noGoogle: "Google Maps manzili kiritilmagan.",
     no3d: "3D vizualizatsiya kiritilmagan.",
 
-    deleteInfoConfirm: "Bu ma’lumotni o‘chirmoqchimisiz?",
+    deleteInfoConfirm:
+      "Bu ma’lumotni o‘chirmoqchimisiz?",
 
     archiveConfirm:
       "Bu obyektni yopib, arxivga ko‘chirmoqchimisiz?",
@@ -292,7 +314,8 @@ const translations: any = {
     deleteWithEntries:
       "Bu obyektga ma’lumotlar kiritilgan. Admin uni butunlay o‘chirmoqchimi?",
 
-    deleteEmpty: "Bu bo‘sh obyektni o‘chirmoqchimisiz?",
+    deleteEmpty:
+      "Bu bo‘sh obyektni o‘chirmoqchimisiz?",
 
     errorLoadSite: "Obyektni yuklashda xato",
     errorLoadRooms: "Xonalarni yuklashda xato",
@@ -308,13 +331,15 @@ const translations: any = {
     location: "Místo",
     status: "Stav",
     active: "Aktivní",
+
     addedRooms: "Přidané místnosti",
     addRooms: "Přidat místnosti",
+
+    groupProductivity: "Produktivita – skupinový zápis",
+
     overview: "Přehled",
     arbeitsinfo: "Pracovní informace",
     regiebericht: "Denní Regie report",
-
-    groupProductivity: "Produktivita – skupinový zápis",
 
     closeSite: "Uzavřít stavbu",
     deleteSite: "Smazat stavbu",
@@ -330,10 +355,12 @@ const translations: any = {
 
     siteInfo: "Informace o stavbě",
     addInfo: "Přidat informaci",
+
     close: "Zavřít",
     save: "Uložit",
     edit: "Upravit",
     delete: "Smazat",
+
     value: "Informace / text",
     emptyInfo: "Zatím nebyly přidány žádné informace.",
 
@@ -355,7 +382,8 @@ const translations: any = {
     noGoogle: "Není zadána žádná adresa Google Maps.",
     no3d: "Není zadána žádná 3D vizualizace.",
 
-    deleteInfoConfirm: "Opravdu chcete tuto informaci smazat?",
+    deleteInfoConfirm:
+      "Opravdu chcete tuto informaci smazat?",
 
     archiveConfirm:
       "Opravdu chcete tuto stavbu uzavřít a přesunout do archivu?",
@@ -366,7 +394,8 @@ const translations: any = {
     deleteWithEntries:
       "Tato stavba obsahuje záznamy. Opravdu ji chce admin trvale smazat?",
 
-    deleteEmpty: "Opravdu chcete tuto prázdnou stavbu smazat?",
+    deleteEmpty:
+      "Opravdu chcete tuto prázdnou stavbu smazat?",
 
     errorLoadSite: "Chyba při načítání stavby",
     errorLoadRooms: "Chyba při načítání místností",
@@ -427,11 +456,16 @@ export default function BaustelleDetailPage() {
   const [editingField, setEditingField] = useState("");
 
   const t = translations[lang] || translations.de;
+
+  // ADMIN PROVJERA
   const isAdmin = workerRole === "admin";
 
   useEffect(() => {
-    const role = localStorage.getItem("worker_role") || "worker";
-    const savedLang = localStorage.getItem("lang") || "de";
+    const role =
+      localStorage.getItem("worker_role") || "worker";
+
+    const savedLang =
+      localStorage.getItem("lang") || "de";
 
     setWorkerRole(role);
     setLang(savedLang);
@@ -440,8 +474,11 @@ export default function BaustelleDetailPage() {
   }, []);
 
   function playNotificationSound() {
-    const audio = new Audio("/sounds/notification.mp3");
+    const audio =
+      new Audio("/sounds/notification.mp3");
+
     audio.volume = 1;
+
     audio.play().catch(() => {});
   }
 
@@ -463,7 +500,12 @@ export default function BaustelleDetailPage() {
       .single();
 
     if (error) {
-      alert(t.errorLoadSite + ": " + error.message);
+      alert(
+        t.errorLoadSite +
+          ": " +
+          error.message
+      );
+
       return;
     }
 
@@ -475,10 +517,17 @@ export default function BaustelleDetailPage() {
       .from("prostorije")
       .select("*")
       .eq("baustelle_id", baustelleId)
-      .order("id", { ascending: true });
+      .order("id", {
+        ascending: true,
+      });
 
     if (error) {
-      alert(t.errorLoadRooms + ": " + error.message);
+      alert(
+        t.errorLoadRooms +
+          ": " +
+          error.message
+      );
+
       return;
     }
 
@@ -489,35 +538,53 @@ export default function BaustelleDetailPage() {
     const { data, error } = await supabase
       .from("baustelle_info")
       .select("*")
-      .eq("baustelle_id", Number(baustelleId));
+      .eq(
+        "baustelle_id",
+        Number(baustelleId)
+      );
 
     if (error) {
-      alert(t.errorLoadInfo + ": " + error.message);
+      alert(
+        t.errorLoadInfo +
+          ": " +
+          error.message
+      );
+
       return;
     }
 
-    const nextInfo = { ...emptyInfoData };
+    const nextInfo = {
+      ...emptyInfoData,
+    };
 
-    (data || []).forEach((row: any) => {
-      if (row.type === "google_maps") {
-        nextInfo.google_maps =
-          row.google_maps_url || row.note_bs || row.note_de || "";
-      } else if (row.type === "visualization_3d") {
-        nextInfo.visualization_3d =
-          row.visualization_url ||
-          row.google_maps_url ||
-          row.note_bs ||
-          "";
-      } else if (row.type) {
-        nextInfo[row.type] =
-          row.note_bs ||
-          row.note_de ||
-          row.note_en ||
-          row.note_uz ||
-          row.google_maps_url ||
-          "";
+    (data || []).forEach(
+      (row: any) => {
+        if (row.type === "google_maps") {
+          nextInfo.google_maps =
+            row.google_maps_url ||
+            row.note_bs ||
+            row.note_de ||
+            "";
+        } else if (
+          row.type ===
+          "visualization_3d"
+        ) {
+          nextInfo.visualization_3d =
+            row.visualization_url ||
+            row.google_maps_url ||
+            row.note_bs ||
+            "";
+        } else if (row.type) {
+          nextInfo[row.type] =
+            row.note_bs ||
+            row.note_de ||
+            row.note_en ||
+            row.note_uz ||
+            row.google_maps_url ||
+            "";
+        }
       }
-    });
+    );
 
     setInfo(nextInfo);
   }
@@ -529,52 +596,92 @@ export default function BaustelleDetailPage() {
     setShowInfoForm(true);
   }
 
-  function startEditInfo(field: string) {
+  function startEditInfo(
+    field: string
+  ) {
     setEditingField(field);
     setInfoField(field);
-    setInfoValue(info[field] || "");
+
+    setInfoValue(
+      info[field] || ""
+    );
+
     setShowInfoForm(true);
   }
 
-  function getInfoLabel(field: string) {
-    if (field === "google_maps") return t.googleLocation;
-    if (field === "visualization_3d") return t.visualization3d;
+  function getInfoLabel(
+    field: string
+  ) {
+    if (
+      field === "google_maps"
+    ) {
+      return t.googleLocation;
+    }
+
+    if (
+      field ===
+      "visualization_3d"
+    ) {
+      return t.visualization3d;
+    }
 
     return t[field] || field;
   }
 
-  function buildInfoPayload(field: string, value: string) {
+  function buildInfoPayload(
+    field: string,
+    value: string
+  ) {
     const labelDe =
       field === "google_maps"
-        ? translations.de.googleLocation
-        : field === "visualization_3d"
-        ? translations.de.visualization3d
-        : translations.de[field] || field;
+        ? translations.de
+            .googleLocation
+        : field ===
+          "visualization_3d"
+        ? translations.de
+            .visualization3d
+        : translations.de[field] ||
+          field;
 
     const labelBs =
       field === "google_maps"
-        ? translations.ba.googleLocation
-        : field === "visualization_3d"
-        ? translations.ba.visualization3d
-        : translations.ba[field] || field;
+        ? translations.ba
+            .googleLocation
+        : field ===
+          "visualization_3d"
+        ? translations.ba
+            .visualization3d
+        : translations.ba[field] ||
+          field;
 
     const labelUz =
       field === "google_maps"
-        ? translations.uz.googleLocation
-        : field === "visualization_3d"
-        ? translations.uz.visualization3d
-        : translations.uz[field] || field;
+        ? translations.uz
+            .googleLocation
+        : field ===
+          "visualization_3d"
+        ? translations.uz
+            .visualization3d
+        : translations.uz[field] ||
+          field;
 
     const labelEn =
       field === "google_maps"
-        ? translations.en.googleLocation
-        : field === "visualization_3d"
-        ? translations.en.visualization3d
-        : translations.en[field] || field;
+        ? translations.en
+            .googleLocation
+        : field ===
+          "visualization_3d"
+        ? translations.en
+            .visualization3d
+        : translations.en[field] ||
+          field;
 
     return {
-      baustelle_id: Number(baustelleId),
+      baustelle_id:
+        Number(baustelleId),
+
       room_id: null,
+
       type: field,
 
       title_de: labelDe,
@@ -583,55 +690,80 @@ export default function BaustelleDetailPage() {
       title_en: labelEn,
 
       note_de:
-        field === "google_maps" || field === "visualization_3d"
+        field === "google_maps" ||
+        field ===
+          "visualization_3d"
           ? ""
           : value,
 
       note_bs:
-        field === "google_maps" || field === "visualization_3d"
+        field === "google_maps" ||
+        field ===
+          "visualization_3d"
           ? ""
           : value,
 
       note_uz:
-        field === "google_maps" || field === "visualization_3d"
+        field === "google_maps" ||
+        field ===
+          "visualization_3d"
           ? ""
           : value,
 
       note_en:
-        field === "google_maps" || field === "visualization_3d"
+        field === "google_maps" ||
+        field ===
+          "visualization_3d"
           ? ""
           : value,
 
-      google_maps_url: field === "google_maps" ? value : "",
+      google_maps_url:
+        field === "google_maps"
+          ? value
+          : "",
 
       visualization_url:
-        field === "visualization_3d" ? value : "",
+        field ===
+        "visualization_3d"
+          ? value
+          : "",
     };
   }
 
   async function saveInfoField() {
     if (!infoValue.trim()) {
       alert(t.value);
+
       return;
     }
 
     await supabase
       .from("baustelle_info")
       .delete()
-      .eq("baustelle_id", Number(baustelleId))
+      .eq(
+        "baustelle_id",
+        Number(baustelleId)
+      )
       .eq("type", infoField);
 
-    const payload = buildInfoPayload(
-      infoField,
-      infoValue.trim()
-    );
+    const payload =
+      buildInfoPayload(
+        infoField,
+        infoValue.trim()
+      );
 
-    const { error } = await supabase
-      .from("baustelle_info")
-      .insert([payload]);
+    const { error } =
+      await supabase
+        .from("baustelle_info")
+        .insert([payload]);
 
     if (error) {
-      alert(t.errorSave + ": " + error.message);
+      alert(
+        t.errorSave +
+          ": " +
+          error.message
+      );
+
       return;
     }
 
@@ -644,44 +776,86 @@ export default function BaustelleDetailPage() {
     await loadInfo();
   }
 
-  async function deleteInfoField(field: string) {
-    const ok = confirm(t.deleteInfoConfirm);
+  async function deleteInfoField(
+    field: string
+  ) {
+    const ok = confirm(
+      t.deleteInfoConfirm
+    );
 
     if (!ok) return;
 
-    const { error } = await supabase
-      .from("baustelle_info")
-      .delete()
-      .eq("baustelle_id", Number(baustelleId))
-      .eq("type", field);
+    const { error } =
+      await supabase
+        .from("baustelle_info")
+        .delete()
+        .eq(
+          "baustelle_id",
+          Number(baustelleId)
+        )
+        .eq("type", field);
 
     if (error) {
-      alert(t.errorDelete + ": " + error.message);
+      alert(
+        t.errorDelete +
+          ": " +
+          error.message
+      );
+
       return;
     }
 
     await loadInfo();
   }
 
-  async function countRows(tableName: string) {
-    const { count } = await supabase
-      .from(tableName)
-      .select("*", {
-        count: "exact",
-        head: true,
-      })
-      .eq("baustelle_id", baustelleId);
+  async function countRows(
+    tableName: string
+  ) {
+    const { count } =
+      await supabase
+        .from(tableName)
+        .select("*", {
+          count: "exact",
+          head: true,
+        })
+        .eq(
+          "baustelle_id",
+          baustelleId
+        );
 
     return count || 0;
   }
 
   async function checkIfBaustelleHasEntries() {
-    const prostorijeCount = await countRows("prostorije");
-    const satiCount = await countRows("baustelle_hours");
-    const materijalCount = await countRows("material_entries");
-    const roomMaterialCount = await countRows("room_material");
-    const photosCount = await countRows("room_photos");
-    const produktivnostCount = await countRows("produktivnost");
+    const prostorijeCount =
+      await countRows(
+        "prostorije"
+      );
+
+    const satiCount =
+      await countRows(
+        "baustelle_hours"
+      );
+
+    const materijalCount =
+      await countRows(
+        "material_entries"
+      );
+
+    const roomMaterialCount =
+      await countRows(
+        "room_material"
+      );
+
+    const photosCount =
+      await countRows(
+        "room_photos"
+      );
+
+    const produktivnostCount =
+      await countRows(
+        "produktivnost"
+      );
 
     return (
       prostorijeCount +
@@ -695,19 +869,30 @@ export default function BaustelleDetailPage() {
   }
 
   async function archiveBaustelle() {
-    const ok = confirm(t.archiveConfirm);
+    const ok = confirm(
+      t.archiveConfirm
+    );
 
     if (!ok) return;
 
-    const { error } = await supabase
-      .from("baustellen")
-      .update({
-        status: "Archiv",
-      })
-      .eq("id", baustelleId);
+    const { error } =
+      await supabase
+        .from("baustellen")
+        .update({
+          status: "Archiv",
+        })
+        .eq(
+          "id",
+          baustelleId
+        );
 
     if (error) {
-      alert(t.errorArchive + ": " + error.message);
+      alert(
+        t.errorArchive +
+          ": " +
+          error.message
+      );
+
       return;
     }
 
@@ -718,8 +903,14 @@ export default function BaustelleDetailPage() {
     const hasEntries =
       await checkIfBaustelleHasEntries();
 
-    if (hasEntries && workerRole !== "admin") {
-      alert(t.hasEntriesNoAdmin);
+    if (
+      hasEntries &&
+      workerRole !== "admin"
+    ) {
+      alert(
+        t.hasEntriesNoAdmin
+      );
+
       return;
     }
 
@@ -731,24 +922,38 @@ export default function BaustelleDetailPage() {
 
     if (!ok) return;
 
-    const { error } = await supabase
-      .from("baustellen")
-      .delete()
-      .eq("id", baustelleId);
+    const { error } =
+      await supabase
+        .from("baustellen")
+        .delete()
+        .eq(
+          "id",
+          baustelleId
+        );
 
     if (error) {
-      alert(t.errorDelete + ": " + error.message);
+      alert(
+        t.errorDelete +
+          ": " +
+          error.message
+      );
+
       return;
     }
 
     router.push("/baustellen");
   }
 
-  const visibleInfoFields = infoFields.filter(
-    (field) => info[field.key]
-  );
+  const visibleInfoFields =
+    infoFields.filter(
+      (field) =>
+        info[field.key]
+    );
 
-  if (loading || !baustelle) {
+  if (
+    loading ||
+    !baustelle
+  ) {
     return (
       <main style={mainStyle}>
         <p>{t.loading}</p>
@@ -766,42 +971,71 @@ export default function BaustelleDetailPage() {
       </Link>
 
       <h1 style={titleStyle}>
-        {baustelle.naziv || "Baustelle"}
+        {baustelle.naziv ||
+          "Baustelle"}
       </h1>
 
-      {/* GORNJI BLOK */}
-      <div style={topInfoBoxStyle}>
+      {/* ======================
+          GORNJI BLOK
+      ====================== */}
+
+      <div
+        style={
+          topInfoBoxStyle
+        }
+      >
         <a
-          href={info.google_maps || "#"}
+          href={
+            info.google_maps ||
+            "#"
+          }
           target={
             info.google_maps
               ? "_blank"
               : "_self"
           }
           onClick={(e) => {
-            if (!info.google_maps) {
+            if (
+              !info.google_maps
+            ) {
               e.preventDefault();
+
               alert(t.noGoogle);
             }
           }}
-          style={googleButtonStyle}
+          style={
+            googleButtonStyle
+          }
         >
-          <div style={googleIconStyle}>
+          <div
+            style={
+              googleIconStyle
+            }
+          >
             📍
           </div>
 
-          <div style={googleTitleStyle}>
+          <div
+            style={
+              googleTitleStyle
+            }
+          >
             {t.googleLocation}
           </div>
 
-          <div style={googleSmallTextStyle}>
+          <div
+            style={
+              googleSmallTextStyle
+            }
+          >
             {t.openGoogle}
           </div>
         </a>
 
         <a
           href={
-            info.visualization_3d || "#"
+            info.visualization_3d ||
+            "#"
           }
           target={
             info.visualization_3d
@@ -809,25 +1043,46 @@ export default function BaustelleDetailPage() {
               : "_self"
           }
           onClick={(e) => {
-            if (!info.visualization_3d) {
+            if (
+              !info.visualization_3d
+            ) {
               e.preventDefault();
+
               alert(t.no3d);
             }
           }}
-          style={visualizationButtonStyle}
+          style={
+            visualizationButtonStyle
+          }
         >
-          <div style={googleIconStyle}>
+          <div
+            style={
+              googleIconStyle
+            }
+          >
             🏗️
           </div>
 
-          <div style={googleTitleStyle}>
+          <div
+            style={
+              googleTitleStyle
+            }
+          >
             {t.visualization3d}
           </div>
 
-          <div style={googleSmallTextStyle}>
-            {t.openVisualization3d}
+          <div
+            style={
+              googleSmallTextStyle
+            }
+          >
+            {
+              t.openVisualization3d
+            }
           </div>
         </a>
+
+        {/* BAU DOKUMENTATION SAMO ADMIN */}
 
         {isAdmin && (
           <Link
@@ -836,31 +1091,55 @@ export default function BaustelleDetailPage() {
               bauDocumentationButtonStyle
             }
           >
-            <div style={googleIconStyle}>
+            <div
+              style={
+                googleIconStyle
+              }
+            >
               📋
             </div>
 
-            <div style={googleTitleStyle}>
-              {t.bauDocumentation}
+            <div
+              style={
+                googleTitleStyle
+              }
+            >
+              {
+                t.bauDocumentation
+              }
             </div>
 
             <div
-              style={googleSmallTextStyle}
+              style={
+                googleSmallTextStyle
+              }
             >
-              {t.openBauDocumentation}
+              {
+                t.openBauDocumentation
+              }
             </div>
           </Link>
         )}
 
-        <div style={topDividerStyle} />
+        <div
+          style={
+            topDividerStyle
+          }
+        />
 
-        <div style={basicInfoStyle}>
+        <div
+          style={
+            basicInfoStyle
+          }
+        >
           {baustelle.lokacija && (
             <p>
               <strong>
                 {t.location}:
               </strong>{" "}
-              {baustelle.lokacija}
+              {
+                baustelle.lokacija
+              }
             </p>
           )}
 
@@ -868,120 +1147,208 @@ export default function BaustelleDetailPage() {
             <strong>
               {t.status}:
             </strong>{" "}
-            {baustelle.status === "Aktiv"
+
+            {baustelle.status ===
+            "Aktiv"
               ? t.active
               : baustelle.status}
           </p>
         </div>
       </div>
 
-      {/* INFORMACIJE */}
-      <div style={infoSectionStyle}>
-        <div style={infoHeaderStyle}>
-          <h2 style={sectionTitleStyle}>
+      {/* ======================
+          INFORMACIJE
+      ====================== */}
+
+      <div
+        style={
+          infoSectionStyle
+        }
+      >
+        <div
+          style={
+            infoHeaderStyle
+          }
+        >
+          <h2
+            style={
+              sectionTitleStyle
+            }
+          >
             ℹ️ {t.siteInfo}
           </h2>
 
           {isAdmin && (
             <button
-              onClick={startAddInfo}
-              style={buttonStyle}
+              onClick={
+                startAddInfo
+              }
+              style={
+                buttonStyle
+              }
             >
               + {t.addInfo}
             </button>
           )}
         </div>
 
-        {showInfoForm && isAdmin && (
-          <div style={infoFormStyle}>
-            <select
-              value={infoField}
-              onChange={(e) => {
-                setInfoField(
-                  e.target.value
-                );
-
-                setInfoValue(
-                  info[e.target.value] ||
-                    ""
-                );
-              }}
-              disabled={!!editingField}
-              style={inputStyle}
-            >
-              <option value="google_maps">
-                📍 {t.googleLocation}
-              </option>
-
-              <option value="visualization_3d">
-                🏗️ {t.visualization3d}
-              </option>
-
-              {infoFields.map((field) => (
-                <option
-                  key={field.key}
-                  value={field.key}
-                >
-                  {field.icon}{" "}
-                  {getInfoLabel(
-                    field.key
-                  )}
-                </option>
-              ))}
-            </select>
-
-            <textarea
-              value={infoValue}
-              onChange={(e) =>
-                setInfoValue(
-                  e.target.value
-                )
+        {showInfoForm &&
+          isAdmin && (
+            <div
+              style={
+                infoFormStyle
               }
-              placeholder={t.value}
-              style={textareaStyle}
-            />
+            >
+              <select
+                value={
+                  infoField
+                }
+                onChange={(e) => {
+                  setInfoField(
+                    e.target
+                      .value
+                  );
 
-            <div style={formButtonsStyle}>
-              <button
-                onClick={saveInfoField}
-                style={saveButtonStyle}
-              >
-                {t.save}
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowInfoForm(false);
-                  setEditingField("");
-                  setInfoValue("");
+                  setInfoValue(
+                    info[
+                      e.target
+                        .value
+                    ] || ""
+                  );
                 }}
+                disabled={
+                  !!editingField
+                }
                 style={
-                  smallDarkButtonStyle
+                  inputStyle
                 }
               >
-                {t.close}
-              </button>
+                <option value="google_maps">
+                  📍{" "}
+                  {
+                    t.googleLocation
+                  }
+                </option>
+
+                <option value="visualization_3d">
+                  🏗️{" "}
+                  {
+                    t.visualization3d
+                  }
+                </option>
+
+                {infoFields.map(
+                  (field) => (
+                    <option
+                      key={
+                        field.key
+                      }
+                      value={
+                        field.key
+                      }
+                    >
+                      {
+                        field.icon
+                      }{" "}
+                      {getInfoLabel(
+                        field.key
+                      )}
+                    </option>
+                  )
+                )}
+              </select>
+
+              <textarea
+                value={
+                  infoValue
+                }
+                onChange={(e) =>
+                  setInfoValue(
+                    e.target
+                      .value
+                  )
+                }
+                placeholder={
+                  t.value
+                }
+                style={
+                  textareaStyle
+                }
+              />
+
+              <div
+                style={
+                  formButtonsStyle
+                }
+              >
+                <button
+                  onClick={
+                    saveInfoField
+                  }
+                  style={
+                    saveButtonStyle
+                  }
+                >
+                  {t.save}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowInfoForm(
+                      false
+                    );
+
+                    setEditingField(
+                      ""
+                    );
+
+                    setInfoValue(
+                      ""
+                    );
+                  }}
+                  style={
+                    smallDarkButtonStyle
+                  }
+                >
+                  {t.close}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {visibleInfoFields.length ===
         0 ? (
-          <p style={emptyInfoStyle}>
+          <p
+            style={
+              emptyInfoStyle
+            }
+          >
             {t.emptyInfo}
           </p>
         ) : (
-          <div style={infoGridStyle}>
+          <div
+            style={
+              infoGridStyle
+            }
+          >
             {visibleInfoFields.map(
               (field) => (
                 <div
-                  key={field.key}
-                  style={infoItemStyle}
+                  key={
+                    field.key
+                  }
+                  style={
+                    infoItemStyle
+                  }
                 >
                   <div
-                    style={infoIconStyle}
+                    style={
+                      infoIconStyle
+                    }
                   >
-                    {field.icon}
+                    {
+                      field.icon
+                    }
                   </div>
 
                   <div
@@ -996,9 +1363,15 @@ export default function BaustelleDetailPage() {
                     </strong>
 
                     <p
-                      style={infoTextStyle}
+                      style={
+                        infoTextStyle
+                      }
                     >
-                      {info[field.key]}
+                      {
+                        info[
+                          field.key
+                        ]
+                      }
                     </p>
 
                     {isAdmin && (
@@ -1042,86 +1415,149 @@ export default function BaustelleDetailPage() {
         )}
       </div>
 
-      {/* PROSTORIJE */}
-      <div style={roomsBoxStyle}>
-        <h2 style={sectionTitleStyle}>
+      {/* ======================
+          DODANE PROSTORIJE
+      ====================== */}
+
+      <div
+        style={
+          roomsBoxStyle
+        }
+      >
+        <h2
+          style={
+            sectionTitleStyle
+          }
+        >
           {t.addedRooms}
         </h2>
 
         {rooms.length === 0 ? (
-          <p style={emptyInfoStyle}>
+          <p
+            style={
+              emptyInfoStyle
+            }
+          >
             {t.noRooms}
           </p>
         ) : (
-          <div style={roomListStyle}>
-            {rooms.map((room) => (
-              <Link
-                key={room.id}
-                href={`/baustellen/${baustelleId}/prostorije/${room.id}`}
-                style={roomBadgeStyle}
-              >
-                {room.naziv ||
-                  room.name ||
-                  t.room}
-              </Link>
-            ))}
+          <div
+            style={
+              roomListStyle
+            }
+          >
+            {rooms.map(
+              (room) => (
+                <Link
+                  key={
+                    room.id
+                  }
+                  href={`/baustellen/${baustelleId}/prostorije/${room.id}`}
+                  style={
+                    roomBadgeStyle
+                  }
+                >
+                  {room.naziv ||
+                    room.name ||
+                    t.room}
+                </Link>
+              )
+            )}
           </div>
         )}
       </div>
 
-      {/* NOVO: GRUPNA PRODUKTIVNOST */}
-      <Link
-        href={`/baustellen/${baustelleId}/produktivnost-grupno`}
+      {/* =========================================
+          GRUPNA PRODUKTIVNOST - SAMO ADMIN
+      ========================================= */}
+
+      {isAdmin && (
+        <Link
+          href={`/baustellen/${baustelleId}/produktivnost-grupno`}
+          style={
+            groupProductivityButtonStyle
+          }
+        >
+          📊{" "}
+          {
+            t.groupProductivity
+          }
+        </Link>
+      )}
+
+      {/* ======================
+          GLAVNA DUGMAD
+      ====================== */}
+
+      <div
         style={
-          groupProductivityButtonStyle
+          gridStyle
         }
       >
-        📊 {t.groupProductivity}
-      </Link>
-
-      {/* GLAVNA DUGMAD */}
-      <div style={gridStyle}>
         <Link
           href={`/baustellen/${baustelleId}/prostorije`}
-          style={buttonStyle}
+          style={
+            buttonStyle
+          }
         >
           {t.addRooms}
         </Link>
 
         <Link
           href={`/baustellen/${baustelleId}/pregled`}
-          style={buttonStyle}
+          style={
+            buttonStyle
+          }
         >
           {t.overview}
         </Link>
 
         <Link
           href={`/baustellen/${baustelleId}/arbeitsinfo`}
-          style={buttonStyle}
+          style={
+            buttonStyle
+          }
         >
           {t.arbeitsinfo}
         </Link>
 
         <Link
           href={`/baustellen/${baustelleId}/regiebericht`}
-          style={buttonStyle}
+          style={
+            buttonStyle
+          }
         >
           {t.regiebericht}
         </Link>
       </div>
 
-      {/* ARHIVA / BRISANJE */}
-      <div style={actionBoxStyle}>
+      {/* ======================
+          ARHIVA / BRISANJE
+      ====================== */}
+
+      <div
+        style={
+          actionBoxStyle
+        }
+      >
         <button
-          onClick={archiveBaustelle}
-          style={archiveButtonStyle}
+          onClick={
+            archiveBaustelle
+          }
+          style={
+            archiveButtonStyle
+          }
         >
           {t.closeSite}
         </button>
 
         <button
-          onClick={deleteBaustelle}
-          style={deleteButtonStyle}
+          onClick={
+            deleteBaustelle
+          }
+          style={
+            deleteButtonStyle
+          }
         >
           {t.deleteSite}
         </button>
@@ -1130,9 +1566,9 @@ export default function BaustelleDetailPage() {
   );
 }
 
-/* =========================
+/* =====================================================
    STILOVI
-========================= */
+===================================================== */
 
 const mainStyle: any = {
   background: "#000",
@@ -1160,45 +1596,69 @@ const topInfoBoxStyle: any = {
   padding: "25px",
   borderRadius: "20px",
   marginBottom: "25px",
+
   display: "flex",
   alignItems: "center",
+
   gap: "30px",
+
   flexWrap: "wrap",
 };
 
 const googleButtonStyle: any = {
   background: "#2563eb",
   color: "white",
+
   borderRadius: "16px",
+
   padding: "25px 35px",
+
   minWidth: "260px",
+
   textDecoration: "none",
+
   textAlign: "center",
+
   fontWeight: "bold",
+
   display: "block",
 };
 
 const visualizationButtonStyle: any = {
   background: "#7c3aed",
   color: "white",
+
   borderRadius: "16px",
+
   padding: "25px 35px",
+
   minWidth: "260px",
+
   textDecoration: "none",
+
   textAlign: "center",
+
   fontWeight: "bold",
+
   display: "block",
 };
 
 const bauDocumentationButtonStyle: any = {
   background: "#059669",
   color: "white",
+
   borderRadius: "16px",
+
   padding: "25px 35px",
+
   minWidth: "260px",
+
   textDecoration: "none",
+
   textAlign: "center",
+
   fontWeight: "bold",
+
   display: "block",
 };
 
@@ -1237,10 +1697,16 @@ const infoSectionStyle: any = {
 
 const infoHeaderStyle: any = {
   display: "flex",
-  justifyContent: "space-between",
+
+  justifyContent:
+    "space-between",
+
   alignItems: "center",
+
   gap: "15px",
+
   flexWrap: "wrap",
+
   marginBottom: "20px",
 };
 
@@ -1252,33 +1718,53 @@ const sectionTitleStyle: any = {
 
 const infoFormStyle: any = {
   background: "#000",
+
   border: "1px solid #333",
+
   borderRadius: "16px",
+
   padding: "20px",
+
   marginBottom: "20px",
 };
 
 const inputStyle: any = {
   width: "100%",
+
   padding: "14px",
+
   borderRadius: "12px",
+
   border: "1px solid #333",
+
   background: "#1f2937",
+
   color: "white",
+
   fontSize: "16px",
+
   marginBottom: "14px",
 };
 
 const textareaStyle: any = {
   width: "100%",
+
   minHeight: "120px",
+
   padding: "14px",
+
   borderRadius: "12px",
+
   border: "1px solid #333",
+
   background: "#1f2937",
+
   color: "white",
+
   fontSize: "16px",
+
   marginBottom: "14px",
+
   resize: "vertical",
 };
 
@@ -1290,15 +1776,21 @@ const formButtonsStyle: any = {
 
 const infoGridStyle: any = {
   display: "grid",
+
   gridTemplateColumns:
     "repeat(auto-fit, minmax(260px, 1fr))",
+
   gap: "18px",
 };
 
 const infoItemStyle: any = {
   display: "flex",
+
   gap: "14px",
-  borderBottom: "1px solid #2a2a2a",
+
+  borderBottom:
+    "1px solid #2a2a2a",
+
   paddingBottom: "14px",
 };
 
@@ -1312,7 +1804,9 @@ const infoTextWrapStyle: any = {
 
 const infoTextStyle: any = {
   whiteSpace: "pre-wrap",
+
   lineHeight: "1.5",
+
   marginTop: "6px",
 };
 
@@ -1324,21 +1818,33 @@ const smallActionRowStyle: any = {
 
 const smallEditButtonStyle: any = {
   background: "#2563eb",
+
   color: "white",
+
   border: "none",
+
   borderRadius: "8px",
+
   padding: "7px 10px",
+
   cursor: "pointer",
+
   fontWeight: "bold",
 };
 
 const smallDeleteButtonStyle: any = {
   background: "#dc2626",
+
   color: "white",
+
   border: "none",
+
   borderRadius: "8px",
+
   padding: "7px 10px",
+
   cursor: "pointer",
+
   fontWeight: "bold",
 };
 
@@ -1348,34 +1854,48 @@ const emptyInfoStyle: any = {
 
 const roomsBoxStyle: any = {
   background: "#111",
+
   padding: "25px",
+
   borderRadius: "20px",
+
   marginBottom: "25px",
 };
 
 const roomListStyle: any = {
   display: "flex",
+
   flexWrap: "wrap",
+
   gap: "12px",
 };
 
 const roomBadgeStyle: any = {
   background: "#1f2937",
+
   color: "white",
+
   padding: "14px 18px",
+
   borderRadius: "12px",
+
   textDecoration: "none",
+
   fontWeight: "bold",
 };
 
-/* NOVO ZELENO DUGME */
+/* GRUPNA PRODUKTIVNOST */
 
 const groupProductivityButtonStyle: any = {
   display: "flex",
+
   justifyContent: "center",
+
   alignItems: "center",
 
   width: "100%",
+
+  boxSizing: "border-box",
 
   padding: "24px",
 
@@ -1388,87 +1908,133 @@ const groupProductivityButtonStyle: any = {
   borderRadius: "16px",
 
   fontSize: "22px",
+
   fontWeight: "bold",
 
   textDecoration: "none",
-
-  boxSizing: "border-box",
 
   cursor: "pointer",
 };
 
 const gridStyle: any = {
   display: "grid",
+
   gridTemplateColumns:
     "repeat(auto-fit, minmax(260px, 1fr))",
+
   gap: "20px",
+
   marginBottom: "25px",
 };
 
 const buttonStyle: any = {
   display: "flex",
+
   justifyContent: "center",
+
   alignItems: "center",
+
   padding: "25px",
+
   background: "#2563eb",
+
   color: "white",
+
   borderRadius: "16px",
+
   fontSize: "20px",
+
   fontWeight: "bold",
+
   textDecoration: "none",
+
   border: "none",
+
   cursor: "pointer",
 };
 
 const actionBoxStyle: any = {
   background: "#111",
+
   padding: "25px",
+
   borderRadius: "20px",
+
   display: "flex",
+
   gap: "20px",
+
   flexWrap: "wrap",
 };
 
 const archiveButtonStyle: any = {
   background: "#f97316",
+
   color: "white",
+
   padding: "16px 24px",
+
   border: "none",
+
   borderRadius: "12px",
+
   fontSize: "18px",
+
   fontWeight: "bold",
+
   cursor: "pointer",
 };
 
 const deleteButtonStyle: any = {
   background: "#dc2626",
+
   color: "white",
+
   padding: "16px 24px",
+
   border: "none",
+
   borderRadius: "12px",
+
   fontSize: "18px",
+
   fontWeight: "bold",
+
   cursor: "pointer",
 };
 
 const saveButtonStyle: any = {
   background: "#16a34a",
+
   color: "white",
+
   padding: "14px 20px",
+
   border: "none",
+
   borderRadius: "12px",
+
   fontSize: "16px",
+
   fontWeight: "bold",
+
   cursor: "pointer",
 };
 
 const smallDarkButtonStyle: any = {
   background: "#374151",
+
   color: "white",
+
   padding: "14px 20px",
+
   border: "none",
+
   borderRadius: "12px",
+
   fontSize: "16px",
+
   fontWeight: "bold",
+
   cursor: "pointer",
 };
