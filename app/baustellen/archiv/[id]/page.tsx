@@ -1,0 +1,3293 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "../../../lib/supabase";
+
+const FIRMA = "Nocker & Bernardi GmbH / Stone Boutique";
+const FIRMA_ADRESA = "Innweg 3, A-6170 Zirl";
+const POTPIS = "Hidajet Goletić";
+
+const PDF_BUCKET = "pdf-assets";
+const PDF_LOGO_TOP = "gore.png";
+const PDF_SIDE_IMAGE = "strana.png";
+const PDF_MOUNTAIN_BG = "pozadina.png";
+
+const ADMIN_NAMES = [
+  "hido",
+  "steffi",
+  "admin",
+  "hidajet",
+  "hidajet goletic",
+  "hidajet goletić",
+];
+
+function getLoggedUserFromLocalStorage() {
+  if (typeof window === "undefined") return null;
+
+  const keys = [
+    "currentWorker",
+    "worker",
+    "loggedWorker",
+    "selectedWorker",
+    "currentUser",
+    "loggedUser",
+    "user",
+    "userName",
+    "workerName",
+    "name",
+    "loginUser",
+    "baustelle_user",
+    "stone_user",
+    "app_user",
+  ];
+
+  for (const key of keys) {
+    const value = localStorage.getItem(key);
+    if (!value) continue;
+
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+
+    const value = localStorage.getItem(key);
+    if (!value) continue;
+
+    try {
+      const parsed = JSON.parse(value);
+      if (isAdminUser(parsed)) return parsed;
+    } catch {
+      if (isAdminUser(value)) return value;
+    }
+  }
+
+  return null;
+}
+
+function isAdminUser(user: any) {
+  if (!user) return false;
+
+  if (typeof user === "string") {
+    return ADMIN_NAMES.includes(user.trim().toLowerCase());
+  }
+
+  const role = String(user.role || user.rolle || user.tip || "").toLowerCase();
+
+  const name = String(
+    user.name ||
+      user.worker_name ||
+      user.radnik ||
+      user.username ||
+      user.userName ||
+      user.displayName ||
+      "",
+  )
+    .trim()
+    .toLowerCase();
+
+  return (
+    role === "admin" ||
+    role === "administrator" ||
+    user.is_admin === true ||
+    user.admin === true ||
+    ADMIN_NAMES.includes(name)
+  );
+}
+
+function getLoggedUserName(user: any) {
+  if (!user) return "Admin";
+
+  if (typeof user === "string") {
+    return user.trim() || "Admin";
+  }
+
+  return String(
+    user.name ||
+      user.worker_name ||
+      user.radnik ||
+      user.username ||
+      user.userName ||
+      user.displayName ||
+      "Admin",
+  ).trim();
+}
+
+export default function ArchivBerichtPage() {
+  const params = useParams();
+  const baustelleId = String(params.id);
+
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [baustelle, setBaustelle] = useState<any>(null);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [hours, setHours] = useState<any[]>([]);
+  const [regieberichte, setRegieberichte] = useState<any[]>([]);
+  const [regieHours, setRegieHours] = useState<any[]>([]);
+  const [regieRooms, setRegieRooms] = useState<any[]>([]);
+  const [regieMaterials, setRegieMaterials] = useState<any[]>([]);
+  const [regiePhotos, setRegiePhotos] = useState<any[]>([]);
+  const [productivity, setProductivity] = useState<any[]>([]);
+  const [roomMaterials, setRoomMaterials] = useState<any[]>([]);
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<any[]>([]);
+  const [baustelleInfo, setBaustelleInfo] = useState<any[]>([]);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [downloadingImages, setDownloadingImages] = useState(false);
+  const [deletingPhotos, setDeletingPhotos] = useState(false);
+  const [preparingPdf, setPreparingPdf] = useState(false);
+
+  const [logoTopUrl, setLogoTopUrl] = useState("");
+  const [sideImageUrl, setSideImageUrl] = useState("");
+  const [mountainBgUrl, setMountainBgUrl] = useState("");
+
+  useEffect(() => {
+    const loggedUser = getLoggedUserFromLocalStorage();
+    const adminOk = isAdminUser(loggedUser);
+
+    setIsAdmin(adminOk);
+    setAccessChecked(true);
+
+    if (!adminOk) {
+      setLoading(false);
+      return;
+    }
+
+    loadPdfImages();
+    loadReport();
+  }, []);
+
+  function getStoragePublicUrl(fileName: string) {
+    const url = supabase.storage.from(PDF_BUCKET).getPublicUrl(fileName)
+      .data.publicUrl;
+    return `${url}?v=${Date.now()}`;
+  }
+
+  function loadPdfImages() {
+    setLogoTopUrl(getStoragePublicUrl(PDF_LOGO_TOP));
+    setSideImageUrl(getStoragePublicUrl(PDF_SIDE_IMAGE));
+    setMountainBgUrl(getStoragePublicUrl(PDF_MOUNTAIN_BG));
+  }
+
+  async function loadReport() {
+    setLoading(true);
+
+    const { data: baustelleData, error: baustelleError } = await supabase
+      .from("baustellen")
+      .select("*")
+      .eq("id", Number(baustelleId))
+      .single();
+
+    if (baustelleError) {
+      alert("Fehler beim Laden der Baustelle: " + baustelleError.message);
+      setLoading(false);
+      return;
+    }
+
+    const { data: roomsData } = await supabase
+      .from("prostorije")
+      .select("*")
+      .eq("baustelle_id", Number(baustelleId))
+      .order("id", { ascending: true });
+
+    const { data: hoursData } = await supabase
+      .from("baustelle_hours")
+      .select("*")
+      .eq("baustelle_id", Number(baustelleId))
+      .order("datum", { ascending: true });
+
+    const workerIds = [
+      ...new Set(
+        (hoursData || []).map((h: any) => h.worker_id).filter(Boolean),
+      ),
+    ];
+
+    let workersData: any[] = [];
+
+    if (workerIds.length > 0) {
+      const { data } = await supabase
+        .from("workers")
+        .select("id, name")
+        .in("id", workerIds);
+
+      workersData = data || [];
+    }
+
+    const workerNameById = new Map(
+      workersData.map((w: any) => [Number(w.id), w.name]),
+    );
+
+    const hoursWithFullWorkerNames = (hoursData || []).map((h: any) => ({
+      ...h,
+      worker_full_name:
+        workerNameById.get(Number(h.worker_id)) ||
+        h.radnik ||
+        h.worker_name ||
+        h.worker ||
+        "",
+    }));
+
+    const { data: regieberichteData } = await supabase
+      .from("regieberichte")
+      .select("*")
+      .eq("baustelle_id", Number(baustelleId))
+      .order("datum", { ascending: true });
+
+    const regieberichtIds = (regieberichteData || []).map((r: any) => r.id);
+
+    let regieWorkersData: any[] = [];
+    let regieRoomsData: any[] = [];
+    let regieMaterialsData: any[] = [];
+    let regiePhotosData: any[] = [];
+
+    if (regieberichtIds.length > 0) {
+      const { data: workersData } = await supabase
+        .from("regiebericht_workers")
+        .select("*")
+        .in("regiebericht_id", regieberichtIds);
+
+      regieWorkersData = workersData || [];
+
+      const { data: roomsRegieData } = await supabase
+        .from("regiebericht_rooms")
+        .select("*")
+        .in("regiebericht_id", regieberichtIds);
+
+      regieRoomsData = roomsRegieData || [];
+
+      const { data: materialsRegieData } = await supabase
+        .from("regiebericht_materials")
+        .select("*")
+        .in("regiebericht_id", regieberichtIds);
+
+      regieMaterialsData = materialsRegieData || [];
+
+      const { data: photosRegieData } = await supabase
+        .from("regiebericht_photos")
+        .select("*")
+        .in("regiebericht_id", regieberichtIds)
+        .order("id", { ascending: true });
+
+      regiePhotosData = photosRegieData || [];
+    }
+
+    const { data: productivityData } = await supabase
+      .from("produktivnost")
+      .select("*")
+      .eq("baustelle_id", Number(baustelleId))
+      .order("datum", { ascending: true });
+
+    const { data: infoData } = await supabase
+      .from("baustelle_info")
+      .select("*")
+      .eq("baustelle_id", Number(baustelleId));
+
+    const roomIds = (roomsData || []).map((r: any) => r.id);
+
+    let roomMaterialData: any[] = [];
+    let photosData: any[] = [];
+
+    if (roomIds.length > 0) {
+      const { data: rmData } = await supabase
+        .from("room_material")
+        .select("*")
+        .in("room_id", roomIds);
+
+      roomMaterialData = rmData || [];
+
+      const { data: phData } = await supabase
+        .from("room_photos")
+        .select("*")
+        .in("room_id", roomIds)
+        .order("created_at", { ascending: true });
+
+      photosData = phData || [];
+    }
+
+    const materialIds = [
+      ...new Set(roomMaterialData.map((m: any) => m.material_id)),
+    ].filter(Boolean);
+
+    let materialsData: any[] = [];
+
+    if (materialIds.length > 0) {
+      const { data } = await supabase
+        .from("materials")
+        .select("*")
+        .in("id", materialIds);
+
+      materialsData = data || [];
+    }
+
+    setBaustelle(baustelleData);
+    setRooms(roomsData || []);
+    setHours(hoursWithFullWorkerNames || []);
+    setRegieberichte(regieberichteData || []);
+    setRegieHours(regieWorkersData || []);
+    setRegieRooms(regieRoomsData || []);
+    setRegieMaterials(regieMaterialsData || []);
+    setRegiePhotos(regiePhotosData || []);
+    setProductivity(productivityData || []);
+    setRoomMaterials(roomMaterialData || []);
+    setMaterials(materialsData || []);
+    setPhotos(photosData || []);
+    setBaustelleInfo(infoData || []);
+    setLoading(false);
+  }
+
+  function formatDate(value: string) {
+    if (!value) return "-";
+
+    return new Date(value).toLocaleDateString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  }
+
+  function formatDateTime(value: string) {
+    if (!value) return "-";
+
+    return new Date(value).toLocaleString("de-AT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function formatNumber(value: any) {
+    return Number(value || 0).toLocaleString("de-AT", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  function toNumberValue(value: any) {
+    if (value === null || value === undefined || value === "") return 0;
+
+    const cleaned = String(value)
+      .replace(",", ".")
+      .replace(/[^0-9.-]/g, "");
+
+    const numberValue = Number(cleaned);
+
+    if (Number.isNaN(numberValue)) return 0;
+    return numberValue;
+  }
+
+  function translatePosition(position: string) {
+    const raw = String(position || "").trim();
+    const value = raw.toLowerCase();
+
+    const translations: Record<string, string> = {
+      zid: "Wand",
+      devor: "Wand",
+      wall: "Wand",
+      wand: "Wand",
+      pod: "Boden",
+      pol: "Boden",
+      floor: "Boden",
+      boden: "Boden",
+      plintus: "Sockelleiste",
+      randlajsna: "Sockelleiste",
+      lajsna: "Sockelleiste",
+      sockelleiste: "Sockelleiste",
+      profil: "Profil",
+      profile: "Profil",
+      schiene: "Schiene",
+      "schiene / lajsna": "Schiene / Sockelleiste",
+      "schiene/lajsna": "Schiene / Sockelleiste",
+      silikon: "Silikon",
+      "silikon 5 mm gacha": "Silikon 5 mm",
+      "silikon 5mm gacha": "Silikon 5 mm",
+      silicone: "Silikon",
+      acryl: "Acryl",
+      akril: "Acryl",
+      "akril 5 mm gacha": "Acryl 5 mm",
+      "akril 5mm gacha": "Acryl 5 mm",
+      stepenice: "Stufen",
+      stufen: "Stufen",
+      fuge: "Fugen",
+      fugovanje: "Fugen",
+      fugen: "Fugen",
+    };
+
+    return translations[value] || raw || "-";
+  }
+
+  function getMaterialName(materialId: number) {
+    const mat = materials.find((m: any) => Number(m.id) === Number(materialId));
+    return mat?.naziv || mat?.name || mat?.material || mat?.bezeichnung || "";
+  }
+
+  function getMaterialNameFromRoomMaterial(m: any) {
+    const manualName =
+      m?.custom_naziv ||
+      m?.custom_name ||
+      m?.material_name ||
+      m?.naziv ||
+      m?.name ||
+      m?.material ||
+      m?.bezeichnung ||
+      m?.opis ||
+      m?.description ||
+      m?.manual_name ||
+      m?.keramika_naziv ||
+      m?.title ||
+      "";
+
+    const catalogName = m?.material_id ? getMaterialName(m.material_id) : "";
+
+    return manualName || catalogName || "Unbekannter Materialeintrag";
+  }
+
+  function getMaterialUnitFromRoomMaterial(m: any) {
+    return (
+      m?.custom_jedinica ||
+      m?.custom_unit ||
+      m?.jedinica ||
+      m?.unit ||
+      m?.einheit ||
+      "-"
+    );
+  }
+
+  function getPhotoUrl(photo: any) {
+    return (
+      photo?.photo_url ||
+      photo?.url ||
+      photo?.image_url ||
+      photo?.public_url ||
+      photo?.bild_url ||
+      photo?.foto_url ||
+      ""
+    );
+  }
+
+  function getPhotoWorker(photo: any) {
+    const name = String(
+      photo?.worker_name ||
+        photo?.radnik ||
+        photo?.worker ||
+        photo?.uploaded_by ||
+        photo?.created_by ||
+        "",
+    ).trim();
+
+    const lowerName = name.toLowerCase();
+
+    if (
+      !name ||
+      lowerName === "radnik" ||
+      lowerName === "mitarbeiter" ||
+      lowerName === "nepoznat radnik" ||
+      lowerName === "nicht gespeichert"
+    ) {
+      return "Nicht gespeichert";
+    }
+
+    return name;
+  }
+
+  function getPhotoCreatedAt(photo: any) {
+    return (
+      photo?.created_at ||
+      photo?.datum ||
+      photo?.date ||
+      photo?.uploaded_at ||
+      ""
+    );
+  }
+
+  function getPhotoDescription(photo: any) {
+    return (
+      photo?.opis || photo?.napomena || photo?.description || photo?.title || ""
+    );
+  }
+
+  function getRoomName(roomId: number) {
+    const room = rooms.find((r: any) => Number(r.id) === Number(roomId));
+    return room?.naziv || `Raum ${roomId}`;
+  }
+
+  function getHourWorkerName(hour: any) {
+    return (
+      hour?.worker_full_name ||
+      hour?.workers?.name ||
+      hour?.worker?.name ||
+      hour?.radnik ||
+      hour?.worker_name ||
+      hour?.worker ||
+      "-"
+    );
+  }
+
+  function getHoursForRoom(roomId: number) {
+    return hours.filter((h: any) => Number(h.room_id) === Number(roomId));
+  }
+
+  function getProductivityForRoom(roomId: number) {
+    return productivity.filter(
+      (p: any) => Number(p.room_id) === Number(roomId),
+    );
+  }
+
+  function getMaterialsForRoom(roomId: number) {
+    return roomMaterials.filter(
+      (m: any) => Number(m.room_id) === Number(roomId),
+    );
+  }
+
+  function getPhotosForRoom(roomId: number) {
+    return photos.filter((p: any) => Number(p.room_id) === Number(roomId));
+  }
+
+  function roomHasReportContent(roomId: number) {
+    return (
+      getHoursForRoom(roomId).length > 0 ||
+      getProductivityForRoom(roomId).length > 0 ||
+      getMaterialsForRoom(roomId).length > 0 ||
+      getPhotosForRoom(roomId).length > 0
+    );
+  }
+
+  function getRegiebericht(row: any) {
+    return regieberichte.find(
+      (r: any) => Number(r.id) === Number(row.regiebericht_id),
+    );
+  }
+
+  function getRegieDate(row: any) {
+    const bericht = getRegiebericht(row);
+    return bericht?.datum || row?.datum || row?.created_at || "";
+  }
+
+  function getRegieNumber(row: any) {
+    const bericht = getRegiebericht(row);
+    return bericht?.bericht_nr || bericht?.id || row?.regiebericht_id || "-";
+  }
+
+  function getRegieWorkText(row: any) {
+    const bericht = getRegiebericht(row);
+
+    return (
+      bericht?.ausgefuehrte_arbeiten ||
+      bericht?.arbeiten ||
+      bericht?.beschreibung ||
+      row?.ausgefuehrte_arbeiten ||
+      row?.taetigkeit ||
+      row?.bemerkung ||
+      "-"
+    );
+  }
+
+  function getRegieberichtRows(berichtId: number) {
+    return regieHours.filter(
+      (row: any) => Number(row.regiebericht_id) === Number(berichtId),
+    );
+  }
+
+  function getRegieberichtTotalHours(berichtId: number) {
+    return getRegieberichtRows(berichtId).reduce(
+      (sum: number, row: any) =>
+        sum + Number(row.stunden || row.sati || row.ukupno_sati || 0),
+      0,
+    );
+  }
+
+  function getRegieberichtRooms(berichtId: number) {
+    return regieRooms.filter(
+      (r: any) => Number(r.regiebericht_id) === Number(berichtId),
+    );
+  }
+
+  function getRegieberichtMaterials(berichtId: number) {
+    return regieMaterials.filter(
+      (m: any) => Number(m.regiebericht_id) === Number(berichtId),
+    );
+  }
+
+  function getRegieberichtPhotos(berichtId: number) {
+    return regiePhotos
+      .filter((p: any) => Number(p.regiebericht_id) === Number(berichtId))
+      .filter((p: any) => {
+        const url = getPhotoUrl(p);
+        return url && !String(url).toLowerCase().split("?")[0].endsWith(".pdf");
+      });
+  }
+
+  function getRegieberichtNumber(bericht: any) {
+    return bericht?.bericht_nr || bericht?.nummer || bericht?.id || "-";
+  }
+
+  function getRegieberichtOrt(bericht: any) {
+    return (
+      bericht?.ort ||
+      bericht?.place ||
+      bericht?.location ||
+      baustelle?.lokacija ||
+      "-"
+    );
+  }
+
+  function getRegieberichtWorkText(bericht: any) {
+    return (
+      bericht?.ausgefuehrte_arbeiten ||
+      bericht?.arbeiten ||
+      bericht?.beschreibung ||
+      bericht?.taetigkeit ||
+      bericht?.bemerkung ||
+      "Keine Beschreibung eingetragen."
+    );
+  }
+
+  function getRegieberichtRoomText(berichtId: number, bericht: any) {
+    const rows = getRegieberichtRooms(berichtId);
+    const roomText = rows
+      .map((r: any) => r.room_name || r.raum || r.name || "")
+      .filter(Boolean)
+      .join(", ");
+
+    return (
+      roomText ||
+      bericht?.bauteile_raeume ||
+      bericht?.bauteile ||
+      bericht?.raeume ||
+      bericht?.raum ||
+      bericht?.room_name ||
+      "-"
+    );
+  }
+
+  function getAuftraggeberValue(bericht: any) {
+    return (
+      bericht?.auftraggeber ||
+      baustelle?.auftraggeber ||
+      baustelle?.kunde ||
+      baustelle?.client ||
+      "-"
+    );
+  }
+
+  function getAuftragnehmerValue(bericht: any) {
+    return (
+      bericht?.auftragnehmer ||
+      baustelle?.auftragnehmer ||
+      baustelle?.firma ||
+      FIRMA
+    );
+  }
+
+  function getBauleiterValue(bericht: any) {
+    return (
+      bericht?.bauleiter ||
+      baustelle?.bauleiter ||
+      baustelle?.leiter ||
+      baustelle?.bauleiter_vertreter ||
+      "-"
+    );
+  }
+
+  function getGoogleMapsUrl() {
+    const row = baustelleInfo.find((x: any) => x.type === "google_maps");
+    return row?.google_maps_url || "";
+  }
+
+  function getVisualizationUrl() {
+    const row = baustelleInfo.find((x: any) => x.type === "visualization_3d");
+    return row?.visualization_url || "";
+  }
+
+  function renderPaperBranding(useSideStrip = false) {
+    return (
+      <>
+        {mountainBgUrl && (
+          <img
+            src={mountainBgUrl}
+            alt=""
+            className="paper-mountain-inline"
+            style={paperMountainStyle}
+            onError={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              img.style.display = "none";
+            }}
+          />
+        )}
+
+        <div className="paper-overlay-inline" style={paperOverlayStyle}></div>
+
+        {useSideStrip && sideImageUrl && (
+          <img
+            src={sideImageUrl}
+            alt=""
+            className="paper-side-strip-inline"
+            style={paperSideStripStyle}
+            onError={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              img.style.display = "none";
+            }}
+          />
+        )}
+
+        <div className="paper-brand-badge-inline" style={paperBrandBadgeStyle}>
+          {logoTopUrl ? (
+            <>
+              <img
+                src={logoTopUrl}
+                alt="Stone Boutique"
+                style={paperBrandLogoStyle}
+                onError={(e) => {
+                  const img = e.currentTarget as HTMLImageElement;
+                  img.style.display = "none";
+                  const next = img.nextElementSibling as HTMLElement | null;
+                  if (next) next.style.display = "block";
+                }}
+              />
+
+              <div style={{ ...paperBrandFallbackStyle, display: "none" }}>
+                <div style={paperBrandFallbackOrangeStyle}>STONE BOUTIQUE</div>
+                <div style={paperBrandFallbackSmallStyle}>
+                  Nocker & Bernardi GmbH
+                </div>
+              </div>
+            </>
+          ) : (
+            <div style={paperBrandFallbackStyle}>
+              <div style={paperBrandFallbackOrangeStyle}>STONE BOUTIQUE</div>
+              <div style={paperBrandFallbackSmallStyle}>
+                Nocker & Bernardi GmbH
+              </div>
+            </div>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  function renderReportLogo(className = "") {
+    return (
+      <div className={`report-logo-wrap ${className}`}>
+        {logoTopUrl && (
+          <img
+            src={logoTopUrl}
+            alt=""
+            className="report-logo-img"
+            onError={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              img.style.display = "none";
+              const fallback = img.nextElementSibling as HTMLElement | null;
+              if (fallback) fallback.style.display = "block";
+            }}
+          />
+        )}
+
+        <div
+          className="report-logo-fallback"
+          style={{ display: logoTopUrl ? "none" : "block" }}
+        >
+          <div className="report-logo-fallback-orange">STONE BOUTIQUE</div>
+          <div className="report-logo-fallback-small">
+            Nocker & Bernardi GmbH
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const totalHours = hours.reduce(
+    (sum, h) => sum + Number(h.ukupno_sati || h.sati || 0),
+    0,
+  );
+
+  const totalRegieHours = regieHours.reduce(
+    (sum, h) => sum + Number(h.stunden || h.sati || h.ukupno_sati || 0),
+    0,
+  );
+
+  const startDate = hours.length > 0 ? hours[0].datum : "-";
+  const endDate = hours.length > 0 ? hours[hours.length - 1].datum : "-";
+
+  const workers = [
+    ...new Set(
+      hours
+        .map((h: any) => getHourWorkerName(h))
+        .filter((name: any) => name && name !== "-"),
+    ),
+  ];
+
+  const regieWorkers = [
+    ...new Set(regieHours.map((h: any) => h.worker_name).filter(Boolean)),
+  ];
+
+  const allWorkers = [...new Set(workers)];
+  const hasPrintableRegie = totalRegieHours > 0;
+  const roomsForReport = rooms.filter((room: any) =>
+    roomHasReportContent(room.id),
+  );
+
+  const workDays = [...new Set(hours.map((h: any) => h.datum).filter(Boolean))];
+
+  const regieHoursByWorker = regieWorkers.map((workerName: any) => {
+    const sum = regieHours
+      .filter((r: any) => r.worker_name === workerName)
+      .reduce((total, r) => total + Number(r.stunden || 0), 0);
+
+    return {
+      workerName,
+      sum,
+    };
+  });
+
+  const sortedRegieberichte = [...regieberichte].sort((a: any, b: any) => {
+    const aNr = Number(
+      String(a?.bericht_nr || a?.nummer || a?.id || 0).replace(/\D/g, ""),
+    );
+    const bNr = Number(
+      String(b?.bericht_nr || b?.nummer || b?.id || 0).replace(/\D/g, ""),
+    );
+
+    if (aNr !== bNr) return aNr - bNr;
+
+    return String(a?.datum || "").localeCompare(String(b?.datum || ""));
+  });
+
+  function sanitizeFileName(value: string, fallback: string) {
+    const cleaned = String(value || "")
+      .replace(/[\\/:*?"<>|]/g, "-")
+      .replace(/\s+/g, " ")
+      .replace(/[. ]+$/g, "")
+      .trim();
+
+    return cleaned || fallback;
+  }
+
+  function isImageUrl(url: string) {
+    const cleanUrl = String(url || "").toLowerCase().split("?")[0];
+    return Boolean(cleanUrl) && !cleanUrl.endsWith(".pdf");
+  }
+
+  function getAllImageRows() {
+    const roomImageRows = photos
+      .map((row: any) => ({ ...row, __table: "room_photos" }))
+      .filter((row: any) => isImageUrl(getPhotoUrl(row)));
+
+    const regieImageRows = regiePhotos
+      .map((row: any) => ({ ...row, __table: "regiebericht_photos" }))
+      .filter((row: any) => isImageUrl(getPhotoUrl(row)));
+
+    const seen = new Set<string>();
+
+    return [...roomImageRows, ...regieImageRows].filter((row: any) => {
+      const key = `${row.__table}:${String(row.id ?? "")}:${getPhotoUrl(row)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  async function getAllImageRowsForDeletion() {
+    const currentRows = getAllImageRows();
+
+    const [infoResult, legacyResult, legacyRegieResult] = await Promise.all([
+      supabase
+        .from("baustelle_info_photos")
+        .select("*")
+        .eq("baustelle_id", Number(baustelleId)),
+      supabase
+        .from("fotos")
+        .select("*")
+        .eq("baustelle_id", baustelleId),
+      supabase
+        .from("regie_fotos")
+        .select("*")
+        .eq("baustelle_id", baustelleId),
+    ]);
+
+    const optionalRows = [
+      ...(infoResult.error
+        ? []
+        : (infoResult.data || []).map((row: any) => ({
+            ...row,
+            __table: "baustelle_info_photos",
+          }))),
+      ...(legacyResult.error
+        ? []
+        : (legacyResult.data || []).map((row: any) => ({
+            ...row,
+            __table: "fotos",
+          }))),
+      ...(legacyRegieResult.error
+        ? []
+        : (legacyRegieResult.data || []).map((row: any) => ({
+            ...row,
+            __table: "regie_fotos",
+          }))),
+    ].filter((row: any) => isImageUrl(getPhotoUrl(row)));
+
+    const seen = new Set<string>();
+
+    return [...currentRows, ...optionalRows].filter((row: any) => {
+      const key = `${row.__table}:${String(row.id ?? "")}:${getPhotoUrl(row)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function getOriginalFileName(url: string, index: number) {
+    try {
+      const cleanUrl = String(url || "").split("?")[0];
+      const lastPart = cleanUrl.split("/").filter(Boolean).pop();
+      const decoded = lastPart ? decodeURIComponent(lastPart) : "";
+      return sanitizeFileName(
+        decoded,
+        `Foto-${String(index + 1).padStart(3, "0")}.jpg`,
+      );
+    } catch {
+      return `Foto-${String(index + 1).padStart(3, "0")}.jpg`;
+    }
+  }
+
+  function addExtensionFromType(fileName: string, contentType: string) {
+    if (/\.[a-z0-9]{2,6}$/i.test(fileName)) return fileName;
+
+    const extensionByType: Record<string, string> = {
+      "image/jpeg": ".jpg",
+      "image/png": ".png",
+      "image/webp": ".webp",
+      "image/gif": ".gif",
+      "image/heic": ".heic",
+      "image/heif": ".heif",
+    };
+
+    const type = String(contentType || "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+
+    return `${fileName}${extensionByType[type] || ".jpg"}`;
+  }
+
+  function getImageExtension(url: string, contentType: string) {
+    const normalizedType = String(contentType || "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+
+    const extensionByType: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "image/heic": "heic",
+      "image/heif": "heif",
+      "image/bmp": "bmp",
+      "image/tiff": "tif",
+    };
+
+    if (extensionByType[normalizedType]) {
+      return extensionByType[normalizedType];
+    }
+
+    try {
+      const cleanUrl = String(url || "").split("?")[0];
+      const match = cleanUrl.match(/\.([a-z0-9]{2,6})$/i);
+      return match?.[1]?.toLowerCase() || "jpg";
+    } catch {
+      return "jpg";
+    }
+  }
+
+  async function convertImageBlobToJpeg(sourceBlob: Blob) {
+    const sourceType = String(sourceBlob.type || "").toLowerCase();
+
+    if (sourceType === "image/jpeg" || sourceType === "image/jpg") {
+      return sourceBlob;
+    }
+
+    if (typeof createImageBitmap !== "function") {
+      throw new Error("JPEG-Konvertierung wird von diesem Browser nicht unterstützt.");
+    }
+
+    const bitmap = await createImageBitmap(sourceBlob);
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        throw new Error("Das Bild konnte nicht verarbeitet werden.");
+      }
+
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, 0, 0);
+
+      return await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (jpegBlob) => {
+            if (jpegBlob) {
+              resolve(jpegBlob);
+            } else {
+              reject(new Error("Das Bild konnte nicht als JPG gespeichert werden."));
+            }
+          },
+          "image/jpeg",
+          0.92,
+        );
+      });
+    } finally {
+      bitmap.close();
+    }
+  }
+
+  function getZipImageFileName(
+    photo: any,
+    index: number,
+    extension: string,
+  ) {
+    const createdAt = getPhotoCreatedAt(photo);
+    let datePart = "";
+
+    if (createdAt) {
+      const date = new Date(createdAt);
+
+      if (!Number.isNaN(date.getTime())) {
+        datePart = date.toISOString().slice(0, 10);
+      }
+    }
+
+    const numberPart = String(index + 1).padStart(3, "0");
+    const safeExtension = String(extension || "jpg")
+      .replace(/[^a-z0-9]/gi, "")
+      .toLowerCase();
+
+    return `${numberPart}${datePart ? `_${datePart}` : ""}.${
+      safeExtension || "jpg"
+    }`;
+  }
+
+  async function addImageToZipFolder(
+    folder: any,
+    photo: any,
+    index: number,
+    seenUrls: Set<string>,
+  ) {
+    const url = getPhotoUrl(photo);
+
+    if (!url || seenUrls.has(url)) {
+      return false;
+    }
+
+    seenUrls.add(url);
+
+    const response = await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Bild konnte nicht geladen werden (${response.status}).`);
+    }
+
+    const sourceBlob = await response.blob();
+    let outputBlob = sourceBlob;
+    let extension = getImageExtension(url, sourceBlob.type);
+
+    try {
+      outputBlob = await convertImageBlobToJpeg(sourceBlob);
+      extension = "jpg";
+    } catch {
+      // Falls ein seltenes Format nicht konvertiert werden kann,
+      // bleibt die Originaldatei mit ihrer ursprünglichen Endung erhalten.
+    }
+
+    folder.file(
+      getZipImageFileName(photo, index, extension),
+      outputBlob,
+    );
+
+    return true;
+  }
+
+
+  async function downloadAllImagesAsZip() {
+    if (downloadingImages || deletingPhotos) return;
+
+    const roomImageRows = photos.filter((photo: any) =>
+      isImageUrl(getPhotoUrl(photo)),
+    );
+
+    const regieImageRows = regiePhotos.filter((photo: any) =>
+      isImageUrl(getPhotoUrl(photo)),
+    );
+
+    if (roomImageRows.length + regieImageRows.length === 0) {
+      alert("Für diese Baustelle sind keine Bilder vorhanden.");
+      return;
+    }
+
+    setDownloadingImages(true);
+
+    try {
+      const JSZipModule = await import("jszip");
+      const JSZip = JSZipModule.default;
+      const zip = new JSZip();
+
+      const baustelleName = sanitizeFileName(
+        baustelle?.naziv || `Baustelle-${baustelleId}`,
+        `Baustelle-${baustelleId}`,
+      );
+
+      const rootFolderName = baustelleName;
+
+      const rootFolder = zip.folder(rootFolderName);
+
+      if (!rootFolder) {
+        throw new Error("Der ZIP-Ordner konnte nicht erstellt werden.");
+      }
+
+      const seenUrls = new Set<string>();
+      const knownRoomIds = new Set(
+        rooms.map((room: any) => Number(room.id)),
+      );
+
+      let savedCount = 0;
+      let failedCount = 0;
+
+      for (const room of rooms) {
+        const roomFolderName = sanitizeFileName(
+          room?.naziv || `Raum-${room.id}`,
+          `Raum-${room.id}`,
+        );
+
+        const roomFolder = rootFolder.folder(roomFolderName);
+
+        if (!roomFolder) continue;
+
+        const roomRows = getPhotosForRoom(room.id).filter((photo: any) =>
+          isImageUrl(getPhotoUrl(photo)),
+        );
+
+        for (let index = 0; index < roomRows.length; index++) {
+          try {
+            const added = await addImageToZipFolder(
+              roomFolder,
+              roomRows[index],
+              index,
+              seenUrls,
+            );
+
+            if (added) savedCount++;
+          } catch (error) {
+            console.error("Fehler beim Bildexport:", error);
+            failedCount++;
+          }
+        }
+      }
+
+      const withoutRoomRows = roomImageRows.filter(
+        (photo: any) => !knownRoomIds.has(Number(photo.room_id)),
+      );
+
+      if (withoutRoomRows.length > 0) {
+        const withoutRoomFolder = rootFolder.folder("Ohne-Raum");
+
+        if (withoutRoomFolder) {
+          for (let index = 0; index < withoutRoomRows.length; index++) {
+            try {
+              const added = await addImageToZipFolder(
+                withoutRoomFolder,
+                withoutRoomRows[index],
+                index,
+                seenUrls,
+              );
+
+              if (added) savedCount++;
+            } catch (error) {
+              console.error("Fehler beim Bildexport:", error);
+              failedCount++;
+            }
+          }
+        }
+      }
+
+      const regieRootFolder = rootFolder.folder("Regieberichte");
+
+      if (regieRootFolder) {
+        for (const bericht of sortedRegieberichte) {
+          const berichtPhotos = getRegieberichtPhotos(bericht.id);
+
+          if (berichtPhotos.length === 0) continue;
+
+          const berichtNumber = sanitizeFileName(
+            String(getRegieberichtNumber(bericht)),
+            String(bericht.id),
+          );
+
+          const datePart = bericht?.datum
+            ? `-${String(bericht.datum).slice(0, 10)}`
+            : "";
+
+          const berichtFolder = regieRootFolder.folder(
+            sanitizeFileName(
+              `Regiebericht-${berichtNumber}${datePart}`,
+              `Regiebericht-${bericht.id}`,
+            ),
+          );
+
+          if (!berichtFolder) continue;
+
+          for (let index = 0; index < berichtPhotos.length; index++) {
+            try {
+              const added = await addImageToZipFolder(
+                berichtFolder,
+                berichtPhotos[index],
+                index,
+                seenUrls,
+              );
+
+              if (added) savedCount++;
+            } catch (error) {
+              console.error("Fehler beim Regiebild-Export:", error);
+              failedCount++;
+            }
+          }
+        }
+      }
+
+      if (savedCount === 0) {
+        throw new Error(
+          "Keine Bilder konnten geladen und in die ZIP-Datei eingefügt werden.",
+        );
+      }
+
+      const zipBlob = await zip.generateAsync({
+        type: "blob",
+        compression: "STORE",
+      });
+
+      const downloadUrl = URL.createObjectURL(zipBlob);
+      const anchor = document.createElement("a");
+
+      anchor.href = downloadUrl;
+      anchor.download = `${baustelleName}.zip`;
+
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 10_000);
+
+      if (failedCount > 0) {
+        alert(
+          `${savedCount} Bild(er) wurden gespeichert. ${failedCount} Bild(er) konnten nicht geladen werden.`,
+        );
+      }
+    } catch (error: any) {
+      alert(
+        "Die Bilder konnten nicht als ZIP-Datei gespeichert werden: " +
+          (error?.message || String(error)),
+      );
+    } finally {
+      setDownloadingImages(false);
+    }
+  }
+
+  function parseSupabaseStorageReference(url: string) {
+    try {
+      const parsedUrl = new URL(url);
+      const match = parsedUrl.pathname.match(
+        /\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/,
+      );
+
+      if (!match) return null;
+
+      return {
+        bucket: decodeURIComponent(match[1]),
+        path: decodeURIComponent(match[2]),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async function removeStorageImages(imageRows: any[]) {
+    const filesByBucket = new Map<string, Set<string>>();
+
+    for (const row of imageRows) {
+      const reference = parseSupabaseStorageReference(getPhotoUrl(row));
+      if (!reference) continue;
+
+      if (!filesByBucket.has(reference.bucket)) {
+        filesByBucket.set(reference.bucket, new Set<string>());
+      }
+
+      filesByBucket.get(reference.bucket)!.add(reference.path);
+    }
+
+    for (const [bucket, pathSet] of filesByBucket.entries()) {
+      const paths = [...pathSet];
+
+      for (let offset = 0; offset < paths.length; offset += 100) {
+        const chunk = paths.slice(offset, offset + 100);
+        const { error } = await supabase.storage.from(bucket).remove(chunk);
+
+        if (error) {
+          throw new Error(`Storage ${bucket}: ${error.message}`);
+        }
+      }
+    }
+  }
+
+  async function deleteImageRows(table: string, ids: Array<string | number>) {
+    if (ids.length === 0) return;
+
+    for (let offset = 0; offset < ids.length; offset += 100) {
+      const chunk = ids.slice(offset, offset + 100);
+      const { error } = await supabase.from(table).delete().in("id", chunk);
+
+      if (error) {
+        throw new Error(`${table}: ${error.message}`);
+      }
+    }
+  }
+
+  async function deleteImagesAfterZip() {
+    if (deletingPhotos) return;
+
+    const imageRows = await getAllImageRowsForDeletion();
+
+    if (imageRows.length === 0) {
+      alert("Für diese Baustelle sind keine Bilder vorhanden.");
+      return;
+    }
+
+    setDeletingPhotos(true);
+
+    try {
+      await removeStorageImages(imageRows);
+
+      const idsByTable = new Map<string, Array<string | number>>();
+
+      for (const row of imageRows) {
+        if (!row.__table || row.id === null || row.id === undefined) continue;
+
+        if (!idsByTable.has(row.__table)) {
+          idsByTable.set(row.__table, []);
+        }
+
+        idsByTable.get(row.__table)!.push(row.id);
+      }
+
+      for (const [table, ids] of idsByTable.entries()) {
+        await deleteImageRows(table, ids);
+      }
+
+      const roomPhotoIds = idsByTable.get("room_photos") || [];
+      const regieberichtPhotoIds = idsByTable.get("regiebericht_photos") || [];
+
+      setPhotos((current) =>
+        current.filter((row: any) => !roomPhotoIds.includes(row.id)),
+      );
+
+      setRegiePhotos((current) =>
+        current.filter((row: any) => !regieberichtPhotoIds.includes(row.id)),
+      );
+
+      setSelectedPhoto(null);
+
+      alert(
+        `${imageRows.length} Bild(er) wurden endgültig gelöscht.
+
+Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle anderen Baustellendaten bleiben unverändert.`,
+      );
+    } catch (error: any) {
+      throw new Error(
+        "Die Bilder konnten nicht vollständig gelöscht werden: " +
+          (error?.message || String(error)),
+      );
+    } finally {
+      setDeletingPhotos(false);
+    }
+  }
+
+
+  async function confirmAndDeleteImages() {
+    if (downloadingImages || deletingPhotos) return;
+
+    try {
+      const imageRows = await getAllImageRowsForDeletion();
+
+      if (imageRows.length === 0) {
+        alert("Für diese Baustelle sind keine Bilder vorhanden.");
+        return;
+      }
+
+      const firstConfirmation = window.confirm(
+        `ACHTUNG: ${imageRows.length} Bild(er) werden dauerhaft gelöscht.\n\nBitte laden Sie zuerst alle Bilder mit „Alle Bilder herunterladen“ herunter und prüfen Sie die ZIP-Datei.\n\nArbeitsstunden, Räume, Materialien, Produktivität und Regieberichte bleiben erhalten.\n\nMöchten Sie fortfahren?`,
+      );
+
+      if (!firstConfirmation) return;
+
+      const finalConfirmation = window.confirm(
+        `Letzte Bestätigung:\n\nDie Bilder werden jetzt aus Supabase Storage und aus den Bildtabellen gelöscht. Dieser Vorgang kann nicht rückgängig gemacht werden.\n\nBilder endgültig löschen?`,
+      );
+
+      if (!finalConfirmation) return;
+
+      await deleteImagesAfterZip();
+    } catch (error: any) {
+      alert(error?.message || String(error));
+    }
+  }
+
+  function sleep(milliseconds: number) {
+    return new Promise<void>((resolve) => {
+      window.setTimeout(resolve, milliseconds);
+    });
+  }
+
+  async function waitForImageElement(
+    image: HTMLImageElement,
+    timeoutMs = 30_000,
+  ) {
+    if (image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
+      try {
+        await image.decode();
+      } catch {
+        // Das Bild ist bereits geladen. Manche Browser werfen bei decode()
+        // trotzdem einen Fehler; naturalWidth/naturalHeight sind hier maßgeblich.
+      }
+      return;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      let finished = false;
+
+      const cleanup = () => {
+        image.removeEventListener("load", handleLoad);
+        image.removeEventListener("error", handleError);
+        window.clearTimeout(timeoutId);
+      };
+
+      const handleLoad = async () => {
+        if (finished) return;
+        finished = true;
+        cleanup();
+
+        try {
+          await image.decode();
+        } catch {
+          // Laden war erfolgreich; decode() ist nur eine zusätzliche Kontrolle.
+        }
+
+        if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+          resolve();
+        } else {
+          reject(new Error("Das Bild hat keine gültigen Abmessungen."));
+        }
+      };
+
+      const handleError = () => {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        reject(new Error("Das Bild konnte nicht dargestellt werden."));
+      };
+
+      const timeoutId = window.setTimeout(() => {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        reject(new Error("Zeitüberschreitung beim Laden des Bildes."));
+      }, timeoutMs);
+
+      image.addEventListener("load", handleLoad, { once: true });
+      image.addEventListener("error", handleError, { once: true });
+    });
+  }
+
+  async function fetchImageBlobWithRetry(
+    url: string,
+    maxAttempts = 3,
+  ): Promise<Blob> {
+    let lastError: unknown = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const blob = await response.blob();
+
+        if (!blob.size) {
+          throw new Error("Leere Bilddatei");
+        }
+
+        return blob;
+      } catch (error) {
+        lastError = error;
+
+        if (attempt < maxAttempts) {
+          await sleep(450 * attempt);
+        }
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Das Bild konnte nicht heruntergeladen werden.");
+  }
+
+  async function loadBlobIntoHtmlImage(blob: Blob) {
+    const objectUrl = URL.createObjectURL(blob);
+    const image = new Image();
+
+    image.loading = "eager";
+    image.decoding = "sync";
+    image.src = objectUrl;
+
+    try {
+      await waitForImageElement(image);
+      return {
+        image,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+        cleanup: () => URL.revokeObjectURL(objectUrl),
+      };
+    } catch (error) {
+      URL.revokeObjectURL(objectUrl);
+      throw error;
+    }
+  }
+
+  async function normalizeImageForPrint(sourceBlob: Blob): Promise<Blob> {
+    const MAX_PRINT_IMAGE_SIDE = 1800;
+    let source: CanvasImageSource | null = null;
+    let sourceWidth = 0;
+    let sourceHeight = 0;
+    let closeBitmap: (() => void) | null = null;
+    let cleanupHtmlImage: (() => void) | null = null;
+
+    try {
+      if (typeof createImageBitmap === "function") {
+        try {
+          const bitmap = await createImageBitmap(
+            sourceBlob,
+            { imageOrientation: "from-image" } as any,
+          );
+
+          source = bitmap;
+          sourceWidth = bitmap.width;
+          sourceHeight = bitmap.height;
+          closeBitmap = () => bitmap.close();
+        } catch {
+          // Einige HEIC-/ältere Bildformate funktionieren nicht über
+          // createImageBitmap. In diesem Fall verwenden wir ein HTMLImageElement.
+        }
+      }
+
+      if (!source) {
+        const htmlImage = await loadBlobIntoHtmlImage(sourceBlob);
+        source = htmlImage.image;
+        sourceWidth = htmlImage.width;
+        sourceHeight = htmlImage.height;
+        cleanupHtmlImage = htmlImage.cleanup;
+      }
+
+      if (!sourceWidth || !sourceHeight) {
+        throw new Error("Ungültige Bildgröße.");
+      }
+
+      const scale = Math.min(
+        1,
+        MAX_PRINT_IMAGE_SIDE / Math.max(sourceWidth, sourceHeight),
+      );
+
+      const outputWidth = Math.max(1, Math.round(sourceWidth * scale));
+      const outputHeight = Math.max(1, Math.round(sourceHeight * scale));
+      const canvas = document.createElement("canvas");
+
+      canvas.width = outputWidth;
+      canvas.height = outputHeight;
+
+      const context = canvas.getContext("2d", {
+        alpha: false,
+        desynchronized: false,
+      });
+
+      if (!context) {
+        throw new Error("Das Bild konnte nicht für den Druck vorbereitet werden.");
+      }
+
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, outputWidth, outputHeight);
+      context.drawImage(source, 0, 0, outputWidth, outputHeight);
+
+      return await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (jpegBlob) => {
+            if (jpegBlob && jpegBlob.size > 0) {
+              resolve(jpegBlob);
+            } else {
+              reject(
+                new Error("Das Bild konnte nicht als Druckbild gespeichert werden."),
+              );
+            }
+          },
+          "image/jpeg",
+          0.9,
+        );
+      });
+    } finally {
+      closeBitmap?.();
+      cleanupHtmlImage?.();
+    }
+  }
+
+  type PreparedPrintImage = {
+    element: HTMLImageElement;
+    originalSrc: string;
+    printObjectUrl: string;
+  };
+
+  async function prepareAllReportImagesForPrint() {
+    const imageElements = Array.from(
+      document.querySelectorAll<HTMLImageElement>("img.photo-img"),
+    );
+
+    const preparedImages: PreparedPrintImage[] = [];
+    const failedImages: Array<{ index: number; url: string; error: unknown }> = [];
+
+    // Absichtlich nacheinander statt gleichzeitig: Bei vielen hochauflösenden
+    // Baustellenfotos verhindert das Speicherprobleme und schwarze Teilbilder.
+    for (let index = 0; index < imageElements.length; index++) {
+      const imageElement = imageElements[index];
+      const originalSrc =
+        imageElement.getAttribute("src") || imageElement.currentSrc || "";
+
+      if (!originalSrc) {
+        failedImages.push({
+          index,
+          url: "",
+          error: new Error("Bild-URL fehlt."),
+        });
+        continue;
+      }
+
+      try {
+        const sourceBlob = await fetchImageBlobWithRetry(originalSrc);
+        const printBlob = await normalizeImageForPrint(sourceBlob);
+        const printObjectUrl = URL.createObjectURL(printBlob);
+
+        imageElement.loading = "eager";
+        imageElement.decoding = "sync";
+        imageElement.src = printObjectUrl;
+
+        await waitForImageElement(imageElement);
+
+        preparedImages.push({
+          element: imageElement,
+          originalSrc,
+          printObjectUrl,
+        });
+      } catch (error) {
+        console.error(
+          `Bild ${index + 1} konnte nicht für den PDF-Druck vorbereitet werden:`,
+          error,
+        );
+
+        failedImages.push({
+          index,
+          url: originalSrc,
+          error,
+        });
+      }
+    }
+
+    return {
+      preparedImages,
+      failedImages,
+      totalImages: imageElements.length,
+    };
+  }
+
+  function restorePreparedPrintImages(preparedImages: PreparedPrintImage[]) {
+    for (const prepared of preparedImages) {
+      prepared.element.src = prepared.originalSrc;
+      URL.revokeObjectURL(prepared.printObjectUrl);
+    }
+  }
+
+  async function waitForPrintLayout() {
+    if (document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+
+    // Chromium benötigt bei sehr vielen Seiten einen kurzen Moment,
+    // um alle bereits dekodierten Bilder in das Drucklayout zu übernehmen.
+    await sleep(900);
+  }
+
+  async function printPdf() {
+    if (
+      preparingPdf ||
+      downloadingImages ||
+      deletingPhotos
+    ) {
+      return;
+    }
+
+    setPreparingPdf(true);
+    let preparedImages: PreparedPrintImage[] = [];
+
+    try {
+      const result = await prepareAllReportImagesForPrint();
+      preparedImages = result.preparedImages;
+
+      if (result.failedImages.length > 0) {
+        throw new Error(
+          `${result.failedImages.length} von ${result.totalImages} Bild(ern) konnten nicht vollständig geladen werden. ` +
+            "Der PDF-Druck wurde gestoppt, damit kein unvollständiger Bericht gespeichert wird. " +
+            "Bitte prüfen Sie die Internetverbindung und versuchen Sie es erneut.",
+        );
+      }
+
+      await waitForPrintLayout();
+      window.print();
+    } catch (error: any) {
+      alert(
+        "PDF konnte nicht vorbereitet werden: " +
+          (error?.message || String(error)),
+      );
+    } finally {
+      restorePreparedPrintImages(preparedImages);
+      setPreparingPdf(false);
+    }
+  }
+
+  if (!accessChecked) {
+    return (
+      <main style={mainStyle}>
+        <p>Zugriff wird geprüft...</p>
+      </main>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <main style={mainStyle}>
+        <div style={boxStyle}>
+          <h1 style={{ color: "#dc2626" }}>Kein Zugriff</h1>
+          <p>Der Archivbereich ist nur für Admins sichtbar.</p>
+          <Link href="/dashboard" style={backLinkStyle}>
+            ← Zurück zum Dashboard
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  if (loading) {
+    return (
+      <main style={mainStyle}>
+        <p>Bericht wird geladen...</p>
+      </main>
+    );
+  }
+
+  return (
+    <main style={mainStyle}>
+      <style>
+        {`
+          .print-only,
+          .print-fixed-page-bg,
+          .print-fixed-logo,
+          .print-page-one-logo,
+          .report-logo-wrap {
+            display: none;
+          }
+
+          @page {
+            size: 210mm 297mm !important;
+            margin: 0 !important;
+          }
+
+          @media print {
+            * {
+              box-sizing: border-box !important;
+            }
+
+            html,
+            body,
+            #__next {
+              width: 210mm !important;
+              max-width: 210mm !important;
+              min-width: 210mm !important;
+              height: auto !important;
+              min-height: 297mm !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              overflow-x: hidden !important;
+              overflow-y: visible !important;
+              background: transparent !important;
+              transform: none !important;
+              zoom: 1 !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            main {
+              width: 210mm !important;
+              max-width: 210mm !important;
+              min-width: 210mm !important;
+              height: auto !important;
+              min-height: 297mm !important;
+              margin: 0 !important;
+              background: transparent !important;
+              color: black !important;
+              padding: 7mm 8mm 8mm 8mm !important;
+              overflow-x: hidden !important;
+              overflow-y: visible !important;
+              position: relative !important;
+              transform: none !important;
+              zoom: 1 !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            main > *:not(.print-fixed-page-bg):not(.print-fixed-logo) {
+              position: relative !important;
+              z-index: 2 !important;
+            }
+
+            section,
+            .print-box,
+            .print-room,
+            table,
+            .photo-grid {
+              max-width: 194mm !important;
+            }
+
+            @supports (-webkit-print-color-adjust: exact) {
+              @page {
+                size: 210mm 297mm !important;
+                margin: 0 !important;
+              }
+            }
+
+            .print-fixed-page-bg {
+              display: block !important;
+              position: fixed !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 210mm !important;
+              height: 297mm !important;
+              object-fit: cover !important;
+              object-position: center center !important;
+              opacity: 0.42 !important;
+              z-index: 0 !important;
+              pointer-events: none !important;
+            }
+
+            .print-fixed-logo {
+              display: none !important;
+            }
+
+            .print-page-one-logo {
+              display: flex !important;
+              position: relative !important;
+              left: auto !important;
+              top: auto !important;
+              width: 46mm !important;
+              height: 12mm !important;
+              margin: 0 0 3mm 0 !important;
+              align-items: flex-start !important;
+              justify-content: flex-start !important;
+              z-index: 60 !important;
+              pointer-events: none !important;
+            }
+
+            .report-logo-last {
+              display: flex !important;
+              justify-content: flex-end !important;
+              align-items: center !important;
+              margin-top: 8mm !important;
+              width: 100% !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+
+            .report-logo-img {
+              display: block !important;
+              width: 42mm !important;
+              max-width: 42mm !important;
+              height: auto !important;
+              max-height: 16mm !important;
+              object-fit: contain !important;
+              object-position: left center !important;
+              background: transparent !important;
+            }
+
+            .report-logo-fallback {
+              min-width: 40mm !important;
+              border-left: 1.4mm solid #f97316 !important;
+              padding-left: 3mm !important;
+              line-height: 1.05 !important;
+              background: transparent !important;
+            }
+
+            .report-logo-fallback-orange {
+              color: #f97316 !important;
+              font-weight: 900 !important;
+              font-size: 12px !important;
+              letter-spacing: 0.8px !important;
+            }
+
+            .report-logo-fallback-small {
+              color: #111 !important;
+              font-weight: 700 !important;
+              font-size: 8px !important;
+              margin-top: 3px !important;
+            }
+
+            .paper-mountain-inline,
+            .paper-overlay-inline,
+            .paper-side-strip-inline,
+            .paper-brand-badge-inline {
+              display: none !important;
+            }
+
+            .no-print {
+              display: none !important;
+            }
+
+            .print-box {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              margin: 0 0 5mm 0 !important;
+              padding: 5mm !important;
+              padding-bottom: 5mm !important;
+              background: rgba(255, 255, 255, 0.34) !important;
+              color: black !important;
+              border: 1px solid rgba(120, 120, 120, 0.35) !important;
+              border-radius: 0 !important;
+              page-break-inside: auto !important;
+              break-inside: auto !important;
+              page-break-before: auto !important;
+              break-before: auto !important;
+              position: relative !important;
+              overflow: visible !important;
+              box-shadow: none !important;
+            }
+
+            .print-room {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              margin: 0 0 4mm 0 !important;
+              padding: 4mm !important;
+              padding-bottom: 4mm !important;
+              background: rgba(255, 255, 255, 0.26) !important;
+              color: black !important;
+              border: 1px solid rgba(120, 120, 120, 0.35) !important;
+              border-radius: 0 !important;
+              page-break-inside: auto !important;
+              break-inside: auto !important;
+              position: relative !important;
+              overflow: visible !important;
+              box-shadow: none !important;
+            }
+
+            .room-overview-print {
+              page-break-before: auto !important;
+              break-before: auto !important;
+              page-break-inside: auto !important;
+              break-inside: auto !important;
+              padding-top: 4mm !important;
+            }
+
+            h1 {
+              display: none !important;
+            }
+
+            h2 {
+              font-size: 19px !important;
+              margin-top: 0 !important;
+              margin-bottom: 4mm !important;
+              color: #1f2937 !important;
+              break-after: avoid !important;
+              page-break-after: avoid !important;
+            }
+
+            h3 {
+              font-size: 15px !important;
+              margin-top: 4mm !important;
+              margin-bottom: 2mm !important;
+              color: #1f2937 !important;
+              break-after: avoid !important;
+              page-break-after: avoid !important;
+            }
+
+            p {
+              margin-top: 0 !important;
+              margin-bottom: 2.5mm !important;
+            }
+
+            table {
+              page-break-inside: auto !important;
+              break-inside: auto !important;
+              background: rgba(255, 255, 255, 0.42) !important;
+            }
+
+            thead {
+              display: table-header-group !important;
+            }
+
+            tr,
+            .photo-card {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+
+            .photo-grid {
+              grid-template-columns: repeat(3, 1fr) !important;
+              gap: 10px !important;
+            }
+
+            .photo-card {
+              background: white !important;
+              border: 1px solid #ddd !important;
+              padding: 6px !important;
+              page-break-inside: avoid;
+            }
+
+            .photo-img {
+              width: 100% !important;
+              height: 120px !important;
+              object-fit: contain !important;
+              object-position: center center !important;
+              background: #ffffff !important;
+              image-rendering: auto !important;
+            }
+
+            table {
+              width: 100% !important;
+              max-width: 100% !important;
+              table-layout: fixed !important;
+              font-size: 10px !important;
+            }
+
+            th, td {
+              color: black !important;
+              border-color: #ccc !important;
+              padding: 4px !important;
+              word-break: break-word !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            img {
+              max-width: 100% !important;
+            }
+
+            h1 {
+              font-size: 28px !important;
+              color: black !important;
+            }
+
+            h2, h3 {
+              color: black !important;
+            }
+          }
+        `}
+      </style>
+
+      {renderReportLogo("print-page-one-logo")}
+
+      {mountainBgUrl && (
+        <img
+          src={mountainBgUrl}
+          alt=""
+          className="print-fixed-page-bg"
+          style={printFixedPageBgStyle}
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            img.style.display = "none";
+          }}
+        />
+      )}
+
+      <div style={topBarStyle} className="no-print">
+        <Link href="/baustellen/archiv" style={backLinkStyle}>
+          ← Zurück zum Archiv
+        </Link>
+
+        <div style={topButtonRowStyle}>
+          {getGoogleMapsUrl() && (
+            <a
+              href={getGoogleMapsUrl()}
+              target="_blank"
+              style={mapsButtonStyle}
+            >
+              📍 Google Maps
+            </a>
+          )}
+
+          {getVisualizationUrl() && (
+            <a
+              href={getVisualizationUrl()}
+              target="_blank"
+              style={visualizationButtonStyle}
+            >
+              🏗️ 3D Visualisierung
+            </a>
+          )}
+
+          <button
+            onClick={printPdf}
+            style={pdfButtonStyle}
+            disabled={preparingPdf || downloadingImages || deletingPhotos}
+          >
+            {preparingPdf
+              ? "Bilder werden vollständig vorbereitet..."
+              : "📥 PDF herunterladen"}
+          </button>
+
+          <button
+            onClick={downloadAllImagesAsZip}
+            style={downloadImagesButtonStyle}
+            disabled={preparingPdf || downloadingImages || deletingPhotos}
+          >
+            {downloadingImages
+              ? "Bilder werden vorbereitet..."
+              : "🖼️ Alle Bilder herunterladen"}
+          </button>
+
+          <button
+            onClick={confirmAndDeleteImages}
+            style={deleteButtonStyle}
+            disabled={preparingPdf || downloadingImages || deletingPhotos}
+          >
+            {deletingPhotos
+              ? "Bilder werden gelöscht..."
+              : "🗑️ Bilder endgültig löschen"}
+          </button>
+        </div>
+      </div>
+
+      <h1 style={titleStyle}>ABSCHLUSSBERICHT BAUSTELLE</h1>
+
+      <section style={boxStyle} className="print-box">
+        {renderPaperBranding()}
+        <div style={paperContentStyle}>
+          <h2 style={sectionTitleStyle}>Baustellenübersicht</h2>
+
+          <div style={infoGridStyle}>
+            <p>
+              <strong>Baustelle:</strong>
+              <br />
+              {baustelle?.naziv || "-"}
+            </p>
+
+            <p>
+              <strong>Ort:</strong>
+              <br />
+              {baustelle?.lokacija || "-"}
+            </p>
+
+            <p>
+              <strong>Projektbeginn:</strong>
+              <br />
+              {formatDate(startDate)}
+            </p>
+
+            <p>
+              <strong>Projektende:</strong>
+              <br />
+              {formatDate(endDate)}
+            </p>
+
+            <p>
+              <strong>Anzahl Räume:</strong>
+              <br />
+              {rooms.length}
+            </p>
+
+            <p>
+              <strong>Anzahl Arbeitstage:</strong>
+              <br />
+              {workDays.length}
+            </p>
+
+            <p>
+              <strong>Mitarbeiter:</strong>
+              <br />
+              {allWorkers.length > 0 ? allWorkers.join(", ") : "-"}
+            </p>
+
+            <p>
+              <strong>Arbeitsstunden:</strong>
+              <br />
+              {formatNumber(totalHours)} h
+            </p>
+
+            {hasPrintableRegie && (
+              <>
+                <p>
+                  <strong>Regiestunden:</strong>
+                  <br />
+                  {formatNumber(totalRegieHours)} h
+                </p>
+
+                <p>
+                  <strong>Gesamt inkl. Regie:</strong>
+                  <br />
+                  {formatNumber(totalHours + totalRegieHours)} h
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section style={boxStyle} className="print-box">
+        {renderPaperBranding()}
+        <div style={paperContentStyle}>
+          <h2 style={sectionTitleStyle}>Gesamtübersicht Arbeitsstunden</h2>
+
+          {hours.length === 0 ? (
+            <p style={mutedTextStyle}>Keine Arbeitsstunden vorhanden.</p>
+          ) : (
+            <div style={tableWrapStyle}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Datum</th>
+                    <th style={thStyle}>Mitarbeiter</th>
+                    <th style={thStyle}>Raum</th>
+                    <th style={thStyle}>Beginn</th>
+                    <th style={thStyle}>Ende</th>
+                    <th style={thStyle}>Pause</th>
+                    <th style={thStyle}>Gesamt</th>
+                    <th style={thStyle}>Tätigkeit</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {hours.map((h: any) => (
+                    <tr key={h.id}>
+                      <td style={tdStyle}>{formatDate(h.datum)}</td>
+                      <td style={tdStyle}>{getHourWorkerName(h)}</td>
+                      <td style={tdStyle}>
+                        {h.room_id ? getRoomName(h.room_id) : "-"}
+                      </td>
+                      <td style={tdStyle}>{h.pocetak || "-"}</td>
+                      <td style={tdStyle}>{h.kraj || "-"}</td>
+                      <td style={tdStyle}>{formatNumber(h.pauza)} h</td>
+                      <td style={tdStyle}>
+                        {formatNumber(h.ukupno_sati || h.sati)} h
+                      </td>
+                      <td style={tdStyle}>{h.opis_posla || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {hasPrintableRegie && (
+        <section style={boxStyle} className="print-box">
+          {renderPaperBranding()}
+          <div style={paperContentStyle}>
+            <h2 style={sectionTitleStyle}>Regiestunden</h2>
+
+            <div style={regieSummaryStyle}>
+              <p>
+                <strong>Gesamt Regiestunden:</strong>{" "}
+                {formatNumber(totalRegieHours)} h
+              </p>
+
+              <p>
+                <strong>Anzahl Regieberichte:</strong> {regieberichte.length}
+              </p>
+            </div>
+
+            {regieHoursByWorker.length > 0 && (
+              <div style={tableWrapStyle}>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Mitarbeiter</th>
+                      <th style={thStyle}>Regiestunden gesamt</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {regieHoursByWorker.map((row: any) => (
+                      <tr key={row.workerName}>
+                        <td style={tdStyle}>{row.workerName}</td>
+                        <td style={tdStyle}>{formatNumber(row.sum)} h</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <h3 style={subTitleStyle}>Einzelne Regieeinträge</h3>
+
+            {regieHours.length === 0 ? (
+              <p style={mutedTextStyle}>Keine Regiestunden vorhanden.</p>
+            ) : (
+              <div style={tableWrapStyle}>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Bericht Nr.</th>
+                      <th style={thStyle}>Datum</th>
+                      <th style={thStyle}>Mitarbeiter</th>
+                      <th style={thStyle}>Von</th>
+                      <th style={thStyle}>Bis</th>
+                      <th style={thStyle}>Stunden</th>
+                      <th style={thStyle}>Ausgeführte Arbeiten</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {regieHours.map((r: any) => (
+                      <tr key={r.id}>
+                        <td style={tdStyle}>{getRegieNumber(r)}</td>
+                        <td style={tdStyle}>{formatDate(getRegieDate(r))}</td>
+                        <td style={tdStyle}>{r.worker_name || "-"}</td>
+                        <td style={tdStyle}>{r.von || "-"}</td>
+                        <td style={tdStyle}>{r.bis || "-"}</td>
+                        <td style={tdStyle}>{formatNumber(r.stunden)} h</td>
+                        <td style={tdStyle}>{getRegieWorkText(r)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      <section style={boxStyle} className="print-box room-overview-print">
+        {renderPaperBranding()}
+        <div style={paperContentStyle}>
+          <h2 style={sectionTitleStyle}>Raumübersicht</h2>
+
+          {roomsForReport.length === 0 && (
+            <p style={mutedTextStyle}>
+              Keine Räume mit Berichtsdaten vorhanden.
+            </p>
+          )}
+
+          {roomsForReport.map((room: any) => {
+            const roomHours = getHoursForRoom(room.id);
+            const roomProd = getProductivityForRoom(room.id);
+            const roomMat = getMaterialsForRoom(room.id);
+            const roomPhotos = getPhotosForRoom(room.id);
+
+            const roomTotalHours = roomHours.reduce(
+              (sum, h) => sum + Number(h.ukupno_sati || h.sati || 0),
+              0,
+            );
+
+            return (
+              <div key={room.id} style={roomBoxStyle} className="print-room">
+                {renderPaperBranding()}
+                <div style={paperContentStyle}>
+                  <h2 style={roomTitleStyle}>Raum: {room.naziv}</h2>
+
+                  <h3 style={subTitleStyle}>Arbeitsstunden</h3>
+
+                  <p>
+                    <strong>Summe Raum:</strong> {formatNumber(roomTotalHours)}{" "}
+                    h
+                  </p>
+
+                  {roomHours.length === 0 ? (
+                    <p style={mutedTextStyle}>
+                      Keine Arbeitsstunden für diesen Raum.
+                    </p>
+                  ) : (
+                    <div style={tableWrapStyle}>
+                      <table style={tableStyle}>
+                        <thead>
+                          <tr>
+                            <th style={thStyle}>Datum</th>
+                            <th style={thStyle}>Mitarbeiter</th>
+                            <th style={thStyle}>Beginn</th>
+                            <th style={thStyle}>Ende</th>
+                            <th style={thStyle}>Pause</th>
+                            <th style={thStyle}>Gesamt</th>
+                            <th style={thStyle}>Tätigkeit</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {roomHours.map((h: any) => (
+                            <tr key={h.id}>
+                              <td style={tdStyle}>{formatDate(h.datum)}</td>
+                              <td style={tdStyle}>{getHourWorkerName(h)}</td>
+                              <td style={tdStyle}>{h.pocetak || "-"}</td>
+                              <td style={tdStyle}>{h.kraj || "-"}</td>
+                              <td style={tdStyle}>{formatNumber(h.pauza)} h</td>
+                              <td style={tdStyle}>
+                                {formatNumber(h.ukupno_sati || h.sati)} h
+                              </td>
+                              <td style={tdStyle}>{h.opis_posla || "-"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <h3 style={subTitleStyle}>Materialverbrauch</h3>
+
+                  {roomMat.length === 0 ? (
+                    <p style={mutedTextStyle}>Kein Material für diesen Raum.</p>
+                  ) : (
+                    <div style={tableWrapStyle}>
+                      <table style={tableStyle}>
+                        <thead>
+                          <tr>
+                            <th style={thStyle}>Material</th>
+                            <th style={thStyle}>Menge</th>
+                            <th style={thStyle}>Einheit</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {roomMat.map((m: any) => (
+                            <tr key={m.id}>
+                              <td style={tdStyle}>
+                                {getMaterialNameFromRoomMaterial(m)}
+                              </td>
+                              <td style={tdStyle}>
+                                {formatNumber(m.kolicina)}
+                              </td>
+                              <td style={tdStyle}>
+                                {getMaterialUnitFromRoomMaterial(m)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <h3 style={subTitleStyle}>Leistungsnachweis</h3>
+
+                  {roomProd.length === 0 ? (
+                    <p style={mutedTextStyle}>
+                      Keine Produktivitätsdaten für diesen Raum.
+                    </p>
+                  ) : (
+                    <div style={tableWrapStyle}>
+                      <table style={tableStyle}>
+                        <thead>
+                          <tr>
+                            <th style={thStyle}>Datum</th>
+                            <th style={thStyle}>Mitarbeiter</th>
+                            <th style={thStyle}>Leistung</th>
+                            <th style={thStyle}>Menge</th>
+                            <th style={thStyle}>Einheit</th>
+                            <th style={thStyle}>Notiz</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {roomProd.map((p: any) => (
+                            <tr key={p.id}>
+                              <td style={tdStyle}>{formatDate(p.datum)}</td>
+                              <td style={tdStyle}>{p.radnik || "-"}</td>
+                              <td style={tdStyle}>
+                                {translatePosition(p.pozicija)}
+                              </td>
+                              <td style={tdStyle}>
+                                {formatNumber(p.kolicina)}
+                              </td>
+                              <td style={tdStyle}>{p.jedinica || "-"}</td>
+                              <td style={tdStyle}>{p.napomena || "-"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <h3 style={subTitleStyle}>Fotodokumentation</h3>
+
+                  {roomPhotos.length === 0 ? (
+                    <p style={mutedTextStyle}>Keine Fotos für diesen Raum.</p>
+                  ) : (
+                    <div style={photoGridStyle} className="photo-grid">
+                      {roomPhotos.map((photo: any) => {
+                        const url = getPhotoUrl(photo);
+
+                        if (!url) return null;
+
+                        return (
+                          <div
+                            key={photo.id}
+                            style={photoCardStyle}
+                            className="photo-card"
+                          >
+                            <img
+                              src={url}
+                              alt={getPhotoDescription(photo) || "Foto"}
+                              style={photoStyle}
+                              className="photo-img"
+                              loading="eager"
+                              decoding="sync"
+                              onClick={() => setSelectedPhoto(url)}
+                            />
+
+                            <div style={photoInfoStyle}>
+                              <p style={photoRoomStyle}>
+                                {getRoomName(photo.room_id)}
+                              </p>
+                              <p style={photoCaptionStyle}>
+                                <strong>Hinzugefügt von:</strong>{" "}
+                                {getPhotoWorker(photo)}
+                              </p>
+                              <p style={photoCaptionStyle}>
+                                <strong>Datum:</strong>{" "}
+                                {formatDateTime(getPhotoCreatedAt(photo))}
+                              </p>
+                              {getPhotoDescription(photo) && (
+                                <p style={photoCaptionStyle}>
+                                  <strong>Beschreibung:</strong>{" "}
+                                  {getPhotoDescription(photo)}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {sortedRegieberichte.some(
+        (bericht: any) => getRegieberichtPhotos(bericht.id).length > 0,
+      ) && (
+        <section style={boxStyle} className="print-box">
+          {renderPaperBranding()}
+          <div style={paperContentStyle}>
+            <h2 style={sectionTitleStyle}>
+              Fotodokumentation Regieberichte
+            </h2>
+
+            {sortedRegieberichte.map((bericht: any) => {
+              const berichtPhotos = getRegieberichtPhotos(bericht.id);
+
+              if (berichtPhotos.length === 0) return null;
+
+              return (
+                <div
+                  key={`regie-fotos-${bericht.id}`}
+                  style={roomBoxStyle}
+                  className="print-room"
+                >
+                  <h3 style={subTitleStyle}>
+                    Regiebericht {getRegieberichtNumber(bericht)} ·{" "}
+                    {formatDate(bericht.datum)}
+                  </h3>
+
+                  <div style={photoGridStyle} className="photo-grid">
+                    {berichtPhotos.map((photo: any) => {
+                      const url = getPhotoUrl(photo);
+
+                      if (!url) return null;
+
+                      return (
+                        <div
+                          key={photo.id}
+                          style={photoCardStyle}
+                          className="photo-card"
+                        >
+                          <img
+                            src={url}
+                            alt={getPhotoDescription(photo) || "Regiefoto"}
+                            style={photoStyle}
+                            className="photo-img"
+                            loading="eager"
+                            decoding="sync"
+                            onClick={() => setSelectedPhoto(url)}
+                          />
+
+                          <div style={photoInfoStyle}>
+                            <p style={photoRoomStyle}>
+                              Regiebericht {getRegieberichtNumber(bericht)}
+                            </p>
+
+                            {getPhotoDescription(photo) && (
+                              <p style={photoCaptionStyle}>
+                                <strong>Beschreibung:</strong>{" "}
+                                {getPhotoDescription(photo)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <section style={boxStyle} className="print-box">
+        {renderPaperBranding()}
+        <div style={paperContentStyle}>
+          <h2 style={sectionTitleStyle}>Gesamtauswertung</h2>
+
+          <p>
+            <strong>Arbeitsstunden:</strong> {formatNumber(totalHours)} h
+          </p>
+
+          {hasPrintableRegie && (
+            <>
+              <p>
+                <strong>Regiestunden:</strong> {formatNumber(totalRegieHours)} h
+              </p>
+
+            </>
+          )}
+
+          <p>
+            <strong>Anzahl Mitarbeiter:</strong> {allWorkers.length}
+          </p>
+
+          <p>
+            <strong>Anzahl Räume:</strong> {rooms.length}
+          </p>
+
+          <p>
+            <strong>Anzahl Arbeitstage:</strong> {workDays.length}
+          </p>
+
+          <p>
+            <strong>Anzahl Fotos:</strong> {photos.length}
+          </p>
+
+          {renderReportLogo("report-logo-last")}
+        </div>
+      </section>
+
+      {selectedPhoto && (
+        <div
+          style={modalOverlayStyle}
+          className="no-print"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <img src={selectedPhoto} alt="Foto" style={modalImageStyle} />
+        </div>
+      )}
+    </main>
+  );
+}
+
+const mainStyle: any = {
+  background: "#000",
+  minHeight: "100vh",
+  color: "white",
+  padding: "40px",
+};
+
+const topBarStyle: any = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "20px",
+  alignItems: "center",
+  marginBottom: "30px",
+  flexWrap: "wrap",
+};
+
+const topButtonRowStyle: any = {
+  display: "flex",
+  gap: "12px",
+  flexWrap: "wrap",
+};
+
+const backLinkStyle: any = {
+  color: "#3b82f6",
+  textDecoration: "none",
+  fontWeight: "bold",
+};
+
+const pdfButtonStyle: any = {
+  background: "#16a34a",
+  color: "white",
+  border: "none",
+  borderRadius: "10px",
+  padding: "12px 20px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  textDecoration: "none",
+};
+
+const downloadImagesButtonStyle: any = {
+  background: "#f97316",
+  color: "white",
+  border: "none",
+  borderRadius: "10px",
+  padding: "12px 20px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+
+const deleteButtonStyle: any = {
+  background: "#dc2626",
+  color: "white",
+  border: "none",
+  borderRadius: "10px",
+  padding: "12px 20px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const mapsButtonStyle: any = {
+  background: "#2563eb",
+  color: "white",
+  border: "none",
+  borderRadius: "10px",
+  padding: "12px 20px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  textDecoration: "none",
+};
+
+const visualizationButtonStyle: any = {
+  background: "#7c3aed",
+  color: "white",
+  border: "none",
+  borderRadius: "10px",
+  padding: "12px 20px",
+  fontWeight: "bold",
+  cursor: "pointer",
+  textDecoration: "none",
+};
+
+const titleStyle: any = {
+  fontSize: "56px",
+  fontWeight: "bold",
+  marginBottom: "30px",
+};
+
+const boxStyle: any = {
+  background: "#111",
+  padding: "25px",
+  paddingBottom: "70px",
+  borderRadius: "20px",
+  marginBottom: "30px",
+  position: "relative",
+  overflow: "hidden",
+};
+
+const sectionTitleStyle: any = {
+  fontSize: "28px",
+  color: "#f97316",
+  marginBottom: "20px",
+};
+
+const infoGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "20px",
+};
+
+const regieSummaryStyle: any = {
+  display: "flex",
+  gap: "30px",
+  flexWrap: "wrap",
+  marginBottom: "20px",
+};
+
+const roomBoxStyle: any = {
+  background: "#000",
+  border: "1px solid #333",
+  padding: "25px",
+  paddingBottom: "70px",
+  borderRadius: "18px",
+  marginBottom: "30px",
+  position: "relative",
+  overflow: "hidden",
+};
+
+const roomTitleStyle: any = {
+  fontSize: "30px",
+  color: "#f97316",
+  marginBottom: "20px",
+};
+
+const subTitleStyle: any = {
+  fontSize: "22px",
+  marginTop: "25px",
+  marginBottom: "12px",
+};
+
+const mutedTextStyle: any = {
+  color: "#999",
+};
+
+const tableWrapStyle: any = {
+  overflowX: "auto",
+};
+
+const tableStyle: any = {
+  width: "100%",
+  borderCollapse: "collapse",
+  marginTop: "10px",
+};
+
+const thStyle: any = {
+  borderBottom: "1px solid #444",
+  padding: "10px",
+  textAlign: "left",
+  color: "#f97316",
+  whiteSpace: "nowrap",
+};
+
+const tdStyle: any = {
+  borderBottom: "1px solid #333",
+  padding: "10px",
+  verticalAlign: "top",
+};
+
+const photoGridStyle: any = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 260px))",
+  gap: "16px",
+  marginTop: "15px",
+};
+
+const photoCardStyle: any = {
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: "14px",
+  padding: "10px",
+  maxWidth: "260px",
+};
+
+const photoStyle: any = {
+  width: "100%",
+  height: "150px",
+  objectFit: "contain",
+  objectPosition: "center center",
+  background: "#fff",
+  borderRadius: "10px",
+  display: "block",
+  cursor: "pointer",
+};
+
+const photoCaptionStyle: any = {
+  color: "#aaa",
+  fontSize: "13px",
+  marginTop: "8px",
+  marginBottom: 0,
+};
+
+const modalOverlayStyle: any = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.85)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 9999,
+  padding: "30px",
+  cursor: "pointer",
+};
+
+const modalImageStyle: any = {
+  maxWidth: "90vw",
+  maxHeight: "90vh",
+  borderRadius: "14px",
+  objectFit: "contain",
+};
+
+const photoInfoStyle: any = {
+  marginTop: "8px",
+};
+
+const photoRoomStyle: any = {
+  color: "#f97316",
+  fontSize: "12px",
+  fontWeight: "bold",
+  marginTop: "8px",
+  marginBottom: "6px",
+};
+
+const printFixedPageBgStyle: any = {
+  display: "none",
+};
+
+const paperContentStyle: any = {
+  position: "relative",
+  zIndex: 3,
+};
+
+const paperMountainStyle: any = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  objectPosition: "center center",
+  opacity: 0.18,
+  zIndex: 0,
+  pointerEvents: "none",
+};
+
+const paperOverlayStyle: any = {
+  position: "absolute",
+  inset: 0,
+  background:
+    "linear-gradient(180deg, rgba(249,115,22,0.06) 0%, rgba(255,255,255,0) 28%, rgba(30,58,138,0.04) 100%)",
+  zIndex: 1,
+  pointerEvents: "none",
+};
+
+const paperSideStripStyle: any = {
+  position: "absolute",
+  left: 0,
+  top: 0,
+  width: "76px",
+  height: "100%",
+  objectFit: "cover",
+  opacity: 0.15,
+  zIndex: 1,
+  pointerEvents: "none",
+  borderRight: "1px solid rgba(249,115,22,0.15)",
+};
+
+const paperBrandBadgeStyle: any = {
+  position: "absolute",
+  top: "14px",
+  left: "18px",
+  zIndex: 4,
+  background: "transparent",
+  border: "none",
+  borderRadius: 0,
+  padding: 0,
+  boxShadow: "none",
+};
+
+const paperBrandLogoStyle: any = {
+  width: "112px",
+  height: "34px",
+  objectFit: "contain",
+  display: "block",
+};
+
+const paperBrandFallbackStyle: any = {
+  minWidth: "112px",
+  borderLeft: "4px solid #f97316",
+  paddingLeft: "10px",
+  lineHeight: "1.05",
+};
+
+const paperBrandFallbackOrangeStyle: any = {
+  color: "#f97316",
+  fontWeight: "900",
+  fontSize: "12px",
+  letterSpacing: "0.9px",
+};
+
+const paperBrandFallbackSmallStyle: any = {
+  color: "#111",
+  fontWeight: "700",
+  fontSize: "8px",
+  marginTop: "4px",
+};
+
+const styles: any = {
+  printSheet: {
+    background: "#fff",
+    color: "#111",
+    WebkitPrintColorAdjust: "exact",
+    printColorAdjust: "exact",
+    maxWidth: "1100px",
+    margin: "30px auto",
+    padding: "14px",
+    borderRadius: "8px",
+    boxShadow: "0 10px 35px rgba(0,0,0,0.35)",
+    fontFamily: "Arial, sans-serif",
+    position: "relative",
+    overflow: "hidden",
+  },
+  printContent: {
+    position: "relative",
+    zIndex: 3,
+    WebkitPrintColorAdjust: "exact",
+    printColorAdjust: "exact",
+  },
+  mountainBackground: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "center center",
+    opacity: 0.56,
+    zIndex: 1,
+    pointerEvents: "none",
+  },
+  sidePaperImage: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: "86px",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "center",
+    opacity: 0.3,
+    zIndex: 1,
+    pointerEvents: "none",
+    borderRight: "2px solid rgba(249, 115, 22, 0.35)",
+  },
+  titleWithLogo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "20px",
+  },
+  headerLogo: {
+    width: "118px",
+    height: "40px",
+    objectFit: "contain",
+    objectPosition: "left center",
+    display: "block",
+  },
+  logoFallback: {
+    display: "none",
+    width: "118px",
+    minWidth: "145px",
+    borderLeft: "4px solid #f97316",
+    paddingLeft: "10px",
+    lineHeight: "1.1",
+  },
+  logoFallbackOrange: {
+    color: "#f97316",
+    fontWeight: "900",
+    fontSize: "15px",
+    letterSpacing: "1px",
+  },
+  logoFallbackSmall: {
+    color: "#111",
+    fontWeight: "700",
+    fontSize: "8px",
+    marginTop: "4px",
+  },
+  printHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    borderBottom: "2px solid #1e3a8a",
+    paddingBottom: "6px",
+    marginBottom: "7px",
+  },
+  documentTitle: {
+    color: "#1e3a8a",
+    fontSize: "26px",
+    fontWeight: "bold",
+    letterSpacing: "1px",
+  },
+  documentSub: {
+    color: "#555",
+    fontSize: "12px",
+    marginTop: "2px",
+  },
+  headerRight: {
+    textAlign: "right",
+    fontSize: "13px",
+    lineHeight: "1.6",
+  },
+  metaGrid: {
+    display: "grid",
+    gridTemplateColumns: "1.2fr 0.7fr 1fr 1.2fr 1fr 1.2fr",
+    gap: "6px",
+    marginBottom: "7px",
+  },
+  metaBox: {
+    background: "rgba(255, 255, 255, 0.44)",
+    border: "1px solid #d8dee9",
+    borderRadius: "6px",
+    padding: "6px",
+    minHeight: "42px",
+  },
+  metaLabel: {
+    color: "#1e3a8a",
+    fontSize: "8px",
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    marginBottom: "3px",
+  },
+  metaValue: {
+    fontSize: "12px",
+    lineHeight: "1.25",
+    whiteSpace: "pre-wrap",
+  },
+  printMainGrid: {
+    display: "grid",
+    gridTemplateColumns: "1.32fr 0.98fr",
+    gap: "7px",
+  },
+  leftColumn: {
+    display: "grid",
+    gap: "6px",
+  },
+  rightColumn: {
+    display: "grid",
+    gap: "6px",
+  },
+  printBlock: {
+    border: "1px solid #d8dee9",
+    borderRadius: "7px",
+    padding: "6px",
+    background: "rgba(255, 255, 255, 0.44)",
+  },
+  printBlockTitle: {
+    fontSize: "13px",
+    color: "#1e3a8a",
+    margin: "0 0 6px 0",
+    textTransform: "uppercase",
+    letterSpacing: "0.4px",
+  },
+  blockHeaderRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "7px",
+  },
+  workText: {
+    minHeight: "80px",
+    whiteSpace: "pre-wrap",
+    fontSize: "12px",
+    lineHeight: "1.45",
+  },
+  cleanTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "11px",
+  },
+  cleanTh: {
+    textAlign: "left",
+    padding: "5px",
+    background: "rgba(239, 246, 255, 0.48)",
+    color: "#1e3a8a",
+    borderBottom: "1px solid #cbd5e1",
+  },
+  cleanTd: {
+    padding: "5px",
+    borderBottom: "1px solid #e5e7eb",
+    verticalAlign: "top",
+  },
+  photoPrintBlock: {
+    border: "1px solid #d8dee9",
+    borderRadius: "7px",
+    padding: "6px",
+    background: "rgba(255, 255, 255, 0.38)",
+  },
+  printPhotoGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "6px",
+    alignItems: "stretch",
+  },
+  printPhotoCard: {
+    border: "1px solid #e5e7eb",
+    borderRadius: "7px",
+    padding: "5px",
+    background: "rgba(248, 250, 252, 0.34)",
+  },
+  printPhoto: {
+    width: "100%",
+    height: "300px",
+    objectFit: "contain",
+    objectPosition: "center",
+    background: "#fff",
+    borderRadius: "5px",
+    display: "block",
+  },
+  photoCaption: {
+    fontSize: "8px",
+    color: "#555",
+    marginTop: "4px",
+  },
+  emptyPhoto: {
+    height: "300px",
+    border: "1px dashed #cbd5e1",
+    borderRadius: "7px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#94a3b8",
+    background: "rgba(248, 250, 252, 0.30)",
+    fontSize: "13px",
+  },
+  signatureBlock: {
+    border: "1px solid #d8dee9",
+    borderRadius: "7px",
+    padding: "12px",
+    background: "rgba(255, 255, 255, 0.38)",
+    display: "grid",
+    gap: "25px",
+    alignContent: "end",
+  },
+  signatureItem: {
+    fontSize: "11px",
+  },
+  signatureLine: {
+    borderTop: "1px solid #111",
+    marginBottom: "6px",
+    paddingTop: "6px",
+  },
+};

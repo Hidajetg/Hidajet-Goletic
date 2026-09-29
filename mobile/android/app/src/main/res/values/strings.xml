@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Solstone Baustelle</string>
+    <string name="title_activity_main">Solstone Baustelle</string>
+    <string name="package_name">com.solstone.baustelle</string>
+    <string name="custom_url_scheme">com.solstone.baustelle</string>
+</resources>

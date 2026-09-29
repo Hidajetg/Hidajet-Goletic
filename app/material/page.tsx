@@ -1,0 +1,1712 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import Link from "next/link";
+import { supabase } from "../lib/supabase";
+
+const ADMIN_NAMES = [
+  "hido",
+  "steffi",
+  "florian",
+  "admin",
+  "hidajet",
+  "hidajet goletic",
+  "hidajet goletić",
+];
+
+const DEFAULT_GROUP_ORDER = [
+  "Keramika",
+  "Priprema podloge",
+  "Estrich",
+  "Hidroizolacija",
+  "Ljepilo",
+  "Schienen",
+  "Fuge",
+  "Silikoni",
+  "Terase",
+  "Dodaci",
+  "Slobodni materijal",
+];
+
+const GROUP_LABELS_DE: Record<string, string> = {
+  Keramika: "Fliesen",
+  "Priprema podloge": "Untergrundvorbereitung",
+  Estrich: "Estrich",
+  Hidroizolacija: "Abdichtung",
+  Ljepilo: "Kleber",
+  Schienen: "Schienen",
+  Fuge: "Fugen",
+  Silikoni: "Silikone",
+  Terase: "Terrassen",
+  Dodaci: "Zubehör",
+  "Slobodni materijal": "Freies Material",
+};
+
+const UNIT_LABELS_DE: Record<string, string> = {
+  kom: "Stk.",
+  vreća: "Sack",
+  vreca: "Sack",
+  rola: "Rolle",
+  paket: "Paket",
+  karton: "Karton",
+  set: "Set",
+  l: "l",
+  kg: "kg",
+  m: "m",
+  "m²": "m²",
+  "m2": "m²",
+  "m³": "m³",
+  "m3": "m³",
+  "-": "-",
+};
+
+const UNIT_OPTIONS = [
+  "Stk.",
+  "m",
+  "m²",
+  "m³",
+  "kg",
+  "l",
+  "Sack",
+  "Rolle",
+  "Paket",
+  "Karton",
+  "Set",
+  "-",
+];
+
+type Tab = "overview" | "add";
+
+function cleanText(value: any) {
+  return String(value ?? "").trim();
+}
+
+function parseNumber(value: any) {
+  if (value === null || value === undefined || value === "") return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+
+  const cleaned = String(value)
+    .replace(/[^0-9,.-]/g, "")
+    .replace(/\.(?=\d{3}(\D|$))/g, "")
+    .replace(",", ".");
+
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatNumber(value: any) {
+  const n = parseNumber(value);
+
+  return n.toLocaleString("de-AT", {
+    minimumFractionDigits: Number.isInteger(n) ? 0 : 1,
+    maximumFractionDigits: 2,
+  });
+}
+
+function normalizeKey(value: any) {
+  return cleanText(value).toLowerCase().replace(/\s+/g, " ");
+}
+
+function displayGroupName(value: any) {
+  const name = cleanText(value);
+  return GROUP_LABELS_DE[name] || name || "Gruppe";
+}
+
+function displayUnit(value: any) {
+  const unit = cleanText(value);
+  if (!unit) return "-";
+  return UNIT_LABELS_DE[unit] || UNIT_LABELS_DE[unit.toLowerCase()] || unit;
+}
+
+function getGroupIcon(name: string) {
+  const n = cleanText(name).toLowerCase();
+
+  if (n.includes("keramika") || n.includes("fliesen")) return "▧";
+  if (n.includes("priprema") || n.includes("untergrund")) return "🧹";
+  if (n.includes("estrich")) return "⬜";
+  if (n.includes("hidro") || n.includes("abdichtung")) return "💧";
+  if (n.includes("ljepilo") || n.includes("kleber")) return "🪣";
+  if (n.includes("schienen")) return "📏";
+  if (n.includes("fuge") || n.includes("fugen")) return "▦";
+  if (n.includes("silikoni") || n.includes("silikone") || n.includes("silikon")) return "〰️";
+  if (n.includes("terase") || n.includes("terrassen")) return "🏗️";
+  if (n.includes("dodaci") || n.includes("zubehör")) return "+";
+  if (n.includes("slobodni") || n.includes("freies")) return "📦";
+
+  return "📦";
+}
+
+function sortGroups(data: any[]) {
+  return [...data].sort((a, b) => {
+    const orderA = Number(a.sort_order || 9999);
+    const orderB = Number(b.sort_order || 9999);
+
+    if (orderA !== orderB) return orderA - orderB;
+
+    const indexA = DEFAULT_GROUP_ORDER.indexOf(cleanText(a.naziv || a.name));
+    const indexB = DEFAULT_GROUP_ORDER.indexOf(cleanText(b.naziv || b.name));
+
+    if (indexA === -1 && indexB === -1) {
+      return cleanText(a.naziv || a.name).localeCompare(cleanText(b.naziv || b.name), "de");
+    }
+
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+
+    return indexA - indexB;
+  });
+}
+
+function getLoggedUserFromLocalStorage() {
+  if (typeof window === "undefined") return null;
+
+  const keys = [
+    "currentWorker",
+    "worker",
+    "loggedWorker",
+    "selectedWorker",
+    "currentUser",
+    "loggedUser",
+    "user",
+    "userName",
+    "workerName",
+    "name",
+    "loginUser",
+    "baustelle_user",
+    "stone_user",
+    "app_user",
+  ];
+
+  for (const key of keys) {
+    const value = localStorage.getItem(key);
+    if (!value) continue;
+
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+
+    const value = localStorage.getItem(key);
+    if (!value) continue;
+
+    try {
+      const parsed = JSON.parse(value);
+      if (isAdminUser(parsed)) return parsed;
+    } catch {
+      if (isAdminUser(value)) return value;
+    }
+  }
+
+  return null;
+}
+
+function isAdminUser(user: any) {
+  if (!user) return false;
+
+  if (typeof user === "string") {
+    return ADMIN_NAMES.includes(user.trim().toLowerCase());
+  }
+
+  const role = cleanText(user.role || user.rolle || user.tip).toLowerCase();
+
+  const name = cleanText(
+    user.name ||
+      user.worker_name ||
+      user.radnik ||
+      user.username ||
+      user.userName ||
+      user.displayName
+  ).toLowerCase();
+
+  return (
+    role === "admin" ||
+    role === "administrator" ||
+    user.is_admin === true ||
+    user.admin === true ||
+    ADMIN_NAMES.includes(name)
+  );
+}
+
+function looksLikeRealName(value: any) {
+  const text = cleanText(value);
+  if (!text) return false;
+  if (text.length < 2) return false;
+  if (/^\d+$/.test(text)) return false;
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return false;
+  if (/^true$/i.test(text) || /^false$/i.test(text) || /^null$/i.test(text)) return false;
+  if (/^(material|materijal)\s*id\s*:?\s*\d+$/i.test(text)) return false;
+  if (/^id\s*:?\s*\d+$/i.test(text)) return false;
+  if (["kg", "l", "m", "m²", "m2", "m³", "m3", "stk", "stk.", "kom", "sack", "vreća", "vreca", "-"].includes(text.toLowerCase())) return false;
+  return true;
+}
+
+function firstRealTextFromObject(obj: any, blockedKeys: string[] = []) {
+  if (!obj || typeof obj !== "object") return "";
+
+  const blocked = new Set(blockedKeys.map((k) => k.toLowerCase()));
+
+  for (const [key, value] of Object.entries(obj)) {
+    const k = key.toLowerCase();
+    if (blocked.has(k)) continue;
+    if (k.includes("id")) continue;
+    if (k.includes("created") || k.includes("updated") || k.includes("date") || k.includes("datum")) continue;
+    if (k.includes("unit") || k.includes("einheit") || k.includes("jedinica")) continue;
+    if (k.includes("status") || k.includes("active")) continue;
+    if (looksLikeRealName(value)) return cleanText(value);
+  }
+
+  return "";
+}
+
+function getMaterialNameFromCatalog(material: any) {
+  const direct = cleanText(
+    material?.naziv ||
+      material?.name ||
+      material?.title ||
+      material?.bezeichnung ||
+      material?.bezeichnung_de ||
+      material?.name_de ||
+      material?.naziv_de ||
+      material?.material ||
+      material?.material_name ||
+      material?.materialname ||
+      material?.material_naziv ||
+      material?.material_title ||
+      material?.produkt ||
+      material?.product ||
+      material?.produkt_name ||
+      material?.product_name ||
+      material?.artikel ||
+      material?.artikel_name ||
+      material?.artikelbezeichnung ||
+      material?.description ||
+      material?.beschreibung ||
+      material?.label ||
+      material?.text
+  );
+
+  if (looksLikeRealName(direct)) return direct;
+
+  return firstRealTextFromObject(material, [
+    "unit",
+    "einheit",
+    "jedinica",
+    "group_id",
+    "gruppe_id",
+    "material_group_id",
+    "category_id",
+  ]);
+}
+
+function getMaterialUnitFromCatalog(material: any) {
+  return cleanText(
+    material?.jedinica ||
+      material?.unit ||
+      material?.einheit ||
+      material?.me ||
+      material?.unit_name ||
+      material?.jedinica_mjere ||
+      material?.unit_label ||
+      "-"
+  );
+}
+
+function getMaterialGroupId(material: any) {
+  return Number(
+    material?.group_id ?? material?.gruppe_id ?? material?.material_group_id ?? material?.material_gruppe_id ?? material?.category_id ?? 0
+  );
+}
+
+function getUsedMaterialId(row: any) {
+  return Number(
+    row?.material_id ??
+      row?.material_catalog_id ??
+      row?.catalog_id ??
+      row?.materialId ??
+      0
+  );
+}
+
+function getMaterialSignature(material: any) {
+  return `${normalizeKey(getMaterialNameFromCatalog(material))}__${normalizeKey(
+    getMaterialUnitFromCatalog(material)
+  )}__${getMaterialGroupId(material)}`;
+}
+
+function getGroupName(group: any) {
+  return cleanText(group?.naziv || group?.name || group?.title || "Gruppe");
+}
+
+
+function getBaustelleIdFromMaterialRow(row: any) {
+  return Number(
+    row?.baustelle_id ??
+      row?.baustellen_id ??
+      row?.baustelleId ??
+      row?.projekt_id ??
+      row?.project_id ??
+      row?.projectId ??
+      row?.projektId ??
+      0
+  );
+}
+
+function getRoomIdFromMaterialRow(row: any) {
+  return Number(
+    row?.room_id ??
+      row?.raum_id ??
+      row?.prostorija_id ??
+      row?.prostorije_id ??
+      row?.roomId ??
+      row?.raumId ??
+      0
+  );
+}
+
+function getBaustelleIdFromRoom(room: any) {
+  return Number(
+    room?.baustelle_id ??
+      room?.baustellen_id ??
+      room?.projekt_id ??
+      room?.project_id ??
+      room?.baustelleId ??
+      0
+  );
+}
+
+function getRoomName(room: any) {
+  const name = cleanText(
+    room?.name ||
+      room?.naziv ||
+      room?.raum ||
+      room?.room ||
+      room?.prostorija ||
+      room?.title ||
+      ""
+  );
+
+  return name || "-";
+}
+
+function getBaustelleNameFromMaterialRow(row: any) {
+  const direct = cleanText(
+    row?.baustelle_name ||
+      row?.baustellen_name ||
+      row?.baustelle_naziv ||
+      row?.baustelle ||
+      row?.projekt_name ||
+      row?.projekt_naziv ||
+      row?.projekt ||
+      row?.project_name ||
+      row?.project ||
+      row?.building_site_name ||
+      row?.objekt ||
+      row?.object_name ||
+      ""
+  );
+
+  if (direct) return direct;
+
+  const nested = row?.baustellen || row?.baustelle_data || row?.projekt_data || row?.projekte;
+  return getBaustelleName(nested, "");
+}
+
+function mergeBaustelleRows(existing: any[], incoming: any[], source: string) {
+  const map = new Map<string, any>();
+
+  for (const row of existing) {
+    const id = Number(row?.id ?? row?.__lookupId ?? 0);
+    if (id) map.set(`${row?.__source || "table"}:${id}`, row);
+  }
+
+  for (const row of incoming || []) {
+    const id = Number(row?.id ?? 0);
+    if (!id) continue;
+
+    const key = `${source}:${id}`;
+    if (!map.has(key)) {
+      map.set(key, { ...row, __lookupId: id, __source: source });
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+function getBaustelleBaseName(baustelle: any) {
+  if (!baustelle) return "";
+
+  return cleanText(
+    baustelle.name ||
+      baustelle.naziv ||
+      baustelle.baustelle ||
+      baustelle.baustelle_name ||
+      baustelle.baustellen_name ||
+      baustelle.projekt ||
+      baustelle.projekt_name ||
+      baustelle.project_name ||
+      baustelle.projektname ||
+      baustelle.title ||
+      baustelle.objekt ||
+      baustelle.object_name ||
+      baustelle.kunde ||
+      baustelle.auftraggeber ||
+      ""
+  );
+}
+
+function getBaustelleLocation(baustelle: any) {
+  if (!baustelle) return "";
+
+  const ort = cleanText(
+    baustelle.ort ||
+      baustelle.mjesto ||
+      baustelle.city ||
+      baustelle.stadt ||
+      baustelle.location ||
+      ""
+  );
+
+  const adresse = cleanText(
+    baustelle.adresa ||
+      baustelle.adresse ||
+      baustelle.address ||
+      baustelle.strasse ||
+      baustelle.street ||
+      baustelle.ulica ||
+      ""
+  );
+
+  if (ort && adresse && !adresse.toLowerCase().includes(ort.toLowerCase())) {
+    return `${ort}, ${adresse}`;
+  }
+
+  return ort || adresse;
+}
+
+function getBaustelleName(baustelle: any, fallbackName?: string) {
+  if (!baustelle) {
+    return cleanText(fallbackName) || "Baustelle nicht gefunden";
+  }
+
+  const name = getBaustelleBaseName(baustelle) || cleanText(fallbackName) || "Baustelle";
+  const location = getBaustelleLocation(baustelle);
+
+  return location ? `${name} - ${location}` : name;
+}
+
+function getBaustelleStatus(baustelle: any) {
+  if (!baustelle) return "Unbekannt";
+
+  const raw = cleanText(
+    baustelle?.status ||
+      baustelle?.state ||
+      baustelle?.phase ||
+      baustelle?.archiv_status ||
+      ""
+  ).toLowerCase();
+
+  const archived =
+    baustelle?.archived === true ||
+    baustelle?.is_archived === true ||
+    baustelle?.archiv === true ||
+    raw.includes("archiv") ||
+    raw.includes("closed") ||
+    raw.includes("fertig") ||
+    raw.includes("abgeschlossen");
+
+  return archived ? "Archiv" : "Aktiv";
+}
+
+export default function AdminMaterialPage() {
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<Tab>("overview");
+
+  const [groups, setGroups] = useState<any[]>([]);
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [materialCatalog, setMaterialCatalog] = useState<any[]>([]);
+  const [baustelleMaterials, setBaustelleMaterials] = useState<any[]>([]);
+  const [roomMaterials, setRoomMaterials] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [baustellen, setBaustellen] = useState<any[]>([]);
+
+  const [newMaterialName, setNewMaterialName] = useState("");
+  const [newMaterialUnit, setNewMaterialUnit] = useState("m²");
+  const [newMaterialGroupId, setNewMaterialGroupId] = useState("");
+  const [newMaterialNote, setNewMaterialNote] = useState("");
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    const loggedUser = getLoggedUserFromLocalStorage();
+    const adminOk = isAdminUser(loggedUser);
+
+    setIsAdmin(adminOk);
+    setAccessChecked(true);
+
+    if (!adminOk) {
+      setLoading(false);
+      return;
+    }
+
+    loadData();
+  }, []);
+
+  async function loadOptionalBaustellen(tableName: string, ids: number[]) {
+    // Prvo pokušava direktno preko id. Ako tabela koristi projekt_id/original_id,
+    // dodatno učitamo sve redove, pa se kasnije u getBaustelleById traži po više ID polja.
+    const byId = await supabase.from(tableName).select("*").in("id", ids);
+    const rowsById = byId.error ? [] : byId.data || [];
+
+    const allRows = await supabase.from(tableName).select("*").limit(5000);
+    const rowsAll = allRows.error ? [] : allRows.data || [];
+
+    return [...rowsById, ...rowsAll];
+  }
+
+  async function loadData() {
+    setLoading(true);
+
+    const groupsRes = await supabase
+      .from("material_groups")
+      .select("*")
+      .order("sort_order", { ascending: true });
+
+    if (groupsRes.error) {
+      alert("Fehler beim Laden der Materialgruppen: " + groupsRes.error.message);
+      setLoading(false);
+      return;
+    }
+
+    const materialsRes = await supabase
+      .from("materials")
+      .select("*")
+      .order("naziv", { ascending: true });
+
+    if (materialsRes.error) {
+      alert("Fehler beim Laden der Materialien: " + materialsRes.error.message);
+      setLoading(false);
+      return;
+    }
+
+    const catalogRes = await supabase
+      .from("material_catalog")
+      .select("*")
+      .order("id", { ascending: true });
+
+    const usedRes = await supabase
+      .from("baustelle_material")
+      .select("*")
+      .order("id", { ascending: false });
+
+    if (usedRes.error) {
+      alert("Fehler beim Laden des Materialverbrauchs: " + usedRes.error.message);
+      setLoading(false);
+      return;
+    }
+
+    // Stari dio aplikacije je materijal nekad čuvao u room_material.
+    // Zato ovdje učitavamo obje tabele: baustelle_material + room_material.
+    const roomUsedRes = await supabase
+      .from("room_material")
+      .select("*")
+      .order("id", { ascending: false });
+
+    const baustelleMaterialRows = usedRes.data || [];
+    const roomMaterialRows = roomUsedRes.error ? [] : roomUsedRes.data || [];
+
+    const directBaustelleIds = [
+      ...new Set(
+        baustelleMaterialRows
+          .map((m: any) => getBaustelleIdFromMaterialRow(m))
+          .filter(Boolean)
+      ),
+    ];
+
+    const possibleRoomIds = [
+      ...new Set(
+        [
+          ...roomMaterialRows.map((m: any) => getRoomIdFromMaterialRow(m)),
+          ...baustelleMaterialRows.map((m: any) => getRoomIdFromMaterialRow(m)),
+          // Ako je u starom unosu ID slučajno spremljen kao room_id, pokušavamo i to pronaći.
+          ...directBaustelleIds,
+        ].filter(Boolean)
+      ),
+    ];
+
+    let roomsData: any[] = [];
+
+    if (possibleRoomIds.length > 0) {
+      const roomsById = await supabase
+        .from("prostorije")
+        .select("*")
+        .in("id", possibleRoomIds);
+
+      const allRooms = await supabase.from("prostorije").select("*").limit(5000);
+
+      const roomMap = new Map<number, any>();
+      for (const room of [...(roomsById.error ? [] : roomsById.data || []), ...(allRooms.error ? [] : allRooms.data || [])]) {
+        const id = Number(room?.id);
+        if (id && !roomMap.has(id)) roomMap.set(id, room);
+      }
+
+      roomsData = Array.from(roomMap.values());
+    }
+
+    const roomBaustelleIds = roomsData
+      .map((room: any) => getBaustelleIdFromRoom(room))
+      .filter(Boolean);
+
+    const baustelleIds = [...new Set([...directBaustelleIds, ...roomBaustelleIds])].map(Number).filter(Boolean);
+
+    let baustellenData: any[] = [];
+
+    if (baustelleIds.length > 0) {
+      const lookupTables = [
+        "baustellen",
+        "projekte",
+        "archiv",
+        "archiv_baustellen",
+        "baustellen_archiv",
+        "projekt_archiv",
+        "projekte_archiv",
+        "archiv_projekte",
+      ];
+
+      for (const tableName of lookupTables) {
+        const rows = await loadOptionalBaustellen(tableName, baustelleIds);
+        baustellenData = mergeBaustelleRows(baustellenData, rows, tableName);
+      }
+    }
+    const sortedGroups = sortGroups(groupsRes.data || []);
+
+    setGroups(sortedGroups);
+    setMaterials(materialsRes.data || []);
+    setMaterialCatalog(catalogRes.error ? [] : catalogRes.data || []);
+    setBaustelleMaterials(baustelleMaterialRows);
+    setRoomMaterials(roomMaterialRows);
+    setRooms(roomsData);
+    setBaustellen(baustellenData);
+
+    if (!newMaterialGroupId && sortedGroups.length > 0) {
+      setNewMaterialGroupId(String(sortedGroups[0].id));
+    }
+
+    setLoading(false);
+  }
+
+  function materialMatchesId(material: any, id: any) {
+    const numericId = Number(id);
+    return [
+      material?.id,
+      material?.material_id,
+      material?.materialId,
+      material?.catalog_id,
+      material?.material_catalog_id,
+      material?.artikel_id,
+    ].some((value) => Number(value) === numericId);
+  }
+
+  function getMaterialById(id: any) {
+    if (!id) return null;
+
+    return (
+      materials.find((m: any) => materialMatchesId(m, id)) ||
+      materialCatalog.find((m: any) => materialMatchesId(m, id)) ||
+      null
+    );
+  }
+
+  function getGroupById(id: any) {
+    return groups.find((g: any) => Number(g.id) === Number(id));
+  }
+
+  function getRoomById(id: any) {
+    const numericId = Number(id);
+    if (!numericId) return null;
+
+    return rooms.find((room: any) => Number(room?.id) === numericId) || null;
+  }
+
+  function getBaustelleById(id: any) {
+    const numericId = Number(id);
+    if (!numericId) return null;
+
+    return (
+      baustellen.find((b: any) => {
+        const possibleIds = [
+          b?.id,
+          b?.baustelle_id,
+          b?.baustellen_id,
+          b?.projekt_id,
+          b?.project_id,
+          b?.original_id,
+          b?.old_id,
+          b?.source_id,
+          b?.archiv_id,
+          b?.nr,
+          b?.nummer,
+        ];
+
+        return possibleIds.some((value) => Number(value) === numericId);
+      }) || null
+    );
+  }
+
+  function getNameFromUsedMaterial(row: any) {
+    const directName = cleanText(
+      row?.custom_naziv ||
+        row?.custom_name ||
+        row?.custom_material_name ||
+        row?.slobodni_naziv ||
+        row?.slobodni_materijal ||
+        row?.freie_material_name ||
+        row?.freies_material ||
+        row?.manual_name ||
+        row?.manual_material_name ||
+        row?.materijal ||
+        row?.material ||
+        row?.material_name ||
+        row?.material_naziv ||
+        row?.material_title ||
+        row?.naziv ||
+        row?.name ||
+        row?.bezeichnung ||
+        row?.bezeichnung_de ||
+        row?.name_de ||
+        row?.artikel ||
+        row?.artikel_name ||
+        row?.artikelbezeichnung ||
+        row?.material_text ||
+        row?.custom_text ||
+        row?.freier_materialname ||
+        row?.freies_material_name ||
+        row?.freier_name ||
+        row?.freie_name ||
+        row?.dodatak_naziv ||
+        row?.keramika_naziv ||
+        row?.slobodniNaziv ||
+        row?.produkt ||
+        row?.product ||
+        row?.product_name ||
+        row?.description ||
+        row?.beschreibung ||
+        row?.label ||
+        row?.text
+    );
+    if (looksLikeRealName(directName)) return directName;
+
+    const materialId = getUsedMaterialId(row);
+    const catalog = materialId ? getMaterialById(materialId) : null;
+    const catalogName = getMaterialNameFromCatalog(catalog);
+
+    if (looksLikeRealName(catalogName)) return catalogName;
+
+    // Ako je slobodni materijal nekad sačuvan kao posebni red, a drugi red pokazuje na njegov ID,
+    // probaj naći red iz baustelle_material gdje je id isti kao material_id i uzmi njegov naziv.
+    if (materialId) {
+      const sourceRow = baustelleMaterials.find((r: any) => Number(r?.id) === Number(materialId));
+      const sourceName = cleanText(
+        sourceRow?.custom_naziv ||
+          sourceRow?.custom_name ||
+          sourceRow?.materijal ||
+          sourceRow?.material ||
+          sourceRow?.naziv ||
+          sourceRow?.name
+      );
+      if (looksLikeRealName(sourceName)) return sourceName;
+    }
+
+    const genericName = firstRealTextFromObject(row, [
+      "kolicina",
+      "quantity",
+      "menge",
+      "amount",
+      "qty",
+      "unit",
+      "einheit",
+      "jedinica",
+      "custom_jedinica",
+      "custom_unit",
+      "baustelle_id",
+      "baustellen_id",
+      "projekt_id",
+      "project_id",
+    ]);
+
+    if (looksLikeRealName(genericName)) return genericName;
+    // Ne prikazujemo više "Material ID ..." u pregledu.
+    // Ako ime nije nađeno, znači da u bazi za taj stari unos nije sačuvan tekst naziva.
+    return "Unbenanntes Material";
+  }
+
+  function getUnitFromUsedMaterial(row: any) {
+    const customUnit = cleanText(row?.custom_jedinica || row?.custom_unit);
+    if (customUnit) return customUnit;
+
+    const directUnit = cleanText(row?.jedinica || row?.unit || row?.einheit);
+    if (directUnit) return directUnit;
+
+    const materialId = getUsedMaterialId(row);
+    const catalog = materialId ? getMaterialById(materialId) : null;
+    return getMaterialUnitFromCatalog(catalog) || "-";
+  }
+
+  function getGroupFromUsedMaterial(row: any) {
+    const directGroupName = cleanText(row?.group_name || row?.gruppe || row?.grupa || row?.category || row?.kategorija);
+    if (directGroupName) return directGroupName;
+
+    const directGroupId = Number(
+      row?.group_id ?? row?.gruppe_id ?? row?.material_group_id ?? row?.material_gruppe_id ?? row?.category_id ?? 0
+    );
+    const directGroup = directGroupId ? getGroupById(directGroupId) : null;
+    const directGroupLabel = getGroupName(directGroup);
+    if (directGroupLabel && directGroupLabel !== "Gruppe") return directGroupLabel;
+
+    const materialId = getUsedMaterialId(row);
+    const catalog = materialId ? getMaterialById(materialId) : null;
+    const groupId = getMaterialGroupId(catalog);
+    const group = groupId ? getGroupById(groupId) : null;
+    const groupName = getGroupName(group);
+
+    if (groupName && groupName !== "Gruppe") return groupName;
+
+    const name = getNameFromUsedMaterial(row).toLowerCase();
+
+    if (name.includes("keramika")) return "Keramika";
+    if (name.includes("silikon")) return "Silikoni";
+    if (name.includes("fuge") || name.includes("fuga")) return "Fuge";
+    if (name.includes("schiene") || name.includes("profil")) return "Schienen";
+    if (name.includes("ljepilo") || name.includes("kleber")) return "Ljepilo";
+    if (name.includes("hidro") || name.includes("abdichtung")) return "Hidroizolacija";
+    if (name.includes("estrich")) return "Estrich";
+
+    return "Slobodni materijal";
+  }
+
+  function resolveBaustelleForRow(row: any) {
+    const directBaustelleId = getBaustelleIdFromMaterialRow(row);
+    const directRoomId = getRoomIdFromMaterialRow(row);
+
+    let room = directRoomId ? getRoomById(directRoomId) : null;
+    let baustelle = directBaustelleId ? getBaustelleById(directBaustelleId) : null;
+
+    // Stari unosi ponekad imaju ID prostorije na mjestu gdje očekujemo ID Baustelle.
+    if (!baustelle && directBaustelleId) {
+      const roomFromDirectId = getRoomById(directBaustelleId);
+      if (roomFromDirectId) {
+        room = room || roomFromDirectId;
+        baustelle = getBaustelleById(getBaustelleIdFromRoom(roomFromDirectId));
+      }
+    }
+
+    if (!baustelle && room) {
+      baustelle = getBaustelleById(getBaustelleIdFromRoom(room));
+    }
+
+    const rowName = getBaustelleNameFromMaterialRow(row);
+    const rowLocation = cleanText(
+      row?.baustelle_ort ||
+        row?.ort ||
+        row?.location ||
+        row?.mjesto ||
+        row?.adresse ||
+        row?.address ||
+        ""
+    );
+
+    const baustelleName = getBaustelleName(baustelle, rowName);
+    const baustelleLocation = getBaustelleLocation(baustelle) || rowLocation;
+    const roomName = room ? getRoomName(room) : "";
+
+    const stableId =
+      Number(baustelle?.id ?? 0) ||
+      Number(baustelle?.__lookupId ?? 0) ||
+      Number(getBaustelleIdFromRoom(room)) ||
+      directBaustelleId ||
+      0;
+
+    return {
+      baustelle,
+      room,
+      stableId,
+      baustelleName,
+      baustelleLocation,
+      roomName,
+      baustelleStatus: getBaustelleStatus(baustelle),
+    };
+  }
+
+  const materialOverview = useMemo(() => {
+    const map = new Map<string, any>();
+
+    const allUsedRows = [
+      ...baustelleMaterials.map((row: any) => ({ ...row, __sourceTable: "baustelle_material" })),
+      ...roomMaterials.map((row: any) => ({ ...row, __sourceTable: "room_material" })),
+    ];
+
+    for (const row of allUsedRows) {
+      const name = getNameFromUsedMaterial(row);
+      const unit = getUnitFromUsedMaterial(row);
+      const groupName = getGroupFromUsedMaterial(row);
+      const quantity = parseNumber(
+        row?.kolicina ?? row?.quantity ?? row?.menge ?? row?.amount ?? row?.qty ?? row?.verbrauch ?? 0
+      );
+
+      if (!name || quantity === 0) continue;
+
+      const key = `${normalizeKey(groupName)}__${normalizeKey(name)}__${normalizeKey(unit)}`;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          groupName,
+          name,
+          unit,
+          total: 0,
+          count: 0,
+          baustelleIds: new Set<number>(),
+          details: [],
+        });
+      }
+
+      const detail = resolveBaustelleForRow(row);
+      const item = map.get(key);
+
+      item.total += quantity;
+      item.count += 1;
+      if (detail.stableId) item.baustelleIds.add(Number(detail.stableId));
+
+      item.details.push({
+        id: `${row.__sourceTable}-${row.id}`,
+        baustelleName: detail.baustelleName,
+        baustelleLocation: detail.baustelleLocation,
+        roomName: detail.roomName,
+        baustelleStatus: detail.baustelleStatus,
+        quantity,
+        unit,
+      });
+    }
+
+    return Array.from(map.values())
+      .map((item: any) => ({
+        ...item,
+        baustelleCount: item.baustelleIds.size,
+        baustelleIds: undefined,
+      }))
+      .sort((a: any, b: any) => {
+        const groupA = DEFAULT_GROUP_ORDER.indexOf(a.groupName);
+        const groupB = DEFAULT_GROUP_ORDER.indexOf(b.groupName);
+        const safeA = groupA === -1 ? 999 : groupA;
+        const safeB = groupB === -1 ? 999 : groupB;
+
+        if (safeA !== safeB) return safeA - safeB;
+        return String(a.name).localeCompare(String(b.name), "de");
+      });
+  }, [baustelleMaterials, roomMaterials, rooms, baustellen, materials, materialCatalog, groups]);
+
+  const filteredOverview = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return materialOverview;
+
+    return materialOverview.filter((item: any) => {
+      const haystack = `${item.groupName} ${displayGroupName(item.groupName)} ${item.name} ${item.unit} ${displayUnit(item.unit)} ${item.details
+        .map((d: any) => d.baustelleName)
+        .join(" ")}`.toLowerCase();
+
+      return haystack.includes(term);
+    });
+  }, [materialOverview, searchTerm]);
+
+  const overviewByGroup = useMemo(() => {
+    const map = new Map<string, any[]>();
+
+    for (const item of filteredOverview) {
+      if (!map.has(item.groupName)) map.set(item.groupName, []);
+      map.get(item.groupName)?.push(item);
+    }
+
+    return Array.from(map.entries()).map(([groupName, items]) => ({ groupName, items }));
+  }, [filteredOverview]);
+
+  const totalUsedEntries = baustelleMaterials.length + roomMaterials.length;
+  const totalDifferentMaterials = materialOverview.length;
+  const totalBaustellen = new Set(
+    materialOverview
+      .flatMap((m: any) => m.details || [])
+      .map((d: any) => d.baustelleName)
+      .filter((name: string) => name && name !== "Baustelle nicht gefunden")
+  ).size;
+
+  const allCatalogMaterials = useMemo(() => {
+    const map = new Map<string, any>();
+
+    for (const material of [...materialCatalog, ...materials]) {
+      const name = getMaterialNameFromCatalog(material);
+      if (!name) continue;
+
+      const key = getMaterialSignature(material);
+      if (!map.has(key)) map.set(key, material);
+    }
+
+    return Array.from(map.values());
+  }, [materials, materialCatalog]);
+
+  const materialsByGroup = useMemo(() => {
+    return groups.map((group: any) => {
+      const items = allCatalogMaterials
+        .filter((m: any) => getMaterialGroupId(m) === Number(group.id))
+        .sort((a: any, b: any) =>
+          getMaterialNameFromCatalog(a).localeCompare(getMaterialNameFromCatalog(b), "de")
+        );
+
+      return { group, items };
+    });
+  }, [groups, allCatalogMaterials]);
+
+  async function addMaterial() {
+    const name = newMaterialName.trim();
+    const unit = newMaterialUnit.trim() || "-";
+    const note = newMaterialNote.trim();
+    const groupId = Number(newMaterialGroupId);
+
+    if (!name) {
+      alert("Materialname eingeben.");
+      return;
+    }
+
+    if (!groupId) {
+      alert("Materialgruppe auswählen.");
+      return;
+    }
+
+    setSaving(true);
+
+    const attempts: any[] = [
+      { naziv: name, jedinica: unit, group_id: groupId, note, active: true },
+      { naziv: name, jedinica: unit, group_id: groupId, active: true },
+      { naziv: name, jedinica: unit, group_id: groupId },
+      { naziv: name, jedinica: unit, material_group_id: groupId },
+      { naziv: name, jedinica: unit, gruppe_id: groupId },
+    ];
+
+    let lastError: any = null;
+
+    for (const payload of attempts) {
+      const { error } = await supabase.from("materials").insert(payload);
+
+      if (!error) {
+        setNewMaterialName("");
+        setNewMaterialNote("");
+        await loadData();
+        setTab("add");
+        setSaving(false);
+        alert("Material wurde hinzugefügt.");
+        return;
+      }
+
+      lastError = error;
+    }
+
+    setSaving(false);
+    alert("Material wurde nicht hinzugefügt: " + (lastError?.message || "Unbekannter Fehler"));
+  }
+
+  if (!accessChecked || loading) {
+    return (
+      <main style={pageStyle}>
+        <div style={cardStyle}>Wird geladen...</div>
+      </main>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <main style={pageStyle}>
+        <div style={cardStyle}>
+          <h1 style={titleStyle}>Material</h1>
+          <p style={textStyle}>Diese Seite ist nur für Admins verfügbar.</p>
+          <Link href="/dashboard" style={backButtonStyle}>
+            Zurück
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main style={pageStyle}>
+      <div style={topBarStyle}>
+        <div>
+          <p style={eyebrowStyle}>Admin</p>
+          <h1 style={mainTitleStyle}>Material</h1>
+          <p style={subTextStyle}>
+            Materialgruppen, neues Material hinzufügen und Gesamtverbrauch aller aktiven und archivierten Baustellen anzeigen.
+          </p>
+        </div>
+
+        <Link href="/dashboard" style={backButtonStyle}>
+          Zurück
+        </Link>
+      </div>
+
+      <div style={tabsStyle}>
+        <button
+          type="button"
+          onClick={() => setTab("overview")}
+          style={tab === "overview" ? activeTabButtonStyle : tabButtonStyle}
+        >
+          Materialverbrauch
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTab("add")}
+          style={tab === "add" ? activeTabButtonStyle : tabButtonStyle}
+        >
+          Neues Material hinzufügen
+        </button>
+      </div>
+
+      {tab === "overview" && (
+        <section style={cardStyle}>
+          <div style={overviewHeadStyle}>
+            <div>
+              <h2 style={titleStyle}>Gesamter Materialverbrauch</h2>
+              <p style={mutedStyle}>
+                Summiert <b>baustelle_material</b> und <b>room_material</b> aus aktiven und archivierten Baustellen. Namen kommen aus Katalog, gespeichertem Materialnamen und Baustelle/Ort.
+              </p>
+            </div>
+
+            <button type="button" onClick={loadData} style={refreshButtonStyle}>
+              Aktualisieren
+            </button>
+          </div>
+
+          <div style={statsGridStyle}>
+            <div style={statBoxStyle}>
+              <span style={statNumberStyle}>{totalDifferentMaterials}</span>
+              <span style={statTextStyle}>verschiedene Materialien</span>
+            </div>
+            <div style={statBoxStyle}>
+              <span style={statNumberStyle}>{totalUsedEntries}</span>
+              <span style={statTextStyle}>Verbrauchseinträge</span>
+            </div>
+            <div style={statBoxStyle}>
+              <span style={statNumberStyle}>{totalBaustellen}</span>
+              <span style={statTextStyle}>Baustellen</span>
+            </div>
+          </div>
+
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Material oder Baustelle suchen..."
+            style={searchInputStyle}
+          />
+
+          {filteredOverview.length === 0 ? (
+            <p style={mutedBoxStyle}>Noch kein Materialverbrauch vorhanden oder keine Treffer für die Suche.</p>
+          ) : (
+            <div style={groupSectionsStyle}>
+              {overviewByGroup.map((group: any) => (
+                <div key={group.groupName} style={groupOverviewStyle}>
+                  <h3 style={groupHeaderStyle}>
+                    <span>{getGroupIcon(group.groupName)}</span>
+                    <span>{displayGroupName(group.groupName)}</span>
+                    <small style={groupSmallStyle}>{group.items.length} Materialien</small>
+                  </h3>
+
+                  <div style={tableWrapStyle}>
+                    <table style={tableStyle}>
+                      <thead>
+                        <tr>
+                          <th style={thStyle}>Material</th>
+                          <th style={thStyle}>Gesamt</th>
+                          <th style={thStyle}>Einheit</th>
+                          <th style={thStyle}>Baustelle</th>
+                          <th style={thStyle}>Details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.items.map((m: any) => (
+                          <tr key={`${m.groupName}-${m.name}-${m.unit}`}>
+                            <td style={tdStrongStyle}>{m.name}</td>
+                            <td style={tdStrongStyle}>{formatNumber(m.total)}</td>
+                            <td style={tdStyle}>{displayUnit(m.unit)}</td>
+                            <td style={tdStyle}>{m.baustelleCount}</td>
+                            <td style={tdStyle}>
+                              <details>
+                                <summary style={summaryStyle}>Anzeigen, wo verbraucht</summary>
+                                <div style={detailsBoxStyle}>
+                                  {m.details.map((d: any) => (
+                                    <div key={d.id} style={detailRowStyle}>
+                                      <div>
+                                        <b>{d.baustelleName}</b>
+                                        {d.baustelleLocation ? (
+                                          <div style={detailSmallStyle}>Ort: {d.baustelleLocation}</div>
+                                        ) : null}
+                                        {d.roomName && d.roomName !== "-" ? (
+                                          <div style={detailSmallStyle}>Raum: {d.roomName}</div>
+                                        ) : null}
+                                      </div>
+                                      <span style={statusBadgeStyle}>{d.baustelleStatus}</span>
+                                      <b>
+                                        {formatNumber(d.quantity)} {displayUnit(d.unit)}
+                                      </b>
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === "add" && (
+        <section style={cardStyle}>
+          <h2 style={titleStyle}>Neues Material zum Katalog hinzufügen</h2>
+          <p style={mutedStyle}>
+            Neues Material wird einer bestehenden Gruppe zugeordnet und ist danach im Baustellen-Material sichtbar.
+          </p>
+
+          <div style={formGridStyle}>
+            <label style={labelStyle}>
+              Materialgruppe
+              <select
+                value={newMaterialGroupId}
+                onChange={(e) => setNewMaterialGroupId(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">Gruppe auswählen</option>
+                {groups.map((g: any) => (
+                  <option key={g.id} value={String(g.id)}>
+                    {displayGroupName(getGroupName(g))}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={labelStyle}>
+              Materialname
+              <input
+                value={newMaterialName}
+                onChange={(e) => setNewMaterialName(e.target.value)}
+                placeholder="z. B. Flexkleber, Silikon, Grundierung..."
+                style={inputStyle}
+              />
+            </label>
+
+            <label style={labelStyle}>
+              Einheit
+              <select
+                value={newMaterialUnit}
+                onChange={(e) => setNewMaterialUnit(e.target.value)}
+                style={inputStyle}
+              >
+                {UNIT_OPTIONS.map((u) => (
+                  <option key={u} value={u}>
+                    {displayUnit(u)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={{ ...labelStyle, gridColumn: "1 / -1" }}>
+              Notiz / Beschreibung optional
+              <textarea
+                value={newMaterialNote}
+                onChange={(e) => setNewMaterialNote(e.target.value)}
+                placeholder="Optional..."
+                style={{ ...inputStyle, minHeight: 90, resize: "vertical" }}
+              />
+            </label>
+          </div>
+
+          <button type="button" onClick={addMaterial} disabled={saving} style={saveButtonStyle}>
+            {saving ? "Speichern..." : "Material speichern"}
+          </button>
+
+          <h3 style={smallTitleStyle}>Vorhandene Materialien nach Gruppen</h3>
+
+          {materials.length === 0 ? (
+            <p style={mutedBoxStyle}>Keine Materialien vorhanden.</p>
+          ) : (
+            <div style={catalogGridStyle}>
+              {materialsByGroup.map((block: any) => (
+                <div key={block.group.id} style={catalogGroupStyle}>
+                  <h4 style={catalogGroupTitleStyle}>
+                    {getGroupIcon(getGroupName(block.group))} {displayGroupName(getGroupName(block.group))}
+                  </h4>
+
+                  {block.items.length === 0 ? (
+                    <p style={mutedStyle}>Keine Materialien in dieser Gruppe.</p>
+                  ) : (
+                    <div style={catalogListStyle}>
+                      {block.items.map((m: any) => (
+                        <div key={m.id} style={catalogItemStyle}>
+                          <b>{getMaterialNameFromCatalog(m) || "-"}</b>
+                          <span>{displayUnit(getMaterialUnitFromCatalog(m))}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+    </main>
+  );
+}
+
+const pageStyle: CSSProperties = {
+  minHeight: "100vh",
+  background: "#050505",
+  color: "white",
+  padding: "32px",
+  fontFamily: "Arial, sans-serif",
+};
+
+const topBarStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 16,
+  marginBottom: 24,
+};
+
+const eyebrowStyle: CSSProperties = {
+  margin: 0,
+  color: "#f97316",
+  fontWeight: 800,
+  letterSpacing: 1,
+  textTransform: "uppercase",
+};
+
+const mainTitleStyle: CSSProperties = {
+  margin: "6px 0 8px",
+  fontSize: 42,
+  fontWeight: 900,
+};
+
+const subTextStyle: CSSProperties = {
+  margin: 0,
+  color: "#cbd5e1",
+  fontSize: 16,
+  maxWidth: 850,
+};
+
+const tabsStyle: CSSProperties = {
+  display: "flex",
+  gap: 12,
+  flexWrap: "wrap",
+  marginBottom: 20,
+};
+
+const tabButtonStyle: CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.18)",
+  background: "#151515",
+  color: "white",
+  padding: "14px 18px",
+  borderRadius: 14,
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const activeTabButtonStyle: CSSProperties = {
+  ...tabButtonStyle,
+  border: "1px solid #f97316",
+  background: "#f97316",
+  color: "#111",
+};
+
+const cardStyle: CSSProperties = {
+  background: "linear-gradient(180deg, #181818, #101010)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 22,
+  padding: 22,
+  boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
+};
+
+const titleStyle: CSSProperties = {
+  margin: "0 0 14px",
+  fontSize: 26,
+  fontWeight: 900,
+};
+
+const smallTitleStyle: CSSProperties = {
+  margin: "30px 0 14px",
+  fontSize: 21,
+  fontWeight: 900,
+};
+
+const textStyle: CSSProperties = {
+  color: "#e5e7eb",
+};
+
+const mutedStyle: CSSProperties = {
+  color: "#a3a3a3",
+};
+
+const mutedBoxStyle: CSSProperties = {
+  color: "#a3a3a3",
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  padding: 14,
+  borderRadius: 14,
+};
+
+const formGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+  gap: 14,
+  marginTop: 16,
+};
+
+const labelStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  color: "#e5e7eb",
+  fontWeight: 800,
+};
+
+const inputStyle: CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  border: "1px solid rgba(255,255,255,0.18)",
+  background: "#0b0b0b",
+  color: "white",
+  borderRadius: 12,
+  padding: "14px 14px",
+  fontSize: 16,
+  outline: "none",
+};
+
+const searchInputStyle: CSSProperties = {
+  ...inputStyle,
+  marginBottom: 18,
+};
+
+const saveButtonStyle: CSSProperties = {
+  marginTop: 16,
+  border: 0,
+  background: "#22c55e",
+  color: "#07130b",
+  padding: "14px 20px",
+  borderRadius: 14,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const refreshButtonStyle: CSSProperties = {
+  border: "1px solid rgba(255,255,255,0.15)",
+  background: "#1f2937",
+  color: "white",
+  padding: "12px 16px",
+  borderRadius: 12,
+  fontWeight: 800,
+  cursor: "pointer",
+};
+
+const backButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  textDecoration: "none",
+  background: "#111827",
+  border: "1px solid rgba(255,255,255,0.18)",
+  color: "white",
+  padding: "12px 16px",
+  borderRadius: 14,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
+};
+
+const overviewHeadStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 16,
+  marginBottom: 18,
+};
+
+const statsGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+  gap: 12,
+  marginBottom: 18,
+};
+
+const statBoxStyle: CSSProperties = {
+  background: "rgba(249,115,22,0.10)",
+  border: "1px solid rgba(249,115,22,0.28)",
+  borderRadius: 16,
+  padding: 16,
+  display: "flex",
+  flexDirection: "column",
+  gap: 5,
+};
+
+const statNumberStyle: CSSProperties = {
+  fontSize: 30,
+  fontWeight: 900,
+  color: "#fb923c",
+};
+
+const statTextStyle: CSSProperties = {
+  color: "#e5e7eb",
+  fontWeight: 800,
+};
+
+const groupSectionsStyle: CSSProperties = {
+  display: "grid",
+  gap: 22,
+};
+
+const groupOverviewStyle: CSSProperties = {
+  background: "rgba(255,255,255,0.035)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: 18,
+  padding: 16,
+};
+
+const groupHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  margin: "0 0 14px",
+  fontSize: 21,
+  color: "#f8fafc",
+};
+
+const groupSmallStyle: CSSProperties = {
+  marginLeft: "auto",
+  color: "#a3a3a3",
+  fontSize: 13,
+};
+
+const tableWrapStyle: CSSProperties = {
+  overflowX: "auto",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 16,
+};
+
+const tableStyle: CSSProperties = {
+  width: "100%",
+  borderCollapse: "collapse",
+  minWidth: 820,
+};
+
+const thStyle: CSSProperties = {
+  textAlign: "left",
+  padding: "14px 12px",
+  color: "#f97316",
+  borderBottom: "1px solid rgba(255,255,255,0.15)",
+  fontSize: 14,
+  whiteSpace: "nowrap",
+};
+
+const tdStyle: CSSProperties = {
+  padding: "14px 12px",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
+  color: "#f8fafc",
+  verticalAlign: "top",
+};
+
+const tdStrongStyle: CSSProperties = {
+  ...tdStyle,
+  fontWeight: 900,
+};
+
+const summaryStyle: CSSProperties = {
+  cursor: "pointer",
+  color: "#93c5fd",
+  fontWeight: 800,
+};
+
+const detailsBoxStyle: CSSProperties = {
+  marginTop: 10,
+  display: "grid",
+  gap: 8,
+};
+
+const detailRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1.7fr auto auto",
+  gap: 12,
+  alignItems: "center",
+  padding: "9px 10px",
+  background: "rgba(255,255,255,0.05)",
+  borderRadius: 10,
+};
+
+const detailSmallStyle: CSSProperties = {
+  color: "#94a3b8",
+  fontSize: 12,
+  marginTop: 3,
+};
+
+const statusBadgeStyle: CSSProperties = {
+  background: "rgba(96,165,250,0.14)",
+  border: "1px solid rgba(96,165,250,0.28)",
+  color: "#bfdbfe",
+  padding: "5px 8px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
+
+const catalogGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: 14,
+};
+
+const catalogGroupStyle: CSSProperties = {
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.09)",
+  borderRadius: 16,
+  padding: 14,
+};
+
+const catalogGroupTitleStyle: CSSProperties = {
+  margin: "0 0 12px",
+  color: "#fb923c",
+  fontSize: 17,
+};
+
+const catalogListStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+};
+
+const catalogItemStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 10,
+  background: "rgba(0,0,0,0.28)",
+  border: "1px solid rgba(255,255,255,0.07)",
+  borderRadius: 10,
+  padding: "9px 10px",
+};
