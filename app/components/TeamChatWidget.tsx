@@ -16,9 +16,11 @@ import "./team-chat-widget.css";
 export default function TeamChatWidget() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [groupFullscreen, setGroupFullscreen] = useState(false);
   const [unread, setUnread] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
 
   const hidden = !pathname ||
     pathname === "/" ||
@@ -35,11 +37,26 @@ export default function TeamChatWidget() {
     return () => window.removeEventListener("solstone-chat-unread", onUnread);
   }, []);
 
+  // The embedded Team Chat notifies this shell when a group tab/room is opened.
+  // Accept events only from this exact same-origin iframe.
+  useEffect(() => {
+    const onViewChange = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin ||
+          event.source !== frameRef.current?.contentWindow ||
+          !event.data || event.data.type !== "solstone-chat-view") return;
+      if (event.data.mode === "group-fullscreen") setGroupFullscreen(true);
+      if (event.data.mode === "compact") setGroupFullscreen(false);
+    };
+    window.addEventListener("message", onViewChange);
+    return () => window.removeEventListener("message", onViewChange);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setOpen(false);
+        setGroupFullscreen(false);
         buttonRef.current?.focus();
       }
     };
@@ -49,7 +66,7 @@ export default function TeamChatWidget() {
 
   useEffect(() => {
     // Never keep a confidential conversation visible when navigating to login.
-    if (hidden) setOpen(false);
+    if (hidden) { setOpen(false); setGroupFullscreen(false); }
   }, [hidden]);
 
   if (hidden) return null;
@@ -64,7 +81,7 @@ export default function TeamChatWidget() {
         aria-label={open ? "Zatvori Team Chat" : "Otvori Team Chat"}
         aria-expanded={open}
         aria-controls="solstone-chat-popover"
-        onClick={() => setOpen((old) => !old)}
+        onClick={() => { setOpen((old) => !old); setGroupFullscreen(false); }}
       >
         <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -78,7 +95,7 @@ export default function TeamChatWidget() {
       {open && <section
         ref={dialogRef}
         id="solstone-chat-popover"
-        className="sw-panel"
+        className={"sw-panel" + (groupFullscreen ? " sw-panel-fullscreen" : "")}
         role="region"
         aria-label={caption}
       >
@@ -88,13 +105,17 @@ export default function TeamChatWidget() {
             <strong>{caption}</strong>
             <small>Grupe · Privatno · Obavijesti</small>
           </div>
+          {groupFullscreen && <button type="button" className="sw-panel-compact" aria-label="Smanji grupni chat"
+            onClick={() => setGroupFullscreen(false)}>↙ Smanji</button>}
           <button type="button" className="sw-panel-close" aria-label="Zatvori chat"
             onClick={() => {
               setOpen(false);
+              setGroupFullscreen(false);
               buttonRef.current?.focus();
             }}>✕</button>
         </div>
         <iframe
+          ref={frameRef}
           key={pathname.startsWith("/baustellen/") ? pathname.split("/")[2] : "all"}
           src={pathname.startsWith("/baustellen/") && /^\d+$/.test(pathname.split("/")[2] || "")
             ? "/team-chat?compact=1&siteId=" + encodeURIComponent(pathname.split("/")[2])
