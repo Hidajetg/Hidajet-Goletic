@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/team-chat-build-check.yml'
       - 'app/dashboard/**'
+      - 'app/kalendar/page.tsx'
       - 'app/api/worker/today/route.ts'
       - 'app/baustellen/[id]/page.tsx'
       - 'app/team-chat/**'
