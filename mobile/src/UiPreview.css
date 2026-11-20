@@ -223,3 +223,30 @@
  }
  .spv-chat-page .spv-compose-line textarea{font-size:14px}
 }
+
+
+/* Worker/admin demo switch on home only. Existing menu cards retain their
+   finger-friendly hit targets; only the decorative icon itself is 20% smaller. */
+.spv .spv-menu-icon{font-size:18.4px;line-height:1.2}
+.spv .spv-role-switch{
+  display:flex;align-items:center;gap:7px;margin:3px 0 13px;
+  padding:7px 9px;border:1px solid #394555;border-radius:11px;
+  background:#182332;
+}
+.spv .spv-role-switch small{color:#9fb0c3;font-size:10px;flex:1;font-weight:700}
+.spv .spv-role-switch button{
+  border:1px solid #4e5c6e;background:#243247;color:#dbeafe;
+  font-size:12px;border-radius:8px;padding:9px 12px;min-width:78px;
+}
+.spv .spv-role-switch button.active{background:#ea6b20;color:#111827;border-color:#fbbf24;font-weight:800}
+.spv .spv-today-card{
+  border:1px solid #4f5e73;border-left:4px solid #f97316;
+  border-radius:13px;background:#152439;padding:12px 13px;margin:0 0 17px;
+}
+.spv .spv-today-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:11px}
+.spv .spv-today-heading strong{font-size:17px;color:#fff}
+.spv .spv-today-heading span{font-size:10px;color:#fdba74;font-weight:bold;white-space:nowrap}
+.spv .spv-today-site{display:grid;gap:7px;background:#0d1725;padding:11px 12px;border-radius:10px}
+.spv .spv-today-site b{font-size:14px;color:#fff}
+.spv .spv-today-site span{font-size:12px;color:#cbd5e1}
+.spv .spv-today-site small{font-size:10px;color:#fbbf24;line-height:1.5}
