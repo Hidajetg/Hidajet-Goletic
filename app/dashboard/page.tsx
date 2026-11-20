@@ -7,6 +7,15 @@ import { supabase } from "../lib/supabase";
 import { type AppLanguage, saveAppLanguage } from "../lib/language";
 import { SOLSTONE_APPROVED_LOGO } from "../components/solstone-approved-logo";
 
+type WorkerTodaySite = {
+  id: string;
+  siteId: string;
+  name: string;
+  location: string;
+  note: string;
+  coworkers: string[];
+};
+
 type UserRole = "admin" | "worker";
 
 type StoredUser = {
@@ -17,6 +26,13 @@ type StoredUser = {
 
 const translations: Record<string, Record<string, string>> = {
   de: {
+    today: "Mein heutiger Einsatz",
+    noWork: "Für heute ist kein Einsatz eingetragen.",
+    at: "Einsatzort",
+    coworkers: "Kollegen auf dieser Baustelle",
+    note: "Hinweis",
+    open: "Baustelle öffnen",
+    error: "Heutiger Plan konnte nicht geladen werden.",
     chat: "Team Chat",
     baustelle: "Baustelle",
     hours: "Stunden",
@@ -36,6 +52,13 @@ const translations: Record<string, Record<string, string>> = {
   },
 
   ba: {
+    today: "Moj današnji raspored",
+    noWork: "Danas nema upisanog rasporeda.",
+    at: "Gradilište",
+    coworkers: "Kolege na ovoj Baustelle",
+    note: "Napomena",
+    open: "Otvori Baustelle",
+    error: "Današnji raspored nije dostupan.",
     chat: "Team Chat",
     baustelle: "Baustelle",
     hours: "Sati",
@@ -55,6 +78,13 @@ const translations: Record<string, Record<string, string>> = {
   },
 
   uz: {
+    today: "Bugungi ish jadvalim",
+    noWork: "Bugunga ish belgilanmagan.",
+    at: "Ish joyi",
+    coworkers: "Shu obyektdagi hamkasblar",
+    note: "Izoh",
+    open: "Obyektni ochish",
+    error: "Bugungi jadval yuklanmadi.",
     chat: "Jamoa suhbati",
     baustelle: "Ish joyi",
     hours: "Soatlar",
@@ -74,6 +104,13 @@ const translations: Record<string, Record<string, string>> = {
   },
 
   en: {
+    today: "My schedule today",
+    noWork: "No assignment for today.",
+    at: "Construction site",
+    coworkers: "Coworkers on this site",
+    note: "Note",
+    open: "Open site",
+    error: "Today's schedule isn't available.",
     chat: "Team Chat",
     baustelle: "Construction site",
     hours: "Hours",
@@ -93,6 +130,13 @@ const translations: Record<string, Record<string, string>> = {
   },
 
   cz: {
+    today: "Můj dnešní rozvrh",
+    noWork: "Na dnešek není zadaná práce.",
+    at: "Stavba",
+    coworkers: "Kolegové na této stavbě",
+    note: "Poznámka",
+    open: "Otevřít stavbu",
+    error: "Dnešní rozvrh není dostupný.",
     chat: "Týmový chat",
     baustelle: "Stavba",
     hours: "Hodiny",
@@ -232,6 +276,8 @@ export default function DashboardPage() {
 
   const [messages, setMessages] = useState<any[]>([]);
   const [todayPlans, setTodayPlans] = useState<any[]>([]);
+  const [workerTodaySites, setWorkerTodaySites] = useState<WorkerTodaySite[]>([]);
+  const [workerTodayError, setWorkerTodayError] = useState(false);
   const [materialOrders, setMaterialOrders] = useState<any[]>([]);
   const [carWarnings, setCarWarnings] = useState<any[]>([]);
 
@@ -374,19 +420,39 @@ export default function DashboardPage() {
   }
 
   async function loadTodayPlans(name: string, adminStatus: boolean) {
+    if (!adminStatus) {
+      // Worker identity and current-site colleague visibility are checked
+      // server-side using the signed PIN session, not a localStorage name.
+      setWorkerTodayError(false);
+      setWorkerTodaySites([]);
+      try {
+        const response = await fetch("/api/worker/today", {
+          credentials: "include", cache: "no-store",
+        });
+        if (!response.ok) throw new Error("Worker day schedule unavailable.");
+        const payload: { sites?: WorkerTodaySite[] } = await response.json();
+        const ownSites = Array.isArray(payload.sites) ? payload.sites : [];
+        setWorkerTodaySites(ownSites);
+        setTodayPlans(ownSites);
+      } catch (error) {
+        console.error("Worker today calendar failed:", error);
+        setWorkerTodayError(true);
+        setWorkerTodaySites([]);
+        setTodayPlans([]);
+      }
+      return;
+    }
+
+    // Keep the existing full, web-style administrator dashboard intact.
+    setWorkerTodaySites([]);
+    setWorkerTodayError(false);
     const today = getTodayLocalDate();
 
-    let query = supabase
+    const { data, error } = await supabase
       .from("work_calendar")
       .select("*")
       .eq("datum", today)
       .order("worker_name", { ascending: true });
-
-    if (!adminStatus) {
-      query = query.ilike("worker_name", `%${name}%`);
-    }
-
-    const { data, error } = await query;
 
     if (error) {
       console.error("Greška kod učitavanja kalendara:", error);
@@ -510,6 +576,47 @@ export default function DashboardPage() {
           </button>
         ))}
       </div>
+
+      {!isAdmin && (
+        <section style={workerTodayBoxStyle} aria-label={t.today}>
+          <div style={workerTodayHeadingStyle}>
+            <h2 style={{ margin: 0, fontSize: 19, color: "#fff" }}>📅 {t.today}</h2>
+            <Link href="/kalendar" style={{ color: "#fdba74", textDecoration: "none", fontSize: 13 }}>
+              {t.calendar} ›
+            </Link>
+          </div>
+          {workerTodayError ? (
+            <p style={{ margin: "10px 0", color: "#fca5a5" }}>{t.error}</p>
+          ) : workerTodaySites.length === 0 ? (
+            <p style={{ margin: "10px 0", color: "#cbd5e1" }}>{t.noWork}</p>
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              {workerTodaySites.map((item) => (
+                <article key={item.id} style={workerSiteCardStyle}>
+                  <div style={{ fontSize: 17, fontWeight: 800 }}>{item.name}</div>
+                  {item.location && (
+                    <div style={{ marginTop: 5, fontSize: 13, color: "#cbd5e1" }}>📍 {item.location}</div>
+                  )}
+                  {item.note && (
+                    <div style={{ marginTop: 7, fontSize: 13, color: "#f8fafc" }}>📝 {item.note}</div>
+                  )}
+                  {item.coworkers.length > 0 && (
+                    <div style={{ marginTop: 7, fontSize: 13, color: "#cbd5e1" }}>
+                      👷 {t.coworkers}: {item.coworkers.join(", ")}
+                    </div>
+                  )}
+                  <Link href={`/baustellen/${item.siteId}`}
+                    style={{ display: "inline-block", marginTop: 10, padding: "8px 12px",
+                      borderRadius: 9, color: "#121212", background: "#fb923c",
+                      textDecoration: "none", fontWeight: 700, fontSize: 13 }}>
+                    {t.open} ›
+                  </Link>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <div style={gridStyle}>
         <Link href="/baustellen" style={buttonStyle}>
@@ -699,6 +806,20 @@ const activeLangButtonStyle: CSSProperties = {
   ...langButtonStyle,
   background: "#f97316",
   border: "1px solid #f97316",
+};
+
+const workerTodayBoxStyle: CSSProperties = {
+  padding: 15, marginBottom: 18, borderRadius: 15,
+  background: "#142339", border: "1px solid #455a72",
+};
+const workerTodayHeadingStyle: CSSProperties = {
+  display: "flex", alignItems: "center",
+  justifyContent: "space-between", gap: 10, marginBottom: 10,
+};
+const workerSiteCardStyle: CSSProperties = {
+  padding: 13, borderRadius: 12, background: "#0c1726",
+  borderLeft: "4px solid #f97316", borderTop: "1px solid #35475d",
+  borderRight: "1px solid #35475d", borderBottom: "1px solid #35475d",
 };
 
 const gridStyle: CSSProperties = {
