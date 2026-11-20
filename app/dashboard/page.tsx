@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
-import { type AppLanguage, saveAppLanguage, localeForLanguage } from "../lib/language";
+import { type AppLanguage, readAppLanguage, saveAppLanguage, localeForLanguage } from "../lib/language";
 import { SOLSTONE_APPROVED_LOGO } from "../components/solstone-approved-logo";
 import AdminWebDashboard from "./AdminWebDashboard";
 
@@ -336,13 +336,12 @@ export default function DashboardPage() {
   const [materialOrders, setMaterialOrders] = useState<any[]>([]);
   const [carWarnings, setCarWarnings] = useState<any[]>([]);
 
-  const lang = "ba" as const;
+  const [lang, setLang] = useState<AppLanguage>("ba");
 
   const t = translations[lang] || translations.ba;
 
   useEffect(() => {
-    // Only the Bosnian language is shown in the staged mobile experience.
-    saveAppLanguage("ba");
+    setLang(readAppLanguage("ba"));
     initializeDashboard();
   }, []);
 
@@ -571,6 +570,11 @@ export default function DashboardPage() {
     setCarWarnings(data || []);
   }
 
+  function changeLanguage(nextLanguage: AppLanguage) {
+    saveAppLanguage(nextLanguage);
+    setLang(nextLanguage);
+  }
+
   async function logout() {
     try {
       await fetch("/api/auth/logout", {
@@ -634,8 +638,19 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div style={languageBoxStyle} aria-label="Jezik: bosanski">
-        <span style={{ color: "#fdba74", fontSize: 11, fontWeight: 700 }}>BA</span>
+      <div style={languageBoxStyle}>
+        <select
+          aria-label="Jezik: DE, BA, UZ, CZ, EN"
+          value={lang}
+          onChange={e => changeLanguage(e.target.value as AppLanguage)}
+          style={languageSelectStyle}
+        >
+          <option value="de">DE</option>
+          <option value="ba">BA</option>
+          <option value="uz">UZ</option>
+          <option value="cz">CZ</option>
+          <option value="en">EN</option>
+        </select>
       </div>
 
       {!isAdmin && (
