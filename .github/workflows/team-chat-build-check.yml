@@ -50,9 +50,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f .next/server/app/team-chat/page.js
-          test -f .next/server/app/dashboard/page.js
-          grep -R -F "Solstone" .next/server/app/team-chat/page.js >/dev/null
+          test -f .next/BUILD_ID
+          test -s .next/server/app-paths-manifest.json
+          node - <<'JS'
+          const fs=require('fs');
+          const manifest=JSON.parse(fs.readFileSync('.next/server/app-paths-manifest.json','utf8'));
+          const keys=Object.keys(manifest);
+          for(const path of ['/team-chat/page','/dashboard/page']){
+            if(!keys.some(k=>k===path || k===path+'.js' || k.includes(path))) {
+              console.error('Missing Next app path:',path);
+              console.error('Relevant manifest keys:',keys.filter(k=>/chat|dashboard/.test(k)));
+              process.exit(1);
+            }
+          }
+          JS
           echo "### New Solstone UI: standalone build PASS" >> "$GITHUB_STEP_SUMMARY"
           echo "Dashboard and Team Chat routes compiled with placeholder data credentials." >> "$GITHUB_STEP_SUMMARY"
           echo "This does not deploy anything and chat still requires an isolated database." >> "$GITHUB_STEP_SUMMARY"
