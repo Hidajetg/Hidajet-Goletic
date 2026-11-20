@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import UiPreview from "./UiPreview";
 import "./index.css";
 
 function showFatalError(title: string, error: unknown) {
@@ -50,7 +51,7 @@ window.addEventListener("unhandledrejection", (event) => {
 try {
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
-      <App />
+      {import.meta.env.VITE_SOLSTONE_UI_PREVIEW === "1" ? <UiPreview /> : <App />}
     </React.StrictMode>
   );
 } catch (error) {
