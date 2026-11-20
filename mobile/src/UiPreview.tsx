@@ -41,6 +41,7 @@ const kinds:ChatKind[]=["site","private","announcement"];
 export default function UiPreview(){
   const [lang,setLang]=useState<Language>("ba");
   const [screen,setScreen]=useState<Screen>("home");
+  const [siteFullscreen,setSiteFullscreen]=useState(false);
   const [kind,setKind]=useState<ChatKind>("site");
   const [text,setText]=useState("");
   const [messages,setMessages]=useState(initial);
@@ -95,7 +96,7 @@ export default function UiPreview(){
     }catch(e){setNotice(e instanceof Error?e.message:"Mikrofon nije dostupan.");}
   }
   function stopVoice(){if(recorder.current?.state==="recording")recorder.current.stop()}
-  function enterChat(group:ChatKind="site"){setKind(group);setScreen("chat");setNotice("");}
+  function enterChat(group:ChatKind="site",expand=false){setKind(group);setScreen("chat");setSiteFullscreen(expand&&group==="site");setNotice("");}
 
   const titleFor=(group:ChatKind)=>group==="site"?"🏗️ Baustelle – Primjer":group==="private"?"👤 Privatni razgovor – Primjer":"📢 Obavijesti firme";
 
@@ -110,10 +111,10 @@ export default function UiPreview(){
       </div>
       <div className="spv-user">👷 <span>Demo korisnik</span></div>
     </header>
-    <button type="button" className={"spv-chat-corner"+(screen==="chat"?" open":"")}
+    <button type="button" className={"spv-chat-corner"+(screen==="chat"?" open":"")+(siteFullscreen?" spv-corner-hidden":"")}
       aria-label={screen==="chat"?"Zatvori Team Chat":"Otvori Team Chat"}
       aria-expanded={screen==="chat"}
-      onClick={()=>screen==="chat"?setScreen("home"):enterChat("site")}>
+      onClick={()=>{if(screen==="chat"){setScreen("home");setSiteFullscreen(false);}else enterChat("site");}}>
       {screen==="chat"?"✕":"💬"}
     </button>
     <nav className="spv-languages">
@@ -135,11 +136,12 @@ export default function UiPreview(){
           </button>)}
       </div>
     </>
-    {screen==="chat" && <aside className="spv-chat-float-panel"
+    {screen==="chat" && <aside className={"spv-chat-float-panel"+(siteFullscreen?" spv-chat-group-fullscreen":"")}
       role="dialog" aria-label="Solstone Team Chat" aria-modal="false">
       <div className="spv-chat-head">
         <div><h1>💬 {t.chat}</h1><p>🏗️ Grupe · 👤 Privatno · 📢 Obavijesti · {count}</p></div>
-        <button aria-label="Zatvori chat" onClick={()=>setScreen("home")}>✕</button>
+        {siteFullscreen && <button aria-label="Smanji grupni chat" onClick={()=>setSiteFullscreen(false)}>↙ Smanji</button>}
+        <button aria-label="Zatvori chat" onClick={()=>{setScreen("home");setSiteFullscreen(false);}}>✕</button>
       </div>
       <div className="spv-prefs">
         <label><input type="checkbox" checked={sound} onChange={e=>setSound(e.target.checked)}/> 🔔 Zvuk</label>
@@ -147,7 +149,7 @@ export default function UiPreview(){
         <label><input type="checkbox" checked={autoTranslation} onChange={e=>setAutoTranslation(e.target.checked)}/> 🌐 Auto prevod</label>
       </div>
       <nav className="spv-tabs">{kinds.map(group=>
-        <button key={group} className={kind===group?"active":""} onClick={()=>{setKind(group);setNotice("");}}>
+        <button key={group} className={kind===group?"active":""} onClick={()=>{setKind(group);setSiteFullscreen(group==="site");setNotice("");}}>
           {group==="site"?t.site:group==="private"?t.private:t.announcement}
         </button>)}</nav>
       <section className="spv-thread">
