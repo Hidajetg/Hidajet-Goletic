@@ -68,3 +68,43 @@
  .tc-compose{padding:8px}.tc-compose-actions{gap:6px}
  .tc-upload,.tc-record,.tc-send{font-size:12px;padding:8px}
 }
+
+/* Compact embedded Team Chat, shown inside the floating upper-right launcher.
+   Reuses the real secure room list, media upload and translation page. */
+.tc-root.tc-compact{
+  display:flex; flex-direction:column; width:100%; height:100dvh; min-height:0;
+  padding:5px; overflow:hidden; background:#10141d;
+}
+.tc-compact .tc-header{display:none}
+.tc-compact .tc-settings{flex-shrink:0;margin:0 0 5px;padding:6px 7px;
+  display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px;border-radius:8px}
+.tc-compact .tc-settings label{font-size:10px;gap:3px}
+.tc-compact .tc-settings input{width:14px;height:14px}
+.tc-compact .tc-settings small{display:none}
+.tc-compact .tc-error{font-size:12px;padding:5px;flex-shrink:0;margin:4px 0}
+.tc-compact .tc-layout{display:block;flex:1;min-height:0;min-width:0;
+  height:auto;max-width:none;width:100%;gap:0}
+.tc-compact .tc-sidebar,.tc-compact .tc-conversation{
+  display:flex;flex-direction:column;min-height:0;height:100%;
+  max-height:100%;border-radius:10px}
+.tc-compact .tc-mobile-hide{display:none!important}
+.tc-compact .tc-tabs button{padding:10px 2px;font-size:11px}
+.tc-compact .tc-tabs b{padding:1px 4px;min-width:16px}
+.tc-compact .tc-room{padding:12px 9px;gap:4px}
+.tc-compact .tc-room-name{font-size:13px}
+.tc-compact .tc-thread-title{padding:9px 10px;gap:8px}
+.tc-compact .tc-thread-title strong{font-size:13px}
+.tc-compact .tc-back-thread{display:inline-block;font-size:11px;padding:7px}
+.tc-compact .tc-message-list{min-height:0;padding:8px;gap:8px}
+.tc-compact .tc-message{max-width:94%;padding:9px 10px}
+.tc-compact .tc-message-text{font-size:13px;line-height:1.4;margin:6px 0}
+.tc-compact .tc-message-head{font-size:10px;gap:7px}
+.tc-compact .tc-message-head time{font-size:10px}
+.tc-compact .tc-new{padding:8px;gap:6px}
+.tc-compact .tc-new select,.tc-compact .tc-new button{padding:8px;font-size:12px}
+.tc-compact .tc-compose{padding:8px}
+.tc-compact .tc-compose textarea{min-height:45px;padding:9px;font-size:13px;resize:none}
+.tc-compact .tc-compose-actions{margin-top:5px;flex-wrap:wrap;gap:4px}
+.tc-compact .tc-upload,.tc-compact .tc-record,.tc-compact .tc-send{min-height:35px;font-size:11px;padding:6px 7px}
+.tc-compact .tc-send{min-width:62px;margin-left:auto}
+.tc-compact .tc-admin-only{padding:7px;font-size:12px}
