@@ -25,6 +25,17 @@ export async function POST(request: NextRequest) {
     const room=await getAuthorizedRoom(user,roomId);
     if (!room || !canWriteChatRoom(user,room)) return chatError("Nemaš pristup razgovoru.",403);
 
+    // Protect staging Storage from a worker spamming signed upload URLs.
+    const {count:recentUploads,error:limitError}=await supabaseAdmin
+      .from("solstone_chat_pending_uploads")
+      .select("id",{count:"exact",head:true})
+      .eq("worker_id",user.id)
+      .gte("created_at",new Date(Date.now()-10*60*1000).toISOString());
+    if (limitError) throw limitError;
+    if ((recentUploads ?? 0)>=20) {
+      return chatError("Previše priloga. Pokušaj kasnije.",429);
+    }
+
     const objectPath=roomId+"/"+randomUUID()+"."+type.ext;
     const {data:pending,error:pendingError}=await supabaseAdmin
       .from("solstone_chat_pending_uploads")
