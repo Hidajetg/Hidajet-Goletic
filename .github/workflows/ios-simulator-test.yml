@@ -6,6 +6,7 @@ on:
       - mobile-android-ios-test-2026-11-20
     paths:
       - '.github/workflows/ios-simulator-test.yml'
+      - 'mobile/scripts/patch_ios_privacy.py'
   workflow_dispatch:
 
 permissions:
@@ -54,6 +55,13 @@ jobs:
         run: |
           npx cap add ios
           npx cap sync ios
+
+      - name: Protect iOS screen recording and app-switcher previews
+        shell: bash
+        run: |
+          python3 scripts/patch_ios_privacy.py
+          grep -F "installSolstonePrivacyShield(scene)" ios/App/App/SceneDelegate.swift
+          grep -F "UIScreen.capturedDidChangeNotification" ios/App/App/SceneDelegate.swift
 
       - name: Declare camera and microphone reasons for chat media
         shell: bash
