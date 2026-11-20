@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 concurrency:
   group: android-debug-${{ github.ref }}
@@ -47,15 +48,28 @@ jobs:
           echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
 
       - name: Install locked JavaScript dependencies
-        run: npm ci --no-audit --no-fund
+        id: dependencies
+        shell: bash
+        run: |
+          set -o pipefail
+          npm ci --no-audit --no-fund 2>&1 | tee "$RUNNER_TEMP/solstone-dependencies.log"
 
       - name: Build bundled Vite web assets
-        run: npm run build
+        id: web
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee "$RUNNER_TEMP/solstone-web.log"
 
       - name: Sync web assets into Android
-        run: npx cap sync android
+        id: sync
+        shell: bash
+        run: |
+          set -o pipefail
+          npx cap sync android 2>&1 | tee "$RUNNER_TEMP/solstone-sync.log"
 
       - name: Verify packaged frontend is not blank
+        id: verify_web
         shell: bash
         run: |
           set -euo pipefail
@@ -70,10 +84,15 @@ jobs:
           echo "Bundled frontend and Android assets verified."
 
       - name: Assemble debug APK with diagnostic logs
-        run: bash ./gradlew --no-daemon --stacktrace --console=plain assembleDebug
+        id: gradle
+        shell: bash
+        run: |
+          set -o pipefail
+          bash ./gradlew --no-daemon --stacktrace --console=plain assembleDebug 2>&1 | tee "$RUNNER_TEMP/solstone-gradle.log"
         working-directory: mobile/android
 
       - name: Verify APK output
+        id: verify_apk
         shell: bash
         run: |
           set -euo pipefail
@@ -97,9 +116,68 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test APK
+        id: upload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: solstone-android-debug-${{ github.run_number }}
           path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+
+      - name: Report build result in commit status
+        if: always()
+        shell: bash
+        working-directory: mobile
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPS: ${{ steps.dependencies.outcome }}
+          WEB: ${{ steps.web.outcome }}
+          SYNC: ${{ steps.sync.outcome }}
+          VERIFY_WEB: ${{ steps.verify_web.outcome }}
+          GRADLE: ${{ steps.gradle.outcome }}
+          VERIFY_APK: ${{ steps.verify_apk.outcome }}
+          UPLOAD: ${{ steps.upload.outcome }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, urllib.request
+          phases = [
+              ("dependencies", "npm ci", "solstone-dependencies.log"),
+              ("web", "Vite build", "solstone-web.log"),
+              ("sync", "Capacitor sync", "solstone-sync.log"),
+              ("verify_web", "bundled assets", ""),
+              ("gradle", "Gradle", "solstone-gradle.log"),
+              ("verify_apk", "APK validation", ""),
+              ("upload", "artifact upload", ""),
+          ]
+          outcomes = {name: os.getenv(name.upper(), "") for name, _, _ in phases}
+          failed = next(((name, label, log) for name, label, log in phases if outcomes[name] == "failure"), None)
+          state, description = "success", "Android debug APK built and uploaded"
+          if failed:
+              state = "failure"
+              _, label, logfile = failed
+              description = label + " failed"
+              if logfile:
+                  path = os.path.join(os.environ["RUNNER_TEMP"], logfile)
+                  if os.path.exists(path):
+                      lines = open(path, encoding="utf8", errors="replace").read().splitlines()
+                      error_lines = [l.strip() for l in lines if re.search(r'(error TS\d+|npm error|Error:|FAILURE:|What went wrong|failed with|Could not|not found)', l, re.I)]
+                      if error_lines:
+                          detail = next((l for l in error_lines if re.search(r'(error TS\d+|npm error|Error:|Could not)', l, re.I)), error_lines[-1])
+                          detail = re.sub(r'sb_publishable_[A-Za-z0-9_-]+|eyJ[A-Za-z0-9._-]+', '[redacted]', detail)
+                          description = (label + ": " + detail)[:140]
+          elif any(outcomes[name] not in ("success",) for name, _, _ in phases):
+              state, description = "error", "Android workflow did not finish all build steps"
+          data = json.dumps({"state":state,"context":"Solstone Android diagnostic","description":description[:140],
+                             "target_url":f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"}).encode()
+          url = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/statuses/{os.environ['GITHUB_SHA']}"
+          req = urllib.request.Request(url, data=data, method="POST", headers={
+              "Authorization": "Bearer " + os.environ["GH_TOKEN"],
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json"
+          })
+          try:
+              with urllib.request.urlopen(req, timeout=15) as resp:
+                  print("Diagnostic commit status created:", resp.status, description)
+          except Exception as exc:
+              print("Could not publish diagnostic status:", str(exc))
+          PY
