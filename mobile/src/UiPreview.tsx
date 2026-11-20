@@ -51,11 +51,12 @@ export default function UiPreview(){
   const [sound,setSound]=useState(true);
   const [speech,setSpeech]=useState(false);
   const [autoTranslation,setAutoTranslation]=useState(true);
+  const [showChatOptions,setShowChatOptions]=useState(false);
   const recorder=useRef<MediaRecorder|null>(null);
   const chunks=useRef<Blob[]>([]);
   const bottom=useRef<HTMLDivElement|null>(null);
   const t=labels[lang];
-  const count=messages.site.length+messages.private.length+messages.announcement.length;
+
 
   useEffect(()=>{bottom.current?.scrollIntoView({behavior:"smooth",block:"nearest"});},[messages,kind,screen]);
 
@@ -96,28 +97,28 @@ export default function UiPreview(){
     }catch(e){setNotice(e instanceof Error?e.message:"Mikrofon nije dostupan.");}
   }
   function stopVoice(){if(recorder.current?.state==="recording")recorder.current.stop()}
-  function enterChat(group:ChatKind="site"){setKind(group);setScreen("chat");setNotice("");}
+  function enterChat(group:ChatKind="site"){setKind(group);setScreen("chat");setShowChatOptions(false);setNotice("");}
 
   const titleFor=(group:ChatKind)=>group==="site"?"🏗️ Baustelle – Primjer":group==="private"?"👤 Privatni razgovor – Primjer":"📢 Obavijesti firme";
 
-  return <div className="spv" data-solstone-preview="SOLSTONE_UI_PREVIEW_PRESENT_20261120">
-    <div className="spv-alert" role="status">
+  return <div className={"spv"+(screen==="chat"?" spv-chat-active":"")} data-solstone-preview="SOLSTONE_UI_PREVIEW_PRESENT_20261120">
+    {screen==="home" && <div className="spv-alert" role="status">
       <b>TEST IZGLEDA</b>
       <span>Nije prava prijava ni aktivni chat • ništa se ne šalje u bazu</span>
-    </div>
-    <header className="spv-header">
+    </div>}
+    {screen==="home" && <header className="spv-header">
       <div className="spv-brand"><img className="spv-brand-icon" src={SOLSTONE_APPROVED_LOGO} alt="Solstone – originalni logo" />
         <span><strong>Solstone</strong><small>BAUSTELLE · NOCKER & BERNARDI</small></span>
       </div>
       <div className="spv-user">👷 <span>Demo korisnik</span></div>
-    </header>
+    </header>}
     {screen==="home" && <button type="button" className="spv-chat-corner"
       aria-label="Otvori Team Chat kao novu stranicu"
       onClick={()=>enterChat("site")}>💬</button>}
-    <nav className="spv-languages">
+    {screen==="home" && <nav className="spv-languages">
       {(Object.keys(names) as Language[]).map(code=>
         <button key={code} className={code===lang?"active":""} onClick={()=>setLang(code)} title={names[code]}>{code.toUpperCase()}</button>)}
-    </nav>
+    </nav>}
     {screen==="home" && <>
       <div className="spv-section-title"><h2>Moja aplikacija</h2><small>Brzi pristup</small></div>
       <div className="spv-cards">
@@ -131,22 +132,31 @@ export default function UiPreview(){
     {screen==="chat" && <section className="spv-chat-page"
       aria-label="Solstone Team Chat – zasebna stranica">
       <div className="spv-chat-head">
-        <div><h1>💬 {t.chat}</h1><p>🏗️ Grupe · 👤 Privatno · 📢 Obavijesti · {count}</p></div>
-        <button aria-label="Nazad na početnu" onClick={()=>setScreen("home")}>← Početna</button>
+        <button type="button" className="spv-back" aria-label="Nazad na početnu" onClick={()=>setScreen("home")}>←</button>
+        <strong className="spv-page-title">💬 {t.chat}</strong>
+        <small className="spv-demo-mark">DEMO</small>
+        <button type="button" className="spv-options-button"
+          aria-label="Postavke chata" aria-expanded={showChatOptions}
+          onClick={()=>setShowChatOptions(v=>!v)}>⚙</button>
       </div>
-      <div className="spv-prefs">
+      {showChatOptions && <div className="spv-prefs" aria-label="Postavke chata">
         <label><input type="checkbox" checked={sound} onChange={e=>setSound(e.target.checked)}/> 🔔 Zvuk</label>
         <label><input type="checkbox" checked={speech} onChange={e=>setSpeech(e.target.checked)}/> 🔊 Glas</label>
         <label><input type="checkbox" checked={autoTranslation} onChange={e=>setAutoTranslation(e.target.checked)}/> 🌐 Auto prevod</label>
-      </div>
-      <nav className="spv-tabs">{kinds.map(group=>
-        <button key={group} className={kind===group?"active":""} onClick={()=>{setKind(group);setNotice("");}}>
+        <div className="spv-chat-language">
+          {(Object.keys(names) as Language[]).map(code=>
+            <button key={code} className={code===lang?"active":""}
+              onClick={()=>setLang(code)} title={names[code]}>{code.toUpperCase()}</button>)}
+        </div>
+      </div>}
+      <nav className="spv-tabs" aria-label="Vrsta razgovora">{kinds.map(group=>
+        <button key={group} className={kind===group?"active":""}
+          onClick={()=>{setKind(group);setNotice("");}}>
           {group==="site"?t.site:group==="private"?t.private:t.announcement}
         </button>)}</nav>
       <section className="spv-thread">
         <div className="spv-thread-title">
-          <span className="spv-circle">{kind==="site"?"🏗️":kind==="private"?"👤":"📢"}</span>
-          <span><b>{titleFor(kind)}</b><small>Primjer razgovora · bez stvarnih podataka</small></span>
+          <b>{titleFor(kind)}</b>
         </div>
         <div className="spv-messages">
           {messages[kind].map(msg=><article key={msg.id} className={msg.mine?"mine":""}>
@@ -157,17 +167,29 @@ export default function UiPreview(){
           <div ref={bottom}/>
         </div>
         <div className="spv-compose">
-          {file&&<div className="spv-file">📎 {file.name} <button onClick={()=>setFile(null)}>✕</button></div>}
-          <textarea rows={2} placeholder={t.type} value={text} onChange={e=>setText(e.target.value)}/>
-          <div><label className="spv-upload">📎 {t.attach}<input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" onChange={e=>setFile(e.target.files?.[0]||null)}/></label>
-            <button className="spv-voice" onClick={()=>recording?stopVoice():void startVoice()}>{recording?"🔴 "+t.stop:"🎙️ "+t.voice}</button>
-            <button className="spv-send" disabled={!text.trim()&&!file} onClick={send}>➤ {t.send}</button></div>
+          {file&&<div className="spv-file">📎 {file.name}
+            <button type="button" onClick={()=>setFile(null)} aria-label="Ukloni prilog">✕</button>
+          </div>}
+          <div className="spv-compose-line">
+            <label className="spv-upload" title={t.attach} aria-label={t.attach}>
+              📎<input type="file" accept="image/png,image/jpeg,image/webp,application/pdf"
+                onChange={e=>setFile(e.target.files?.[0]||null)}/>
+            </label>
+            <textarea rows={1} placeholder={t.type} value={text}
+              onChange={e=>setText(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}/>
+            <button type="button" className="spv-voice" title={t.voice}
+              aria-label={recording?t.stop:t.voice}
+              onClick={()=>recording?stopVoice():void startVoice()}>{recording?"⏹":"🎙️"}</button>
+            <button type="button" className="spv-send" title={t.send}
+              aria-label={t.send} disabled={!text.trim()&&!file} onClick={send}>➤</button>
+          </div>
         </div>
       </section>
     </section>}
     {notice&&<div className="spv-toast" role="alert"><span>{notice}</span><button onClick={()=>setNotice("")}>✕</button></div>}
-    <footer className="spv-bottom"><button onClick={()=>setScreen("home")} className={screen==="home"?"active":""}>⌂ <span>Početna</span></button>
+    {screen==="home" && <footer className="spv-bottom"><button onClick={()=>setScreen("home")} className={screen==="home"?"active":""}>⌂ <span>Početna</span></button>
       <button onClick={()=>enterChat("site")} className={screen==="chat"?"active":""}>💬 <span>Chat</span></button>
-      <button onClick={()=>alertDemo("Moj profil")}>♙ <span>Profil</span></button></footer>
+      <button onClick={()=>alertDemo("Moj profil")}>♙ <span>Profil</span></button></footer>}
   </div>;
 }
