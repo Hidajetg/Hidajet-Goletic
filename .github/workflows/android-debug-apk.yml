@@ -130,7 +130,7 @@ jobs:
         working-directory: mobile
         env:
           GH_TOKEN: ${{ github.token }}
-          DEPS: ${{ steps.dependencies.outcome }}
+          DEPENDENCIES: ${{ steps.dependencies.outcome }}
           WEB: ${{ steps.web.outcome }}
           SYNC: ${{ steps.sync.outcome }}
           VERIFY_WEB: ${{ steps.verify_web.outcome }}
