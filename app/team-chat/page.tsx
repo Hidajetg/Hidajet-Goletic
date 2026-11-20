@@ -7,6 +7,7 @@ import {
   APP_LANGUAGES,readAppLanguage,saveAppLanguage,type AppLanguage,
 } from "../lib/language";
 import "./team-chat.css";
+import { SOLSTONE_APPROVED_LOGO } from "../components/solstone-approved-logo";
 
 type Room = {
   id:string;kind:"private"|"site"|"announcements";label:string;siteId?:string;
@@ -331,7 +332,12 @@ export default function TeamChatPage(){
       <header className="tc-header">
         <div>
           <Link href="/dashboard" className="tc-back">← Dashboard</Link>
-          <h1>💬 Solstone {t.title}</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <img src={SOLSTONE_APPROVED_LOGO} alt="Solstone logo"
+              width={48} height={48}
+              style={{ width: 48, height: 48, borderRadius: 10, objectFit: "cover" }} />
+            <h1>💬 Solstone {t.title}</h1>
+          </div>
           <span className="tc-subtitle">Stone Boutique · Nocker & Bernardi</span>
         </div>
         <div className="tc-lang" aria-label="Language">
