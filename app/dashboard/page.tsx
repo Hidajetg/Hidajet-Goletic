@@ -5,6 +5,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 import { type AppLanguage, saveAppLanguage } from "../lib/language";
+import { SOLSTONE_APPROVED_LOGO } from "../components/solstone-approved-logo";
 
 type UserRole = "admin" | "worker";
 
@@ -16,7 +17,6 @@ type StoredUser = {
 
 const translations: Record<string, Record<string, string>> = {
   de: {
-    welcome: "Willkommen",
     chat: "Team Chat",
     baustelle: "Baustelle",
     hours: "Stunden",
@@ -36,7 +36,6 @@ const translations: Record<string, Record<string, string>> = {
   },
 
   ba: {
-    welcome: "Dobrodošao",
     chat: "Team Chat",
     baustelle: "Baustelle",
     hours: "Sati",
@@ -56,7 +55,6 @@ const translations: Record<string, Record<string, string>> = {
   },
 
   uz: {
-    welcome: "Xush kelibsiz",
     chat: "Jamoa suhbati",
     baustelle: "Ish joyi",
     hours: "Soatlar",
@@ -76,7 +74,6 @@ const translations: Record<string, Record<string, string>> = {
   },
 
   en: {
-    welcome: "Welcome",
     chat: "Team Chat",
     baustelle: "Construction site",
     hours: "Hours",
@@ -96,7 +93,6 @@ const translations: Record<string, Record<string, string>> = {
   },
 
   cz: {
-    welcome: "Vítejte",
     chat: "Týmový chat",
     baustelle: "Stavba",
     hours: "Hodiny",
@@ -487,11 +483,20 @@ export default function DashboardPage() {
 
   return (
     <main style={mainStyle}>
-      <h1 style={titleStyle}>SOLSTONE <span style={{ color: "#f8fafc" }}>BAUSTELLE</span></h1>
-
-      <h2 style={subtitleStyle}>
-        {t.welcome} {workerName}
-      </h2>
+      <header style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 15, paddingRight: 45 }}>
+        <img
+          src={SOLSTONE_APPROVED_LOGO}
+          alt="Solstone Baustelle – originalni logo"
+          width={82}
+          height={82}
+          style={{ width: 82, height: 82, objectFit: "cover", borderRadius: 17,
+            border: "1px solid #a55b2c", boxShadow: "0 5px 20px #0008" }}
+        />
+        <div>
+          <h1 style={titleStyle}>SOLSTONE <span style={{ color: "#f8fafc" }}>BAUSTELLE</span></h1>
+          <p style={subtitleStyle}>{workerName}</p>
+        </div>
+      </header>
 
       <div style={languageBoxStyle}>
         {(["de", "ba", "uz", "cz", "en"] as AppLanguage[]).map((code) => (
