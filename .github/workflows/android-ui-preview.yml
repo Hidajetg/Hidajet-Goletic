@@ -1,0 +1,120 @@
+name: Solstone visual UI - separate Android preview APK
+
+on:
+  push:
+    branches:
+      - mobile-android-ios-test-2026-11-20
+    paths:
+      - '.github/workflows/android-ui-preview.yml'
+      - 'mobile/src/UiPreview.tsx'
+      - 'mobile/src/UiPreview.css'
+      - 'mobile/src/main.tsx'
+      - 'mobile/scripts/generate_mobile_icons.py'
+      - 'mobile/android/app/src/main/java/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: solstone-ui-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual-preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout isolated staging branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Select JDK 21
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
+
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Build local-only redesigned Solstone UI
+        env:
+          VITE_SOLSTONE_UI_PREVIEW: '1'
+        run: npm run build
+
+      - name: Sync local assets (NOT the production website)
+        run: npx cap sync android
+
+      - name: Check bundled UI has no live URL
+        run: |
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          const config=JSON.parse(fs.readFileSync('android/app/src/main/assets/capacitor.config.json','utf8'));
+          if(config.server?.url) throw Error('UI preview must not point to production website');
+          const jsDir='dist/assets';
+          const files=fs.readdirSync(jsDir).filter(n=>n.endsWith('.js'));
+          if(!files.some(n=>fs.readFileSync(jsDir+'/'+n,'utf8').includes('TEST IZGLEDA'))) {
+            throw Error('UI preview text missing from locally bundled assets');
+          }
+          console.log('Offline visual preview verified. Chat is NOT connected to server.');
+          JS
+
+      - name: Give preview its own Android app identity
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle=Path('android/app/build.gradle')
+          s=gradle.read_text()
+          old='applicationId "com.solstone.baustelle"'
+          assert old in s
+          gradle.write_text(s.replace(old,'applicationId "com.solstone.baustelle.visualpreview"'))
+          strings=Path('android/app/src/main/res/values/strings.xml')
+          s=strings.read_text()
+          strings.write_text(s.replace('<string name="app_name">Solstone Baustelle</string>',
+                                       '<string name="app_name">Solstone UI Pregled</string>'))
+          PY
+
+      - name: Generate approved brand launcher icons
+        run: |
+          python3 -m venv "$RUNNER_TEMP/solstone-icon-venv"
+          "$RUNNER_TEMP/solstone-icon-venv/bin/python" -m pip install --disable-pip-version-check Pillow==11.3.0
+          "$RUNNER_TEMP/solstone-icon-venv/bin/python" scripts/generate_mobile_icons.py
+
+      - name: Build APK with FLAG_SECURE still enabled
+        working-directory: mobile/android
+        run: bash ./gradlew --no-daemon --console=plain assembleDebug
+
+      - name: Validate test APK
+        run: |
+          set -euo pipefail
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -p android/app/build/outputs/apk/debug/app-debug.apk assets/capacitor.config.json | grep -F 'com.solstone.baustelle'
+          sha256sum android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload standalone UI preview package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: solstone-ui-preview-demo-${{ github.run_number }}
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Explain to testers
+        if: always()
+        run: |
+          echo "### Solstone VISUAL DEMO ONLY" >> "$GITHUB_STEP_SUMMARY"
+          echo "This standalone APK displays the redesigned dashboard and Team Chat." >> "$GITHUB_STEP_SUMMARY"
+          echo "Messages and attachments are local demonstrations and are never sent to workers." >> "$GITHUB_STEP_SUMMARY"
+          echo "The live web app and production database remain unchanged." >> "$GITHUB_STEP_SUMMARY"
+          echo "Do not confuse this with the production-capable Solstone Android Web/PIN test." >> "$GITHUB_STEP_SUMMARY"
