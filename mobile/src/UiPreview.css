@@ -407,3 +407,82 @@
   .spv .spv-menu{padding:7px 3px}
   .spv .spv-menu b{font-size:11px}
 }
+
+
+/* ADMIN: deliberately mirror existing production-web dashboard rather
+   than applying the new, compact worker-only design to administration. */
+.spv:has(.spv-admin-web-preview){
+  max-width:none;background:#000;min-height:100dvh;
+}
+.spv .spv-admin-web-preview{
+  background:#000;color:#fff;padding:20px;
+  margin:0 -10px;font-size:16px;min-height:50vh;
+}
+.spv .spv-admin-web-preview h1{
+  color:#f97316;font-size:38px;font-weight:700;
+  margin:0 0 6px;line-height:1.25;
+}
+.spv .spv-admin-web-preview>h2{
+  color:#ccc;font-size:24px;font-weight:700;margin:0 0 14px;
+}
+.spv .spv-admin-web-langs{
+  display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;
+}
+.spv .spv-admin-web-langs button{
+  background:#111;color:#fff;border:1px solid #333;border-radius:9px;
+  padding:6px 12px;font-size:13px;font-weight:700;min-height:34px;
+}
+.spv .spv-admin-web-langs button.active{
+  background:#f97316;border-color:#f97316;
+}
+.spv .spv-admin-web-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:10px;
+}
+.spv .spv-admin-web-grid .spv-admin-web-button{
+  color:#fff;text-align:center;font-weight:700;
+  border:0;border-radius:13px;background:#2563eb;
+  padding:14px;min-height:46px;font-size:15px;
+}
+.spv .spv-admin-web-grid .spv-admin-tone-green{background:#16a34a}
+.spv .spv-admin-web-grid .spv-admin-tone-orange{background:#f97316}
+.spv .spv-admin-web-grid .spv-admin-tone-cyan{background:#0891b2}
+.spv .spv-admin-web-grid .spv-admin-tone-purple{background:#7c3aed}
+.spv .spv-admin-web-grid .spv-admin-tone-red{background:#dc2626}
+.spv .spv-admin-web-info{
+  margin-top:24px;background:#111;border:1px solid #333;
+  border-radius:16px;padding:18px;
+}
+.spv .spv-admin-web-info h2{
+  color:#f97316;font-size:23px;margin:0 0 14px;
+}
+.spv .spv-admin-web-info p{color:#aaa;font-size:16px}
+@media(max-width:400px){
+  .spv .spv-admin-web-preview{padding:20px}
+  .spv .spv-admin-web-preview h1{font-size:38px}
+}
+/* WORKER ONLY: further reduce calendar footprint, icon/text scale and gaps.
+   Leave the admin web replica above unmodified. */
+.spv .spv-worker-home .spv-today-card{
+  margin-bottom:7px;padding:7px 8px;
+}
+.spv .spv-worker-home .spv-today-heading strong{font-size:12px}
+.spv .spv-worker-home .spv-today-nav{
+  gap:3px;margin:3px 0;flex-wrap:nowrap;
+}
+.spv .spv-worker-home .spv-today-nav button{min-height:28px;font-size:10px}
+.spv .spv-worker-home .spv-today-nav input{min-height:28px;font-size:9px}
+.spv .spv-worker-home .spv-mini-week button{
+  min-height:36px;padding:2px 1px;gap:1px;
+}
+.spv .spv-worker-home .spv-mini-week button span{font-size:8px}
+.spv .spv-worker-home .spv-mini-week button strong{font-size:11px}
+.spv .spv-worker-home .spv-day-label{font-size:10px;margin:3px 0 4px}
+.spv .spv-worker-home .spv-today-site{padding:6px 8px}
+.spv .spv-worker-home .spv-today-site b{font-size:11px}
+.spv .spv-worker-home .spv-today-site span{font-size:10px}
+.spv .spv-worker-home .spv-today-site small{font-size:9px}
+.spv .spv-worker-home .spv-section-title h2{font-size:13px}
+.spv .spv-worker-home .spv-menu{min-height:42px;padding:7px 5px;gap:2px}
+.spv .spv-worker-home .spv-menu b{font-size:11px}
+.spv .spv-worker-home .spv-menu-icon{font-size:11px;margin-right:3px}
