@@ -497,7 +497,7 @@ export default function DashboardPage() {
 
   return (
     <main style={mainStyle}>
-      <h1 style={titleStyle}>STONE BOUTIQUE</h1>
+      <h1 style={titleStyle}>SOLSTONE <span style={{ color: "#f8fafc" }}>BAUSTELLE</span></h1>
 
       <h2 style={subtitleStyle}>
         {t.welcome} {workerName}
@@ -515,6 +515,22 @@ export default function DashboardPage() {
           </button>
         ))}
       </div>
+
+      <Link href="/team-chat" style={featuredChatStyle}>
+        <span aria-hidden="true" style={{ fontSize: 30 }}>💬</span>
+        <span style={{ flex: 1, textAlign: "left" }}>
+          <strong style={{ display: "block", fontSize: 19 }}>{t.chat}</strong>
+          <small style={{ display: "block", fontWeight: 400, opacity: 0.9, marginTop: 3 }}>
+            {lang === "de" ? "Privat • Baustellen • Firmenmitteilungen" :
+             lang === "ba" ? "Privatne poruke • Baustelle • Obavijesti firme" :
+             lang === "uz" ? "Shaxsiy suhbat • Qurilish • E’lonlar" :
+             lang === "cz" ? "Soukromé zprávy • Stavby • Oznámení" :
+             "Private messages • Sites • Announcements"}
+          </small>
+        </span>
+        {chatUnread > 0 && <span style={chatBadgeStyle}>{chatUnread > 99 ? "99+" : chatUnread}</span>}
+        <span aria-hidden="true" style={{ fontSize: 22 }}>›</span>
+      </Link>
 
       <div style={gridStyle}>
         <Link href="/baustellen" style={buttonStyle}>
@@ -571,14 +587,6 @@ export default function DashboardPage() {
           <small>
             {messages.length} {t.message}
           </small>
-        </Link>
-
-        <Link href="/team-chat" style={chatUnread>0 ? alertButtonStyle : buttonStyle}>
-          💬 {t.chat}
-          {chatUnread > 0 && <>
-            <br />
-            <small>{chatUnread} NEW</small>
-          </>}
         </Link>
 
         <Link href="/private-notes" style={buttonStyle}>
@@ -676,6 +684,33 @@ const mainStyle: CSSProperties = {
   minHeight: "100vh",
   color: "#ffffff",
   padding: "20px",
+};
+
+const featuredChatStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 14,
+  color: "#ffffff",
+  textDecoration: "none",
+  border: "1px solid #fb923c",
+  borderRadius: 16,
+  background: "linear-gradient(115deg, #d45b17 0%, #a63b12 48%, #4c2515 100%)",
+  boxShadow: "0 6px 22px #00000055",
+  padding: "17px 19px",
+  marginBottom: 18,
+  minHeight: 86,
+  maxWidth: 1000,
+  cursor: "pointer",
+};
+const chatBadgeStyle: CSSProperties = {
+  background: "#ffffff",
+  color: "#b45309",
+  fontWeight: 800,
+  minWidth: 26,
+  padding: "5px 9px",
+  textAlign: "center",
+  borderRadius: 30,
+  fontSize: 13,
 };
 
 const titleStyle: CSSProperties = {
