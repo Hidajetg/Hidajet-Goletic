@@ -41,6 +41,15 @@ export async function POST(request: NextRequest) {
         {headers:{"Cache-Control":"private, max-age=120"}});
     }
 
+    // Shared hourly cost guard. Cache hits above are free. Protects against
+    // accidental translation storms before a proper admin-configurable quota.
+    const {count:hourly,error:hourlyError}=await supabaseAdmin
+      .from("solstone_chat_translations")
+      .select("message_id",{count:"exact",head:true})
+      .gte("created_at",new Date(Date.now()-60*60*1000).toISOString());
+    if (hourlyError) throw hourlyError;
+    if ((hourly ?? 0)>=250) return chatError("Privremeno je dostignut satni limit automatskih prevoda.",429);
+
     const apiKey=process.env.SOLSTONE_CHAT_TRANSLATION_API_KEY || process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return chatError("Automatski prijevod nije konfigurisan na testnom serveru.",503);
