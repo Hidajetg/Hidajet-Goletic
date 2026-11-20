@@ -18,11 +18,11 @@ const menus=[
 ];
 const names:Record<Language,string>={de:"Deutsch",ba:"Bosanski",uz:"O‘zbek",cz:"Čeština",en:"English"};
 const labels:Record<Language,{welcome:string,subtitle:string,chat:string,site:string,private:string,announcement:string,type:string,send:string,attach:string,voice:string,stop:string}> = {
-  de:{welcome:"Willkommen",subtitle:"Heute bei Solstone",chat:"Team Chat",site:"Baustellen",private:"Privat",announcement:"Firmeninfo",type:"Nachricht schreiben …",send:"Senden",attach:"Foto / PDF",voice:"Sprachnachricht",stop:"Stopp"},
-  ba:{welcome:"Dobrodošli",subtitle:"Danas u Solstone",chat:"Team Chat",site:"Baustelle",private:"Privatno",announcement:"Obavijesti",type:"Napiši poruku …",send:"Pošalji",attach:"Slika / PDF",voice:"Glasovna",stop:"Zaustavi"},
-  uz:{welcome:"Xush kelibsiz",subtitle:"Solstone bugun",chat:"Jamoa suhbati",site:"Qurilish",private:"Shaxsiy",announcement:"E’lonlar",type:"Xabar yozing …",send:"Yuborish",attach:"Rasm / PDF",voice:"Ovozli",stop:"To‘xtatish"},
-  cz:{welcome:"Vítejte",subtitle:"Dnes v Solstone",chat:"Týmový chat",site:"Stavby",private:"Soukromé",announcement:"Oznámení",type:"Napište zprávu …",send:"Odeslat",attach:"Foto / PDF",voice:"Hlasová",stop:"Stop"},
-  en:{welcome:"Welcome",subtitle:"Today in Solstone",chat:"Team Chat",site:"Sites",private:"Private",announcement:"Announcements",type:"Write a message …",send:"Send",attach:"Photo / PDF",voice:"Voice note",stop:"Stop"},
+  de:{welcome:"Willkommen",subtitle:"Heute bei Solstone",chat:"Team Chat",site:"Gruppen",private:"Privat",announcement:"Firmeninfo",type:"Nachricht schreiben …",send:"Senden",attach:"Foto / PDF",voice:"Sprachnachricht",stop:"Stopp"},
+  ba:{welcome:"Dobrodošli",subtitle:"Danas u Solstone",chat:"Team Chat",site:"Grupni",private:"Privatno",announcement:"Obavijesti",type:"Napiši poruku …",send:"Pošalji",attach:"Slika / PDF",voice:"Glasovna",stop:"Zaustavi"},
+  uz:{welcome:"Xush kelibsiz",subtitle:"Solstone bugun",chat:"Jamoa suhbati",site:"Guruhlar",private:"Shaxsiy",announcement:"E’lonlar",type:"Xabar yozing …",send:"Yuborish",attach:"Rasm / PDF",voice:"Ovozli",stop:"To‘xtatish"},
+  cz:{welcome:"Vítejte",subtitle:"Dnes v Solstone",chat:"Týmový chat",site:"Skupiny",private:"Soukromé",announcement:"Oznámení",type:"Napište zprávu …",send:"Odeslat",attach:"Foto / PDF",voice:"Hlasová",stop:"Stop"},
+  en:{welcome:"Welcome",subtitle:"Today in Solstone",chat:"Team Chat",site:"Groups",private:"Private",announcement:"Announcements",type:"Write a message …",send:"Send",attach:"Photo / PDF",voice:"Voice note",stop:"Stop"},
 };
 const initial:Record<ChatKind,ChatMessage[]>={
   site:[
