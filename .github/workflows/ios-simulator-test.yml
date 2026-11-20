@@ -45,7 +45,7 @@ jobs:
       - name: Install mobile dependencies
         run: |
           npm ci --no-audit --no-fund
-          npm install --no-save --package-lock=false @capacitor/ios@8.4.1 --no-audit --no-fund
+          npm install --no-save --package-lock=false @capacitor/ios@8.6.2 @capacitor/core@8.6.2 @capacitor/cli@8.6.2 --no-audit --no-fund
 
       - name: Build fallback web files
         run: npm run build
