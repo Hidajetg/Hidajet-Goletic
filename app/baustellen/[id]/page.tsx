@@ -975,6 +975,40 @@ export default function BaustelleDetailPage() {
           "Baustelle"}
       </h1>
 
+      <Link
+        href={`/team-chat?siteId=${encodeURIComponent(baustelleId)}`}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          margin: "12px 0 20px",
+          padding: "15px 18px",
+          borderRadius: 14,
+          border: "1px solid #fdba74",
+          color: "#ffffff",
+          textDecoration: "none",
+          background: "linear-gradient(105deg, #c45a19, #6b301c)",
+          fontWeight: 800,
+          boxShadow: "0 6px 16px #00000033",
+        }}
+      >
+        <span style={{ fontSize: 27 }}>💬</span>
+        <span style={{ flex: 1 }}>
+          {lang === "ba" ? "Chat ove Baustelle" :
+            lang === "uz" ? "Ushbu obyekt suhbati" :
+            lang === "cz" ? "Chat této stavby" :
+            lang === "en" ? "This site's chat" : "Baustellen-Chat"}
+          <small style={{ display: "block", fontWeight: 400, opacity: 0.9 }}>
+            {lang === "ba" ? "Poruke, slike, PDF i glasovne poruke" :
+              lang === "de" ? "Nachrichten, Bilder, PDF und Sprachnachrichten" :
+              lang === "uz" ? "Xabarlar, rasmlar, PDF va ovoz" :
+              lang === "cz" ? "Zprávy, obrázky, PDF a hlas" :
+              "Messages, images, PDFs and voice"}
+          </small>
+        </span>
+        <span style={{ fontSize: 26 }}>›</span>
+      </Link>
+
       {/* ======================
           GORNJI BLOK
       ====================== */}
