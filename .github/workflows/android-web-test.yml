@@ -73,6 +73,26 @@ jobs:
       - name: Sync Capacitor with live HTTPS web URL
         run: npx cap sync android
 
+      - name: Keep test app separate from the existing phone installation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle = Path("android/app/build.gradle")
+          old = 'applicationId "com.solstone.baustelle"'
+          new = 'applicationId "com.solstone.baustelle.internal"'
+          value = gradle.read_text()
+          if old not in value:
+              raise SystemExit("Unable to find expected Android application ID")
+          gradle.write_text(value.replace(old, new, 1))
+          strings = Path("android/app/src/main/res/values/strings.xml")
+          value = strings.read_text()
+          value = value.replace("<string name=\"app_name\">Solstone Baustelle</string>",
+                                "<string name=\"app_name\">Solstone Test</string>")
+          strings.write_text(value)
+          print("Internal APK has its own package ID; it will not replace the existing app.")
+          PY
+
       - name: Prepare icon generator
         shell: bash
         run: |
