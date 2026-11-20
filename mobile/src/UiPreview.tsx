@@ -65,7 +65,6 @@ function inDateWindow(date:string):boolean {
   return Number.isFinite(actual)&&Math.abs(actual-from)<=365*86_400_000;
 }
 
-const names:Record<Language,string>={de:"Deutsch",ba:"Bosanski",uz:"O‘zbek",cz:"Čeština",en:"English"};
 const labels:Record<Language,{chat:string,site:string,private:string,announcement:string,type:string,send:string,attach:string,voice:string,stop:string}> = {
   de:{chat:"Team Chat",site:"Gruppen",private:"Privat",announcement:"Firmeninfo",type:"Nachricht schreiben …",send:"Senden",attach:"Foto / PDF",voice:"Sprachnachricht",stop:"Stopp"},
   ba:{chat:"Team Chat",site:"Grupni",private:"Privatno",announcement:"Obavijesti",type:"Napiši poruku …",send:"Pošalji",attach:"Slika / PDF",voice:"Glasovna",stop:"Zaustavi"},
@@ -88,11 +87,7 @@ const initial:Record<ChatKind,ChatMessage[]>={
 const kinds:ChatKind[]=["site","private","announcement"];
 
 export default function UiPreview(){
-  const [lang,setLang]=useState<Language>(() => {
-    if (typeof window === "undefined") return "ba";
-    const candidate=(localStorage.getItem("appLanguage") || localStorage.getItem("lang") || "ba").toLowerCase();
-    return (["de","ba","uz","cz","en"] as string[]).includes(candidate) ? candidate as Language : "ba";
-  });
+  const lang:Language="ba";
   const [selectedDate,setSelectedDate]=useState(viennaISO);
   const [screen,setScreen]=useState<Screen>("home");
   const [previewRole,setPreviewRole]=useState<"worker"|"admin">("worker");
@@ -111,12 +106,6 @@ export default function UiPreview(){
   const bottom=useRef<HTMLDivElement|null>(null);
   const t=labels[lang];
   const cl=calendarLabels[lang];
-  function setLanguage(language:Language) {
-    setLang(language);
-    for(const key of ["appLanguage","lang","language","worker_language","selectedLanguage"]){
-      localStorage.setItem(key,language);
-    }
-  }
   function selectDay(date:string) {
     if(inDateWindow(date)&&date!==selectedDate)setSelectedDate(date);
   }
@@ -179,14 +168,10 @@ export default function UiPreview(){
     {screen==="home" && <button type="button" className="spv-chat-corner"
       aria-label="Otvori Team Chat kao novu stranicu"
       onClick={()=>enterChat("site")}>💬</button>}
-    {screen==="home" && previewRole==="worker" && <div className="spv-language-select-wrap">
-      <label htmlFor="spv-language-home">🌐</label>
-      <select id="spv-language-home" aria-label="Jezik / Sprache"
-        value={lang} onChange={e=>setLanguage(e.target.value as Language)}>
-        {(Object.keys(names) as Language[]).map(code=>
-          <option key={code} value={code}>{code.toUpperCase()} — {names[code]}</option>)}
-      </select>
-    </div>}
+    {screen==="home" && previewRole==="worker" &&
+      <div className="spv-language-select-wrap" aria-label="Jezik: bosanski">
+        <span className="spv-ba-language">BA</span>
+      </div>}
     {screen==="home" && <>
       <div className="spv-role-switch" aria-label="Izbor demonstracijskog pregleda">
         <small>DEMO PREGLED</small>
@@ -202,11 +187,9 @@ export default function UiPreview(){
             de:"Willkommen", ba:"Dobrodošao", uz:"Xush kelibsiz",
             cz:"Vítejte",en:"Welcome",
           }[lang]} Demo Admin</h2>
-          <nav className="spv-admin-web-langs" aria-label="Web izbornik jezika">
-            {(Object.keys(names) as Language[]).map(code=>
-              <button key={code} type="button" className={code===lang?"active":""}
-                onClick={()=>setLanguage(code)}>{code.toUpperCase()}</button>)}
-          </nav>
+          <div className="spv-admin-web-langs" aria-label="Jezik: bosanski">
+            <span className="spv-only-ba">BA — Bosanski</span>
+          </div>
           <div className="spv-admin-web-grid">
             {navItems.map(item=>
               <button key={item.key} type="button"
@@ -291,14 +274,7 @@ export default function UiPreview(){
         <label><input type="checkbox" checked={sound} onChange={e=>setSound(e.target.checked)}/> 🔔 Zvuk</label>
         <label><input type="checkbox" checked={speech} onChange={e=>setSpeech(e.target.checked)}/> 🔊 Glas</label>
         <label><input type="checkbox" checked={autoTranslation} onChange={e=>setAutoTranslation(e.target.checked)}/> 🌐 Auto prevod</label>
-        <label className="spv-chat-language-select">
-          🌐
-          <select aria-label="Jezik / Sprache" value={lang}
-            onChange={event=>setLanguage(event.target.value as Language)}>
-            {(Object.keys(names) as Language[]).map(code=>
-              <option key={code} value={code}>{code.toUpperCase()} — {names[code]}</option>)}
-          </select>
-        </label>
+        <span className="spv-only-ba">🌐 BA</span>
       </div>}
       <nav className="spv-tabs" aria-label="Vrsta razgovora">{kinds.map(group=>
         <button key={group} className={kind===group?"active":""}
