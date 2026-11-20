@@ -189,7 +189,7 @@ export default function UiPreview(){
     </section>}
     {notice&&<div className="spv-toast" role="alert"><span>{notice}</span><button onClick={()=>setNotice("")}>✕</button></div>}
     {screen==="home" && <footer className="spv-bottom"><button onClick={()=>setScreen("home")} className={screen==="home"?"active":""}>⌂ <span>Početna</span></button>
-      <button onClick={()=>enterChat("site")} className={screen==="chat"?"active":""}>💬 <span>Chat</span></button>
+      <button onClick={()=>enterChat("site")}>💬 <span>Chat</span></button>
       <button onClick={()=>alertDemo("Moj profil")}>♙ <span>Profil</span></button></footer>}
   </div>;
 }
