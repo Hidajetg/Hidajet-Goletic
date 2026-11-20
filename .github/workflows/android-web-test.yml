@@ -73,6 +73,19 @@ jobs:
       - name: Sync Capacitor with live HTTPS web URL
         run: npx cap sync android
 
+      - name: Prepare icon generator
+        shell: bash
+        run: |
+          python3 -m venv "$RUNNER_TEMP/solstone-venv"
+          "$RUNNER_TEMP/solstone-venv/bin/python" -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Install approved Solstone Alpine launcher icons
+        shell: bash
+        run: |
+          "$RUNNER_TEMP/solstone-venv/bin/python" scripts/generate_mobile_icons.py
+          test -s android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          test -s android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
+
       - name: Assert server URL points to web app
         shell: bash
         run: |
