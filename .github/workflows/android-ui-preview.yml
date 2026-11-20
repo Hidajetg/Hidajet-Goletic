@@ -49,9 +49,18 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Build local-only redesigned Solstone UI
-        env:
-          VITE_SOLSTONE_UI_PREVIEW: '1'
-        run: npm run build
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path('src/main.tsx')
+          s=path.read_text()
+          old='{import.meta.env.VITE_SOLSTONE_UI_PREVIEW === "1" ? <UiPreview /> : <App />}'
+          if old not in s:
+            raise SystemExit('Could not find expected preview mode toggle.')
+          path.write_text(s.replace(old,'<UiPreview />'))
+          print('UI preview explicitly selected for this APK only.')
+          PY
+          npm run build
 
       - name: Sync local assets (NOT the production website)
         run: npx cap sync android
