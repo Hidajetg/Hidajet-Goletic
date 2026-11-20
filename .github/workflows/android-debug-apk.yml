@@ -1,0 +1,68 @@
+name: Solstone Android debug APK
+
+on:
+  push:
+    branches:
+      - mobile-android-ios-test-2026-11-20
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/android-debug-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-debug-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  debug-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      # Publishable browser key only. NEVER add a service_role or secret API key.
+      VITE_SUPABASE_URL: https://axpfymarrqjebpwosidr.supabase.co
+      VITE_SUPABASE_ANON_KEY: sb_publishable_9Ik1i7_zuJ8bIZaWOgZ_CA_k8ysbEJW
+
+    steps:
+      - name: Check out test branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Configure JDK 17
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+
+      - name: Install locked JavaScript dependencies
+        run: npm ci
+
+      - name: Build bundled Vite web assets
+        run: npm run build
+
+      - name: Sync web assets into Android
+        run: npx cap sync android
+
+      - name: Assemble unsigned-for-release debug APK
+        run: bash ./gradlew --no-daemon assembleDebug
+        working-directory: mobile/android
+
+      - name: Upload test APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: solstone-android-debug-${{ github.run_number }}
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
