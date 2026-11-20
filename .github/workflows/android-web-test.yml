@@ -9,6 +9,7 @@ on:
       - 'mobile/capacitor.config.ts'
       - 'mobile/scripts/**'
       - 'mobile/branding/**'
+      - 'mobile/android/app/src/main/java/**'
   workflow_dispatch:
 
 permissions:
