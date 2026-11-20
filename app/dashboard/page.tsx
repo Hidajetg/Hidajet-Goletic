@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 import { type AppLanguage, readAppLanguage, saveAppLanguage, localeForLanguage } from "../lib/language";
 import { SOLSTONE_APPROVED_LOGO } from "../components/solstone-approved-logo";
+import AdminWebDashboard from "./AdminWebDashboard";
 
 const DAY_MS = 86_400_000;
 
@@ -617,6 +618,10 @@ export default function DashboardPage() {
       </main>
     );
   }
+
+  // Admin UI comes from the exact production web dashboard snapshot.
+  // Worker-only compact calendar and typography never affect it.
+  if (isAdmin) return <AdminWebDashboard />;
 
   return (
     <main style={mainStyle}>
