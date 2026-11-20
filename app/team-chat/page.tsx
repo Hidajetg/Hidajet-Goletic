@@ -116,6 +116,7 @@ export default function TeamChatPage(){
   const recorder=useRef<MediaRecorder|null>(null);
   const parts=useRef<Blob[]>([]);
   const listEnd=useRef<HTMLDivElement|null>(null);
+  const initialSiteSelection=useRef(false);
   const t=WORDS[lang];
 
   const loadRooms=useCallback(async(silent=false)=>{
@@ -299,6 +300,17 @@ export default function TeamChatPage(){
   function setLanguage(code:AppLanguage){
     saveAppLanguage(code);setLang(code);
   }
+
+  useEffect(() => {
+    if (state !== "ready" || initialSiteSelection.current || current || !rooms.length) return;
+    const siteId=new URLSearchParams(window.location.search).get("siteId");
+    if (!siteId) return;
+    initialSiteSelection.current=true;
+    if (!/^\\d+$/.test(siteId)) return;
+    const siteRoom=rooms.find((room)=>room.kind==="site" && room.siteId===siteId);
+    if (siteRoom) void chooseRoom(siteRoom);
+    else setError("Nemaš pristup razgovoru ove Baustelle.");
+  },[state,rooms,current]);
 
   const filtered=rooms.filter((r)=>r.kind===tab);
   const possible=workers.filter((w)=>w.id!==me?.id);
