@@ -35,3 +35,40 @@ After **every** web-code change, rerun `npm run build` and `npx cap sync android
 - iOS builds require Xcode on macOS or a supported macOS cloud build workflow, an Apple Developer account for distribution, and iOS project setup.
 
 This branch is for testing only. The main branch and live web application are unchanged.
+
+## Internal test: the SAME hosted Next.js web app and PIN login
+
+Use the separate GitHub Actions workflow `.github/workflows/android-web-test.yml`.
+This **internal-test-only** APK sets `SOLSTONE_WEB_URL` to the candidate
+production Vercel domain `https://hidajet-goletic-frno.vercel.app`.
+The URL has NOT been confirmed by the owner as the workers' actual production
+URL. A Vercel authentication or access restriction can prevent it from loading.
+
+This mode displays the actual remote website, so it uses the web app's current
+worker-name/PIN login, API routes and UI rather than the incomplete standalone
+Vite screen with separate email/password login. It requires internet and may
+behave differently for file uploads, downloads, the camera and navigation.
+Check these on real Android devices with worker and admin accounts before
+offering it to employees.
+
+**Do not distribute this remote-web-mode APK through Google Play or the
+App Store.** Capacitor documents `server.url` for live reload/testing, not
+a production release. A store-ready native experience needs a separate
+release architecture, app review and iOS signing/testing.
+
+For Android launcher icons, the CI workflow generates PNG resources from
+`mobile/branding/solstone-approved-icon.webp.b64` using
+`mobile/scripts/generate_mobile_icons.py`. It is a reduced-size
+representation of the approved artwork. The original 1024px master asset
+should be used for store-release icons.
+
+The current web app and `main` branch are unaffected by this internal test.
+GitHub branch `web-backup-2026-11-20` is a snapshot of the *older GitHub web
+code*, not a backup of uncommitted local Windows files or the live database.
+
+### Security gate before release
+
+The older web repository includes legacy login credentials in source code.
+Do not publish that login approach or consider it secure without rotating
+legacy PINs, removing hardcoded secrets, and validating server-side role
+authorization and Supabase RLS. This is separate from the mobile build.
