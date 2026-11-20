@@ -64,6 +64,14 @@ export default function TeamChatWidget() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [open]);
 
+  // Avoid scrolling the underlying Baustelle while its group chat is full-screen.
+  useEffect(() => {
+    if (!open || !groupFullscreen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [open, groupFullscreen]);
+
   useEffect(() => {
     // Never keep a confidential conversation visible when navigating to login.
     if (hidden) { setOpen(false); setGroupFullscreen(false); }
