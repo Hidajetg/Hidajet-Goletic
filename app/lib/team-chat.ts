@@ -43,9 +43,11 @@ export async function getChatUser(): Promise<ChatUser | null> {
 }
 
 export function currentViennaDate() {
-  return new Intl.DateTimeFormat("en-CA", {
+  const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Vienna", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(new Date());
+  }).formatToParts(new Date());
+  const p = (name: string) => parts.find((part) => part.type === name)?.value ?? "";
+  return p("year") + "-" + p("month") + "-" + p("day");
 }
 
 export async function authorizedSiteIds(user: ChatUser): Promise<string[]> {
@@ -66,7 +68,7 @@ export async function authorizedSiteIds(user: ChatUser): Promise<string[]> {
     .from("work_calendar")
     .select("baustelle_id")
     .eq("datum", currentViennaDate())
-    .ilike("worker_name", user.name)
+    .eq("worker_name", user.name)
     .not("baustelle_id", "is", null)
     .limit(200);
 
