@@ -16,3 +16,29 @@
 @media(max-height:480px){
  .sw-panel{height:calc(100dvh - 77px);top:53px}
 }
+
+
+/* Only a selected Baustelle/group conversation becomes full-screen.
+   Private chats and firm announcements retain the compact floating panel. */
+.sw-panel.sw-panel-fullscreen{
+  position:fixed;inset:0;top:0;left:0;right:0;bottom:0;
+  width:100vw;max-width:none;height:100dvh;max-height:none;
+  border:0;border-radius:0;z-index:9010;
+  background:#0b111c;box-shadow:none;
+}
+.sw-panel-fullscreen .sw-panel-header{
+  min-height:56px;
+  padding:calc(9px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px))
+    9px max(12px,env(safe-area-inset-left,0px));
+}
+.sw-panel-compact{
+  padding:7px 10px;min-height:33px;white-space:nowrap;
+  color:#fff;background:#334155;border:1px solid #64748b;
+  border-radius:8px;font-size:12px;cursor:pointer;
+}
+.sw-panel-fullscreen .sw-panel-frame{height:100%;min-height:0}
+@media(max-width:430px){
+  .sw-panel.sw-panel-fullscreen{inset:0;width:100vw;height:100dvh;border-radius:0}
+  .sw-panel-fullscreen .sw-panel-title small{font-size:10px}
+  .sw-panel-compact{padding:7px;font-size:11px}
+}
