@@ -17,6 +17,18 @@ const menus=[
   ["📝","Privatna bilješka","Moje napomene"],
   ["🚗","Auta","Vozila firme"],
 ];
+const adminMenus=[
+  ["🏗️","Baustelle","Pregled gradilišta"],
+  ["📂","Projekti","Svi projekti"],
+  ["👥","Radnici","Administracija radnika"],
+  ["⏰","Sati","Pregled radnih sati"],
+  ["📅","Kalendar","Raspored svih radnika"],
+  ["🚗","Auta","Vozila firme"],
+  ["📢","Info","Obavijesti radnicima"],
+  ["📝","Privatna bilješka","Napomene"],
+  ["🧱","Materijal","Administracija materijala"],
+  ["🧱","Naruči materijal","Narudžbe"],
+];
 const names:Record<Language,string>={de:"Deutsch",ba:"Bosanski",uz:"O‘zbek",cz:"Čeština",en:"English"};
 const labels:Record<Language,{chat:string,site:string,private:string,announcement:string,type:string,send:string,attach:string,voice:string,stop:string}> = {
   de:{chat:"Team Chat",site:"Gruppen",private:"Privat",announcement:"Firmeninfo",type:"Nachricht schreiben …",send:"Senden",attach:"Foto / PDF",voice:"Sprachnachricht",stop:"Stopp"},
@@ -42,6 +54,7 @@ const kinds:ChatKind[]=["site","private","announcement"];
 export default function UiPreview(){
   const [lang,setLang]=useState<Language>("ba");
   const [screen,setScreen]=useState<Screen>("home");
+  const [previewRole,setPreviewRole]=useState<"worker"|"admin">("worker");
   const [kind,setKind]=useState<ChatKind>("site");
   const [text,setText]=useState("");
   const [messages,setMessages]=useState(initial);
@@ -120,9 +133,26 @@ export default function UiPreview(){
         <button key={code} className={code===lang?"active":""} onClick={()=>setLang(code)} title={names[code]}>{code.toUpperCase()}</button>)}
     </nav>}
     {screen==="home" && <>
+      <div className="spv-role-switch" aria-label="Izbor demonstracijskog pregleda">
+        <small>DEMO PREGLED</small>
+        <button type="button" className={previewRole==="worker"?"active":""}
+          onClick={()=>setPreviewRole("worker")}>👷 Radnik</button>
+        <button type="button" className={previewRole==="admin"?"active":""}
+          onClick={()=>setPreviewRole("admin")}>🔧 Admin</button>
+      </div>
+      {previewRole==="worker" && <section className="spv-today-card" aria-label="Primjer današnjeg rasporeda">
+        <div className="spv-today-heading"><strong>📅 Danas radim</strong>
+          <span>TESTNI PRIKAZ</span>
+        </div>
+        <div className="spv-today-site"><b>🏗️ Baustelle – primjer gradilišta</b>
+          <span>📍 Lokacija: primjer</span>
+          <span>👷 Kolege: primjer kolege na istom gradilištu</span>
+          <small>Stvarni raspored dolazi iz kalendara nakon prijave radnika.</small>
+        </div>
+      </section>}
       <div className="spv-section-title"><h2>Moja aplikacija</h2><small>Brzi pristup</small></div>
       <div className="spv-cards">
-        {menus.map(([icon,name,desc],idx)=>
+        {(previewRole==="admin"?adminMenus:menus).map(([icon,name,desc],idx)=>
           <button key={name} className="spv-menu" onClick={()=>alertDemo(name)}>
             <span className={idx===3?"spv-menu-icon gold":"spv-menu-icon"}>{icon}</span>
             <b>{name}</b><small>{desc}</small>
