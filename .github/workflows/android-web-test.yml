@@ -1,0 +1,118 @@
+name: Solstone Android - Web/PIN internal test
+
+on:
+  push:
+    branches:
+      - mobile-android-ios-test-2026-11-20
+    paths:
+      - '.github/workflows/android-web-test.yml'
+      - 'mobile/capacitor.config.ts'
+      - 'mobile/scripts/**'
+      - 'mobile/branding/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: solstone-full-web-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      # TEST ONLY: URL discovered from connected Vercel project's production domain.
+      # Do not use this live-reload mode in store-release builds.
+      SOLSTONE_WEB_URL: https://hidajet-goletic-frno.vercel.app
+    steps:
+      - name: Checkout separate mobile branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Use JDK 21
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
+
+      - name: Probe production address without credentials
+        id: probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          origin="$SOLSTONE_WEB_URL"
+          code=$(curl -sS --max-time 20 -o "$RUNNER_TEMP/solstone-page.html" -D "$RUNNER_TEMP/solstone-headers.txt" -w '%{http_code}' "$origin/" || true)
+          echo "Response status: $code"
+          grep -iE '^(location:|x-vercel-.*:)' "$RUNNER_TEMP/solstone-headers.txt" | head -12 || true
+          if [ "$code" = "401" ] || [ "$code" = "403" ]; then
+            echo "::warning::Vercel blocks unauthenticated access to this URL. The app needs an accessible production domain before employees can use the web version in Android."
+          fi
+          if grep -Eiq 'authentication required|vercel authentication|vercel.com/(login|sso)' "$RUNNER_TEMP/solstone-page.html"; then
+            echo "::warning::The page resembles Vercel Authentication. Confirm the production URL can be opened by workers."
+          fi
+          echo "### Internal web URL checked: $origin (HTTP $code)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Bundle fallback assets
+        run: npm run build
+
+      - name: Sync Capacitor with live HTTPS web URL
+        run: npx cap sync android
+
+      - name: Assert server URL points to web app
+        shell: bash
+        run: |
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          const config = JSON.parse(fs.readFileSync('android/app/src/main/assets/capacitor.config.json','utf8'));
+          const expected = process.env.SOLSTONE_WEB_URL;
+          if (config.server?.url !== expected) {
+            throw new Error('Wrong Capacitor server URL: ' + JSON.stringify(config.server));
+          }
+          if (config.server?.cleartext !== false) {
+            throw new Error('HTTPS cleartext must be disabled');
+          }
+          console.log('PIN/login and all Next.js routes will be served from:', expected);
+          JS
+
+      - name: Compile debug Android APK
+        working-directory: mobile/android
+        run: bash ./gradlew --no-daemon --console=plain --stacktrace assembleDebug
+
+      - name: Verify generated APK
+        shell: bash
+        run: |
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -p android/app/build/outputs/apk/debug/app-debug.apk assets/capacitor.config.json | grep -F "$SOLSTONE_WEB_URL" > /dev/null
+          sha256sum android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload Android web-app test installer
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: solstone-android-web-pin-test-${{ github.run_number }}
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Explain result
+        if: always()
+        shell: bash
+        run: |
+          echo "This is an INTERNAL TEST ONLY, not a store-ready release." >> "$GITHUB_STEP_SUMMARY"
+          echo "It loads the hosted Next.js web app to preserve its current login and features. It needs internet access." >> "$GITHUB_STEP_SUMMARY"
+          echo "Vercel Authentication / deployment protection may still prevent staff access. Test on a phone." >> "$GITHUB_STEP_SUMMARY"
+          echo "The production web app, its deployment and database were not changed." >> "$GITHUB_STEP_SUMMARY"
