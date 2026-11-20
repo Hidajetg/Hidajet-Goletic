@@ -1,44 +1,25 @@
-.sw-widget{position:fixed;top:max(12px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));z-index:9000;font-family:Arial,Helvetica,sans-serif}
-.sw-launcher{position:relative;display:flex;align-items:center;justify-content:center;flex:none;width:49px;height:49px;border:1px solid #fed7aa;background:#ea6b20;color:#fff;box-shadow:0 4px 15px #0007;border-radius:15px;cursor:pointer}
-.sw-launcher:hover,.sw-launcher.sw-active{background:#b94716}.sw-launcher:focus-visible,.sw-panel-close:focus-visible{outline:3px solid #fdba74;outline-offset:3px}
-.sw-unread{position:absolute;right:-7px;top:-7px;min-width:21px;height:21px;padding:1px 5px;background:#dc2626;color:#fff;font-weight:bold;border:2px solid #fff;border-radius:22px;font-size:11px;line-height:17px;text-align:center}
-.sw-panel{position:absolute;right:0;top:56px;width:min(360px,calc(100vw - 24px));height:min(490px,calc(100dvh - 95px));background:#111827;border:1px solid #394556;border-radius:15px;box-shadow:0 14px 42px #000a;display:flex;flex-direction:column;overflow:hidden;color:#f8fafc}
-.sw-panel-header{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#1c2430;border-bottom:1px solid #374151;flex-shrink:0}
-.sw-panel-emblem{font-size:20px}.sw-panel-title{min-width:0;flex:1;display:grid;gap:3px}
-.sw-panel-title strong{font-size:14px}.sw-panel-title small{font-size:11px;color:#c7d0de}
-.sw-panel-close{border:1px solid #536172;background:#303b4b;color:#fff;border-radius:7px;width:33px;height:33px;font-size:16px;cursor:pointer}
-.sw-panel-frame{width:100%;flex:1;border:0;min-height:0;background:#0c0e11}
+/* Small top-right launcher; the chat itself is a separate route. */
+.sw-widget{
+  position:fixed;top:max(12px,env(safe-area-inset-top,0px));
+  right:max(12px,env(safe-area-inset-right,0px));
+  z-index:9000;font-family:Arial,Helvetica,sans-serif;
+}
+.sw-launcher{
+  position:relative;display:flex;align-items:center;justify-content:center;
+  width:49px;height:49px;
+  border:1px solid #fed7aa;background:#ea6b20;color:#fff;
+  box-shadow:0 4px 15px #0007;border-radius:15px;cursor:pointer;
+  text-decoration:none;
+}
+.sw-launcher:hover{background:#b94716}
+.sw-launcher:focus-visible{outline:3px solid #fdba74;outline-offset:3px}
+.sw-unread{
+  position:absolute;right:-7px;top:-7px;min-width:21px;height:21px;
+  padding:1px 5px;background:#dc2626;color:#fff;font-weight:bold;
+  border:2px solid #fff;border-radius:22px;font-size:11px;
+  line-height:17px;text-align:center;
+}
 @media(max-width:430px){
- .sw-widget{top:max(10px,env(safe-area-inset-top,0px));right:max(10px,env(safe-area-inset-right,0px))}
- .sw-launcher{width:44px;height:44px}
- .sw-panel{top:52px;height:min(475px,calc(100dvh - 95px));width:min(345px,calc(100vw - 20px))}
-}
-@media(max-height:480px){
- .sw-panel{height:calc(100dvh - 77px);top:53px}
-}
-
-
-/* Only a selected Baustelle/group conversation becomes full-screen.
-   Private chats and firm announcements retain the compact floating panel. */
-.sw-panel.sw-panel-fullscreen{
-  position:fixed;inset:0;top:0;left:0;right:0;bottom:0;
-  width:100vw;max-width:none;height:100dvh;max-height:none;
-  border:0;border-radius:0;z-index:9010;
-  background:#0b111c;box-shadow:none;
-}
-.sw-panel-fullscreen .sw-panel-header{
-  min-height:56px;
-  padding:calc(9px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px))
-    9px max(12px,env(safe-area-inset-left,0px));
-}
-.sw-panel-compact{
-  padding:7px 10px;min-height:33px;white-space:nowrap;
-  color:#fff;background:#334155;border:1px solid #64748b;
-  border-radius:8px;font-size:12px;cursor:pointer;
-}
-.sw-panel-fullscreen .sw-panel-frame{height:100%;min-height:0}
-@media(max-width:430px){
-  .sw-panel.sw-panel-fullscreen{inset:0;width:100vw;height:100dvh;border-radius:0}
-  .sw-panel-fullscreen .sw-panel-title small{font-size:10px}
-  .sw-panel-compact{padding:7px;font-size:11px}
+  .sw-widget{top:max(10px,env(safe-area-inset-top,0px));right:max(10px,env(safe-area-inset-right,0px))}
+  .sw-launcher{width:44px;height:44px}
 }
