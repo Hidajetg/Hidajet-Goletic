@@ -17,6 +17,7 @@ type StoredUser = {
 const translations: Record<string, Record<string, string>> = {
   de: {
     welcome: "Willkommen",
+    chat: "Team Chat",
     baustelle: "Baustelle",
     hours: "Stunden",
     calendar: "Kalender",
@@ -36,6 +37,7 @@ const translations: Record<string, Record<string, string>> = {
 
   ba: {
     welcome: "Dobrodošao",
+    chat: "Team Chat",
     baustelle: "Baustelle",
     hours: "Sati",
     calendar: "Kalendar",
@@ -55,6 +57,7 @@ const translations: Record<string, Record<string, string>> = {
 
   uz: {
     welcome: "Xush kelibsiz",
+    chat: "Jamoa suhbati",
     baustelle: "Ish joyi",
     hours: "Soatlar",
     calendar: "Kalendar",
@@ -74,6 +77,7 @@ const translations: Record<string, Record<string, string>> = {
 
   en: {
     welcome: "Welcome",
+    chat: "Team Chat",
     baustelle: "Construction site",
     hours: "Hours",
     calendar: "Calendar",
@@ -93,6 +97,7 @@ const translations: Record<string, Record<string, string>> = {
 
   cz: {
     welcome: "Vítejte",
+    chat: "Týmový chat",
     baustelle: "Stavba",
     hours: "Hodiny",
     calendar: "Kalendář",
@@ -226,6 +231,7 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [authLoading, setAuthLoading] = useState(true);
+  const [chatUnread,setChatUnread] = useState(0);
   const [workerName, setWorkerName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -243,6 +249,15 @@ export default function DashboardPage() {
     setLang(savedLang);
 
     initializeDashboard();
+  }, []);
+
+  useEffect(() => {
+    const onUnread = (event:Event) => {
+      const count = Number((event as CustomEvent<number>).detail);
+      setChatUnread(Number.isFinite(count) ? count : 0);
+    };
+    window.addEventListener("solstone-chat-unread", onUnread);
+    return () => window.removeEventListener("solstone-chat-unread", onUnread);
   }, []);
 
   async function initializeDashboard() {
@@ -556,6 +571,14 @@ export default function DashboardPage() {
           <small>
             {messages.length} {t.message}
           </small>
+        </Link>
+
+        <Link href="/team-chat" style={chatUnread>0 ? alertButtonStyle : buttonStyle}>
+          💬 {t.chat}
+          {chatUnread > 0 && <>
+            <br />
+            <small>{chatUnread} NEW</small>
+          </>}
         </Link>
 
         <Link href="/private-notes" style={buttonStyle}>
