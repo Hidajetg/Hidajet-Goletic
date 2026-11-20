@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
-import { type AppLanguage } from "../lib/language";
+import { type AppLanguage, readAppLanguage, saveAppLanguage } from "../lib/language";
 import "./team-chat.css";
 
 type Room = {
@@ -94,7 +94,7 @@ function stamp(value:string,lang:AppLanguage){
 }
 
 export default function TeamChatPage(){
-  const lang:AppLanguage="ba";
+  const [lang,setLang]=useState<AppLanguage>("ba");
   const [compact,setCompact]=useState(false);
   const [showChatSettings,setShowChatSettings]=useState(false);
   const [state,setState]=useState<ChatState>("loading");
@@ -142,6 +142,7 @@ export default function TeamChatPage(){
   },[]);
 
   useEffect(()=>{
+    setLang(readAppLanguage("ba"));
     setCompact(new URLSearchParams(window.location.search).get("compact")==="1");
     setSound(localStorage.getItem("solstone_chat_sound")!=="false");
     setVoice(localStorage.getItem("solstone_chat_voice")==="true");
@@ -304,6 +305,11 @@ export default function TeamChatPage(){
     if(key==="solstone_chat_auto_translate"&&value)translateAttempted.current.clear();
   }
 
+  function setLanguage(nextLanguage:AppLanguage) {
+    saveAppLanguage(nextLanguage);
+    setLang(nextLanguage);
+  }
+
   useEffect(() => {
     if (state !== "ready" || initialSiteSelection.current || current || !rooms.length) return;
     const siteId=new URLSearchParams(window.location.search).get("siteId");
@@ -335,7 +341,17 @@ export default function TeamChatPage(){
           onChange={(e)=>settings("solstone_chat_voice",e.target.checked)}/> 🔊 {t.voice}</label>
         <label><input type="checkbox" checked={autoTranslate}
           onChange={(e)=>settings("solstone_chat_auto_translate",e.target.checked)}/> 🌐 {t.autoTranslate}</label>
-        <span className="tc-lang" aria-label="Jezik: bosanski">🌐 BA</span>
+        <label className="tc-lang">
+          🌐
+          <select aria-label="Jezik chata: DE, BA, UZ, CZ, EN"
+            value={lang} onChange={event=>setLanguage(event.target.value as AppLanguage)}>
+            <option value="de">DE</option>
+            <option value="ba">BA</option>
+            <option value="uz">UZ</option>
+            <option value="cz">CZ</option>
+            <option value="en">EN</option>
+          </select>
+        </label>
         <small>{t.warning}</small>
       </div>}
 
