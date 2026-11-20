@@ -153,7 +153,8 @@ export default function TeamChatPage(){
       setMessages(result.messages);
       setCanWrite(result.room.canWrite);
       if (!quiet) listEnd.current?.scrollIntoView({behavior:"instant",block:"end"});
-      await api("/api/team-chat/read",postBody({roomId}));
+      const last=result.messages[result.messages.length-1];
+      if (last) await api("/api/team-chat/read",postBody({roomId,throughId:last.id}));
       if (!quiet) void loadRooms(true);
     }catch(e){
       if (!quiet) setError(e instanceof Error?e.message:"Chat error");
