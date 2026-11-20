@@ -620,41 +620,41 @@ export default function DashboardPage() {
 
       <div style={gridStyle}>
         <Link href="/baustellen" style={buttonStyle}>
-          🏗️ {t.baustelle}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>🏗️</span> {t.baustelle}
         </Link>
 
         <Link href="/projekte/radnik" style={workerProjectButtonStyle}>
-          👷 {t.workerProjects}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>👷</span> {t.workerProjects}
         </Link>
 
         {isAdmin && (
           <Link href="/projekte" style={adminProjectButtonStyle}>
-            📂 {t.projects}
+            <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>📂</span> {t.projects}
           </Link>
         )}
 
         {isAdmin && (
           <Link href="/mitarbeiter" style={employeeButtonStyle}>
-            👥 {t.employees}
+            <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>👥</span> {t.employees}
           </Link>
         )}
 
         <Link href="/pregled-sati" style={buttonStyle}>
-          ⏰ {t.hours}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>⏰</span> {t.hours}
         </Link>
 
         <Link
           href="/kalendar"
           style={todayPlans.length > 0 ? alertButtonStyle : buttonStyle}
         >
-          📅 {t.calendar}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>📅</span> {t.calendar}
         </Link>
 
         <Link
           href="/auta"
           style={carWarnings.length > 0 ? alertButtonStyle : buttonStyle}
         >
-          🚗 {t.cars}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>🚗</span> {t.cars}
 
           {isAdmin && carWarnings.length > 0 && (
             <>
@@ -668,7 +668,7 @@ export default function DashboardPage() {
           href="/info"
           style={messages.length > 0 ? alertButtonStyle : buttonStyle}
         >
-          📢 {t.info}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>📢</span> {t.info}
           <br />
           <small>
             {messages.length} {t.message}
@@ -676,12 +676,12 @@ export default function DashboardPage() {
         </Link>
 
         <Link href="/private-notes" style={buttonStyle}>
-          📝 {t.privateNote}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>📝</span> {t.privateNote}
         </Link>
 
         {isAdmin && (
           <Link href="/material" style={materialAdminButtonStyle}>
-            🧱 {t.adminMaterial}
+            <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>🧱</span> {t.adminMaterial}
           </Link>
         )}
 
@@ -689,13 +689,13 @@ export default function DashboardPage() {
           href="/material-orders"
           style={materialOrders.length > 0 ? alertButtonStyle : buttonStyle}
         >
-          🧱 {t.materialOrder}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>🧱</span> {t.materialOrder}
           <br />
           <small>{materialOrders.length} NEW</small>
         </Link>
 
         <button type="button" onClick={logout} style={logoutButtonStyle}>
-          🚪 {t.logout}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>🚪</span> {t.logout}
         </button>
       </div>
 
