@@ -170,7 +170,7 @@ export default function UiPreview(){
       <b>TEST IZGLEDA</b>
       <span>Nije prava prijava ni aktivni chat • ništa se ne šalje u bazu</span>
     </div>}
-    {screen==="home" && <header className="spv-header">
+    {screen==="home" && previewRole==="worker" && <header className="spv-header">
       <div className="spv-brand"><img className="spv-brand-icon" src={SOLSTONE_APPROVED_LOGO} alt="Solstone – originalni logo" />
         <span><strong>Solstone</strong><small>BAUSTELLE · NOCKER & BERNARDI</small></span>
       </div>
@@ -179,7 +179,7 @@ export default function UiPreview(){
     {screen==="home" && <button type="button" className="spv-chat-corner"
       aria-label="Otvori Team Chat kao novu stranicu"
       onClick={()=>enterChat("site")}>💬</button>}
-    {screen==="home" && <div className="spv-language-select-wrap">
+    {screen==="home" && previewRole==="worker" && <div className="spv-language-select-wrap">
       <label htmlFor="spv-language-home">🌐</label>
       <select id="spv-language-home" aria-label="Jezik / Sprache"
         value={lang} onChange={e=>setLanguage(e.target.value as Language)}>
@@ -195,7 +195,34 @@ export default function UiPreview(){
         <button type="button" className={previewRole==="admin"?"active":""}
           onClick={()=>setPreviewRole("admin")}>🔧 Admin</button>
       </div>
-      {previewRole==="worker" && <section className="spv-today-card" aria-label={cl.title}>
+      {previewRole==="admin" ? (
+        <section className="spv-admin-web-preview" aria-label="Admin pregled iz web aplikacije">
+          <h1>STONE BOUTIQUE</h1>
+          <h2>{{
+            de:"Willkommen", ba:"Dobrodošao", uz:"Xush kelibsiz",
+            cz:"Vítejte",en:"Welcome",
+          }[lang]} Demo Admin</h2>
+          <nav className="spv-admin-web-langs" aria-label="Web izbornik jezika">
+            {(Object.keys(names) as Language[]).map(code=>
+              <button key={code} type="button" className={code===lang?"active":""}
+                onClick={()=>setLanguage(code)}>{code.toUpperCase()}</button>)}
+          </nav>
+          <div className="spv-admin-web-grid">
+            {navItems.map(item=>
+              <button key={item.key} type="button"
+                className={"spv-admin-web-button spv-admin-tone-"+item.tone}
+                onClick={()=>alertDemo(navLabels[lang][item.key])}>
+                <span aria-hidden="true">{item.icon}</span> {navLabels[lang][item.key]}
+              </button>)}
+          </div>
+          <section className="spv-admin-web-info">
+            <h2>📢 {navLabels[lang].info}</h2>
+            <p>TESTNI PRIKAZ — stvarne obavijesti nisu učitane.</p>
+          </section>
+        </section>
+      ) : (
+        <div className="spv-worker-home">
+      <section className="spv-today-card" aria-label={cl.title}>
         <div className="spv-today-heading">
           <strong>📅 {cl.title}</strong><small>{cl.example}</small>
         </div>
@@ -247,6 +274,8 @@ export default function UiPreview(){
             <b>{navLabels[lang][item.key]}</b>
           </button>)}
       </div>
+        </div>
+      )}
     </>}
     {screen==="chat" && <section className="spv-chat-page"
       aria-label="Solstone Team Chat – zasebna stranica">
