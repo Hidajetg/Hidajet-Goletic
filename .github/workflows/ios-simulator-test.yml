@@ -1,0 +1,126 @@
+name: Solstone iPhone - unsigned simulator build
+
+on:
+  push:
+    branches:
+      - mobile-android-ios-test-2026-11-20
+    paths:
+      - '.github/workflows/ios-simulator-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: solstone-ios-simulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-simulator:
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      SOLSTONE_WEB_URL: https://hidajet-goletic-frno.vercel.app
+    steps:
+      - name: Checkout test branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Use Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Inspect Xcode
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+
+      - name: Install mobile dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false @capacitor/ios@8.4.1 --no-audit --no-fund
+
+      - name: Build fallback web files
+        run: npm run build
+
+      - name: Create iOS platform using Capacitor 8 SPM
+        run: |
+          npx cap add ios
+          npx cap sync ios
+
+      - name: Validate remote web URL and bundle identifier
+        shell: bash
+        run: |
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          const app = JSON.parse(fs.readFileSync('ios/App/App/capacitor.config.json','utf8'));
+          if (app.server?.url !== process.env.SOLSTONE_WEB_URL) {
+            throw new Error('Wrong iOS web URL: ' + JSON.stringify(app.server));
+          }
+          if (app.appId !== 'com.solstone.baustelle') {
+            throw new Error('Unexpected iOS application identifier');
+          }
+          console.log('iOS uses the same hosted web UI and PIN login.');
+          JS
+
+      - name: Prepare approved test app icon
+        shell: bash
+        run: |
+          python3 -m venv "$RUNNER_TEMP/solstone-ios-icon-env"
+          "$RUNNER_TEMP/solstone-ios-icon-env/bin/python" -m pip install --disable-pip-version-check Pillow==11.3.0
+          "$RUNNER_TEMP/solstone-ios-icon-env/bin/python" scripts/generate_mobile_icons.py
+          icons="ios/App/App/Assets.xcassets/AppIcon.appiconset"
+          mkdir -p "$icons"
+          cp branding/generated/ios/AppIcon-1024-TEST-ONLY.png "$icons/AppIcon-512@2x.png"
+          cat > "$icons/Contents.json" <<'JSON'
+          {
+            "images": [{"filename":"AppIcon-512@2x.png","idiom":"universal","platform":"ios","size":"1024x1024"}],
+            "info": {"author":"xcode","version":1}
+          }
+          JSON
+
+      - name: Compile unsigned iOS simulator application
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/solstone-ios-derived" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build 2>&1 | tee "$RUNNER_TEMP/solstone-ios-build.log"
+
+      - name: Package simulator app (NOT an IPA)
+        shell: bash
+        run: |
+          APP="$RUNNER_TEMP/solstone-ios-derived/Build/Products/Debug-iphonesimulator/App.app"
+          test -d "$APP"
+          /usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Info.plist"
+          cd "$(dirname "$APP")"
+          ditto -c -k --sequesterRsrc --keepParent App.app "$GITHUB_WORKSPACE/solstone-ios-SIMULATOR-unsigned.zip"
+
+      - name: Upload iOS simulator artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: solstone-ios-simulator-unsigned-${{ github.run_number }}
+          path: solstone-ios-SIMULATOR-unsigned.zip
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Explain limitations
+        if: always()
+        run: |
+          echo "### iOS simulator-only test" >> "$GITHUB_STEP_SUMMARY"
+          echo "This is not an installable iPhone IPA and cannot be distributed to real iPhones." >> "$GITHUB_STEP_SUMMARY"
+          echo "Real-device testing and release require Apple signing credentials and authorized provisioning." >> "$GITHUB_STEP_SUMMARY"
+          echo "Store publishing stays last, after all functionality is verified." >> "$GITHUB_STEP_SUMMARY"
