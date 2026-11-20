@@ -1,0 +1,56 @@
+.spv{--dark:#0d1118;--panel:#171d28;--line:#2b3441;--orange:#f97316;box-sizing:border-box;min-height:100dvh;background:var(--dark);color:#f8fafc;text-align:left;font-family:system-ui,-apple-system,sans-serif;padding:0 15px 100px;font-size:15px;width:100%;max-width:900px;margin:0 auto}
+.spv *{box-sizing:border-box}.spv button,.spv input,.spv textarea{font-family:inherit}.spv button{cursor:pointer}.spv button:disabled{opacity:.55;cursor:not-allowed}
+.spv-alert{background:#7f3212;color:#fff;margin:0 -15px;padding:9px 15px;display:flex;align-items:center;gap:10px;font-size:12px;line-height:1.3}
+.spv-alert b{background:#fff;color:#9a3412;border-radius:5px;padding:3px 5px;white-space:nowrap}
+.spv-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:18px 0 12px}.spv-brand{display:flex;align-items:center;gap:9px}
+.spv-brand-icon{background:linear-gradient(130deg,#fb923c,#aa3615);font-size:29px;font-weight:900;color:#fff;border-radius:12px;width:48px;height:48px;display:grid;place-items:center;font-family:Georgia,serif;font-style:italic}
+.spv-brand strong{font-size:25px;letter-spacing:-.7px;color:#fff;display:block;line-height:1.1}.spv-brand small{display:block;letter-spacing:.5px;font-size:8.5px;color:#a6abb4;margin-top:4px}
+.spv-user{background:#202936;border:1px solid #394453;border-radius:22px;padding:7px 9px;font-size:12px;display:flex;gap:6px;align-items:center}.spv-user span{white-space:nowrap}
+.spv-languages{display:flex;justify-content:space-between;gap:7px;margin:4px 0 17px}
+.spv-languages button{color:#d1d5db;flex:1;border:1px solid #3c4655;border-radius:9px;background:#19212d;padding:9px 7px;font-size:12px;font-weight:800;letter-spacing:.3px}
+.spv-languages button.active{background:var(--orange);border-color:#fb923c;color:#111827}
+.spv-hero{padding:17px 17px 21px;background:linear-gradient(130deg,#252f3d,#171c26 63%,#342116);border:1px solid #3a3840;border-radius:17px;margin-bottom:14px}
+.spv-upper{font-size:11px;letter-spacing:1.8px;color:#fbad71;text-transform:uppercase;font-weight:800}
+.spv-hero h1{color:#fff;font-size:clamp(23px,5.7vw,32px);font-weight:850;margin:9px 0 5px;letter-spacing:-.7px;line-height:1.18}
+.spv-hero p:last-child{color:#aab4c2;font-size:13px;line-height:1.5}
+.spv-feature{width:100%;border:1px solid #fb923c;border-radius:17px;background:linear-gradient(120deg,#ef741c,#a84b23 70%,#6e2e19);color:white;min-height:118px;text-align:left;padding:15px;display:flex;align-items:center;gap:15px;box-shadow:0 8px 22px #0005;margin-bottom:21px}
+.spv-feature-icon{font-size:33px;flex:none;background:#ffffff28;border-radius:15px;padding:13px}
+.spv-feature-copy{display:grid;gap:3px;flex:1;min-width:0}.spv-feature-copy b{font-size:22px}.spv-feature-copy small{font-size:11.5px;opacity:.94;line-height:1.4}.spv-feature-arrow{font-size:31px;line-height:1}
+.spv-section-title{display:flex;align-items:center;justify-content:space-between;margin:15px 0 12px}
+.spv-section-title h2{color:#f8fafc;font-size:18px;font-weight:750;letter-spacing:-.2px;margin:0}
+.spv-section-title small{font-size:12px;color:#8b97a7}.spv-text-button{color:#fb923c;border:0;background:none;font-size:13px}
+.spv-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:21px}
+.spv-menu{min-height:113px;background:#18212d;color:#f9fafb;border:1px solid #343e4b;border-radius:14px;display:flex;flex-direction:column;align-items:flex-start;padding:15px;gap:5px;text-align:left}
+.spv-menu b{font-size:14px}.spv-menu small{font-size:12px;color:#9caabd}.spv-menu-icon{background:#243d55;border-radius:11px;font-size:23px;padding:8px;min-width:40px;text-align:center;margin-bottom:2px}.spv-menu-icon.gold{background:#624026}
+.spv-inbox{border:1px solid #343e4b;border-radius:14px;background:#171f2b;overflow:hidden}
+.spv-inbox>button{border:0;background:none;border-bottom:1px solid #303949;color:#fff;padding:14px 12px;display:flex;align-items:center;gap:12px;text-align:left;width:100%}
+.spv-inbox>button:last-child{border:0}.spv-circle{width:43px;height:43px;display:grid;place-items:center;border-radius:14px;background:#263444;font-size:23px;flex:none}
+.spv-inbox-copy{min-width:0;display:grid;gap:4px;flex:1}.spv-inbox-copy b{font-size:13px}.spv-inbox-copy small{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#9ba9ba}
+.spv-inbox-arrow{color:#fb923c;font-size:26px}
+.spv-bottom{position:fixed;bottom:0;left:0;right:0;height:70px;background:#111722f5;display:flex;justify-content:center;gap:0;border-top:1px solid #344050;z-index:5;padding-bottom:env(safe-area-inset-bottom)}
+.spv-bottom button{width:33.333%;max-width:220px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;color:#9cabbc;background:none;border:0;font-size:20px}
+.spv-bottom button span{font-size:11px}.spv-bottom button.active{color:#fb923c}
+.spv-chat-head{display:flex;align-items:center;gap:16px;margin:9px 0 15px}.spv-chat-head button{padding:10px;border-radius:9px;background:#273343;color:#fff;border:1px solid #3b4c60;font-size:13px}
+.spv-chat-head h1{margin:0 0 3px;color:#fff;font-size:22px}.spv-chat-head p{font-size:11px;color:#9baabc}
+.spv-prefs{display:flex;gap:11px;flex-wrap:wrap;background:#18212a;border:1px solid #343e4b;border-radius:12px;padding:10px;margin-bottom:13px}
+.spv-prefs label{font-size:11px;white-space:nowrap;display:flex;align-items:center;gap:4px}.spv-prefs input{accent-color:var(--orange)}
+.spv-tabs{display:flex;background:#1c2530;border:1px solid #36414d;border-radius:12px;overflow:hidden;margin-bottom:13px}
+.spv-tabs button{flex:1;border:0;background:transparent;color:#b7c2cd;padding:13px 5px;font-size:12px;font-weight:700}
+.spv-tabs button.active{background:#f97316;color:#111827}
+.spv-thread{border:1px solid #344053;border-radius:16px;background:#161e29;overflow:hidden;display:flex;flex-direction:column;min-height:440px;height:calc(100dvh - 340px)}
+.spv-thread-title{display:flex;align-items:center;gap:10px;padding:14px;background:#212b37;border-bottom:1px solid #374456}
+.spv-thread-title span:last-child{display:grid;gap:4px;min-width:0}.spv-thread-title b{font-size:14px}.spv-thread-title small{font-size:11px;color:#9cacc0}
+.spv-messages{padding:15px 12px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px}
+.spv-messages article{background:#2a3343;border:1px solid #3c475a;border-radius:13px;max-width:86%;padding:11px;align-self:flex-start}
+.spv-messages article.mine{align-self:flex-end;background:#23493c;border-color:#42735d}
+.spv-messages article>div{display:flex;justify-content:space-between;gap:13px;color:#fdba74;font-size:11px;align-items:center}
+.spv-messages article time{font-size:10px;color:#a4b5c8}.spv-messages article p{font-size:14px;color:#fff;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;margin:7px 0 0}
+.spv-messages article img{max-width:100%;max-height:160px;object-fit:contain;margin-top:7px;border-radius:7px}.spv-messages article audio{width:100%;max-width:240px;margin-top:8px}
+.spv-compose{border-top:1px solid #3a4756;padding:11px;background:#202b39}.spv-compose textarea{width:100%;border:1px solid #516177;background:#101722;border-radius:10px;color:#fff;padding:11px;font-size:14px;resize:vertical}
+.spv-compose>div:last-child{display:flex;align-items:center;gap:6px;margin-top:10px;flex-wrap:wrap}
+.spv-upload,.spv-voice,.spv-send{background:#2e3c4c;color:#fff;border:1px solid #46566e;border-radius:8px;font-size:11px;padding:9px;display:inline-flex;align-items:center;justify-content:center;min-height:40px}
+.spv-upload input{display:none}.spv-voice{background:#4c3342}.spv-send{background:#f97316;color:#121212;border:0;font-weight:800;margin-left:auto}.spv-file{background:#364653;color:#fff;padding:7px;border-radius:7px;margin-bottom:7px;font-size:12px;display:flex;justify-content:space-between;gap:6px}
+.spv-file button{border:0;background:#b45309;color:#fff;border-radius:4px}
+.spv-toast{position:fixed;bottom:79px;left:12px;right:12px;max-width:600px;margin:0 auto;background:#813d17;color:#fff;padding:12px;border-radius:10px;display:flex;justify-content:space-between;gap:10px;box-shadow:0 6px 25px #0008;z-index:20}
+.spv-toast button{color:#fff;background:none;border:0}
+@media(max-width:380px){.spv{padding-left:10px;padding-right:10px}.spv-alert{margin:0 -10px}.spv-brand strong{font-size:21px}.spv-user span{display:none}.spv-prefs{gap:7px}.spv-thread{height:calc(100dvh - 330px)}.spv-feature-copy b{font-size:19px}.spv-feature-icon{font-size:27px;padding:10px}}
