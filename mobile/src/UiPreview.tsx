@@ -263,10 +263,10 @@ export default function UiPreview(){
           </div> :
           <p className="spv-empty-day">{cl.noPlans}</p>}
       </section>
-      <div className="spv-section-title"><h2>{previewRole==="admin"?"STONE BOUTIQUE — Admin":"Moja aplikacija"}</h2>
-        <small>{previewRole==="admin"?"Web redoslijed izbornika":"Brzi pristup"}</small></div>
-      <div className={"spv-cards"+(previewRole==="admin"?" spv-admin-cards":"")}>
-        {navItems.filter(item=>previewRole==="admin" || !adminOnlyMenus.has(item.key))
+      <div className="spv-section-title"><h2>Moja aplikacija</h2>
+        <small>Brzi pristup</small></div>
+      <div className="spv-cards">
+        {navItems.filter(item=>!adminOnlyMenus.has(item.key))
           .map(item=><button key={item.key} type="button"
             className={"spv-menu spv-tone-"+item.tone}
             onClick={()=>alertDemo(navLabels[lang][item.key])}>
