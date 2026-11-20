@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./UiPreview.css";
+import { SOLSTONE_APPROVED_LOGO } from "./approvedLogo";
 
 type Language="de"|"ba"|"uz"|"cz"|"en";
 type ChatKind="site"|"private"|"announcement";
@@ -17,12 +18,12 @@ const menus=[
   ["🚗","Auta","Vozila firme"],
 ];
 const names:Record<Language,string>={de:"Deutsch",ba:"Bosanski",uz:"O‘zbek",cz:"Čeština",en:"English"};
-const labels:Record<Language,{welcome:string,subtitle:string,chat:string,site:string,private:string,announcement:string,type:string,send:string,attach:string,voice:string,stop:string}> = {
-  de:{welcome:"Willkommen",subtitle:"Heute bei Solstone",chat:"Team Chat",site:"Gruppen",private:"Privat",announcement:"Firmeninfo",type:"Nachricht schreiben …",send:"Senden",attach:"Foto / PDF",voice:"Sprachnachricht",stop:"Stopp"},
-  ba:{welcome:"Dobrodošli",subtitle:"Danas u Solstone",chat:"Team Chat",site:"Grupni",private:"Privatno",announcement:"Obavijesti",type:"Napiši poruku …",send:"Pošalji",attach:"Slika / PDF",voice:"Glasovna",stop:"Zaustavi"},
-  uz:{welcome:"Xush kelibsiz",subtitle:"Solstone bugun",chat:"Jamoa suhbati",site:"Guruhlar",private:"Shaxsiy",announcement:"E’lonlar",type:"Xabar yozing …",send:"Yuborish",attach:"Rasm / PDF",voice:"Ovozli",stop:"To‘xtatish"},
-  cz:{welcome:"Vítejte",subtitle:"Dnes v Solstone",chat:"Týmový chat",site:"Skupiny",private:"Soukromé",announcement:"Oznámení",type:"Napište zprávu …",send:"Odeslat",attach:"Foto / PDF",voice:"Hlasová",stop:"Stop"},
-  en:{welcome:"Welcome",subtitle:"Today in Solstone",chat:"Team Chat",site:"Groups",private:"Private",announcement:"Announcements",type:"Write a message …",send:"Send",attach:"Photo / PDF",voice:"Voice note",stop:"Stop"},
+const labels:Record<Language,{chat:string,site:string,private:string,announcement:string,type:string,send:string,attach:string,voice:string,stop:string}> = {
+  de:{chat:"Team Chat",site:"Gruppen",private:"Privat",announcement:"Firmeninfo",type:"Nachricht schreiben …",send:"Senden",attach:"Foto / PDF",voice:"Sprachnachricht",stop:"Stopp"},
+  ba:{chat:"Team Chat",site:"Grupni",private:"Privatno",announcement:"Obavijesti",type:"Napiši poruku …",send:"Pošalji",attach:"Slika / PDF",voice:"Glasovna",stop:"Zaustavi"},
+  uz:{chat:"Jamoa suhbati",site:"Guruhlar",private:"Shaxsiy",announcement:"E’lonlar",type:"Xabar yozing …",send:"Yuborish",attach:"Rasm / PDF",voice:"Ovozli",stop:"To‘xtatish"},
+  cz:{chat:"Týmový chat",site:"Skupiny",private:"Soukromé",announcement:"Oznámení",type:"Napište zprávu …",send:"Odeslat",attach:"Foto / PDF",voice:"Hlasová",stop:"Stop"},
+  en:{chat:"Team Chat",site:"Groups",private:"Private",announcement:"Announcements",type:"Write a message …",send:"Send",attach:"Photo / PDF",voice:"Voice note",stop:"Stop"},
 };
 const initial:Record<ChatKind,ChatMessage[]>={
   site:[
@@ -41,7 +42,6 @@ const kinds:ChatKind[]=["site","private","announcement"];
 export default function UiPreview(){
   const [lang,setLang]=useState<Language>("ba");
   const [screen,setScreen]=useState<Screen>("home");
-  const [siteFullscreen,setSiteFullscreen]=useState(false);
   const [kind,setKind]=useState<ChatKind>("site");
   const [text,setText]=useState("");
   const [messages,setMessages]=useState(initial);
@@ -96,7 +96,7 @@ export default function UiPreview(){
     }catch(e){setNotice(e instanceof Error?e.message:"Mikrofon nije dostupan.");}
   }
   function stopVoice(){if(recorder.current?.state==="recording")recorder.current.stop()}
-  function enterChat(group:ChatKind="site",expand=false){setKind(group);setScreen("chat");setSiteFullscreen(expand&&group==="site");setNotice("");}
+  function enterChat(group:ChatKind="site"){setKind(group);setScreen("chat");setNotice("");}
 
   const titleFor=(group:ChatKind)=>group==="site"?"🏗️ Baustelle – Primjer":group==="private"?"👤 Privatni razgovor – Primjer":"📢 Obavijesti firme";
 
@@ -106,27 +106,19 @@ export default function UiPreview(){
       <span>Nije prava prijava ni aktivni chat • ništa se ne šalje u bazu</span>
     </div>
     <header className="spv-header">
-      <div className="spv-brand"><span className="spv-brand-icon">S</span>
+      <div className="spv-brand"><img className="spv-brand-icon" src={SOLSTONE_APPROVED_LOGO} alt="Solstone – originalni logo" />
         <span><strong>Solstone</strong><small>BAUSTELLE · NOCKER & BERNARDI</small></span>
       </div>
       <div className="spv-user">👷 <span>Demo korisnik</span></div>
     </header>
-    <button type="button" className={"spv-chat-corner"+(screen==="chat"?" open":"")+(siteFullscreen?" spv-corner-hidden":"")}
-      aria-label={screen==="chat"?"Zatvori Team Chat":"Otvori Team Chat"}
-      aria-expanded={screen==="chat"}
-      onClick={()=>{if(screen==="chat"){setScreen("home");setSiteFullscreen(false);}else enterChat("site");}}>
-      {screen==="chat"?"✕":"💬"}
-    </button>
+    {screen==="home" && <button type="button" className="spv-chat-corner"
+      aria-label="Otvori Team Chat kao novu stranicu"
+      onClick={()=>enterChat("site")}>💬</button>}
     <nav className="spv-languages">
       {(Object.keys(names) as Language[]).map(code=>
         <button key={code} className={code===lang?"active":""} onClick={()=>setLang(code)} title={names[code]}>{code.toUpperCase()}</button>)}
     </nav>
-    <>
-      <div className="spv-hero">
-        <p className="spv-upper">{t.subtitle}</p>
-        <h1>{t.welcome} <span>👋</span></h1>
-        <p>Vaša gradilišta, zadaci i komunikacija na jednom mjestu.</p>
-      </div>
+    {screen==="home" && <>
       <div className="spv-section-title"><h2>Moja aplikacija</h2><small>Brzi pristup</small></div>
       <div className="spv-cards">
         {menus.map(([icon,name,desc],idx)=>
@@ -135,13 +127,12 @@ export default function UiPreview(){
             <b>{name}</b><small>{desc}</small>
           </button>)}
       </div>
-    </>
-    {screen==="chat" && <aside className={"spv-chat-float-panel"+(siteFullscreen?" spv-chat-group-fullscreen":"")}
-      role="dialog" aria-label="Solstone Team Chat" aria-modal="false">
+    </>}
+    {screen==="chat" && <section className="spv-chat-page"
+      aria-label="Solstone Team Chat – zasebna stranica">
       <div className="spv-chat-head">
         <div><h1>💬 {t.chat}</h1><p>🏗️ Grupe · 👤 Privatno · 📢 Obavijesti · {count}</p></div>
-        {siteFullscreen && <button aria-label="Smanji grupni chat" onClick={()=>setSiteFullscreen(false)}>↙ Smanji</button>}
-        <button aria-label="Zatvori chat" onClick={()=>{setScreen("home");setSiteFullscreen(false);}}>✕</button>
+        <button aria-label="Nazad na početnu" onClick={()=>setScreen("home")}>← Početna</button>
       </div>
       <div className="spv-prefs">
         <label><input type="checkbox" checked={sound} onChange={e=>setSound(e.target.checked)}/> 🔔 Zvuk</label>
@@ -149,7 +140,7 @@ export default function UiPreview(){
         <label><input type="checkbox" checked={autoTranslation} onChange={e=>setAutoTranslation(e.target.checked)}/> 🌐 Auto prevod</label>
       </div>
       <nav className="spv-tabs">{kinds.map(group=>
-        <button key={group} className={kind===group?"active":""} onClick={()=>{setKind(group);setSiteFullscreen(group==="site");setNotice("");}}>
+        <button key={group} className={kind===group?"active":""} onClick={()=>{setKind(group);setNotice("");}}>
           {group==="site"?t.site:group==="private"?t.private:t.announcement}
         </button>)}</nav>
       <section className="spv-thread">
@@ -173,10 +164,10 @@ export default function UiPreview(){
             <button className="spv-send" disabled={!text.trim()&&!file} onClick={send}>➤ {t.send}</button></div>
         </div>
       </section>
-    </aside>}
+    </section>}
     {notice&&<div className="spv-toast" role="alert"><span>{notice}</span><button onClick={()=>setNotice("")}>✕</button></div>}
-    <footer className="spv-bottom"><button onClick={()=>setScreen("home")} className="active">⌂ <span>Početna</span></button>
-      <button onClick={()=>alertDemo("Baustelle")}>🏗️ <span>Baustelle</span></button>
+    <footer className="spv-bottom"><button onClick={()=>setScreen("home")} className={screen==="home"?"active":""}>⌂ <span>Početna</span></button>
+      <button onClick={()=>enterChat("site")} className={screen==="chat"?"active":""}>💬 <span>Chat</span></button>
       <button onClick={()=>alertDemo("Moj profil")}>♙ <span>Profil</span></button></footer>
   </div>;
 }
