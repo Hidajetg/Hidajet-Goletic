@@ -54,23 +54,26 @@ export default function KalendarPage() {
   }
 
   async function loadData(name: string, adminStatus: boolean) {
-    const workersRes = await supabase.from("workers").select("*").order("name");
-
-    const activeWorkers = (workersRes.data || []).filter(
-      (w: any) => w.role !== "admin"
-    );
-
-    setWorkers(activeWorkers);
-
-    const baustellenRes = await supabase
-      .from("baustellen")
-      .select("*")
-      .eq("status", "Aktiv")
-      .order("naziv");
-
-    setBaustellen(baustellenRes.data || []);
-
-    await cleanupOldPlans();
+    if (adminStatus) {
+      // Preserve the original administrator calendar and its controls.
+      const workersRes = await supabase.from("workers").select("*").order("name");
+      const activeWorkers = (workersRes.data || []).filter(
+        (w: any) => w.role !== "admin"
+      );
+      setWorkers(activeWorkers);
+      const baustellenRes = await supabase
+        .from("baustellen")
+        .select("*")
+        .eq("status", "Aktiv")
+        .order("naziv");
+      setBaustellen(baustellenRes.data || []);
+      await cleanupOldPlans();
+    } else {
+      // Workers do not need the full workers/sites lists and must never
+      // trigger global calendar deletions simply by opening their schedule.
+      setWorkers([]);
+      setBaustellen([]);
+    }
     await loadPlans(name, adminStatus);
   }
 
