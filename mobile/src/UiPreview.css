@@ -486,3 +486,16 @@
 .spv .spv-worker-home .spv-menu{min-height:42px;padding:7px 5px;gap:2px}
 .spv .spv-worker-home .spv-menu b{font-size:11px}
 .spv .spv-worker-home .spv-menu-icon{font-size:11px;margin-right:3px}
+
+
+/* BA is the sole language offered in the mobile visual demo. */
+.spv .spv-ba-language,
+.spv .spv-only-ba{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:5px 9px;min-height:28px;border:1px solid #465973;
+  border-radius:7px;background:#24354a;color:#fdba74;
+  font-size:11px;font-weight:700;
+}
+.spv .spv-admin-web-langs .spv-only-ba{
+  color:#fff;background:#f97316;border-color:#f97316;font-size:13px;
+}
