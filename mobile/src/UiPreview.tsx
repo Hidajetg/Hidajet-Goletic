@@ -110,24 +110,22 @@ export default function UiPreview(){
       </div>
       <div className="spv-user">👷 <span>Demo korisnik</span></div>
     </header>
+    <button type="button" className={"spv-chat-corner"+(screen==="chat"?" open":"")}
+      aria-label={screen==="chat"?"Zatvori Team Chat":"Otvori Team Chat"}
+      aria-expanded={screen==="chat"}
+      onClick={()=>setScreen(old=>old==="chat"?"home":"chat")}>
+      {screen==="chat"?"✕":"💬"}
+    </button>
     <nav className="spv-languages">
       {(Object.keys(names) as Language[]).map(code=>
         <button key={code} className={code===lang?"active":""} onClick={()=>setLang(code)} title={names[code]}>{code.toUpperCase()}</button>)}
     </nav>
-    {screen==="home"?<>
+    <>
       <div className="spv-hero">
         <p className="spv-upper">{t.subtitle}</p>
         <h1>{t.welcome} <span>👋</span></h1>
         <p>Vaša gradilišta, zadaci i komunikacija na jednom mjestu.</p>
       </div>
-      <button className="spv-feature" onClick={()=>enterChat("site")}>
-        <span className="spv-feature-icon">💬</span>
-        <span className="spv-feature-copy"><b>{t.chat}</b>
-          <small>Privatno · Baustelle · Obavijesti</small>
-          <small>📷 Slike · 📄 PDF · 🎙️ Glas · 🌐 5 jezika</small>
-        </span>
-        <span className="spv-feature-arrow">›</span>
-      </button>
       <div className="spv-section-title"><h2>Moja aplikacija</h2><small>Brzi pristup</small></div>
       <div className="spv-cards">
         {menus.map(([icon,name,desc],idx)=>
@@ -136,19 +134,12 @@ export default function UiPreview(){
             <b>{name}</b><small>{desc}</small>
           </button>)}
       </div>
-      <div className="spv-section-title"><h2>Posljednje poruke</h2>
-        <button className="spv-text-button" onClick={()=>enterChat("site")}>Sve poruke ›</button></div>
-      <div className="spv-inbox">
-        {kinds.map(group=><button key={group} onClick={()=>enterChat(group)}>
-          <span className="spv-circle">{group==="site"?"🏗️":group==="private"?"👤":"📢"}</span>
-          <span className="spv-inbox-copy"><b>{titleFor(group)}</b>
-            <small>{messages[group].at(-1)?.body.slice(0,72)}</small></span>
-          <span className="spv-inbox-arrow">›</span>
-        </button>)}
-      </div>
-    </>:<>
-      <div className="spv-chat-head"><button onClick={()=>setScreen("home")}>← Početna</button>
-        <div><h1>💬 {t.chat}</h1><p>3 razgovora · {count} demo poruka</p></div>
+    </>
+    {screen==="chat" && <aside className="spv-chat-float-panel"
+      role="dialog" aria-label="Solstone Team Chat" aria-modal="false">
+      <div className="spv-chat-head">
+        <div><h1>💬 {t.chat}</h1><p>🏗️ Grupe · 👤 Privatno · 📢 Obavijesti</p></div>
+        <button aria-label="Zatvori chat" onClick={()=>setScreen("home")}>✕</button>
       </div>
       <div className="spv-prefs">
         <label><input type="checkbox" checked={sound} onChange={e=>setSound(e.target.checked)}/> 🔔 Zvuk</label>
@@ -180,10 +171,10 @@ export default function UiPreview(){
             <button className="spv-send" disabled={!text.trim()&&!file} onClick={send}>➤ {t.send}</button></div>
         </div>
       </section>
-    </>}
+    </aside>}
     {notice&&<div className="spv-toast" role="alert"><span>{notice}</span><button onClick={()=>setNotice("")}>✕</button></div>}
-    <footer className="spv-bottom"><button onClick={()=>setScreen("home")} className={screen==="home"?"active":""}>⌂ <span>Početna</span></button>
-      <button onClick={()=>enterChat("site")} className={screen==="chat"?"active":""}>💬 <span>Chat</span></button>
+    <footer className="spv-bottom"><button onClick={()=>setScreen("home")} className="active">⌂ <span>Početna</span></button>
+      <button onClick={()=>alertDemo("Baustelle")}>🏗️ <span>Baustelle</span></button>
       <button onClick={()=>alertDemo("Moj profil")}>♙ <span>Profil</span></button></footer>
   </div>;
 }
