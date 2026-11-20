@@ -1,0 +1,50 @@
+name: Solstone Web/PIN - unauthenticated smoke checks
+
+on:
+  push:
+    branches:
+      - mobile-android-ios-test-2026-11-20
+    paths:
+      - '.github/workflows/web-compat-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-web-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      # Candidate Solstone production origin; keep unchanged unless user verifies a different domain.
+      SOLSTONE_WEB_URL: https://hidajet-goletic-frno.vercel.app
+    steps:
+      - name: Verify unauthenticated login page and PIN flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          origin="$SOLSTONE_WEB_URL"
+          html="$RUNNER_TEMP/login.html"
+          headers="$RUNNER_TEMP/login.headers"
+          status=$(curl --silent --show-error --location --max-redirs 5 --max-time 40 --output "$html" --dump-header "$headers" --write-out '%{http_code}' "$origin/login")
+          echo "Login page HTTP: $status"
+          echo "### Solstone web/PIN compatibility (no credentials used)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Login page: HTTP $status" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 200 ]; then
+            echo "::error::Login did not return HTTP 200; inspect production URL and possible Vercel protection."
+            exit 1
+          fi
+          if ! grep -Eiq 'PIN|Mitarbeiter|Anmelden|solstone|stone boutique' "$html"; then
+            echo "::error::No Solstone worker PIN login markers were found. The URL may point to the wrong app."
+            exit 1
+          fi
+          # The session endpoint MUST NOT grant unauthenticated access.
+          auth_status=$(curl --silent --show-error --max-time 30 --output "$RUNNER_TEMP/auth-no-cookie.json" --write-out '%{http_code}' "$origin/api/auth/login")
+          echo "No-cookie session check: HTTP $auth_status" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$auth_status" != 401 ]; then
+            echo "::error::Expected 401 for an anonymous session. Got HTTP $auth_status"
+            exit 1
+          fi
+          echo "Login page and anonymous session guard passed." >> "$GITHUB_STEP_SUMMARY"
+          # This does NOT prove a valid worker PIN, mobile cookies, permissions or media uploads work.
+          echo "No PIN was submitted. Worker/admin, camera, files and role separation still require device testing." >> "$GITHUB_STEP_SUMMARY"
