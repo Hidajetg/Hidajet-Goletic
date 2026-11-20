@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
-import { type AppLanguage, readAppLanguage, saveAppLanguage, localeForLanguage } from "../lib/language";
+import { type AppLanguage, saveAppLanguage, localeForLanguage } from "../lib/language";
 import { SOLSTONE_APPROVED_LOGO } from "../components/solstone-approved-logo";
 import AdminWebDashboard from "./AdminWebDashboard";
 
@@ -336,14 +336,13 @@ export default function DashboardPage() {
   const [materialOrders, setMaterialOrders] = useState<any[]>([]);
   const [carWarnings, setCarWarnings] = useState<any[]>([]);
 
-  const [lang, setLang] = useState("ba");
+  const lang = "ba" as const;
 
   const t = translations[lang] || translations.ba;
 
   useEffect(() => {
-    const savedLang = readAppLanguage("ba");
-    setLang(savedLang);
-
+    // Only the Bosnian language is shown in the staged mobile experience.
+    saveAppLanguage("ba");
     initializeDashboard();
   }, []);
 
@@ -572,11 +571,6 @@ export default function DashboardPage() {
     setCarWarnings(data || []);
   }
 
-  function changeLanguage(newLang: AppLanguage) {
-    saveAppLanguage(newLang);
-    setLang(newLang);
-  }
-
   async function logout() {
     try {
       await fetch("/api/auth/logout", {
@@ -640,23 +634,8 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div style={languageBoxStyle}>
-        <label htmlFor="solstone-dashboard-language" style={{ color: "#fdba74", fontSize: 12 }}>
-          🌐
-        </label>
-        <select
-          id="solstone-dashboard-language"
-          aria-label="Sprache / Jezik / Til"
-          value={lang}
-          onChange={(event) => changeLanguage(event.target.value as AppLanguage)}
-          style={languageSelectStyle}
-        >
-          <option value="de">DE — Deutsch</option>
-          <option value="ba">BA — Bosanski</option>
-          <option value="uz">UZ — O‘zbek</option>
-          <option value="cz">CZ — Čeština</option>
-          <option value="en">EN — English</option>
-        </select>
+      <div style={languageBoxStyle} aria-label="Jezik: bosanski">
+        <span style={{ color: "#fdba74", fontSize: 11, fontWeight: 700 }}>BA</span>
       </div>
 
       {!isAdmin && (
