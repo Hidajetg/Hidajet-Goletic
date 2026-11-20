@@ -107,3 +107,41 @@
  .spv-chat-float-panel{top:73px;height:calc(100dvh - 83px);min-height:150px}
  .spv-chat-corner{top:15px}
 }
+
+
+/* Group chat uses the whole display after the Grupe tab is selected.
+   Other tabs retain the small, top-corner chat panel. */
+.spv-chat-corner.spv-corner-hidden{display:none}
+.spv-chat-float-panel.spv-chat-group-fullscreen{
+  position:fixed;inset:0;top:0;bottom:0;left:0;right:0;
+  width:100vw;max-width:none;height:100dvh;max-height:none;min-height:0;
+  border:0;border-radius:0;box-shadow:none;z-index:105;
+  background:#111927;
+}
+.spv-chat-group-fullscreen .spv-chat-head{
+  min-height:60px;
+  padding:calc(12px + env(safe-area-inset-top,0px))
+    max(13px,env(safe-area-inset-right,0px))
+    12px max(13px,env(safe-area-inset-left,0px));
+}
+.spv-chat-group-fullscreen .spv-chat-head h1{font-size:18px}
+.spv-chat-group-fullscreen .spv-thread{flex:1;min-height:0;height:auto}
+.spv-chat-group-fullscreen .spv-messages{flex:1;min-height:0}
+.spv-chat-group-fullscreen .spv-messages article p{font-size:14px}
+.spv-chat-group-fullscreen .spv-compose{
+  padding:12px max(12px,env(safe-area-inset-right,0px))
+    calc(12px + env(safe-area-inset-bottom,0px))
+    max(12px,env(safe-area-inset-left,0px))
+}
+.spv-chat-group-fullscreen .spv-compose textarea{font-size:15px;min-height:56px}
+.spv-chat-group-fullscreen .spv-tabs button{font-size:13px;padding:12px}
+@media(max-width:410px){
+  .spv-chat-float-panel.spv-chat-group-fullscreen{
+    inset:0;top:0;bottom:0;left:0;right:0;width:100vw;height:100dvh;min-height:0
+  }
+}
+@media(max-height:580px){
+  .spv-chat-float-panel.spv-chat-group-fullscreen{
+    inset:0;top:0;bottom:0;left:0;right:0;width:100vw;height:100dvh;min-height:0
+  }
+}
