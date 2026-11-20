@@ -82,6 +82,14 @@ async function api<T>(url:string,init?:RequestInit):Promise<T>{
   if (!response.ok) throw new Error(String(data.error ?? "Server error"));
   return data as T;
 }
+// Embedded within the existing top-corner chat launcher. Never send messages
+// or credentials to a cross-origin window; this only controls panel sizing.
+function notifyChatShell(mode: "group-fullscreen" | "compact") {
+  if (typeof window !== "undefined" && window.parent !== window) {
+    window.parent.postMessage({ type: "solstone-chat-view", mode }, window.location.origin);
+  }
+}
+
 function postBody(body:unknown):RequestInit {
   return {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)};
 }
@@ -211,6 +219,7 @@ export default function TeamChatPage(){
       }
       setCurrent(real);
       setTab(real.kind);
+      notifyChatShell(real.kind === "site" ? "group-fullscreen" : "compact");
     }catch(e){setError(e instanceof Error?e.message:"Chat error");}
   }
 
@@ -223,7 +232,7 @@ export default function TeamChatPage(){
       const worker=workers.find((w)=>w.id===targetId);
       const room:Room={id:result.id,kind:"private",label:worker?.name ?? "Privat",
         unread:0,lastMessageId:null,lastSender:null,lastAt:null};
-      setCurrent(room);setTab("private");
+      setCurrent(room);setTab("private");notifyChatShell("compact");
       void loadRooms(true);
     }catch(e){setError(e instanceof Error?e.message:"Chat error");}
   }
@@ -353,7 +362,7 @@ export default function TeamChatPage(){
               const labels={site:t.sites,private:t.private,announcements:t.announcements};
               const unread=rooms.filter((r)=>r.kind===kind).reduce((a,r)=>a+r.unread,0);
               return <button key={kind} className={tab===kind?"tc-selected":""}
-                onClick={()=>setTab(kind)}>{labels[kind]} {unread>0 && <b>{unread}</b>}</button>;
+                onClick={()=>{setTab(kind);notifyChatShell(kind==="site"?"group-fullscreen":"compact");}}>{labels[kind]} {unread>0 && <b>{unread}</b>}</button>;
             })}
           </nav>
           {tab==="private" && <div className="tc-new">
