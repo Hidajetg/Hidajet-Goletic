@@ -55,6 +55,14 @@ jobs:
           npx cap add ios
           npx cap sync ios
 
+      - name: Declare camera and microphone reasons for chat media
+        shell: bash
+        run: |
+          plist="ios/App/App/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Add :NSMicrophoneUsageDescription string Solstone uses your microphone only when you record a voice message.' "$plist"
+          /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string Solstone uses your camera only when you attach a Baustelle photo.' "$plist"
+          /usr/libexec/PlistBuddy -c 'Add :NSPhotoLibraryUsageDescription string Solstone lets you select Baustelle images for chat messages.' "$plist"
+
       - name: Validate remote web URL and bundle identifier
         shell: bash
         run: |
