@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   const dayMs = 86_400_000;
   const parsed = Date.parse(date + "T00:00:00Z");
   const now = Date.parse(today + "T00:00:00Z");
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
       !Number.isFinite(parsed) ||
       new Date(parsed).toISOString().slice(0, 10) !== date ||
       Math.abs(parsed - now) > 365 * dayMs) {
