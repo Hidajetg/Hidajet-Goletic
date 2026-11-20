@@ -102,7 +102,24 @@ jobs:
 
       - name: Build APK with FLAG_SECURE still enabled
         working-directory: mobile/android
-        run: bash ./gradlew --no-daemon --console=plain assembleDebug
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Maven Central / Google Maven occasionally fail transiently on
+          # GitHub runners; retry dependency resolution without changing
+          # application code or removing screenshot protection.
+          for attempt in 1 2 3; do
+            if bash ./gradlew --no-daemon --console=plain assembleDebug; then
+              echo "Android build passed on attempt $attempt"
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Could not fetch Android build dependencies after 3 attempts."
+              exit 1
+            fi
+            echo "::warning::Temporary Gradle dependency error; trying again."
+            sleep 12
+          done
 
       - name: Validate test APK
         run: |
