@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.URLUtil;
 import android.webkit.WebView;
@@ -32,6 +33,11 @@ public class MainActivity extends BridgeActivity {
         }
 
         super.onCreate(savedInstanceState);
+
+        // Entire native Solstone window is private, not only Team Chat.
+        // Android blocks system screenshots, display recording and recent-app
+        // previews of this activity. No worker/admin bypass in this version.
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
 
         if (bridge != null && bridge.getWebView() != null) {
             bridge.getWebView().setDownloadListener(
