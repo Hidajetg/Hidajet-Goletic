@@ -1,0 +1,67 @@
+name: Solstone Team Chat - isolated database security tests
+
+on:
+  push:
+    branches:
+      - mobile-android-ios-test-2026-11-20
+    paths:
+      - '.github/workflows/team-chat-schema-test.yml'
+      - 'staging/solstone-team-chat-schema.sql'
+      - 'staging/team-chat-test-fixtures.sql'
+      - 'staging/team-chat-schema-assertions.sql'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  schema:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: postgres
+          POSTGRES_DB: solstone_staging_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d solstone_staging_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check out isolated development branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install client if missing
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+
+      - name: Apply fixtures, isolated schema and security assertions
+        env:
+          PGPASSWORD: test
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: solstone_staging_test
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f staging/team-chat-test-fixtures.sql
+          psql -v ON_ERROR_STOP=1 -f staging/solstone-team-chat-schema.sql
+          psql -v ON_ERROR_STOP=1 -f staging/team-chat-schema-assertions.sql
+
+      - name: Report safety scope
+        if: always()
+        run: |
+          echo "### Isolated PostgreSQL test only" >> "$GITHUB_STEP_SUMMARY"
+          echo "No production Supabase connection, credentials or data are used." >> "$GITHUB_STEP_SUMMARY"
+          echo "Passing SQL checks validates structure, RLS and basic constraints; it does NOT prove worker API authorization in a live mobile app." >> "$GITHUB_STEP_SUMMARY"
