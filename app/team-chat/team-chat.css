@@ -222,3 +222,22 @@
     width:35px;flex-basis:35px;height:40px;min-height:40px;
   }
 }
+
+
+/* Shared language control is a single dropdown in the settings panel. */
+.tc-settings-open .tc-lang{
+  display:flex;align-items:center;gap:8px;max-width:260px;
+  color:#fdba74;font-size:14px;min-width:0;
+}
+.tc-settings-open .tc-lang select{
+  flex:1;min-width:0;max-width:226px;background:#1f3044;
+  color:#fff;border:1px solid #50627b;border-radius:9px;
+  padding:7px 10px;min-height:36px;font-size:12px;
+}
+/* Icon glyphs are 20% smaller, but hit areas stay touch friendly. */
+.tc-root .tc-settings-button,
+.tc-root .tc-back{font-size:16px}
+.tc-root .tc-compose-line .tc-upload,
+.tc-root .tc-compose-line .tc-record{font-size:16px}
+.tc-root .tc-compose-line .tc-send{font-size:18px}
+.tc-root .tc-back-thread{font-size:11px}
