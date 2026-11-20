@@ -231,7 +231,6 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [authLoading, setAuthLoading] = useState(true);
-  const [chatUnread,setChatUnread] = useState(0);
   const [workerName, setWorkerName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -249,15 +248,6 @@ export default function DashboardPage() {
     setLang(savedLang);
 
     initializeDashboard();
-  }, []);
-
-  useEffect(() => {
-    const onUnread = (event:Event) => {
-      const count = Number((event as CustomEvent<number>).detail);
-      setChatUnread(Number.isFinite(count) ? count : 0);
-    };
-    window.addEventListener("solstone-chat-unread", onUnread);
-    return () => window.removeEventListener("solstone-chat-unread", onUnread);
   }, []);
 
   async function initializeDashboard() {
@@ -516,22 +506,6 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <Link href="/team-chat" style={featuredChatStyle}>
-        <span aria-hidden="true" style={{ fontSize: 30 }}>💬</span>
-        <span style={{ flex: 1, textAlign: "left" }}>
-          <strong style={{ display: "block", fontSize: 19 }}>{t.chat}</strong>
-          <small style={{ display: "block", fontWeight: 400, opacity: 0.9, marginTop: 3 }}>
-            {lang === "de" ? "Privat • Baustellen • Firmenmitteilungen" :
-             lang === "ba" ? "Privatne poruke • Baustelle • Obavijesti firme" :
-             lang === "uz" ? "Shaxsiy suhbat • Qurilish • E’lonlar" :
-             lang === "cz" ? "Soukromé zprávy • Stavby • Oznámení" :
-             "Private messages • Sites • Announcements"}
-          </small>
-        </span>
-        {chatUnread > 0 && <span style={chatBadgeStyle}>{chatUnread > 99 ? "99+" : chatUnread}</span>}
-        <span aria-hidden="true" style={{ fontSize: 22 }}>›</span>
-      </Link>
-
       <div style={gridStyle}>
         <Link href="/baustellen" style={buttonStyle}>
           🏗️ {t.baustelle}
@@ -684,33 +658,6 @@ const mainStyle: CSSProperties = {
   minHeight: "100vh",
   color: "#ffffff",
   padding: "20px",
-};
-
-const featuredChatStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 14,
-  color: "#ffffff",
-  textDecoration: "none",
-  border: "1px solid #fb923c",
-  borderRadius: 16,
-  background: "linear-gradient(115deg, #d45b17 0%, #a63b12 48%, #4c2515 100%)",
-  boxShadow: "0 6px 22px #00000055",
-  padding: "17px 19px",
-  marginBottom: 18,
-  minHeight: 86,
-  maxWidth: 1000,
-  cursor: "pointer",
-};
-const chatBadgeStyle: CSSProperties = {
-  background: "#ffffff",
-  color: "#b45309",
-  fontWeight: 800,
-  minWidth: 26,
-  padding: "5px 9px",
-  textAlign: "center",
-  borderRadius: 30,
-  fontSize: 13,
 };
 
 const titleStyle: CSSProperties = {
