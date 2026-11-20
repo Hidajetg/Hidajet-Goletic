@@ -47,7 +47,7 @@ jobs:
           echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
 
       - name: Install locked JavaScript dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: Build bundled Vite web assets
         run: npm run build
@@ -69,8 +69,8 @@ jobs:
           test -n "$(find android/app/src/main/assets/public/assets -maxdepth 1 -type f -name '*.js' -print -quit)"
           echo "Bundled frontend and Android assets verified."
 
-      - name: Assemble unsigned-for-release debug APK
-        run: bash ./gradlew --no-daemon assembleDebug
+      - name: Assemble debug APK with diagnostic logs
+        run: bash ./gradlew --no-daemon --stacktrace --console=plain assembleDebug
         working-directory: mobile/android
 
       - name: Verify APK output
@@ -82,6 +82,19 @@ jobs:
           unzip -l "$APK" | grep -q 'assets/public/index.html'
           echo "APK contains bundled web app."
           sha256sum "$APK"
+
+      - name: Explain failed stage in job summary
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo '## Android debug build failed'
+            echo ''
+            echo 'Open the first failed step above. Expand its log and copy the error lines (omit secrets).'
+            echo 'If the failure is in npm, inspect the **Install locked JavaScript dependencies** or **Build bundled Vite web assets** step.'
+            echo 'If the failure is in Gradle, inspect **Assemble debug APK with diagnostic logs**.'
+            echo 'The build is a test APK only; the web production app has not been changed.'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
