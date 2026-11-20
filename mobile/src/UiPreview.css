@@ -55,93 +55,68 @@
 .spv-toast button{color:#fff;background:none;border:0}
 @media(max-width:380px){.spv{padding-left:10px;padding-right:10px}.spv-alert{margin:0 -10px}.spv-brand strong{font-size:21px}.spv-user span{display:none}.spv-prefs{gap:7px}.spv-thread{height:calc(100dvh - 330px)}.spv-feature-copy b{font-size:19px}.spv-feature-icon{font-size:27px;padding:10px}}
 
-/* ChatGPT-style corner bubble; chat is never a full-screen destination. */
+
+/* Approved logo, replacing the placeholder letter S. */
+.spv .spv-brand-icon{
+  width:64px;height:64px;min-width:64px;display:block;
+  object-fit:cover;padding:0;background:none;border-radius:14px;
+  border:1px solid #8b5a36;box-shadow:0 4px 12px #0007;
+}
+.spv-header{padding:18px 0 14px}
+.spv-brand{gap:13px}
+.spv-brand strong{font-size:27px}
+.spv-languages{margin:4px 0 22px}
+
+/* One small launcher on the HOME screen; chat itself is its own PAGE. */
 .spv-chat-corner{
- position:fixed;top:max(55px,calc(env(safe-area-inset-top,0px) + 55px));
- right:max(12px,env(safe-area-inset-right,0px));z-index:90;
- display:grid;place-items:center;border:1px solid #fed7aa;
- width:48px;height:48px;border-radius:15px;background:#f97316;color:white;
- box-shadow:0 4px 16px #0008;font-size:22px;cursor:pointer}
-.spv-chat-corner.open{background:#a63b17}
-.spv-chat-corner:focus-visible,.spv-chat-float-panel button:focus-visible{
- outline:2px solid #fdba74;outline-offset:2px}
-.spv-chat-float-panel{
- position:fixed;top:max(110px,calc(env(safe-area-inset-top,0px) + 110px));
- right:max(12px,env(safe-area-inset-right,0px));z-index:89;
- width:min(350px,calc(100vw - 24px));
- height:min(480px,calc(100dvh - 160px));min-height:250px;
- display:flex;flex-direction:column;overflow:hidden;
- border:1px solid #435064;border-radius:16px;
- background:#121925;box-shadow:0 14px 44px #000c}
-.spv-chat-float-panel .spv-chat-head{flex-shrink:0;padding:11px;margin:0;
- display:flex;align-items:center;justify-content:space-between;gap:8px;
- background:#202a38;border-bottom:1px solid #3c4757}
-.spv-chat-float-panel .spv-chat-head h1{font-size:15px;line-height:1.2}
-.spv-chat-float-panel .spv-chat-head p{font-size:10px}
-.spv-chat-float-panel .spv-chat-head button{padding:6px 9px}
-.spv-chat-float-panel .spv-prefs{margin:5px;flex-shrink:0;padding:6px;gap:6px}
-.spv-chat-float-panel .spv-prefs label{font-size:10px}
-.spv-chat-float-panel .spv-tabs{margin:0 5px 5px;flex-shrink:0}
-.spv-chat-float-panel .spv-tabs button{font-size:11px;padding:9px 4px}
-.spv-chat-float-panel .spv-thread{flex:1;min-height:0;height:auto;
- border:0;border-radius:0;background:#151e29}
-.spv-chat-float-panel .spv-thread-title{padding:7px 9px}
-.spv-chat-float-panel .spv-thread-title .spv-circle{width:30px;height:30px;
- font-size:15px;border-radius:8px}
-.spv-chat-float-panel .spv-thread-title b{font-size:12px}
-.spv-chat-float-panel .spv-thread-title small{font-size:10px}
-.spv-chat-float-panel .spv-messages{min-height:0;padding:8px}
-.spv-chat-float-panel .spv-messages article{padding:9px;max-width:93%}
-.spv-chat-float-panel .spv-messages article p{font-size:12px}
-.spv-chat-float-panel .spv-compose{flex-shrink:0;padding:8px}
-.spv-chat-float-panel .spv-compose textarea{font-size:12px;padding:8px}
-.spv-chat-float-panel .spv-compose>div:last-child{gap:4px;margin-top:5px}
-.spv-chat-float-panel .spv-upload,.spv-chat-float-panel .spv-voice,.spv-chat-float-panel .spv-send{font-size:10px;padding:6px;min-height:34px}
-@media(max-width:410px){
- .spv-user{display:none}
- .spv-chat-corner{top:max(55px,calc(env(safe-area-inset-top,0px) + 55px))}
- .spv-chat-float-panel{width:calc(100vw - 20px);right:10px;
-   height:min(475px,calc(100dvh - 148px));top:max(108px,calc(env(safe-area-inset-top,0px) + 108px))}
+  position:fixed;top:max(66px,calc(env(safe-area-inset-top,0px) + 66px));
+  right:max(12px,env(safe-area-inset-right,0px));z-index:90;
+  display:grid;place-items:center;border:1px solid #fed7aa;
+  width:48px;height:48px;border-radius:15px;background:#f97316;color:#fff;
+  box-shadow:0 4px 16px #0008;font-size:22px;cursor:pointer;
 }
-@media(max-height:580px){
- .spv-chat-float-panel{top:73px;height:calc(100dvh - 83px);min-height:150px}
- .spv-chat-corner{top:15px}
+.spv-chat-corner:focus-visible{outline:3px solid #fdba74;outline-offset:2px}
+.spv-chat-page{
+  display:flex;flex-direction:column;
+  min-height:0;height:calc(100dvh - 185px);
+  width:100%;border:1px solid #364457;border-radius:16px;
+  overflow:hidden;background:#121925;
+  margin:0 0 10px;
 }
-
-
-/* Group chat uses the whole display after the Grupe tab is selected.
-   Other tabs retain the small, top-corner chat panel. */
-.spv-chat-corner.spv-corner-hidden{display:none}
-.spv-chat-float-panel.spv-chat-group-fullscreen{
-  position:fixed;inset:0;top:0;bottom:0;left:0;right:0;
-  width:100vw;max-width:none;height:100dvh;max-height:none;min-height:0;
-  border:0;border-radius:0;box-shadow:none;z-index:105;
-  background:#111927;
+.spv-chat-page .spv-chat-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:13px 14px;margin:0;gap:12px;
+  flex-shrink:0;background:#202a38;border-bottom:1px solid #3c4757;
 }
-.spv-chat-group-fullscreen .spv-chat-head{
-  min-height:60px;
-  padding:calc(12px + env(safe-area-inset-top,0px))
-    max(13px,env(safe-area-inset-right,0px))
-    12px max(13px,env(safe-area-inset-left,0px));
+.spv-chat-page .spv-chat-head h1{font-size:21px}
+.spv-chat-page .spv-chat-head p{font-size:12px;margin:0}
+.spv-chat-page .spv-chat-head button{white-space:nowrap}
+.spv-chat-page .spv-prefs{flex-shrink:0;margin:9px 10px;padding:9px}
+.spv-chat-page .spv-tabs{margin:0 10px 9px;flex-shrink:0}
+.spv-chat-page .spv-tabs button{padding:13px 6px;font-size:13px}
+.spv-chat-page .spv-thread{
+  flex:1;min-height:0;height:auto;width:100%;
+  border:0;border-top:1px solid #303949;border-radius:0;
 }
-.spv-chat-group-fullscreen .spv-chat-head h1{font-size:18px}
-.spv-chat-group-fullscreen .spv-thread{flex:1;min-height:0;height:auto}
-.spv-chat-group-fullscreen .spv-messages{flex:1;min-height:0}
-.spv-chat-group-fullscreen .spv-messages article p{font-size:14px}
-.spv-chat-group-fullscreen .spv-compose{
-  padding:12px max(12px,env(safe-area-inset-right,0px))
-    calc(12px + env(safe-area-inset-bottom,0px))
-    max(12px,env(safe-area-inset-left,0px))
+.spv-chat-page .spv-thread-title{padding:12px 14px}
+.spv-chat-page .spv-messages{flex:1;min-height:0}
+.spv-chat-page .spv-compose{flex-shrink:0;padding:11px}
+.spv-chat-page .spv-compose textarea{font-size:15px}
+@media(max-width:480px){
+  .spv .spv-brand-icon{width:57px;height:57px;min-width:57px}
+  .spv-brand strong{font-size:23px}
+  .spv-user{display:none}
+  .spv-chat-page{height:calc(100dvh - 178px);margin-bottom:0}
+  .spv-chat-page .spv-chat-head{padding:10px}
+  .spv-chat-page .spv-prefs{margin:6px;padding:7px}
+  .spv-chat-page .spv-tabs{margin:0 5px 6px}
+  .spv-chat-page .spv-chat-head h1{font-size:17px}
+  .spv-chat-page .spv-chat-head p{font-size:10px}
+  .spv-chat-page .spv-compose{padding:8px}
 }
-.spv-chat-group-fullscreen .spv-compose textarea{font-size:15px;min-height:56px}
-.spv-chat-group-fullscreen .spv-tabs button{font-size:13px;padding:12px}
-@media(max-width:410px){
-  .spv-chat-float-panel.spv-chat-group-fullscreen{
-    inset:0;top:0;bottom:0;left:0;right:0;width:100vw;height:100dvh;min-height:0
-  }
-}
-@media(max-height:580px){
-  .spv-chat-float-panel.spv-chat-group-fullscreen{
-    inset:0;top:0;bottom:0;left:0;right:0;width:100vw;height:100dvh;min-height:0
-  }
+@media(max-height:650px){
+  .spv-chat-page{height:calc(100dvh - 151px)}
+  .spv-chat-page .spv-prefs{padding:5px;margin:3px 5px}
+  .spv-chat-page .spv-tabs{margin-bottom:4px}
+  .spv-chat-page .spv-chat-head{padding:7px}
 }
