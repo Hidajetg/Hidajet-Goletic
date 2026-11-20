@@ -3,9 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
-import {
-  APP_LANGUAGES,readAppLanguage,saveAppLanguage,type AppLanguage,
-} from "../lib/language";
+import { type AppLanguage } from "../lib/language";
 import "./team-chat.css";
 
 type Room = {
@@ -20,9 +18,6 @@ type Message = {
 };
 type ChatState = "loading"|"ready"|"unavailable";
 
-const LANG_NAMES:Record<AppLanguage,string> = {
-  de:"Deutsch",ba:"Bosanski",uz:"O‘zbek",cz:"Čeština",en:"English",
-};
 const WORDS:Record<AppLanguage,Record<string,string>> = {
   de:{title:"Team Chat",sites:"Gruppen",private:"Privat",announcements:"Mitteilungen",
     newChat:"Neuer Privatchat",choose:"Mitarbeiter auswählen",start:"Chat starten",
@@ -99,7 +94,7 @@ function stamp(value:string,lang:AppLanguage){
 }
 
 export default function TeamChatPage(){
-  const [lang,setLang]=useState<AppLanguage>("de");
+  const lang:AppLanguage="ba";
   const [compact,setCompact]=useState(false);
   const [showChatSettings,setShowChatSettings]=useState(false);
   const [state,setState]=useState<ChatState>("loading");
@@ -147,7 +142,6 @@ export default function TeamChatPage(){
   },[]);
 
   useEffect(()=>{
-    setLang(readAppLanguage("de"));
     setCompact(new URLSearchParams(window.location.search).get("compact")==="1");
     setSound(localStorage.getItem("solstone_chat_sound")!=="false");
     setVoice(localStorage.getItem("solstone_chat_voice")==="true");
@@ -309,9 +303,6 @@ export default function TeamChatPage(){
     if(key==="solstone_chat_auto_translate")setAutoTranslate(value);
     if(key==="solstone_chat_auto_translate"&&value)translateAttempted.current.clear();
   }
-  function setLanguage(code:AppLanguage){
-    saveAppLanguage(code);setLang(code);
-  }
 
   useEffect(() => {
     if (state !== "ready" || initialSiteSelection.current || current || !rooms.length) return;
@@ -344,15 +335,7 @@ export default function TeamChatPage(){
           onChange={(e)=>settings("solstone_chat_voice",e.target.checked)}/> 🔊 {t.voice}</label>
         <label><input type="checkbox" checked={autoTranslate}
           onChange={(e)=>settings("solstone_chat_auto_translate",e.target.checked)}/> 🌐 {t.autoTranslate}</label>
-        <label className="tc-lang" htmlFor="solstone-chat-language">
-          🌐
-          <select id="solstone-chat-language" value={lang}
-            aria-label="Sprache / Jezik / Til"
-            onChange={event=>setLanguage(event.target.value as AppLanguage)}>
-            {APP_LANGUAGES.map((code)=>
-              <option key={code} value={code}>{code.toUpperCase()} — {LANG_NAMES[code]}</option>)}
-          </select>
-        </label>
+        <span className="tc-lang" aria-label="Jezik: bosanski">🌐 BA</span>
         <small>{t.warning}</small>
       </div>}
 
