@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/team-chat-build-check.yml'
       - 'app/dashboard/**'
+      - 'app/api/worker/today/route.ts'
       - 'app/baustellen/[id]/page.tsx'
       - 'app/team-chat/**'
       - 'app/components/TeamChatWidget.tsx'
@@ -58,7 +59,7 @@ jobs:
           const fs=require('fs');
           const manifest=JSON.parse(fs.readFileSync('.next/server/app-paths-manifest.json','utf8'));
           const keys=Object.keys(manifest);
-          for(const path of ['/team-chat/page','/dashboard/page']){
+          for(const path of ['/team-chat/page','/dashboard/page','/api/worker/today/route']){
             if(!keys.some(k=>k===path || k===path+'.js' || k.includes(path))) {
               console.error('Missing Next app path:',path);
               console.error('Relevant manifest keys:',keys.filter(k=>/chat|dashboard/.test(k)));
