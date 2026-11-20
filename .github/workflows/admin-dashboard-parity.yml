@@ -1,0 +1,40 @@
+name: Solstone admin dashboard 1-to-1 production parity
+
+on:
+  push:
+    branches:
+      - mobile-android-ios-test-2026-11-20
+    paths:
+      - 'app/dashboard/AdminWebDashboard.tsx'
+      - 'app/dashboard/page.tsx'
+      - '.github/workflows/admin-dashboard-parity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-admin-view:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out staging branch and main
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Admin view must exactly match existing production dashboard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show origin/main:app/dashboard/page.tsx > "$RUNNER_TEMP/admin-production.tsx"
+          if ! cmp -s "$RUNNER_TEMP/admin-production.tsx" app/dashboard/AdminWebDashboard.tsx; then
+            echo "::error::Staged admin screen differs from existing web/main dashboard."
+            diff -u "$RUNNER_TEMP/admin-production.tsx" app/dashboard/AdminWebDashboard.tsx || true
+            exit 1
+          fi
+          grep -F 'if (isAdmin) return <AdminWebDashboard />;' app/dashboard/page.tsx
+          echo "### PASS: Admin UI matches production web dashboard byte-for-byte" >> "$GITHUB_STEP_SUMMARY"
+          echo "Worker-only calendar and compact fonts are on a separate code path." >> "$GITHUB_STEP_SUMMARY"
+          echo "No production deployment was performed." >> "$GITHUB_STEP_SUMMARY"
