@@ -57,7 +57,7 @@ jobs:
           old='{import.meta.env.VITE_SOLSTONE_UI_PREVIEW === "1" ? <UiPreview /> : <App />}'
           if old not in s:
             raise SystemExit('Could not find expected preview mode toggle.')
-          path.write_text(s.replace(old,'<UiPreview />'))
+          path.write_text(s.replace(old,'<UiPreview />').replace('import App from "./App";\\n',''))
           print('UI preview explicitly selected for this APK only.')
           PY
           npm run build
