@@ -65,6 +65,13 @@ create table if not exists public.solstone_chat_messages (
 create index if not exists solstone_chat_messages_room_idx
   on public.solstone_chat_messages(room_id, created_at desc, id);
 
+create table if not exists public.solstone_chat_reads (
+  room_id uuid not null references public.solstone_chat_rooms(id) on delete cascade,
+  worker_id bigint not null references public.workers(id) on delete cascade,
+  last_read_at timestamptz not null default now(),
+  primary key (room_id, worker_id)
+);
+
 create table if not exists public.solstone_chat_translations (
   message_id uuid not null references public.solstone_chat_messages(id) on delete cascade,
   target_lang text not null check (target_lang in ('de','ba','uz','cz','en')),
@@ -82,13 +89,15 @@ alter table public.solstone_chat_members enable row level security;
 alter table public.solstone_chat_messages enable row level security;
 alter table public.solstone_chat_pending_uploads enable row level security;
 alter table public.solstone_chat_translations enable row level security;
+alter table public.solstone_chat_reads enable row level security;
 
 revoke all privileges on table
   public.solstone_chat_rooms,
   public.solstone_chat_members,
   public.solstone_chat_messages,
   public.solstone_chat_pending_uploads,
-  public.solstone_chat_translations
+  public.solstone_chat_translations,
+  public.solstone_chat_reads
 from public, anon, authenticated;
 
 grant select, insert, update, delete on table
@@ -96,7 +105,8 @@ grant select, insert, update, delete on table
   public.solstone_chat_members,
   public.solstone_chat_messages,
   public.solstone_chat_pending_uploads,
-  public.solstone_chat_translations
+  public.solstone_chat_translations,
+  public.solstone_chat_reads
 to service_role;
 
 -- The private Storage bucket is NOT public and has no client-facing SELECT
