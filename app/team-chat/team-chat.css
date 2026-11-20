@@ -108,3 +108,117 @@
 .tc-compact .tc-upload,.tc-compact .tc-record,.tc-compact .tc-send{min-height:35px;font-size:11px;padding:6px 7px}
 .tc-compact .tc-send{min-width:62px;margin-left:auto}
 .tc-compact .tc-admin-only{padding:7px;font-size:12px}
+
+
+/* CHAT V2 — maximize the actual messages instead of banners and controls.
+   Full-page chat: one thin header + topic tabs/list + reading area + composer. */
+.tc-root:not(.tc-compact){
+  display:flex;flex-direction:column;box-sizing:border-box;
+  width:100%;height:100dvh;min-height:0;
+  overflow:hidden;padding:0;background:#0d1420;
+}
+.tc-root:not(.tc-compact) .tc-header{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  flex:0 0 auto;min-height:49px;width:100%;max-width:none;
+  box-sizing:border-box;padding:7px 12px;margin:0;
+  background:#1c2734;border-bottom:1px solid #344357;
+}
+.tc-root:not(.tc-compact) .tc-header h1{
+  flex:1;margin:0;color:#f8fafc;font-size:17px;font-weight:750;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.tc-root:not(.tc-compact) .tc-back,
+.tc-root:not(.tc-compact) .tc-settings-button{
+  display:grid;place-items:center;flex:0 0 35px;
+  width:35px;height:35px;padding:0;
+  color:#f8fafc;background:#2c3b4d;border:1px solid #42566e;
+  border-radius:9px;font-size:20px;cursor:pointer;text-decoration:none;
+}
+.tc-root:not(.tc-compact) .tc-settings-open{
+  flex:0 0 auto;box-sizing:border-box;width:100%;max-width:none;
+  max-height:185px;overflow-y:auto;
+  margin:0;padding:8px 12px;border:0;
+  border-bottom:1px solid #3b4c61;border-radius:0;background:#182637;
+  justify-content:flex-start;gap:10px;
+}
+.tc-settings-open .tc-lang{display:flex;flex-wrap:wrap;gap:5px;align-items:center;width:100%;max-width:none}
+.tc-settings-open .tc-lang button{padding:6px 12px}
+.tc-settings-open small{font-size:10px}
+.tc-root:not(.tc-compact) .tc-layout{
+  display:grid;grid-template-columns:minmax(235px,290px) minmax(0,1fr);
+  flex:1 1 auto;width:100%;max-width:none;
+  height:auto;min-height:0;overflow:hidden;gap:0;margin:0;
+}
+.tc-root:not(.tc-compact) .tc-sidebar,
+.tc-root:not(.tc-compact) .tc-conversation{
+  min-height:0;height:100%;max-height:100%;
+  border-radius:0;border:0;overflow:hidden;background:#121b28;
+}
+.tc-root:not(.tc-compact) .tc-sidebar{
+  border-right:1px solid #344153;
+}
+.tc-root:not(.tc-compact) .tc-tabs{flex:0 0 40px;min-height:40px}
+.tc-root:not(.tc-compact) .tc-tabs button{padding:7px 3px;font-size:12px}
+.tc-root:not(.tc-compact) .tc-room{padding:11px 12px;gap:4px}
+.tc-root:not(.tc-compact) .tc-thread-title{
+  flex:0 0 auto;min-height:36px;box-sizing:border-box;
+  padding:6px 10px;gap:8px;border-bottom:1px solid #334255;
+  background:#192737;
+}
+.tc-root:not(.tc-compact) .tc-thread-title strong{
+  font-size:14px;color:#d1dfed;
+}
+.tc-root:not(.tc-compact) .tc-message-list{
+  flex:1 1 auto;min-height:0;overflow-y:auto;
+  padding:12px 13px;gap:9px;overscroll-behavior:contain;
+}
+.tc-root:not(.tc-compact) .tc-message{
+  padding:10px 12px;max-width:min(88%,700px);
+}
+.tc-root:not(.tc-compact) .tc-message-text{
+  font-size:15px;line-height:1.48;margin:6px 0;
+}
+.tc-root:not(.tc-compact) .tc-compose{
+  flex:0 0 auto;box-sizing:border-box;padding:8px 10px;
+  border-top:1px solid #44546a;background:#202e3d;
+}
+.tc-root:not(.tc-compact) .tc-compose-line{
+  display:flex;align-items:center;gap:7px;min-height:42px;width:100%;
+}
+.tc-root:not(.tc-compact) .tc-compose-line textarea{
+  flex:1 1 auto;min-width:0;width:auto;box-sizing:border-box;
+  min-height:42px;max-height:116px;resize:none;margin:0;
+  font-size:15px;line-height:21px;padding:9px 10px;
+  border-radius:10px;
+}
+.tc-root:not(.tc-compact) .tc-compose-line .tc-upload,
+.tc-root:not(.tc-compact) .tc-compose-line .tc-record,
+.tc-root:not(.tc-compact) .tc-compose-line .tc-send{
+  display:grid;place-items:center;flex:0 0 39px;
+  width:39px;height:42px;min-height:42px;padding:0;
+  border-radius:10px;font-size:20px;margin:0;
+}
+.tc-root:not(.tc-compact) .tc-compose-line .tc-send{font-size:23px}
+.tc-root:not(.tc-compact) .tc-back-thread{
+  display:grid;place-items:center;min-height:29px;
+  padding:4px 8px;font-size:12px;
+}
+@media(max-width:720px){
+  .tc-root:not(.tc-compact) .tc-layout{
+    display:block;min-height:0;flex:1;height:auto;
+  }
+  .tc-root:not(.tc-compact) .tc-sidebar,
+  .tc-root:not(.tc-compact) .tc-conversation{height:100%;min-height:0}
+  .tc-root:not(.tc-compact) .tc-mobile-hide{display:none!important}
+  .tc-root:not(.tc-compact) .tc-message-list{padding:9px 8px}
+  .tc-root:not(.tc-compact) .tc-message{max-width:92%}
+  .tc-root:not(.tc-compact) .tc-thread-title{min-height:35px}
+}
+@media(max-width:365px){
+  .tc-root:not(.tc-compact) .tc-compose-line{gap:4px}
+  .tc-root:not(.tc-compact) .tc-compose-line .tc-upload,
+  .tc-root:not(.tc-compact) .tc-compose-line .tc-record,
+  .tc-root:not(.tc-compact) .tc-compose-line .tc-send{
+    width:35px;flex-basis:35px;height:40px;min-height:40px;
+  }
+}
