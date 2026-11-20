@@ -9,6 +9,8 @@ on:
       - 'app/login/page.tsx'
       - 'app/api/auth/workers/route.ts'
       - 'app/team-chat/**'
+      - 'app/components/TeamChatWidget.tsx'
+      - 'app/components/team-chat-widget.css'
       - 'app/api/team-chat/**'
       - 'app/lib/team-chat.ts'
       - 'app/components/TeamChatAlerts.tsx'
