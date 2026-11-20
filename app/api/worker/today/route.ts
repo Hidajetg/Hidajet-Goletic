@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { getChatUser, currentViennaDate } from "../../../lib/team-chat";
 
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * data are returned to a worker. This is safer than the legacy browser-side
  * .ilike('%worker_name%') filter and is independent of the public Data API.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const user = await getChatUser();
   if (!user) {
     return NextResponse.json({ error: "Prijava je istekla." }, {
@@ -24,7 +24,23 @@ export async function GET() {
     });
   }
 
-  const date = currentViennaDate();
+  // Workers may browse their own schedule one day at a time. The server
+  // validates Gregorian dates and caps the time window; it never accepts
+  // worker_id, worker_name or role from a query parameter.
+  const today = currentViennaDate();
+  const requested = request.nextUrl.searchParams.get("date");
+  const date = requested ?? today;
+  const dayMs = 86_400_000;
+  const parsed = Date.parse(date + "T00:00:00Z");
+  const now = Date.parse(today + "T00:00:00Z");
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+      !Number.isFinite(parsed) ||
+      new Date(parsed).toISOString().slice(0, 10) !== date ||
+      Math.abs(parsed - now) > 365 * dayMs) {
+    return NextResponse.json({ error: "Odaberi ispravan datum unutar godine." }, {
+      status: 400, headers: { "Cache-Control": "no-store" },
+    });
+  }
   try {
     const { data: ownRows, error: ownError } = await supabaseAdmin
       .from("work_calendar")
