@@ -499,3 +499,48 @@
 .spv .spv-admin-web-langs .spv-only-ba{
   color:#fff;background:#f97316;border-color:#f97316;font-size:13px;
 }
+
+
+/* WORKER SCHEDULE V4 — 30% smaller entire panel, not just the date numbers.
+   Uses normal CSS box sizing (not transform/zoom) so adjacent menu layout
+   continues directly after the smaller schedule. Admin is entirely excluded. */
+.spv .spv-worker-home .spv-today-card{
+  width:70%;box-sizing:border-box;
+  margin:0 auto 5px;padding:5px 6px;
+  border-radius:7px;border-left-width:3px;
+}
+.spv .spv-worker-home .spv-today-heading{gap:3px;margin-bottom:2px}
+.spv .spv-worker-home .spv-today-heading strong{font-size:9px;line-height:1.2}
+.spv .spv-worker-home .spv-today-heading small{font-size:6px;line-height:1.1;max-width:43%}
+.spv .spv-worker-home .spv-today-nav{
+  display:flex;gap:2px;margin:2px 0;flex-wrap:wrap;
+}
+.spv .spv-worker-home .spv-today-nav button{
+  min-height:22px;padding:2px 3px;border-radius:5px;font-size:8px;
+}
+.spv .spv-worker-home .spv-today-nav button:first-child,
+.spv .spv-worker-home .spv-today-nav button:last-child{
+  min-width:18px;padding:1px 3px;font-size:11px;
+}
+.spv .spv-worker-home .spv-today-nav input{
+  min-height:22px;min-width:66px;max-width:95px;
+  padding:1px 2px;border-radius:5px;font-size:8px;
+}
+.spv .spv-worker-home .spv-mini-week{gap:2px;margin:3px 0}
+.spv .spv-worker-home .spv-mini-week button{
+  min-height:27px;padding:1px 0;gap:0;border-radius:4px;
+}
+.spv .spv-worker-home .spv-mini-week button span{font-size:6.5px}
+.spv .spv-worker-home .spv-mini-week button strong{font-size:8px}
+.spv .spv-worker-home .spv-day-label{font-size:8px;margin:2px 0 3px}
+.spv .spv-worker-home .spv-today-site{
+  gap:2px;padding:4px 5px;border-radius:5px;
+}
+.spv .spv-worker-home .spv-today-site b{font-size:8.5px;line-height:1.25}
+.spv .spv-worker-home .spv-today-site span{font-size:7.5px;line-height:1.25}
+.spv .spv-worker-home .spv-today-site small{font-size:6.5px;line-height:1.2}
+.spv .spv-worker-home .spv-empty-day{padding:5px;font-size:8px}
+@media(max-width:380px){
+ .spv .spv-worker-home .spv-today-nav{gap:1px}
+ .spv .spv-worker-home .spv-today-nav input{min-width:62px;max-width:92px}
+}
