@@ -92,6 +92,7 @@ function stamp(value:string,lang:AppLanguage){
 
 export default function TeamChatPage(){
   const [lang,setLang]=useState<AppLanguage>("de");
+  const [compact,setCompact]=useState(false);
   const [state,setState]=useState<ChatState>("loading");
   const [error,setError]=useState("");
   const [rooms,setRooms]=useState<Room[]>([]);
@@ -138,6 +139,7 @@ export default function TeamChatPage(){
 
   useEffect(()=>{
     setLang(readAppLanguage("de"));
+    setCompact(new URLSearchParams(window.location.search).get("compact")==="1");
     setSound(localStorage.getItem("solstone_chat_sound")!=="false");
     setVoice(localStorage.getItem("solstone_chat_voice")==="true");
     setAutoTranslate(localStorage.getItem("solstone_chat_auto_translate")!=="false");
@@ -316,7 +318,7 @@ export default function TeamChatPage(){
   const possible=workers.filter((w)=>w.id!==me?.id);
 
   return (
-    <main className="tc-root">
+    <main className={"tc-root"+(compact?" tc-compact":"")}>
       <header className="tc-header">
         <div>
           <Link href="/dashboard" className="tc-back">← Dashboard</Link>
