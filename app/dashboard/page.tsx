@@ -981,7 +981,7 @@ const languageSelectStyle: CSSProperties = {
 };
 
 const workerTodayBoxStyle: CSSProperties = {
-  width: "70%", boxSizing: "border-box", marginInline: "auto",
+  width: "100%", boxSizing: "border-box", marginInline: 0,
   padding: 6, marginBottom: 7, borderRadius: 7,
   background: "#142339", border: "1px solid #455a72",
 };
