@@ -344,11 +344,15 @@ export default function TeamChatPage(){
           onChange={(e)=>settings("solstone_chat_voice",e.target.checked)}/> 🔊 {t.voice}</label>
         <label><input type="checkbox" checked={autoTranslate}
           onChange={(e)=>settings("solstone_chat_auto_translate",e.target.checked)}/> 🌐 {t.autoTranslate}</label>
-        <div className="tc-lang" aria-label="Language">
-          {APP_LANGUAGES.map((code)=>
-            <button key={code} type="button" title={LANG_NAMES[code]}
-              className={code===lang?"tc-on":""} onClick={()=>setLanguage(code)}>{code.toUpperCase()}</button>)}
-        </div>
+        <label className="tc-lang" htmlFor="solstone-chat-language">
+          🌐
+          <select id="solstone-chat-language" value={lang}
+            aria-label="Sprache / Jezik / Til"
+            onChange={event=>setLanguage(event.target.value as AppLanguage)}>
+            {APP_LANGUAGES.map((code)=>
+              <option key={code} value={code}>{code.toUpperCase()} — {LANG_NAMES[code]}</option>)}
+          </select>
+        </label>
         <small>{t.warning}</small>
       </div>}
 
