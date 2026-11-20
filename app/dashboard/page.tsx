@@ -1,11 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
-import { type AppLanguage, saveAppLanguage } from "../lib/language";
+import { type AppLanguage, readAppLanguage, saveAppLanguage, localeForLanguage } from "../lib/language";
 import { SOLSTONE_APPROVED_LOGO } from "../components/solstone-approved-logo";
+
+const DAY_MS = 86_400_000;
+
+function viennaToday(): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Vienna", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date());
+  const part = (kind: string) => parts.find(item => item.type === kind)?.value ?? "";
+  return part("year") + "-" + part("month") + "-" + part("day");
+}
+
+function changeISODate(date: string, days: number): string {
+  const milliseconds = Date.parse(date + "T00:00:00Z");
+  return new Date(milliseconds + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+function permittedWorkerDate(date: string, today: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const milliseconds = Date.parse(date + "T00:00:00Z");
+  const todayMs = Date.parse(today + "T00:00:00Z");
+  return Number.isFinite(milliseconds) &&
+    new Date(milliseconds).toISOString().slice(0, 10) === date &&
+    Math.abs(milliseconds - todayMs) <= DAY_MS * 365;
+}
+
+function workerWeek(selected: string): string[] {
+  const weekday = new Date(selected + "T00:00:00Z").getUTCDay();
+  const mondayOffset = (weekday + 6) % 7;
+  const monday = changeISODate(selected, -mondayOffset);
+  return Array.from({ length: 7 }, (_, index) => changeISODate(monday, index));
+}
 
 type WorkerTodaySite = {
   id: string;
@@ -26,8 +57,12 @@ type StoredUser = {
 
 const translations: Record<string, Record<string, string>> = {
   de: {
+    todayShort: "Heute",
+    tomorrow: "Morgen",
+    pickDate: "Tag auswählen",
+    loadingDay: "Arbeitsplan wird geladen…",
     today: "Mein heutiger Einsatz",
-    noWork: "Für heute ist kein Einsatz eingetragen.",
+    noWork: "Für diesen Tag ist kein Einsatz eingetragen.",
     at: "Einsatzort",
     coworkers: "Kollegen auf dieser Baustelle",
     note: "Hinweis",
@@ -52,8 +87,12 @@ const translations: Record<string, Record<string, string>> = {
   },
 
   ba: {
+    todayShort: "Danas",
+    tomorrow: "Sutra",
+    pickDate: "Odaberi datum",
+    loadingDay: "Učitavam raspored…",
     today: "Moj današnji raspored",
-    noWork: "Danas nema upisanog rasporeda.",
+    noWork: "Nema upisanog rasporeda za odabrani dan.",
     at: "Gradilište",
     coworkers: "Kolege na ovoj Baustelle",
     note: "Napomena",
@@ -78,8 +117,12 @@ const translations: Record<string, Record<string, string>> = {
   },
 
   uz: {
+    todayShort: "Bugun",
+    tomorrow: "Ertaga",
+    pickDate: "Sanani tanlang",
+    loadingDay: "Jadval yuklanmoqda…",
     today: "Bugungi ish jadvalim",
-    noWork: "Bugunga ish belgilanmagan.",
+    noWork: "Tanlangan kun uchun ish rejasi yo‘q.",
     at: "Ish joyi",
     coworkers: "Shu obyektdagi hamkasblar",
     note: "Izoh",
@@ -104,8 +147,12 @@ const translations: Record<string, Record<string, string>> = {
   },
 
   en: {
+    todayShort: "Today",
+    tomorrow: "Tomorrow",
+    pickDate: "Choose date",
+    loadingDay: "Loading schedule…",
     today: "My schedule today",
-    noWork: "No assignment for today.",
+    noWork: "No work assignment on the selected date.",
     at: "Construction site",
     coworkers: "Coworkers on this site",
     note: "Note",
@@ -130,8 +177,12 @@ const translations: Record<string, Record<string, string>> = {
   },
 
   cz: {
+    todayShort: "Dnes",
+    tomorrow: "Zítra",
+    pickDate: "Vybrat datum",
+    loadingDay: "Načítání rozvrhu…",
     today: "Můj dnešní rozvrh",
-    noWork: "Na dnešek není zadaná práce.",
+    noWork: "Pro vybraný den není zadán žádný rozvrh.",
     at: "Stavba",
     coworkers: "Kolegové na této stavbě",
     note: "Poznámka",
@@ -278,6 +329,9 @@ export default function DashboardPage() {
   const [todayPlans, setTodayPlans] = useState<any[]>([]);
   const [workerTodaySites, setWorkerTodaySites] = useState<WorkerTodaySite[]>([]);
   const [workerTodayError, setWorkerTodayError] = useState(false);
+  const [workerTodayLoading, setWorkerTodayLoading] = useState(false);
+  const [workerSelectedDate, setWorkerSelectedDate] = useState(viennaToday);
+  const calendarRequest = useRef(0);
   const [materialOrders, setMaterialOrders] = useState<any[]>([]);
   const [carWarnings, setCarWarnings] = useState<any[]>([]);
 
@@ -286,7 +340,7 @@ export default function DashboardPage() {
   const t = translations[lang] || translations.ba;
 
   useEffect(() => {
-    const savedLang = localStorage.getItem("lang") || "ba";
+    const savedLang = readAppLanguage("ba");
     setLang(savedLang);
 
     initializeDashboard();
@@ -419,35 +473,53 @@ export default function DashboardPage() {
     setMessages(data || []);
   }
 
+  async function loadWorkerDay(date: string) {
+    const requestId = ++calendarRequest.current;
+    setWorkerTodayLoading(true);
+    setWorkerTodayError(false);
+    try {
+      const response = await fetch("/api/worker/today?date=" + encodeURIComponent(date), {
+        credentials: "include", cache: "no-store",
+      });
+      if (!response.ok) throw new Error("Worker schedule unavailable for " + date);
+      const payload: { sites?: WorkerTodaySite[]; date?: string } = await response.json();
+      if (requestId !== calendarRequest.current) return; // Ignore stale responses.
+      const sites = Array.isArray(payload.sites) ? payload.sites : [];
+      setWorkerTodaySites(sites);
+      setTodayPlans(sites);
+    } catch (error) {
+      if (requestId !== calendarRequest.current) return;
+      console.error("Worker calendar:", error);
+      setWorkerTodayError(true);
+      setWorkerTodaySites([]);
+      setTodayPlans([]);
+    } finally {
+      if (requestId === calendarRequest.current) setWorkerTodayLoading(false);
+    }
+  }
+
+  function selectWorkerDate(date: string) {
+    const today = viennaToday();
+    if (!permittedWorkerDate(date, today) || date === workerSelectedDate) return;
+    setWorkerSelectedDate(date);
+    void loadWorkerDay(date);
+  }
+
   async function loadTodayPlans(name: string, adminStatus: boolean) {
     if (!adminStatus) {
-      // Worker identity and current-site colleague visibility are checked
-      // server-side using the signed PIN session, not a localStorage name.
-      setWorkerTodayError(false);
-      setWorkerTodaySites([]);
-      try {
-        const response = await fetch("/api/worker/today", {
-          credentials: "include", cache: "no-store",
-        });
-        if (!response.ok) throw new Error("Worker day schedule unavailable.");
-        const payload: { sites?: WorkerTodaySite[] } = await response.json();
-        const ownSites = Array.isArray(payload.sites) ? payload.sites : [];
-        setWorkerTodaySites(ownSites);
-        setTodayPlans(ownSites);
-      } catch (error) {
-        console.error("Worker today calendar failed:", error);
-        setWorkerTodayError(true);
-        setWorkerTodaySites([]);
-        setTodayPlans([]);
-      }
+      // Verified PIN session and worker-specific authorization live on server.
+      const initialDate = viennaToday();
+      setWorkerSelectedDate(initialDate);
+      await loadWorkerDay(initialDate);
       return;
     }
 
-    // Keep the existing full, web-style administrator dashboard intact.
+    // Admin dashboard follows the existing web logic and ordering unchanged.
+    ++calendarRequest.current;
     setWorkerTodaySites([]);
     setWorkerTodayError(false);
+    setWorkerTodayLoading(false);
     const today = getTodayLocalDate();
-
     const { data, error } = await supabase
       .from("work_calendar")
       .select("*")
@@ -459,7 +531,6 @@ export default function DashboardPage() {
       setTodayPlans([]);
       return;
     }
-
     setTodayPlans(data || []);
   }
 
@@ -565,35 +636,89 @@ export default function DashboardPage() {
       </header>
 
       <div style={languageBoxStyle}>
-        {(["de", "ba", "uz", "cz", "en"] as AppLanguage[]).map((code) => (
-          <button
-            key={code}
-            type="button"
-            onClick={() => changeLanguage(code)}
-            style={lang === code ? activeLangButtonStyle : langButtonStyle}
-          >
-            {code.toUpperCase()}
-          </button>
-        ))}
+        <label htmlFor="solstone-dashboard-language" style={{ color: "#fdba74", fontSize: 15 }}>
+          🌐
+        </label>
+        <select
+          id="solstone-dashboard-language"
+          aria-label="Sprache / Jezik / Til"
+          value={lang}
+          onChange={(event) => changeLanguage(event.target.value as AppLanguage)}
+          style={languageSelectStyle}
+        >
+          <option value="de">DE — Deutsch</option>
+          <option value="ba">BA — Bosanski</option>
+          <option value="uz">UZ — O‘zbek</option>
+          <option value="cz">CZ — Čeština</option>
+          <option value="en">EN — English</option>
+        </select>
       </div>
 
       {!isAdmin && (
         <section style={workerTodayBoxStyle} aria-label={t.today}>
           <div style={workerTodayHeadingStyle}>
-            <h2 style={{ margin: 0, fontSize: 19, color: "#fff" }}>📅 {t.today}</h2>
+            <h2 style={{ margin: 0, fontSize: 18, color: "#fff" }}>📅 {t.today}</h2>
             <Link href="/kalendar" style={{ color: "#fdba74", textDecoration: "none", fontSize: 13 }}>
               {t.calendar} ›
             </Link>
           </div>
-          {workerTodayError ? (
-            <p style={{ margin: "10px 0", color: "#fca5a5" }}>{t.error}</p>
+          <div style={miniCalendarControlsStyle}>
+            <button type="button" style={miniCalendarNavStyle}
+              aria-label="Prethodni dan" onClick={() => selectWorkerDate(changeISODate(workerSelectedDate, -1))}>‹</button>
+            <button type="button" style={miniCalendarActionStyle}
+              onClick={() => selectWorkerDate(viennaToday())}>{t.todayShort ?? "Danas"}</button>
+            <button type="button" style={miniCalendarActionStyle}
+              onClick={() => selectWorkerDate(changeISODate(viennaToday(), 1))}>{t.tomorrow ?? "Sutra"}</button>
+            <input type="date" aria-label={t.pickDate ?? "Odaberi datum"}
+              value={workerSelectedDate}
+              min={changeISODate(viennaToday(), -365)}
+              max={changeISODate(viennaToday(), 365)}
+              onChange={(event) => selectWorkerDate(event.target.value)}
+              style={miniCalendarDateInputStyle}/>
+            <button type="button" style={miniCalendarNavStyle}
+              aria-label="Naredni dan" onClick={() => selectWorkerDate(changeISODate(workerSelectedDate, 1))}>›</button>
+          </div>
+          <div style={miniCalendarWeekStyle} aria-label={t.pickDate ?? "Odaberi datum"}>
+            {workerWeek(workerSelectedDate).map((date) => {
+              const selected = date === workerSelectedDate;
+              const today = date === viennaToday();
+              const weekday = new Intl.DateTimeFormat(localeForLanguage(lang as AppLanguage), {
+                weekday: "short", timeZone: "UTC",
+              }).format(new Date(date + "T00:00:00Z"));
+              return (
+                <button key={date} type="button" disabled={!permittedWorkerDate(date, viennaToday())}
+                  aria-pressed={selected}
+                  title={date}
+                  style={{
+                    ...miniCalendarDayStyle,
+                    ...(today ? miniCalendarTodayStyle : {}),
+                    ...(selected ? miniCalendarSelectedStyle : {}),
+                  }}
+                  onClick={() => selectWorkerDate(date)}>
+                  <span style={{ fontSize: 10 }}>{weekday}</span>
+                  <strong style={{ fontSize: 15 }}>{Number(date.slice(-2))}</strong>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ color: "#cbd5e1", fontSize: 12, margin: "9px 0" }}>
+            {new Intl.DateTimeFormat(localeForLanguage(lang as AppLanguage), {
+              day: "2-digit", month: "long", year: "numeric", timeZone: "UTC",
+            }).format(new Date(workerSelectedDate + "T00:00:00Z"))}
+          </div>
+          {workerTodayLoading ? (
+            <p role="status" style={{ margin: "9px 0", color: "#fdba74" }}>
+              {t.loadingDay ?? "Učitavam raspored…"}
+            </p>
+          ) : workerTodayError ? (
+            <p role="alert" style={{ margin: "9px 0", color: "#fca5a5" }}>{t.error}</p>
           ) : workerTodaySites.length === 0 ? (
-            <p style={{ margin: "10px 0", color: "#cbd5e1" }}>{t.noWork}</p>
+            <p style={{ margin: "9px 0", color: "#cbd5e1" }}>{t.noWork}</p>
           ) : (
-            <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ display: "grid", gap: 9 }}>
               {workerTodaySites.map((item) => (
                 <article key={item.id} style={workerSiteCardStyle}>
-                  <div style={{ fontSize: 17, fontWeight: 800 }}>{item.name}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800 }}>{item.name}</div>
                   {item.location && (
                     <div style={{ marginTop: 5, fontSize: 13, color: "#cbd5e1" }}>📍 {item.location}</div>
                   )}
@@ -606,7 +731,7 @@ export default function DashboardPage() {
                     </div>
                   )}
                   <Link href={`/baustellen/${item.siteId}`}
-                    style={{ display: "inline-block", marginTop: 10, padding: "8px 12px",
+                    style={{ display: "inline-block", marginTop: 9, padding: "8px 12px",
                       borderRadius: 9, color: "#121212", background: "#fb923c",
                       textDecoration: "none", fontWeight: 700, fontSize: 13 }}>
                     {t.open} ›
@@ -620,41 +745,41 @@ export default function DashboardPage() {
 
       <div style={gridStyle}>
         <Link href="/baustellen" style={buttonStyle}>
-          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>🏗️</span> {t.baustelle}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.8em", marginRight: 4 }}>🏗️</span> {t.baustelle}
         </Link>
 
         <Link href="/projekte/radnik" style={workerProjectButtonStyle}>
-          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>👷</span> {t.workerProjects}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.8em", marginRight: 4 }}>👷</span> {t.workerProjects}
         </Link>
 
         {isAdmin && (
           <Link href="/projekte" style={adminProjectButtonStyle}>
-            <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>📂</span> {t.projects}
+            <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.8em", marginRight: 4 }}>📂</span> {t.projects}
           </Link>
         )}
 
         {isAdmin && (
           <Link href="/mitarbeiter" style={employeeButtonStyle}>
-            <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>👥</span> {t.employees}
+            <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.8em", marginRight: 4 }}>👥</span> {t.employees}
           </Link>
         )}
 
         <Link href="/pregled-sati" style={buttonStyle}>
-          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>⏰</span> {t.hours}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.8em", marginRight: 4 }}>⏰</span> {t.hours}
         </Link>
 
         <Link
           href="/kalendar"
           style={todayPlans.length > 0 ? alertButtonStyle : buttonStyle}
         >
-          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>📅</span> {t.calendar}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.8em", marginRight: 4 }}>📅</span> {t.calendar}
         </Link>
 
         <Link
           href="/auta"
           style={carWarnings.length > 0 ? alertButtonStyle : buttonStyle}
         >
-          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>🚗</span> {t.cars}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.8em", marginRight: 4 }}>🚗</span> {t.cars}
 
           {isAdmin && carWarnings.length > 0 && (
             <>
@@ -668,7 +793,7 @@ export default function DashboardPage() {
           href="/info"
           style={messages.length > 0 ? alertButtonStyle : buttonStyle}
         >
-          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>📢</span> {t.info}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.8em", marginRight: 4 }}>📢</span> {t.info}
           <br />
           <small>
             {messages.length} {t.message}
@@ -676,12 +801,12 @@ export default function DashboardPage() {
         </Link>
 
         <Link href="/private-notes" style={buttonStyle}>
-          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>📝</span> {t.privateNote}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.8em", marginRight: 4 }}>📝</span> {t.privateNote}
         </Link>
 
         {isAdmin && (
           <Link href="/material" style={materialAdminButtonStyle}>
-            <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>🧱</span> {t.adminMaterial}
+            <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.8em", marginRight: 4 }}>🧱</span> {t.adminMaterial}
           </Link>
         )}
 
@@ -689,13 +814,13 @@ export default function DashboardPage() {
           href="/material-orders"
           style={materialOrders.length > 0 ? alertButtonStyle : buttonStyle}
         >
-          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>🧱</span> {t.materialOrder}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.8em", marginRight: 4 }}>🧱</span> {t.materialOrder}
           <br />
           <small>{materialOrders.length} NEW</small>
         </Link>
 
         <button type="button" onClick={logout} style={logoutButtonStyle}>
-          <span aria-hidden="true" style={{ display: "inline-block", fontSize: isAdmin ? "1em" : "0.8em", marginRight: 4 }}>🚪</span> {t.logout}
+          <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.8em", marginRight: 4 }}>🚪</span> {t.logout}
         </button>
       </div>
 
@@ -785,10 +910,8 @@ const subtitleStyle: CSSProperties = {
 };
 
 const languageBoxStyle: CSSProperties = {
-  display: "flex",
-  gap: "8px",
-  marginBottom: "20px",
-  flexWrap: "wrap",
+  display: "flex", alignItems: "center", justifyContent: "flex-end",
+  gap: 8, marginBottom: 12, flexWrap: "wrap",
 };
 
 const langButtonStyle: CSSProperties = {
@@ -806,6 +929,45 @@ const activeLangButtonStyle: CSSProperties = {
   ...langButtonStyle,
   background: "#f97316",
   border: "1px solid #f97316",
+};
+
+const miniCalendarControlsStyle: CSSProperties = {
+  display: "flex", alignItems: "center", gap: 5,
+  margin: "8px 0 6px", flexWrap: "wrap",
+};
+const miniCalendarNavStyle: CSSProperties = {
+  background: "#334155", color: "#fff", border: "1px solid #64748b",
+  borderRadius: 8, minWidth: 33, minHeight: 34, cursor: "pointer", fontSize: 19,
+};
+const miniCalendarActionStyle: CSSProperties = {
+  background: "#29384b", color: "#f8fafc", border: "1px solid #64748b",
+  borderRadius: 8, padding: "6px 8px", minHeight: 34, cursor: "pointer", fontSize: 12,
+};
+const miniCalendarDateInputStyle: CSSProperties = {
+  flex: "1 1 132px", maxWidth: 205, minWidth: 125, boxSizing: "border-box",
+  background: "#e2e8f0", color: "#1e293b", border: "1px solid #94a3b8",
+  borderRadius: 8, padding: "6px", minHeight: 34, fontSize: 12,
+};
+const miniCalendarWeekStyle: CSSProperties = {
+  display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))",
+  gap: 4, marginTop: 9,
+};
+const miniCalendarDayStyle: CSSProperties = {
+  display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+  minWidth: 0, padding: "7px 1px", minHeight: 52,
+  background: "#1a293e", color: "#dbeafe", border: "1px solid #384d65",
+  borderRadius: 9, cursor: "pointer",
+};
+const miniCalendarTodayStyle: CSSProperties = {
+  borderColor: "#fb923c", boxShadow: "inset 0 0 0 1px #ea580c",
+};
+const miniCalendarSelectedStyle: CSSProperties = {
+  background: "#ea580c", color: "#fff", borderColor: "#fdba74",
+};
+const languageSelectStyle: CSSProperties = {
+  background: "#1b2637", color: "#fff", border: "1px solid #4b617a",
+  borderRadius: 9, padding: "6px 30px 6px 10px", fontSize: 13, minHeight: 35,
+  cursor: "pointer",
 };
 
 const workerTodayBoxStyle: CSSProperties = {
