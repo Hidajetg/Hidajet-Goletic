@@ -64,7 +64,7 @@ jobs:
           if(config.server?.url) throw Error('UI preview must not point to production website');
           const jsDir='dist/assets';
           const files=fs.readdirSync(jsDir).filter(n=>n.endsWith('.js'));
-          if(!files.some(n=>fs.readFileSync(jsDir+'/'+n,'utf8').includes('TEST IZGLEDA'))) {
+          if(!files.some(n=>fs.readFileSync(jsDir+'/'+n,'utf8').includes('SOLSTONE_UI_PREVIEW_PRESENT_20261120'))) {
             throw Error('UI preview text missing from locally bundled assets');
           }
           console.log('Offline visual preview verified. Chat is NOT connected to server.');
