@@ -99,7 +99,7 @@ export default function UiPreview(){
 
   const titleFor=(group:ChatKind)=>group==="site"?"🏗️ Baustelle – Primjer":group==="private"?"👤 Privatni razgovor – Primjer":"📢 Obavijesti firme";
 
-  return <div className="spv">
+  return <div className="spv" data-solstone-preview="SOLSTONE_UI_PREVIEW_PRESENT_20261120">
     <div className="spv-alert" role="status">
       <b>TEST IZGLEDA</b>
       <span>Nije prava prijava ni aktivni chat • ništa se ne šalje u bazu</span>
