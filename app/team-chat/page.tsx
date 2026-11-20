@@ -7,7 +7,6 @@ import {
   APP_LANGUAGES,readAppLanguage,saveAppLanguage,type AppLanguage,
 } from "../lib/language";
 import "./team-chat.css";
-import { SOLSTONE_APPROVED_LOGO } from "../components/solstone-approved-logo";
 
 type Room = {
   id:string;kind:"private"|"site"|"announcements";label:string;siteId?:string;
@@ -102,6 +101,7 @@ function stamp(value:string,lang:AppLanguage){
 export default function TeamChatPage(){
   const [lang,setLang]=useState<AppLanguage>("de");
   const [compact,setCompact]=useState(false);
+  const [showChatSettings,setShowChatSettings]=useState(false);
   const [state,setState]=useState<ChatState>("loading");
   const [error,setError]=useState("");
   const [rooms,setRooms]=useState<Room[]>([]);
@@ -330,32 +330,27 @@ export default function TeamChatPage(){
   return (
     <main className={"tc-root"+(compact?" tc-compact":"")}>
       <header className="tc-header">
-        <div>
-          <Link href="/dashboard" className="tc-back">← Dashboard</Link>
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <img src={SOLSTONE_APPROVED_LOGO} alt="Solstone logo"
-              width={48} height={48}
-              style={{ width: 48, height: 48, borderRadius: 10, objectFit: "cover" }} />
-            <h1>💬 Solstone {t.title}</h1>
-          </div>
-          <span className="tc-subtitle">Stone Boutique · Nocker & Bernardi</span>
-        </div>
-        <div className="tc-lang" aria-label="Language">
-          {APP_LANGUAGES.map((code)=>
-            <button key={code} type="button" title={LANG_NAMES[code]}
-              className={code===lang?"tc-on":""} onClick={()=>setLanguage(code)}>{code.toUpperCase()}</button>)}
-        </div>
+        <Link href="/dashboard" className="tc-back" aria-label="Nazad na početnu">←</Link>
+        <h1>💬 {t.title}</h1>
+        <button type="button" className="tc-settings-button"
+          aria-label="Postavke chata" aria-expanded={showChatSettings}
+          onClick={()=>setShowChatSettings(value=>!value)}>⚙</button>
       </header>
 
-      <div className="tc-settings">
+      {showChatSettings && <div className="tc-settings tc-settings-open">
         <label><input type="checkbox" checked={sound}
           onChange={(e)=>settings("solstone_chat_sound",e.target.checked)}/> 🔔 {t.sound}</label>
         <label><input type="checkbox" checked={voice}
           onChange={(e)=>settings("solstone_chat_voice",e.target.checked)}/> 🔊 {t.voice}</label>
         <label><input type="checkbox" checked={autoTranslate}
           onChange={(e)=>settings("solstone_chat_auto_translate",e.target.checked)}/> 🌐 {t.autoTranslate}</label>
+        <div className="tc-lang" aria-label="Language">
+          {APP_LANGUAGES.map((code)=>
+            <button key={code} type="button" title={LANG_NAMES[code]}
+              className={code===lang?"tc-on":""} onClick={()=>setLanguage(code)}>{code.toUpperCase()}</button>)}
+        </div>
         <small>{t.warning}</small>
-      </div>
+      </div>}
 
       {error && <div className="tc-error" role="alert">{error}</div>}
       {state==="loading" && <p className="tc-muted">{t.load}</p>}
@@ -446,22 +441,24 @@ export default function TeamChatPage(){
                 <button type="button" onClick={()=>setFile(null)} aria-label="Remove attachment">×</button>
               </div>}
               {isRecording && <div className="tc-recording">🔴 {t.recording}</div>}
-              <textarea value={text} placeholder={t.write} rows={2}
-                onChange={(e)=>setText(e.target.value)}
-                onKeyDown={(e)=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();void send();}}}/>
-              <div className="tc-compose-actions">
-                <label className="tc-upload">
-                  📎 {t.attach}
+              <div className="tc-compose-line">
+                <label className="tc-upload" title={t.attach} aria-label={t.attach}>
+                  📎
                   <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf"
                     onChange={(e)=>setFile(e.target.files?.[0]??null)}/>
                 </label>
-                <button type="button" className="tc-record" disabled={busy}
+                <textarea value={text} placeholder={t.write} rows={1}
+                  onChange={(e)=>setText(e.target.value)}
+                  onKeyDown={(e)=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();void send();}}}/>
+                <button type="button" className="tc-record" title={isRecording?t.stop:t.record}
+                  aria-label={isRecording?t.stop:t.record} disabled={busy}
                   onClick={()=>isRecording?stopRecording():void startRecording()}>
-                  🎙️ {isRecording?t.stop:t.record}
+                  {isRecording?"⏹":"🎙️"}
                 </button>
-                <button className="tc-send" disabled={busy||isRecording||(!text.trim()&&!file)}
+                <button className="tc-send" title={t.send} aria-label={t.send}
+                  disabled={busy||isRecording||(!text.trim()&&!file)}
                   type="button" onClick={()=>void send()}>
-                  {busy?"…":"➤ "+t.send}
+                  {busy?"…":"➤"}
                 </button>
               </div>
             </div>}
