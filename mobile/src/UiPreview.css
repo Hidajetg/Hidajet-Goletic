@@ -68,8 +68,8 @@
 .spv-chat-float-panel{
  position:fixed;top:max(110px,calc(env(safe-area-inset-top,0px) + 110px));
  right:max(12px,env(safe-area-inset-right,0px));z-index:89;
- width:min(365px,calc(100vw - 24px));
- height:min(555px,calc(100dvh - 160px));min-height:250px;
+ width:min(350px,calc(100vw - 24px));
+ height:min(480px,calc(100dvh - 160px));min-height:250px;
  display:flex;flex-direction:column;overflow:hidden;
  border:1px solid #435064;border-radius:16px;
  background:#121925;box-shadow:0 14px 44px #000c}
@@ -101,7 +101,7 @@
  .spv-user{display:none}
  .spv-chat-corner{top:max(55px,calc(env(safe-area-inset-top,0px) + 55px))}
  .spv-chat-float-panel{width:calc(100vw - 20px);right:10px;
-   height:min(540px,calc(100dvh - 148px));top:max(108px,calc(env(safe-area-inset-top,0px) + 108px))}
+   height:min(475px,calc(100dvh - 148px));top:max(108px,calc(env(safe-area-inset-top,0px) + 108px))}
 }
 @media(max-height:580px){
  .spv-chat-float-panel{top:73px;height:calc(100dvh - 83px);min-height:150px}
