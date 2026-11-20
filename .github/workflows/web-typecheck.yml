@@ -1,4 +1,4 @@
-name: Solstone web - staged login TypeScript check
+name: Solstone staged web and Team Chat typecheck
 
 on:
   push:
@@ -8,6 +8,12 @@ on:
       - '.github/workflows/web-typecheck.yml'
       - 'app/login/page.tsx'
       - 'app/api/auth/workers/route.ts'
+      - 'app/team-chat/**'
+      - 'app/api/team-chat/**'
+      - 'app/lib/team-chat.ts'
+      - 'app/components/TeamChatAlerts.tsx'
+      - 'app/dashboard/page.tsx'
+      - 'app/layout.tsx'
   workflow_dispatch:
 
 permissions:
