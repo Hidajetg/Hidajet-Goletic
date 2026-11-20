@@ -641,8 +641,8 @@ export default function DashboardPage() {
       {!isAdmin && (
         <section style={workerTodayBoxStyle} aria-label={t.today}>
           <div style={workerTodayHeadingStyle}>
-            <h2 style={{ margin: 0, fontSize: 13, color: "#fff" }}>📅 {t.today}</h2>
-            <Link href="/kalendar" style={{ color: "#fdba74", textDecoration: "none", fontSize: 11 }}>
+            <h2 style={{ margin: 0, fontSize: 10, color: "#fff" }}>📅 {t.today}</h2>
+            <Link href="/kalendar" style={{ color: "#fdba74", textDecoration: "none", fontSize: 8 }}>
               {t.calendar} ›
             </Link>
           </div>
@@ -679,13 +679,13 @@ export default function DashboardPage() {
                     ...(selected ? miniCalendarSelectedStyle : {}),
                   }}
                   onClick={() => selectWorkerDate(date)}>
-                  <span style={{ fontSize: 9 }}>{weekday}</span>
-                  <strong style={{ fontSize: 12 }}>{Number(date.slice(-2))}</strong>
+                  <span style={{ fontSize: 7 }}>{weekday}</span>
+                  <strong style={{ fontSize: 9 }}>{Number(date.slice(-2))}</strong>
                 </button>
               );
             })}
           </div>
-          <div style={{ color: "#cbd5e1", fontSize: 10.5, margin: "5px 0" }}>
+          <div style={{ color: "#cbd5e1", fontSize: 8, margin: "3px 0" }}>
             {new Intl.DateTimeFormat(localeForLanguage(lang as AppLanguage), {
               day: "2-digit", month: "long", year: "numeric", timeZone: "UTC",
             }).format(new Date(workerSelectedDate + "T00:00:00Z"))}
@@ -699,15 +699,15 @@ export default function DashboardPage() {
           ) : workerTodaySites.length === 0 ? (
             <p style={{ margin: "9px 0", color: "#cbd5e1" }}>{t.noWork}</p>
           ) : (
-            <div style={{ display: "grid", gap: 6 }}>
+            <div style={{ display: "grid", gap: 4 }}>
               {workerTodaySites.map((item) => (
                 <article key={item.id} style={workerSiteCardStyle}>
-                  <div style={{ fontSize: 13, fontWeight: 800 }}>{item.name}</div>
+                  <div style={{ fontSize: 10, fontWeight: 800 }}>{item.name}</div>
                   {item.location && (
-                    <div style={{ marginTop: 4, fontSize: 11, color: "#cbd5e1" }}>📍 {item.location}</div>
+                    <div style={{ marginTop: 3, fontSize: 8, color: "#cbd5e1" }}>📍 {item.location}</div>
                   )}
                   {item.note && (
-                    <div style={{ marginTop: 4, fontSize: 11, color: "#f8fafc" }}>📝 {item.note}</div>
+                    <div style={{ marginTop: 3, fontSize: 8, color: "#f8fafc" }}>📝 {item.note}</div>
                   )}
                   {item.coworkers.length > 0 && (
                     <div style={{ marginTop: 4, fontSize: 11, color: "#cbd5e1" }}>
@@ -715,9 +715,9 @@ export default function DashboardPage() {
                     </div>
                   )}
                   <Link href={`/baustellen/${item.siteId}`}
-                    style={{ display: "inline-block", marginTop: 7, padding: "6px 10px",
+                    style={{ display: "inline-block", marginTop: 5, padding: "4px 7px",
                       borderRadius: 9, color: "#121212", background: "#fb923c",
-                      textDecoration: "none", fontWeight: 700, fontSize: 11 }}>
+                      textDecoration: "none", fontWeight: 700, fontSize: 8 }}>
                     {t.open} ›
                   </Link>
                 </article>
@@ -928,28 +928,28 @@ const workerSubtitleStyle: CSSProperties = {
 
 const miniCalendarControlsStyle: CSSProperties = {
   display: "flex", alignItems: "center", gap: 4,
-  margin: "4px 0 5px", flexWrap: "nowrap",
+  margin: "3px 0", flexWrap: "wrap",
 };
 const miniCalendarNavStyle: CSSProperties = {
   background: "#334155", color: "#fff", border: "1px solid #64748b",
-  borderRadius: 7, minWidth: 24, minHeight: 29, cursor: "pointer", fontSize: 15,
+  borderRadius: 5, minWidth: 18, minHeight: 23, cursor: "pointer", fontSize: 11,
 };
 const miniCalendarActionStyle: CSSProperties = {
   background: "#29384b", color: "#f8fafc", border: "1px solid #64748b",
-  borderRadius: 7, padding: "4px 5px", minHeight: 29, cursor: "pointer", fontSize: 10,
+  borderRadius: 5, padding: "3px 4px", minHeight: 23, cursor: "pointer", fontSize: 8,
 };
 const miniCalendarDateInputStyle: CSSProperties = {
-  flex: "1 1 80px", maxWidth: 145, minWidth: 75, boxSizing: "border-box",
+  flex: "1 1 67px", maxWidth: 100, minWidth: 63, boxSizing: "border-box",
   background: "#e2e8f0", color: "#1e293b", border: "1px solid #94a3b8",
-  borderRadius: 7, padding: "3px 2px", minHeight: 29, fontSize: 10,
+  borderRadius: 5, padding: "2px 1px", minHeight: 23, fontSize: 8,
 };
 const miniCalendarWeekStyle: CSSProperties = {
   display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))",
-  gap: 3, marginTop: 5,
+  gap: 2, marginTop: 3,
 };
 const miniCalendarDayStyle: CSSProperties = {
-  display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-  minWidth: 0, padding: "4px 1px", minHeight: 38,
+  display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
+  minWidth: 0, padding: "2px 1px", minHeight: 27,
   background: "#1a293e", color: "#dbeafe", border: "1px solid #384d65",
   borderRadius: 9, cursor: "pointer",
 };
@@ -966,15 +966,16 @@ const languageSelectStyle: CSSProperties = {
 };
 
 const workerTodayBoxStyle: CSSProperties = {
-  padding: 9, marginBottom: 10, borderRadius: 10,
+  width: "70%", boxSizing: "border-box", marginInline: "auto",
+  padding: 6, marginBottom: 7, borderRadius: 7,
   background: "#142339", border: "1px solid #455a72",
 };
 const workerTodayHeadingStyle: CSSProperties = {
   display: "flex", alignItems: "center",
-  justifyContent: "space-between", gap: 6, marginBottom: 5,
+  justifyContent: "space-between", gap: 4, marginBottom: 3,
 };
 const workerSiteCardStyle: CSSProperties = {
-  padding: 8, borderRadius: 9, background: "#0c1726",
+  padding: 5, borderRadius: 6, background: "#0c1726",
   borderLeft: "4px solid #f97316", borderTop: "1px solid #35475d",
   borderRight: "1px solid #35475d", borderBottom: "1px solid #35475d",
 };
