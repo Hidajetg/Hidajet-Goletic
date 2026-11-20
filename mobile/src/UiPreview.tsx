@@ -113,7 +113,7 @@ export default function UiPreview(){
     <button type="button" className={"spv-chat-corner"+(screen==="chat"?" open":"")}
       aria-label={screen==="chat"?"Zatvori Team Chat":"Otvori Team Chat"}
       aria-expanded={screen==="chat"}
-      onClick={()=>setScreen(old=>old==="chat"?"home":"chat")}>
+      onClick={()=>screen==="chat"?setScreen("home"):enterChat("site")}>
       {screen==="chat"?"✕":"💬"}
     </button>
     <nav className="spv-languages">
@@ -138,7 +138,7 @@ export default function UiPreview(){
     {screen==="chat" && <aside className="spv-chat-float-panel"
       role="dialog" aria-label="Solstone Team Chat" aria-modal="false">
       <div className="spv-chat-head">
-        <div><h1>💬 {t.chat}</h1><p>🏗️ Grupe · 👤 Privatno · 📢 Obavijesti</p></div>
+        <div><h1>💬 {t.chat}</h1><p>🏗️ Grupe · 👤 Privatno · 📢 Obavijesti · {count}</p></div>
         <button aria-label="Zatvori chat" onClick={()=>setScreen("home")}>✕</button>
       </div>
       <div className="spv-prefs">
