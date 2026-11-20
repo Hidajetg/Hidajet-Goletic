@@ -10,6 +10,7 @@ on:
       - 'mobile/scripts/**'
       - 'mobile/branding/**'
       - 'mobile/android/app/src/main/java/**'
+      - 'mobile/android/app/src/main/AndroidManifest.xml'
   workflow_dispatch:
 
 permissions:
