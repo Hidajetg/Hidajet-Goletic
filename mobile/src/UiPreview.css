@@ -347,3 +347,63 @@
   .spv .spv-mini-week button{padding:4px 1px}
   .spv .spv-menu{padding:10px 6px}
 }
+
+
+/* DENSITY V3: smaller calendar, navigation icons and typography.
+   Keep a usable touch target and maintain the admin/worker distinction. */
+.spv{font-size:12px;padding-left:10px;padding-right:10px;padding-bottom:72px}
+.spv .spv-alert{margin:0 -10px;padding:6px 10px;font-size:10px}
+.spv .spv-header{padding:10px 0 8px}
+.spv .spv-brand-icon{width:48px;height:48px;min-width:48px;border-radius:10px}
+.spv .spv-brand strong{font-size:21px}
+.spv .spv-brand small{font-size:7.5px}
+.spv .spv-user{font-size:10px}
+.spv .spv-language-select-wrap{min-height:30px;margin:0 0 7px;gap:5px}
+.spv .spv-language-select-wrap label{font-size:13px}
+.spv .spv-language-select-wrap select{min-height:31px;font-size:11px;padding:5px 21px 5px 8px;max-width:180px}
+.spv .spv-role-switch{padding:5px 7px;margin:3px 0 8px;gap:5px}
+.spv .spv-role-switch button{min-width:65px;padding:6px 8px;font-size:10px}
+.spv .spv-role-switch small{font-size:9px}
+.spv .spv-today-card{padding:8px 9px;margin:0 0 9px;border-radius:10px}
+.spv .spv-today-heading{gap:5px;margin-bottom:4px}
+.spv .spv-today-heading strong{font-size:13px}
+.spv .spv-today-heading small{font-size:8px;max-width:48%}
+.spv .spv-today-nav{gap:4px;margin:5px 0 4px;flex-wrap:nowrap}
+.spv .spv-today-nav button{min-height:29px;border-radius:6px;padding:4px 6px;font-size:10px;white-space:nowrap}
+.spv .spv-today-nav button:first-child,
+.spv .spv-today-nav button:last-child{min-width:24px;padding:3px 5px;font-size:15px}
+.spv .spv-today-nav input{flex:1 1 75px;min-width:70px;max-width:none;min-height:29px;border-radius:6px;padding:3px 2px;font-size:10px}
+.spv .spv-mini-week{gap:3px;margin:4px 0}
+.spv .spv-mini-week button{min-height:40px;padding:3px 1px;gap:2px;border-radius:6px}
+.spv .spv-mini-week button span{font-size:9px}
+.spv .spv-mini-week button strong{font-size:12px}
+.spv .spv-day-label{font-size:10.5px;margin:4px 0 6px}
+.spv .spv-today-site{padding:7px 9px;gap:4px;border-radius:7px}
+.spv .spv-today-site b{font-size:12px}
+.spv .spv-today-site span{font-size:10.5px}
+.spv .spv-today-site small{font-size:9px;line-height:1.35}
+.spv .spv-empty-day{padding:8px;font-size:10.5px;margin:2px 0}
+.spv .spv-section-title{margin:10px 0 7px}
+.spv .spv-section-title h2{font-size:14px}
+.spv .spv-section-title small{font-size:10px}
+.spv .spv-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:12px}
+.spv .spv-menu{min-height:45px;padding:7px 6px;gap:3px;border-radius:9px}
+.spv .spv-menu b{font-size:12px;line-height:1.2}
+.spv .spv-menu-icon{font-size:12px;line-height:1;min-width:0;margin-right:3px}
+.spv .spv-admin-cards{gap:6px}
+.spv .spv-admin-cards .spv-menu{min-height:45px}
+.spv .spv-chat-corner{width:40px;height:40px;font-size:15px;border-radius:11px}
+.spv .spv-bottom{height:57px}
+.spv .spv-bottom button{font-size:14px}
+.spv .spv-bottom button span{font-size:10px}
+.spv .spv-chat-page .spv-page-title{font-size:14px}
+.spv .spv-chat-page .spv-messages article p{font-size:13px}
+.spv .spv-chat-page .spv-compose-line textarea{font-size:13px}
+@media(max-width:360px){
+  .spv .spv-today-nav{gap:2px}
+  .spv .spv-today-nav button{padding:3px 4px;font-size:9px}
+  .spv .spv-today-nav input{font-size:9px;min-width:62px}
+  .spv .spv-mini-week{gap:2px}
+  .spv .spv-menu{padding:7px 3px}
+  .spv .spv-menu b{font-size:11px}
+}
