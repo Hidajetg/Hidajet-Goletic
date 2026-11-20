@@ -7,28 +7,64 @@ type ChatKind="site"|"private"|"announcement";
 type Screen="home"|"chat";
 type ChatMessage={id:number;mine:boolean;sender:string;body:string;time:string;attachment?:string;mediaUrl?:string;mediaType?:string};
 
-const menus=[
-  ["🏗️","Baustelle","Gradilišta"],
-  ["👷","Moji projekti","Radni zadaci"],
-  ["⏰","Sati","Radno vrijeme"],
-  ["📅","Kalendar","Raspored za danas"],
-  ["📢","Obavijesti","Informacije firme"],
-  ["🧱","Materijal","Narudžbe materijala"],
-  ["📝","Privatna bilješka","Moje napomene"],
-  ["🚗","Auta","Vozila firme"],
+type MenuKey =
+  "baustelle" | "workerProjects" | "projects" | "employees" | "hours" |
+  "calendar" | "cars" | "info" | "privateNote" | "adminMaterial" |
+  "materialOrder" | "logout";
+type MenuTone = "blue" | "green" | "orange" | "cyan" | "purple" | "red";
+type MenuItem = { key: MenuKey; icon: string; tone: MenuTone };
+const navItems: MenuItem[] = [
+  {key:"baustelle",icon:"🏗️",tone:"blue"},
+  {key:"workerProjects",icon:"👷",tone:"green"},
+  {key:"projects",icon:"📂",tone:"orange"},
+  {key:"employees",icon:"👥",tone:"cyan"},
+  {key:"hours",icon:"⏰",tone:"blue"},
+  {key:"calendar",icon:"📅",tone:"blue"},
+  {key:"cars",icon:"🚗",tone:"blue"},
+  {key:"info",icon:"📢",tone:"blue"},
+  {key:"privateNote",icon:"📝",tone:"blue"},
+  {key:"adminMaterial",icon:"🧱",tone:"purple"},
+  {key:"materialOrder",icon:"🧱",tone:"blue"},
+  {key:"logout",icon:"🚪",tone:"red"},
 ];
-const adminMenus=[
-  ["🏗️","Baustelle","Pregled gradilišta"],
-  ["📂","Projekti","Svi projekti"],
-  ["👥","Radnici","Administracija radnika"],
-  ["⏰","Sati","Pregled radnih sati"],
-  ["📅","Kalendar","Raspored svih radnika"],
-  ["🚗","Auta","Vozila firme"],
-  ["📢","Info","Obavijesti radnicima"],
-  ["📝","Privatna bilješka","Napomene"],
-  ["🧱","Materijal","Administracija materijala"],
-  ["🧱","Naruči materijal","Narudžbe"],
-];
+const adminOnlyMenus = new Set<MenuKey>(["projects","employees","adminMaterial"]);
+const navLabels:Record<Language,Record<MenuKey,string>> = {
+  de:{baustelle:"Baustelle",workerProjects:"Meine Projekte",projects:"Projekte",employees:"Mitarbeiter",hours:"Stunden",calendar:"Kalender",cars:"Autos",info:"Info",privateNote:"Private Notiz",adminMaterial:"Material",materialOrder:"Material bestellen",logout:"Abmelden"},
+  ba:{baustelle:"Baustelle",workerProjects:"Moji projekti",projects:"Projekti",employees:"Radnici",hours:"Sati",calendar:"Kalendar",cars:"Auta",info:"Info",privateNote:"Privatna bilješka",adminMaterial:"Materijal",materialOrder:"Naruči materijal",logout:"Odjava"},
+  uz:{baustelle:"Ish joyi",workerProjects:"Mening loyihalarim",projects:"Loyihalar",employees:"Xodimlar",hours:"Soatlar",calendar:"Kalendar",cars:"Mashinalar",info:"Info",privateNote:"Shaxsiy eslatma",adminMaterial:"Material",materialOrder:"Material buyurtma",logout:"Chiqish"},
+  cz:{baustelle:"Stavba",workerProjects:"Moje projekty",projects:"Projekty",employees:"Pracovníci",hours:"Hodiny",calendar:"Kalendář",cars:"Auta",info:"Info",privateNote:"Soukromá poznámka",adminMaterial:"Materiál",materialOrder:"Objednat materiál",logout:"Odhlásit se"},
+  en:{baustelle:"Construction site",workerProjects:"My projects",projects:"Projects",employees:"Employees",hours:"Hours",calendar:"Calendar",cars:"Cars",info:"Info",privateNote:"Private note",adminMaterial:"Material",materialOrder:"Order material",logout:"Logout"},
+};
+const localeOf:Record<Language,string>={de:"de-AT",ba:"bs-BA",uz:"uz-UZ",cz:"cs-CZ",en:"en-GB"};
+const calendarLabels:Record<Language,{title:string,today:string,tomorrow:string,noPlans:string,date:string,select:string,example:string}> = {
+  de:{title:"Mein Arbeitsplan",today:"Heute",tomorrow:"Morgen",noPlans:"Kein Demo-Einsatz für diesen Tag.",date:"Tag",select:"Datum auswählen",example:"BEISPIEL – keine echten Kalenderdaten"},
+  ba:{title:"Moj raspored",today:"Danas",tomorrow:"Sutra",noPlans:"Za ovaj dan nema primjera rasporeda.",date:"Dan",select:"Odaberi datum",example:"PRIMJER – nisu stvarni podaci"},
+  uz:{title:"Ish jadvalim",today:"Bugun",tomorrow:"Ertaga",noPlans:"Bu kunga namuna jadval yo‘q.",date:"Kun",select:"Sanani tanlang",example:"NAMUNA – haqiqiy ma’lumot emas"},
+  cz:{title:"Můj rozvrh",today:"Dnes",tomorrow:"Zítra",noPlans:"Pro tento den není ukázkový plán.",date:"Den",select:"Vybrat datum",example:"UKÁZKA – nejde o skutečná data"},
+  en:{title:"My schedule",today:"Today",tomorrow:"Tomorrow",noPlans:"No sample assignment for this day.",date:"Day",select:"Choose date",example:"SAMPLE – not actual calendar data"},
+};
+
+function viennaISO():string {
+  const parts=new Intl.DateTimeFormat("en-GB",{
+    timeZone:"Europe/Vienna",year:"numeric",month:"2-digit",day:"2-digit",
+  }).formatToParts(new Date());
+  const v=(name:string)=>parts.find(part=>part.type===name)?.value??"";
+  return v("year")+"-"+v("month")+"-"+v("day");
+}
+function moveISO(date:string,days:number):string {
+  return new Date(Date.parse(date+"T00:00:00Z")+days*86_400_000).toISOString().slice(0,10);
+}
+function mondayWeek(date:string):string[] {
+  const day=new Date(date+"T00:00:00Z").getUTCDay();
+  const monday=moveISO(date,-((day+6)%7));
+  return Array.from({length:7},(_,i)=>moveISO(monday,i));
+}
+function inDateWindow(date:string):boolean {
+  const from=Date.parse(viennaISO()+"T00:00:00Z");
+  const actual=Date.parse(date+"T00:00:00Z");
+  return Number.isFinite(actual)&&Math.abs(actual-from)<=365*86_400_000;
+}
+
 const names:Record<Language,string>={de:"Deutsch",ba:"Bosanski",uz:"O‘zbek",cz:"Čeština",en:"English"};
 const labels:Record<Language,{chat:string,site:string,private:string,announcement:string,type:string,send:string,attach:string,voice:string,stop:string}> = {
   de:{chat:"Team Chat",site:"Gruppen",private:"Privat",announcement:"Firmeninfo",type:"Nachricht schreiben …",send:"Senden",attach:"Foto / PDF",voice:"Sprachnachricht",stop:"Stopp"},
@@ -52,7 +88,12 @@ const initial:Record<ChatKind,ChatMessage[]>={
 const kinds:ChatKind[]=["site","private","announcement"];
 
 export default function UiPreview(){
-  const [lang,setLang]=useState<Language>("ba");
+  const [lang,setLang]=useState<Language>(() => {
+    if (typeof window === "undefined") return "ba";
+    const candidate=(localStorage.getItem("appLanguage") || localStorage.getItem("lang") || "ba").toLowerCase();
+    return (["de","ba","uz","cz","en"] as string[]).includes(candidate) ? candidate as Language : "ba";
+  });
+  const [selectedDate,setSelectedDate]=useState(viennaISO);
   const [screen,setScreen]=useState<Screen>("home");
   const [previewRole,setPreviewRole]=useState<"worker"|"admin">("worker");
   const [kind,setKind]=useState<ChatKind>("site");
@@ -69,6 +110,16 @@ export default function UiPreview(){
   const chunks=useRef<Blob[]>([]);
   const bottom=useRef<HTMLDivElement|null>(null);
   const t=labels[lang];
+  const cl=calendarLabels[lang];
+  function setLanguage(language:Language) {
+    setLang(language);
+    for(const key of ["appLanguage","lang","language","worker_language","selectedLanguage"]){
+      localStorage.setItem(key,language);
+    }
+  }
+  function selectDay(date:string) {
+    if(inDateWindow(date)&&date!==selectedDate)setSelectedDate(date);
+  }
 
 
   useEffect(()=>{bottom.current?.scrollIntoView({behavior:"smooth",block:"nearest"});},[messages,kind,screen]);
@@ -128,10 +179,14 @@ export default function UiPreview(){
     {screen==="home" && <button type="button" className="spv-chat-corner"
       aria-label="Otvori Team Chat kao novu stranicu"
       onClick={()=>enterChat("site")}>💬</button>}
-    {screen==="home" && <nav className="spv-languages">
-      {(Object.keys(names) as Language[]).map(code=>
-        <button key={code} className={code===lang?"active":""} onClick={()=>setLang(code)} title={names[code]}>{code.toUpperCase()}</button>)}
-    </nav>}
+    {screen==="home" && <div className="spv-language-select-wrap">
+      <label htmlFor="spv-language-home">🌐</label>
+      <select id="spv-language-home" aria-label="Jezik / Sprache"
+        value={lang} onChange={e=>setLanguage(e.target.value as Language)}>
+        {(Object.keys(names) as Language[]).map(code=>
+          <option key={code} value={code}>{code.toUpperCase()} — {names[code]}</option>)}
+      </select>
+    </div>}
     {screen==="home" && <>
       <div className="spv-role-switch" aria-label="Izbor demonstracijskog pregleda">
         <small>DEMO PREGLED</small>
@@ -140,22 +195,56 @@ export default function UiPreview(){
         <button type="button" className={previewRole==="admin"?"active":""}
           onClick={()=>setPreviewRole("admin")}>🔧 Admin</button>
       </div>
-      {previewRole==="worker" && <section className="spv-today-card" aria-label="Primjer današnjeg rasporeda">
-        <div className="spv-today-heading"><strong>📅 Danas radim</strong>
-          <span>TESTNI PRIKAZ</span>
+      {previewRole==="worker" && <section className="spv-today-card" aria-label={cl.title}>
+        <div className="spv-today-heading">
+          <strong>📅 {cl.title}</strong><small>{cl.example}</small>
         </div>
-        <div className="spv-today-site"><b>🏗️ Baustelle – primjer gradilišta</b>
-          <span>📍 Lokacija: primjer</span>
-          <span>👷 Kolege: primjer kolege na istom gradilištu</span>
-          <small>Stvarni raspored dolazi iz kalendara nakon prijave radnika.</small>
+        <div className="spv-today-nav">
+          <button type="button" aria-label="Prethodni dan" onClick={()=>selectDay(moveISO(selectedDate,-1))}>‹</button>
+          <button type="button" onClick={()=>selectDay(viennaISO())}>{cl.today}</button>
+          <button type="button" onClick={()=>selectDay(moveISO(viennaISO(),1))}>{cl.tomorrow}</button>
+          <input type="date" aria-label={cl.select} value={selectedDate}
+            min={moveISO(viennaISO(),-365)} max={moveISO(viennaISO(),365)}
+            onChange={e=>selectDay(e.target.value)}/>
+          <button type="button" aria-label="Naredni dan" onClick={()=>selectDay(moveISO(selectedDate,1))}>›</button>
         </div>
+        <div className="spv-mini-week">
+          {mondayWeek(selectedDate).map(date=>{
+            const active=date===selectedDate;
+            const today=date===viennaISO();
+            const weekday=new Intl.DateTimeFormat(localeOf[lang],{
+              weekday:"short",timeZone:"UTC",
+            }).format(new Date(date+"T00:00:00Z"));
+            return <button type="button" key={date}
+              title={date} disabled={!inDateWindow(date)}
+              aria-pressed={active} className={(active?"active":"")+(today?" today":"")}
+              onClick={()=>selectDay(date)}>
+              <span>{weekday}</span><strong>{Number(date.slice(-2))}</strong>
+            </button>;
+          })}
+        </div>
+        <p className="spv-day-label">
+          {new Intl.DateTimeFormat(localeOf[lang],{
+            weekday:"long",day:"2-digit",month:"long",year:"numeric",timeZone:"UTC",
+          }).format(new Date(selectedDate+"T00:00:00Z"))}
+        </p>
+        {selectedDate===viennaISO() ?
+          <div className="spv-today-site"><b>🏗️ Baustelle — demonstracijski primjer</b>
+            <span>📍 Primjer lokacije</span>
+            <span>👷 Primjer kolega s istog gradilišta</span>
+            <small>Stvarni raspored je u radničkom pogledu povezanim s kalendarom nakon prijave.</small>
+          </div> :
+          <p className="spv-empty-day">{cl.noPlans}</p>}
       </section>}
-      <div className="spv-section-title"><h2>Moja aplikacija</h2><small>Brzi pristup</small></div>
-      <div className="spv-cards">
-        {(previewRole==="admin"?adminMenus:menus).map(([icon,name,desc],idx)=>
-          <button key={name} className="spv-menu" onClick={()=>alertDemo(name)}>
-            <span className={idx===3?"spv-menu-icon gold":"spv-menu-icon"}>{icon}</span>
-            <b>{name}</b><small>{desc}</small>
+      <div className="spv-section-title"><h2>{previewRole==="admin"?"STONE BOUTIQUE — Admin":"Moja aplikacija"}</h2>
+        <small>{previewRole==="admin"?"Web redoslijed izbornika":"Brzi pristup"}</small></div>
+      <div className={"spv-cards"+(previewRole==="admin"?" spv-admin-cards":"")}>
+        {navItems.filter(item=>previewRole==="admin" || !adminOnlyMenus.has(item.key))
+          .map(item=><button key={item.key} type="button"
+            className={"spv-menu spv-tone-"+item.tone}
+            onClick={()=>alertDemo(navLabels[lang][item.key])}>
+            <span aria-hidden="true" className="spv-menu-icon">{item.icon}</span>
+            <b>{navLabels[lang][item.key]}</b>
           </button>)}
       </div>
     </>}
@@ -173,11 +262,14 @@ export default function UiPreview(){
         <label><input type="checkbox" checked={sound} onChange={e=>setSound(e.target.checked)}/> 🔔 Zvuk</label>
         <label><input type="checkbox" checked={speech} onChange={e=>setSpeech(e.target.checked)}/> 🔊 Glas</label>
         <label><input type="checkbox" checked={autoTranslation} onChange={e=>setAutoTranslation(e.target.checked)}/> 🌐 Auto prevod</label>
-        <div className="spv-chat-language">
-          {(Object.keys(names) as Language[]).map(code=>
-            <button key={code} className={code===lang?"active":""}
-              onClick={()=>setLang(code)} title={names[code]}>{code.toUpperCase()}</button>)}
-        </div>
+        <label className="spv-chat-language-select">
+          🌐
+          <select aria-label="Jezik / Sprache" value={lang}
+            onChange={event=>setLanguage(event.target.value as Language)}>
+            {(Object.keys(names) as Language[]).map(code=>
+              <option key={code} value={code}>{code.toUpperCase()} — {names[code]}</option>)}
+          </select>
+        </label>
       </div>}
       <nav className="spv-tabs" aria-label="Vrsta razgovora">{kinds.map(group=>
         <button key={group} className={kind===group?"active":""}
