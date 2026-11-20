@@ -26,6 +26,9 @@ jobs:
         working-directory: mobile
     env:
       # Publishable browser key only. NEVER add a service_role or secret API key.
+      # Optional: set the verified production origin as GitHub Actions variable SOLSTONE_WEB_URL.
+      # If absent, builds the incomplete legacy mobile prototype for diagnostics.
+      SOLSTONE_WEB_URL: ${{ vars.SOLSTONE_WEB_URL }}
       VITE_SUPABASE_URL: https://axpfymarrqjebpwosidr.supabase.co
       VITE_SUPABASE_ANON_KEY: sb_publishable_9Ik1i7_zuJ8bIZaWOgZ_CA_k8ysbEJW
 
@@ -67,6 +70,17 @@ jobs:
         run: |
           set -o pipefail
           npx cap sync android 2>&1 | tee "$RUNNER_TEMP/solstone-sync.log"
+
+      - name: Describe chosen mobile mode
+        shell: bash
+        run: |
+          if [ -n "$SOLSTONE_WEB_URL" ]; then
+            echo "### Internal test: Next.js live web app" >> "$GITHUB_STEP_SUMMARY"
+            echo "Capacitor opens the verified remote HTTPS origin; internet is required." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Prototype-only APK" >> "$GITHUB_STEP_SUMMARY"
+            echo "SOLSTONE_WEB_URL is not configured: this APK bundles the incomplete Vite prototype, NOT the full web app." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Verify packaged frontend is not blank
         id: verify_web
