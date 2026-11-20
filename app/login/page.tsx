@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabase";
 import {
   APP_LANGUAGES,
   type AppLanguage,
@@ -188,13 +187,22 @@ export default function LoginPage() {
 
   async function loadWorkers() {
     try {
-      const { data } = await supabase
-        .from("workers")
-        .select("*")
-        .order("name", { ascending: true });
+      // Name/PIN login only needs a minimal worker list. Never fetch full
+      // employee rows from Supabase's anonymous Data API.
+      const response = await fetch("/api/auth/workers", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
 
-      const dbWorkers: Worker[] = (data || [])
-        .filter((row: any) => row?.active !== false)
+      if (!response.ok) {
+        throw new Error("Worker list could not be loaded.");
+      }
+
+      const payload = await response.json();
+      const rows = Array.isArray(payload?.workers) ? payload.workers : [];
+
+      const dbWorkers: Worker[] = rows
         .map((row: any) => {
           const workerName = String(row?.name || "").trim();
 
@@ -210,7 +218,7 @@ export default function LoginPage() {
             role,
           };
         })
-        .filter((worker) => worker.name);
+        .filter((worker: Worker) => worker.name);
 
       if (dbWorkers.length > 0) {
         setWorkers(dbWorkers);
@@ -226,8 +234,10 @@ export default function LoginPage() {
           setName(savedName);
         }
       }
-    } catch (e) {
-      console.error("Load workers:", e);
+    } catch (error) {
+      // Keep the existing offline fallback choices. The PIN is still verified
+      // on the server and inactive users cannot log in.
+      console.error("Load workers:", error);
     }
   }
 
