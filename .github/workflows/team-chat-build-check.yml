@@ -1,0 +1,58 @@
+name: Solstone redesigned dashboard and chat - production build dry run
+
+on:
+  push:
+    branches:
+      - mobile-android-ios-test-2026-11-20
+    paths:
+      - '.github/workflows/team-chat-build-check.yml'
+      - 'app/dashboard/**'
+      - 'app/baustellen/[id]/page.tsx'
+      - 'app/team-chat/**'
+      - 'app/api/team-chat/**'
+      - 'app/lib/team-chat.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      # Fake placeholders: no production credentials, no real database writes.
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: offline-test-publishable-key
+      SUPABASE_SERVICE_ROLE_KEY: offline-test-service-key
+      APP_SESSION_SECRET: offline-compile-only-test-session-secret
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout isolated test branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install web dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Compile complete Next.js web app
+        run: npm run build
+
+      - name: Assert UI routes were built
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .next/server/app/team-chat/page.js
+          test -f .next/server/app/dashboard/page.js
+          grep -R -F "Solstone" .next/server/app/team-chat/page.js >/dev/null
+          echo "### New Solstone UI: standalone build PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "Dashboard and Team Chat routes compiled with placeholder data credentials." >> "$GITHUB_STEP_SUMMARY"
+          echo "This does not deploy anything and chat still requires an isolated database." >> "$GITHUB_STEP_SUMMARY"
