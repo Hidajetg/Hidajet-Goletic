@@ -81,7 +81,7 @@ export default function TeamChatAlerts() {
 
         for (const room of rooms) {
           const old = previous.current.get(room.id);
-          if (initialized.current && old !== undefined &&
+          if (initialized.current &&
               room.lastMessageId && old !== room.lastMessageId &&
               room.unread > 0 && !newlyArrived) {
             newlyArrived = room;
