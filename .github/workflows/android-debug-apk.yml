@@ -55,9 +55,33 @@ jobs:
       - name: Sync web assets into Android
         run: npx cap sync android
 
+      - name: Verify packaged frontend is not blank
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          test -s android/app/src/main/assets/public/index.html
+          test -s android/app/src/main/assets/capacitor.config.json
+          if grep -R -q '10.0.2.2:3000' android/app/src/main/assets/capacitor.config.json; then
+            echo "::error::Emulator-only URL found in packaged Android config"
+            exit 1
+          fi
+          test -n "$(find android/app/src/main/assets/public/assets -maxdepth 1 -type f -name '*.js' -print -quit)"
+          echo "Bundled frontend and Android assets verified."
+
       - name: Assemble unsigned-for-release debug APK
         run: bash ./gradlew --no-daemon assembleDebug
         working-directory: mobile/android
+
+      - name: Verify APK output
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -l "$APK" | grep -q 'assets/public/index.html'
+          echo "APK contains bundled web app."
+          sha256sum "$APK"
 
       - name: Upload test APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
