@@ -1,32 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import "./team-chat-widget.css";
 
 /**
- * Small, ChatGPT-like top-corner chat launcher.
- *
- * We embed the EXISTING authorized Team Chat route so its actual private/site
- * membership checks, photo/PDF/voice uploads and translations are reused.
- * The iframe is same-origin and receives no session credentials via URL.
- *
- * Closed widget has no chat iframe, network fetch or screen-space overlay.
+ * The small upper-right chat launcher is only a link.
+ * Clicking it navigates to a real Team Chat page, never a floating iframe.
+ * All authorization checks remain in the existing server-side chat API.
  */
 export default function TeamChatWidget() {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
-  const [groupFullscreen, setGroupFullscreen] = useState(false);
   const [unread, setUnread] = useState(0);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const frameRef = useRef<HTMLIFrameElement>(null);
-
-  const hidden = !pathname ||
-    pathname === "/" ||
-    pathname === "/login" ||
-    pathname === "/login-secure" ||
-    pathname.startsWith("/team-chat");
 
   useEffect(() => {
     const onUnread = (event: Event) => {
@@ -37,59 +23,26 @@ export default function TeamChatWidget() {
     return () => window.removeEventListener("solstone-chat-unread", onUnread);
   }, []);
 
-  // The embedded Team Chat notifies this shell when a group tab/room is opened.
-  // Accept events only from this exact same-origin iframe.
-  useEffect(() => {
-    const onViewChange = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin ||
-          event.source !== frameRef.current?.contentWindow ||
-          !event.data || event.data.type !== "solstone-chat-view") return;
-      if (event.data.mode === "group-fullscreen") setGroupFullscreen(true);
-      if (event.data.mode === "compact") setGroupFullscreen(false);
-    };
-    window.addEventListener("message", onViewChange);
-    return () => window.removeEventListener("message", onViewChange);
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        setGroupFullscreen(false);
-        buttonRef.current?.focus();
-      }
-    };
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [open]);
-
-  // Avoid scrolling the underlying Baustelle while its group chat is full-screen.
-  useEffect(() => {
-    if (!open || !groupFullscreen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previous; };
-  }, [open, groupFullscreen]);
-
-  useEffect(() => {
-    // Never keep a confidential conversation visible when navigating to login.
-    if (hidden) { setOpen(false); setGroupFullscreen(false); }
-  }, [hidden]);
+  const hidden = !pathname ||
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname === "/login-secure" ||
+    pathname.startsWith("/team-chat");
 
   if (hidden) return null;
 
-  const caption = "Solstone Team Chat";
+  const siteId = pathname.startsWith("/baustellen/") ? pathname.split("/")[2] : "";
+  const href = /^\d+$/.test(siteId)
+    ? "/team-chat?siteId=" + encodeURIComponent(siteId)
+    : "/team-chat";
+
   return (
-    <div className="sw-widget" data-testid="solstone-floating-chat">
-      <button
-        ref={buttonRef}
-        type="button"
-        className={"sw-launcher" + (open ? " sw-active" : "")}
-        aria-label={open ? "Zatvori Team Chat" : "Otvori Team Chat"}
-        aria-expanded={open}
-        aria-controls="solstone-chat-popover"
-        onClick={() => { setOpen((old) => !old); setGroupFullscreen(false); }}
+    <div className="sw-widget" data-testid="solstone-chat-page-link">
+      <Link
+        href={href}
+        className="sw-launcher"
+        aria-label="Otvori Solstone Team Chat kao novu stranicu"
+        title="Solstone Team Chat"
       >
         <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -98,42 +51,7 @@ export default function TeamChatWidget() {
         {unread > 0 && <span className="sw-unread" aria-label={unread + " novih poruka"}>
           {unread > 99 ? "99+" : unread}
         </span>}
-      </button>
-
-      {open && <section
-        ref={dialogRef}
-        id="solstone-chat-popover"
-        className={"sw-panel" + (groupFullscreen ? " sw-panel-fullscreen" : "")}
-        role="region"
-        aria-label={caption}
-      >
-        <div className="sw-panel-header">
-          <span className="sw-panel-emblem" aria-hidden="true">💬</span>
-          <div className="sw-panel-title">
-            <strong>{caption}</strong>
-            <small>Grupe · Privatno · Obavijesti</small>
-          </div>
-          {groupFullscreen && <button type="button" className="sw-panel-compact" aria-label="Smanji grupni chat"
-            onClick={() => setGroupFullscreen(false)}>↙ Smanji</button>}
-          <button type="button" className="sw-panel-close" aria-label="Zatvori chat"
-            onClick={() => {
-              setOpen(false);
-              setGroupFullscreen(false);
-              buttonRef.current?.focus();
-            }}>✕</button>
-        </div>
-        <iframe
-          ref={frameRef}
-          key={pathname.startsWith("/baustellen/") ? pathname.split("/")[2] : "all"}
-          src={pathname.startsWith("/baustellen/") && /^\d+$/.test(pathname.split("/")[2] || "")
-            ? "/team-chat?compact=1&siteId=" + encodeURIComponent(pathname.split("/")[2])
-            : "/team-chat?compact=1"}
-          className="sw-panel-frame"
-          title={caption}
-          loading="eager"
-          referrerPolicy="same-origin"
-        />
-      </section>}
+      </Link>
     </div>
   );
 }
