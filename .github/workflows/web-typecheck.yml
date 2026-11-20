@@ -15,6 +15,7 @@ on:
       - 'app/lib/team-chat.ts'
       - 'app/components/TeamChatAlerts.tsx'
       - 'app/dashboard/page.tsx'
+      - 'app/api/worker/today/route.ts'
       - 'app/layout.tsx'
   workflow_dispatch:
 
