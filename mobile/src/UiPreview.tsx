@@ -262,7 +262,7 @@ export default function UiPreview(){
             <small>Stvarni raspored je u radničkom pogledu povezanim s kalendarom nakon prijave.</small>
           </div> :
           <p className="spv-empty-day">{cl.noPlans}</p>}
-      </section>}
+      </section>
       <div className="spv-section-title"><h2>{previewRole==="admin"?"STONE BOUTIQUE — Admin":"Moja aplikacija"}</h2>
         <small>{previewRole==="admin"?"Web redoslijed izbornika":"Brzi pristup"}</small></div>
       <div className={"spv-cards"+(previewRole==="admin"?" spv-admin-cards":"")}>
