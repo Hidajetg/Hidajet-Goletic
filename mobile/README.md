@@ -1,75 +1,37 @@
-# React + TypeScript + Vite
+# Solstone Baustelle — mobile (Android / iOS)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This directory is a **separate Vite/React + Capacitor application**, not a packaged copy of the Next.js web app. At present, some dashboard actions are placeholders. Do not distribute it as the full production app.
 
-Currently, two official plugins are available:
+## Android debug build (Windows)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Prerequisites: Node.js compatible with the installed Vite version, Android Studio, Android SDK and JDK.
 
-## React Compiler
+1. In PowerShell, open the repository's `mobile` directory.
+2. Create `mobile/.env.local` **locally only** with these *public-client* settings, configured by your administrator:
+   ```dotenv
+   VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+   VITE_SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_OR_LEGACY_ANON_KEY
+   ```
+   Never put a Supabase service-role/secret key in any Vite variable or Android package. Never commit .env files.
+3. Run:
+   ```powershell
+   npm ci
+   npm run build
+   npx cap sync android
+   npx cap open android
+   ```
+4. In Android Studio, run on a test device (or build a debug APK).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+**Why the old build could appear blank:** the previous `mobile/capacitor.config.ts` used `webDir: "public"` and `server.url: "http://10.0.2.2:3000"`. This emulator address is not reachable from a normal phone. We now bundle Vite's `dist` output and omit `server.url`.
 
-## Expanding the ESLint configuration
+After **every** web-code change, rerun `npm run build` and `npx cap sync android` before rebuilding. `npm run dev` alone does **not** refresh the installed app.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Important before production release
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- The current mobile UI authenticates through Supabase Auth email/password, while the Next.js web app also contains a separate PIN/cookie login flow. Align the user model securely before releasing.
+- Audit the `workers` and `baustellen` access policies (RLS), including role visibility and deactivated users. The UI alone is not a security boundary.
+- Confirm the Android signing keystore/backups and existing Google Play application ID before creating a release bundle.
+- Review the web application's server-only API routes, PDFs, file uploads, camera, notifications, and offline/error handling. Not all Next.js behavior is present in this Vite app.
+- iOS builds require Xcode on macOS or a supported macOS cloud build workflow, an Apple Developer account for distribution, and iOS project setup.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
+This branch is for testing only. The main branch and live web application are unchanged.
