@@ -501,12 +501,11 @@
 }
 
 
-/* WORKER SCHEDULE V4 — 30% smaller entire panel, not just the date numbers.
-   Uses normal CSS box sizing (not transform/zoom) so adjacent menu layout
-   continues directly after the smaller schedule. Admin is entirely excluded. */
+/* WORKER SCHEDULE — compact height and font sizes, full width aligned with menu cards.
+   Uses normal box sizing and does not affect the admin web dashboard. */
 .spv .spv-worker-home .spv-today-card{
-  width:70%;box-sizing:border-box;
-  margin:0 auto 5px;padding:5px 6px;
+  width:100%;max-width:none;box-sizing:border-box;
+  margin:0 0 5px;padding:5px 6px;
   border-radius:7px;border-left-width:3px;
 }
 .spv .spv-worker-home .spv-today-heading{gap:3px;margin-bottom:2px}
