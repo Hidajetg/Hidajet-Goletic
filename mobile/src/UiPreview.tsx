@@ -87,7 +87,12 @@ const initial:Record<ChatKind,ChatMessage[]>={
 const kinds:ChatKind[]=["site","private","announcement"];
 
 export default function UiPreview(){
-  const lang:Language="ba";
+  const [lang,setLang]=useState<Language>(() => {
+    if (typeof window === "undefined") return "ba";
+    const saved = (localStorage.getItem("appLanguage") || localStorage.getItem("lang") || "ba").toLowerCase();
+    return (["de","ba","uz","cz","en"] as string[]).includes(saved)
+      ? saved as Language : "ba";
+  });
   const [selectedDate,setSelectedDate]=useState(viennaISO);
   const [screen,setScreen]=useState<Screen>("home");
   const [previewRole,setPreviewRole]=useState<"worker"|"admin">("worker");
@@ -106,6 +111,12 @@ export default function UiPreview(){
   const bottom=useRef<HTMLDivElement|null>(null);
   const t=labels[lang];
   const cl=calendarLabels[lang];
+  function setLanguage(language:Language) {
+    setLang(language);
+    for(const key of ["appLanguage","lang","language","worker_language","selectedLanguage"]){
+      localStorage.setItem(key,language);
+    }
+  }
   function selectDay(date:string) {
     if(inDateWindow(date)&&date!==selectedDate)setSelectedDate(date);
   }
@@ -169,8 +180,16 @@ export default function UiPreview(){
       aria-label="Otvori Team Chat kao novu stranicu"
       onClick={()=>enterChat("site")}>💬</button>}
     {screen==="home" && previewRole==="worker" &&
-      <div className="spv-language-select-wrap" aria-label="Jezik: bosanski">
-        <span className="spv-ba-language">BA</span>
+      <div className="spv-language-select-wrap">
+        <select className="spv-language-code-select"
+          aria-label="Jezik: odaberi DE, BA, UZ, CZ ili EN"
+          value={lang} onChange={e=>setLanguage(e.target.value as Language)}>
+          <option value="de">DE</option>
+          <option value="ba">BA</option>
+          <option value="uz">UZ</option>
+          <option value="cz">CZ</option>
+          <option value="en">EN</option>
+        </select>
       </div>}
     {screen==="home" && <>
       <div className="spv-role-switch" aria-label="Izbor demonstracijskog pregleda">
@@ -187,9 +206,11 @@ export default function UiPreview(){
             de:"Willkommen", ba:"Dobrodošao", uz:"Xush kelibsiz",
             cz:"Vítejte",en:"Welcome",
           }[lang]} Demo Admin</h2>
-          <div className="spv-admin-web-langs" aria-label="Jezik: bosanski">
-            <span className="spv-only-ba">BA — Bosanski</span>
-          </div>
+          <nav className="spv-admin-web-langs" aria-label="Web izbor jezika">
+            {(["de","ba","uz","cz","en"] as Language[]).map(code=>
+              <button key={code} type="button" className={code===lang?"active":""}
+                onClick={()=>setLanguage(code)}>{code.toUpperCase()}</button>)}
+          </nav>
           <div className="spv-admin-web-grid">
             {navItems.map(item=>
               <button key={item.key} type="button"
@@ -274,7 +295,18 @@ export default function UiPreview(){
         <label><input type="checkbox" checked={sound} onChange={e=>setSound(e.target.checked)}/> 🔔 Zvuk</label>
         <label><input type="checkbox" checked={speech} onChange={e=>setSpeech(e.target.checked)}/> 🔊 Glas</label>
         <label><input type="checkbox" checked={autoTranslation} onChange={e=>setAutoTranslation(e.target.checked)}/> 🌐 Auto prevod</label>
-        <span className="spv-only-ba">🌐 BA</span>
+        <label className="spv-chat-language-select">
+          🌐
+          <select className="spv-language-code-select"
+            aria-label="Jezik chata: odaberi DE, BA, UZ, CZ ili EN"
+            value={lang} onChange={e=>setLanguage(e.target.value as Language)}>
+            <option value="de">DE</option>
+            <option value="ba">BA</option>
+            <option value="uz">UZ</option>
+            <option value="cz">CZ</option>
+            <option value="en">EN</option>
+          </select>
+        </label>
       </div>}
       <nav className="spv-tabs" aria-label="Vrsta razgovora">{kinds.map(group=>
         <button key={group} className={kind===group?"active":""}
