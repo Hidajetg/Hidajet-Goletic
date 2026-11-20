@@ -77,6 +77,12 @@ export async function POST(request: NextRequest) {
       .gte("created_at",new Date(Date.now()-700).toISOString()).limit(1);
     if (recentError) throw recentError;
     if (recent?.length) return chatError("Sačekaj prije sljedeće poruke.",429);
+    const {count:volume,error:volumeError}=await supabaseAdmin
+      .from("solstone_chat_messages")
+      .select("id",{count:"exact",head:true}).eq("sender_id",user.id)
+      .gte("created_at",new Date(Date.now()-5*60*1000).toISOString());
+    if (volumeError) throw volumeError;
+    if ((volume ?? 0)>=100) return chatError("Previše poruka u kratkom periodu.",429);
 
     let upload: UploadRow | null = null;
     if (uploadId) {
