@@ -28,6 +28,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     close:"Zurück",unavailable:"Chat ist in der Testdatenbank noch nicht aktiviert.",
     photo:"Bild ansehen",pdf:"PDF öffnen",audio:"Sprachnachricht hören",
     recording:"Aufnahme läuft",noRecords:"Keine Gespräche",load:"Chat wird geladen…",
+    pushOn:"🔔 Push-Benachrichtigungen aktivieren",pushOff:"🔕 Push deaktivieren",
     warning:"Ton und Sprachausgabe funktionieren bei geöffneter App; Push bei geschlossener App folgt später."},
   ba:{title:"Team Chat",sites:"Grupni",private:"Privatno",announcements:"Obavijesti",
     newChat:"Novi privatni razgovor",choose:"Odaberi radnika",start:"Započni razgovor",
@@ -38,6 +39,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     close:"Nazad",unavailable:"Chat još nije uključen na testnoj bazi.",
     photo:"Pogledaj sliku",pdf:"Otvori PDF",audio:"Preslušaj glasovnu poruku",
     recording:"Snimanje traje",noRecords:"Nema razgovora",load:"Učitavam chat…",
+    pushOn:"🔔 Uključi push obavijesti",pushOff:"🔕 Isključi push obavijesti",
     warning:"Zvučna i glasovna upozorenja rade dok je aplikacija pokrenuta. Push kad je zatvorena dolazi kasnije."},
   uz:{title:"Team Chat",sites:"Guruhlar",private:"Shaxsiy",announcements:"E’lonlar",
     newChat:"Yangi shaxsiy suhbat",choose:"Xodimni tanlang",start:"Suhbatni boshlash",
@@ -48,6 +50,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     close:"Orqaga",unavailable:"Chat hali sinov bazasida yoqilmagan.",
     photo:"Rasmni ko‘rish",pdf:"PDF ochish",audio:"Ovozli xabarni eshitish",
     recording:"Yozilmoqda",noRecords:"Suhbatlar yo‘q",load:"Chat yuklanmoqda…",
+    pushOn:"🔔 Push xabarlarini yoqish",pushOff:"🔕 Push xabarlarini o‘chirish",
     warning:"Ovozli bildirishnomalar ilova ochiq bo‘lganda ishlaydi. Yopiq ilova uchun push keyinroq."},
   cz:{title:"Team Chat",sites:"Skupiny",private:"Soukromé",announcements:"Oznámení",
     newChat:"Nový soukromý chat",choose:"Vyberte pracovníka",start:"Začít konverzaci",
@@ -58,6 +61,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     close:"Zpět",unavailable:"Chat ještě není zapnutý v testovací databázi.",
     photo:"Zobrazit fotku",pdf:"Otevřít PDF",audio:"Přehrát hlasovou zprávu",
     recording:"Nahrávání",noRecords:"Žádné konverzace",load:"Načítání chatu…",
+    pushOn:"🔔 Zapnout push oznámení",pushOff:"🔕 Vypnout push oznámení",
     warning:"Zvuk funguje při otevřené aplikaci. Push při zavřené aplikaci přijde později."},
   en:{title:"Team Chat",sites:"Groups",private:"Private",announcements:"Announcements",
     newChat:"New private chat",choose:"Choose worker",start:"Start chat",
@@ -68,6 +72,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     close:"Back",unavailable:"Chat has not yet been enabled on the test database.",
     photo:"View image",pdf:"Open PDF",audio:"Play voice message",
     recording:"Recording",noRecords:"No conversations",load:"Loading chat…",
+    pushOn:"🔔 Enable push notifications",pushOff:"🔕 Disable push notifications",
     warning:"Sound and speech alerts work while the app is running; closed-app push is planned separately."},
 };
 
@@ -114,6 +119,9 @@ export default function TeamChatPage(){
   const [sound,setSound]=useState(true);
   const [voice,setVoice]=useState(false);
   const [autoTranslate,setAutoTranslate]=useState(true);
+  const [pushSupported,setPushSupported]=useState(false);
+  const [pushEnabled,setPushEnabled]=useState(false);
+  const [pushBusy,setPushBusy]=useState(false);
   const [showOriginal,setShowOriginal]=useState<Set<string>>(new Set());
   const [translations,setTranslations]=useState<Record<string,string>>({});
   const translateAttempted=useRef(new Set<string>());
@@ -147,6 +155,13 @@ export default function TeamChatPage(){
     setSound(localStorage.getItem("solstone_chat_sound")!=="false");
     setVoice(localStorage.getItem("solstone_chat_voice")==="true");
     setAutoTranslate(localStorage.getItem("solstone_chat_auto_translate")!=="false");
+    const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    setPushSupported(supported);
+    if (supported) {
+      void navigator.serviceWorker.getRegistration("/").then(async (reg) => {
+        if (reg) setPushEnabled(!!(await reg.pushManager.getSubscription()));
+      }).catch(() => {});
+    }
     void loadRooms();
     const interval=setInterval(()=>void loadRooms(true),12000);
     return ()=>clearInterval(interval);
@@ -297,6 +312,43 @@ export default function TeamChatPage(){
     }catch(e){setError(e instanceof Error?e.message:"Prilog nije dostupan.");}
   }
 
+  async function togglePush() {
+    if (!pushSupported || pushBusy) return;
+    setPushBusy(true);
+    setError("");
+    try {
+      const registration = await navigator.serviceWorker.register("/solstone-push-sw.js", {scope:"/"});
+      const existing = await registration.pushManager.getSubscription();
+      if (pushEnabled) {
+        if (existing) {
+          await api("/api/team-chat/push", {method:"DELETE", headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({endpoint:existing.endpoint})});
+          await existing.unsubscribe();
+        }
+        setPushEnabled(false);
+      } else {
+        // iOS requires this permission request to happen in a direct click
+        // inside the Home Screen-installed web app.
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") throw new Error("Dozvoli obavijesti u postavkama telefona.");
+        const {publicKey} = await api<{publicKey:string}>("/api/team-chat/push");
+        const encoded = publicKey.replace(/-/g, "+").replace(/_/g, "/");
+        const raw = atob(encoded.padEnd(Math.ceil(encoded.length/4)*4,"="));
+        const key = Uint8Array.from(raw, (char) => char.charCodeAt(0));
+        const subscription = existing ?? await registration.pushManager.subscribe({
+          userVisibleOnly:true,
+          applicationServerKey:key.buffer as ArrayBuffer,
+        });
+        await api("/api/team-chat/push",postBody({subscription:subscription.toJSON()}));
+        setPushEnabled(true);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Push obavijesti nisu dostupne.");
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
   function settings(key:string,value:boolean){
     localStorage.setItem(key,String(value));
     if(key==="solstone_chat_sound")setSound(value);
@@ -312,6 +364,14 @@ export default function TeamChatPage(){
 
   useEffect(() => {
     if (state !== "ready" || initialSiteSelection.current || current || !rooms.length) return;
+    const roomId = new URLSearchParams(window.location.search).get("roomId");
+    if (roomId && /^[0-9a-f-]{36}$/i.test(roomId)) {
+      initialSiteSelection.current = true;
+      const room = rooms.find((entry) => entry.id === roomId);
+      if (room) void chooseRoom(room);
+      else setError("Nemaš pristup ovom razgovoru.");
+      return;
+    }
     const siteId=new URLSearchParams(window.location.search).get("siteId");
     if (!siteId) return;
     initialSiteSelection.current=true;
@@ -352,6 +412,11 @@ export default function TeamChatPage(){
             <option value="en">EN</option>
           </select>
         </label>
+        {pushSupported && <button type="button" disabled={pushBusy}
+          onClick={()=>void togglePush()} aria-pressed={pushEnabled}
+          style={{background:"#1d4ed8",color:"white",borderRadius:9,padding:"10px 12px",fontWeight:700}}>
+          {pushBusy ? "…" : pushEnabled ? t.pushOff : t.pushOn}
+        </button>}
         <small>{t.warning}</small>
       </div>}
 
