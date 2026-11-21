@@ -62,7 +62,7 @@ begin
     raise exception 'Worker is already in another call' using errcode='23505';
   end if;
   return new;
-end $solstone_busy$;
+end; $solstone_busy$;
 
 drop trigger if exists solstone_calls_one_active_per_worker on public.solstone_calls;
 create trigger solstone_calls_one_active_per_worker
@@ -98,7 +98,7 @@ begin
     raise exception 'Oversized signal' using errcode='23514';
   end if;
   return new;
-end $solstone_signal$;
+end; $solstone_signal$;
 
 drop trigger if exists solstone_call_signals_participant_only
   on public.solstone_call_signals;
