@@ -559,3 +559,98 @@
 }
 .spv .spv-language-select-wrap{justify-content:flex-end}
 .spv .spv-chat-language-select{flex:0 0 auto;width:auto;gap:5px}
+
+/* WORKER HOME / WHATSAPP INBOX DESIGN 2026-11-21
+   UI-only demonstration. Production dashboard remains unchanged. */
+.spv{
+  --dark:#151d28;
+  background:#151d28;
+}
+.spv .spv-header{align-items:flex-start;padding:10px 0 7px}
+.spv .spv-brand{align-items:flex-start}
+.spv .spv-brand>span{min-width:0}
+.spv .spv-worker-name{
+  display:inline-flex;align-items:center;
+  font-size:10px;font-weight:650;line-height:1.3;
+  color:#e1eaf5;background:#263547;
+  border:1px solid #485a70;border-radius:7px;
+  padding:4px 8px;margin-top:6px;
+}
+.spv .spv-language-select-wrap{margin:0 0 7px}
+.spv .spv-worker-home .spv-today-card{background:#1b2b3e}
+.spv .spv-worker-home .spv-today-site{background:#132235}
+.spv .spv-worker-home .spv-day-label{margin-top:5px}
+
+/* Separate full-screen chat begins with a familiar conversation list.
+   Open a row to enter its messages; back returns to the conversation list. */
+.spv.spv-chat-active{background:#151f2b}
+.spv-chat-active .spv-chat-page.spv-chat-page{background:#151f2b}
+.spv-chat-page .spv-conversations{
+  flex:1 1 auto;min-height:0;overflow-y:auto;
+  background:#151f2b;overscroll-behavior:contain;
+}
+.spv-chat-page .spv-conversation-caption{
+  font-size:11px;color:#aabbd0;line-height:1.45;
+  margin:0;padding:10px 14px;
+  background:#1c2939;border-bottom:1px solid #354357;
+}
+.spv-chat-page .spv-conversation-row{
+  display:flex;align-items:center;gap:12px;
+  min-height:72px;width:100%;padding:10px 13px;
+  text-align:left;border:0;border-bottom:1px solid #2e3e51;
+  background:transparent;color:#f5f7fa;
+}
+.spv-chat-page .spv-conversation-row:active{background:#26384a}
+.spv-chat-page .spv-conversation-row:focus-visible{
+  outline:2px solid #fb923c;outline-offset:-2px;
+}
+.spv-chat-page .spv-conversation-avatar{
+  display:grid;place-items:center;flex:0 0 45px;
+  width:45px;height:45px;border-radius:50%;
+  font-size:20px;background:#284561;
+}
+.spv-chat-page .spv-avatar-site{background:#455335}
+.spv-chat-page .spv-avatar-announcement{background:#553d27}
+.spv-chat-page .spv-conversation-copy{
+  display:grid;gap:4px;min-width:0;flex:1;
+}
+.spv-chat-page .spv-conversation-copy b{
+  font-size:13px;color:#f8fafc;font-weight:700;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.spv-chat-page .spv-conversation-copy small{
+  font-size:11px;color:#a5b4c7;line-height:1.35;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+.spv-chat-page .spv-conversation-row time{
+  align-self:flex-start;margin-top:4px;
+  font-size:10px;color:#90a6bc;white-space:nowrap;
+}
+.spv-chat-page .spv-conversation-chevron{
+  color:#fb923c;font-size:23px;line-height:1;
+}
+.spv-chat-page .spv-thread{background:#151f2b}
+
+/* Hide the role-testing strip on the dashboard. The demo roles can still
+   be inspected through the bottom Profile control, without clutter. */
+.spv-profile-overlay{
+  position:fixed;inset:0;background:#000a;z-index:150;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.spv-profile-panel{
+  width:min(100%,500px);border:1px solid #53677f;
+  background:#213044;border-radius:16px 16px 0 0;
+  padding:17px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  display:grid;gap:11px;color:#fff;
+}
+.spv-profile-heading{display:flex;align-items:center;justify-content:space-between}
+.spv-profile-heading b{font-size:16px}
+.spv-profile-heading button{background:none;border:0;color:#fff;font-size:20px}
+.spv-profile-panel p{font-size:12px;line-height:1.5;color:#c5d2e1}
+.spv-profile-panel>button{
+  border:1px solid #536980;background:#30445b;
+  border-radius:10px;color:#fff;font-size:14px;
+  font-weight:700;min-height:45px;
+}
+/* Keep the admin replica identical to the web-style dark version. */
+.spv:has(.spv-admin-web-preview){background:#000}
