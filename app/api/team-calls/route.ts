@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../lib/supabase-admin";
 import { chatError, getChatUser } from "../../lib/team-chat";
+import { notifyWorkerIncomingCall } from "../../lib/web-push";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
       .insert({caller_id:Number(user.id),callee_id:Number(targetId)})
       .select("id,caller_id,callee_id,status,created_at,expires_at").single();
     if (error || !call) throw error ?? new Error("Cannot create call");
+    await notifyWorkerIncomingCall(targetId);
     return NextResponse.json({call},{status:201,headers:noStore});
   } catch (error) {
     console.error("Start Solstone call failed:",error instanceof Error?error.message:"unknown");
