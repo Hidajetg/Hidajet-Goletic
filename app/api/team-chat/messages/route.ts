@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { isSameOriginChatMutation, NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { notifyChatRecipients } from "../../../lib/web-push";
 import { CHAT_BUCKET, canWriteChatRoom, chatError, getAuthorizedRoom, getChatUser } from "../../../lib/team-chat";
@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isSameOriginChatMutation(request)) return chatError("Neispravan zahtjev.", 403);
   const user = await getChatUser();
   if (!user) return chatError("Prijava je istekla.",401);
   try {
