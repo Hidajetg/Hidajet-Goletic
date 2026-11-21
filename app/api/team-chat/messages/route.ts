@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { notifyChatRecipients } from "../../../lib/web-push";
 import { isSameOriginChatMutation, CHAT_BUCKET, canWriteChatRoom, chatError, getAuthorizedRoom, getChatUser } from "../../../lib/team-chat";
@@ -124,7 +124,8 @@ export async function POST(request: NextRequest) {
       if (markError) console.error("Chat upload cleanup flag failed:",markError);
     }
     // Best-effort empty-payload push after the chat message is persisted.
-    await notifyChatRecipients(room,user.id);
+    // Respond immediately after saving; push delivery never duplicates a sent message.
+    after(() => notifyChatRecipients(room,user.id));
     return NextResponse.json({id:message.id,success:true},{status:201,headers:{"Cache-Control":"no-store"}});
   } catch(error) {
     console.error("Team chat POST failed:",error);
