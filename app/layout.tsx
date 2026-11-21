@@ -5,6 +5,7 @@ import NotificationSound from "./components/NotificationSound";
 import TeamChatAlerts from "./components/TeamChatAlerts";
 import TeamChatWidget from "./components/TeamChatWidget";
 import SolstoneAIEntry from "./components/SolstoneAIEntry";
+import SolstoneMobileNav from "./components/SolstoneMobileNav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,6 +42,7 @@ export default function RootLayout({
         <TeamChatAlerts />
         <TeamChatWidget />
         <SolstoneAIEntry />
+        <SolstoneMobileNav />
         {children}
       </body>
     </html>
