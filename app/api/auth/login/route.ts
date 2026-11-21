@@ -13,13 +13,6 @@ export const dynamic = "force-dynamic";
 
 type Role = "admin" | "worker";
 
-const LEGACY_USERS = [
-  { id: "1", name: "Arnes", pin: "1111", role: "worker" as Role },
-  { id: "2", name: "Ramiz", pin: "2222", role: "worker" as Role },
-  { id: "4", name: "Shohruh", pin: "4444", role: "worker" as Role },
-  { id: "6", name: "Hido", pin: "0000", role: "admin" as Role },
-  { id: "7", name: "Steffi", pin: "0001", role: "admin" as Role },
-];
 
 function createLoginResponse(
   user: {
@@ -131,69 +124,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // --------------------------------------------------------
-    // STARI POSTOJEĆI LOGIN
-    // --------------------------------------------------------
-
-    const legacy = LEGACY_USERS.find(
-      (user) =>
-        user.name.toLowerCase() === name.toLowerCase(),
-    );
-
-    if (legacy && legacy.pin === pin) {
-      let id = legacy.id;
-      let finalName = legacy.name;
-      let role = legacy.role;
-
-      try {
-        const { data } = await supabaseAdmin
-          .from("workers")
-          .select("id, name, role, active")
-          .ilike("name", legacy.name)
-          .limit(1);
-
-        const worker = data?.[0];
-
-        if (worker) {
-          if (worker.active === false) {
-            return NextResponse.json(
-              {
-                error:
-                  "Dieser Mitarbeiter ist deaktiviert.",
-              },
-              {
-                status: 403,
-              },
-            );
-          }
-
-          id = String(worker.id);
-          finalName = String(
-            worker.name || legacy.name,
-          );
-
-          role =
-            String(worker.role || "").toLowerCase() ===
-            "admin"
-              ? "admin"
-              : legacy.role;
-        }
-      } catch (error) {
-        console.error(
-          "Legacy worker lookup:",
-          error,
-        );
-      }
-
-      return createLoginResponse(
-        {
-          id,
-          name: finalName,
-          role,
-        },
-        remember,
-      );
-    }
+    // Validate every worker/admin against their individual bcrypt PIN hash in
+    // worker_auth. Legacy hard-coded PIN shortcuts are intentionally disabled:
+    // source-code PINs remain valid for anyone who learns the repository,
+    // even after the worker has changed their PIN.
 
     // --------------------------------------------------------
     // NOVI RADNICI IZ ADMIN PANELA
