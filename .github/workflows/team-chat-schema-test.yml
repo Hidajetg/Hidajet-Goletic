@@ -8,6 +8,7 @@ on:
       - '.github/workflows/team-chat-schema-test.yml'
       - 'staging/solstone-team-chat-schema.sql'
       - 'staging/solstone-chat-push-schema.sql'
+      - 'staging/solstone-call-schema.sql'
       - 'staging/team-chat-test-fixtures.sql'
       - 'staging/team-chat-schema-assertions.sql'
   workflow_dispatch:
@@ -59,6 +60,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f staging/team-chat-test-fixtures.sql
           psql -v ON_ERROR_STOP=1 -f staging/solstone-team-chat-schema.sql
           psql -v ON_ERROR_STOP=1 -f staging/solstone-chat-push-schema.sql
+          psql -v ON_ERROR_STOP=1 -f staging/solstone-call-schema.sql
           psql -v ON_ERROR_STOP=1 -f staging/team-chat-schema-assertions.sql
 
       - name: Report safety scope
