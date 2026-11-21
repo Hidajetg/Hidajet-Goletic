@@ -1,0 +1,36 @@
+name: Solstone PWA push and call notifications - isolated behavior tests
+
+on:
+  push:
+    branches:
+      - mobile-android-ios-test-2026-11-20
+    paths:
+      - '.github/workflows/solstone-pwa-notifications-test.yml'
+      - 'public/solstone-push-sw.js'
+      - 'staging/tests/solstone-sw.test.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-worker-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Check out isolated staging branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+      - name: Syntax check background notification worker
+        run: node --check public/solstone-push-sw.js
+      - name: Simulate received alerts, incoming calls and notification clicks
+        run: node --test staging/tests/solstone-sw.test.cjs
+      - name: Scope
+        run: |
+          echo "Offline JS behavior tests using a mocked service worker, no Vercel or Supabase credentials." >> "$GITHUB_STEP_SUMMARY"
+          echo "This does NOT prove push delivery while a physical phone is locked." >> "$GITHUB_STEP_SUMMARY"
