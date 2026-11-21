@@ -4,6 +4,15 @@ name: Solstone Android – stable signed update APK
 # preserve the package ID and signing certificate while increasing versionCode.
 # No signing key or password is committed to Git.
 on:
+  push:
+    branches:
+      - mobile-android-ios-test-2026-11-20
+    paths:
+      - '.github/workflows/android-stable-update.yml'
+      - 'mobile/android/**'
+      - 'mobile/capacitor.config.ts'
+      - 'mobile/branding/**'
+      - 'mobile/scripts/generate_mobile_icons.py'
   workflow_dispatch:
 
 permissions:
