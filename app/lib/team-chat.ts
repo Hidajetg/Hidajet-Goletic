@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { verifySessionToken } from "./admin-session";
 import { supabaseAdmin } from "./supabase-admin";
 
@@ -12,6 +12,13 @@ export type ChatUser = {
   name: string;
   isAdmin: boolean;
 };
+
+// Reject cross-site state changes even when a signed cookie is present.
+// The app's browser/API calls are same-origin on iPhone, Android and desktop.
+export function isSameOriginChatMutation(request: NextRequest): boolean {
+  const origin = request.headers.get("origin");
+  return origin !== null && origin === request.nextUrl.origin;
+}
 
 export function chatError(message: string, status = 400) {
   return NextResponse.json({ error: message }, {
