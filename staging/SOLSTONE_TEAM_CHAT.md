@@ -88,6 +88,13 @@ real device validation. An experimental 1:1 voice calling feature is now in the 
 - Service worker checks incoming calls and displays a push notification when
   PWA Web Push is configured and the user is authenticated.
 
+The experimental voice call feature is disabled by default. Both
+SOLSTONE_CALLS_ENABLED=true (server-only) and
+NEXT_PUBLIC_SOLSTONE_CALLS_ENABLED=true (preview frontend build) must be
+configured in a private test environment before the call button/receiver and
+endpoints are enabled. Do not enable either setting in production before
+database migration, authorization tests, TURN and real-phone tests.
+
 This is a prototype, NOT yet a released or verified calling service. Both
 participants must be running compatible browsers and allow microphone access.
 The public Google STUN endpoint is a connectivity aid, not a TURN relay.
