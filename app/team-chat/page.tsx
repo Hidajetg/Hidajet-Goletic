@@ -349,7 +349,7 @@ export default function TeamChatPage(){
 
   async function unlockChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pinBusy || !/^\\d{4,8}$/.test(chatPin)) return;
+    if (pinBusy || !/^\d{4,8}$/.test(chatPin)) return;
     setPinBusy(true);
     setError("");
     try {
@@ -392,7 +392,7 @@ export default function TeamChatPage(){
           aria-label="Sigurni PIN" placeholder="PIN" required
           style={{padding:13,borderRadius:8,background:"white",color:"#111",fontSize:18}}/>
         {error && <p role="alert" style={{color:"#ffd1d1",margin:0}}>{error}</p>}
-        <button type="submit" disabled={pinBusy || !/^\\d{4,8}$/.test(chatPin)}
+        <button type="submit" disabled={pinBusy || !/^\d{4,8}$/.test(chatPin)}
           style={{padding:13,borderRadius:9,background:"#0f8b54",color:"white",fontWeight:700}}>
           {pinBusy?"…":lang==="de"?"Chat öffnen":lang==="en"?"Open chat":"Otvori chat"}
         </button>
