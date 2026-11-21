@@ -467,7 +467,7 @@ export default function TeamChatPage(){
               <button type="button" onClick={()=>{setCurrent(null);setMessages([]);}}
                 className="tc-back-thread">{t.close}</button>
               <strong style={{flex:1}}>{current.label}</strong>
-              {current.kind==="private" && current.peerId && <button type="button"
+              {process.env.NEXT_PUBLIC_SOLSTONE_CALLS_ENABLED==="true" && current.kind==="private" && current.peerId && <button type="button"
                 onClick={()=>window.dispatchEvent(new CustomEvent("solstone-call-start",{
                   detail:{targetWorkerId:current.peerId},
                 }))}
