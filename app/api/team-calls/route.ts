@@ -13,14 +13,35 @@ function sameOrigin(request: NextRequest) {
   return request.headers.get("origin") === request.nextUrl.origin;
 }
 
+async function expireStaleCalls() {
+  const now=new Date();
+  const staleCutoff=new Date(now.getTime()-90*1000).toISOString();
+  const [missed,ended]=await Promise.all([
+    supabaseAdmin.from("solstone_calls")
+      .update({status:"missed",ended_at:now.toISOString()})
+      .eq("status","ringing").lt("expires_at",now.toISOString()),
+    supabaseAdmin.from("solstone_calls")
+      .update({status:"ended",ended_at:now.toISOString()})
+      .eq("status","accepted")
+      .or("caller_seen_at.lt."+staleCutoff+",callee_seen_at.lt."+staleCutoff),
+  ]);
+  if(missed.error || ended.error) throw missed.error || ended.error;
+}
+
 export async function GET() {
   const user = await getChatUser();
   if (!user) return chatError("Prijava je istekla.",401);
   try {
-    // Expire stale missed calls. A cleanup worker can do this later too.
-    await supabaseAdmin.from("solstone_calls")
-      .update({status:"missed",ended_at:new Date().toISOString()})
-      .eq("status","ringing").lt("expires_at",new Date().toISOString());
+    // Keep only a live, authenticated participant's heartbeat fresh.
+    await expireStaleCalls();
+    const now=new Date().toISOString();
+    const [callerBeat,calleeBeat]=await Promise.all([
+      supabaseAdmin.from("solstone_calls")
+        .update({caller_seen_at:now}).eq("status","accepted").eq("caller_id",user.id),
+      supabaseAdmin.from("solstone_calls")
+        .update({callee_seen_at:now}).eq("status","accepted").eq("callee_id",user.id),
+    ]);
+    if(callerBeat.error || calleeBeat.error) throw callerBeat.error || calleeBeat.error;
     const { data, error } = await supabaseAdmin.from("solstone_calls")
       .select("id,caller_id,callee_id,status,created_at,answered_at,ended_at,expires_at")
       .or("caller_id.eq."+user.id+",callee_id.eq."+user.id)
@@ -57,6 +78,7 @@ export async function POST(request: NextRequest) {
     const {data:target,error:targetError} = await supabaseAdmin.from("workers")
       .select("id,active").eq("id",targetId).maybeSingle();
     if (targetError || !target || target.active === false) return chatError("Radnik nije aktivan.",403);
+    await expireStaleCalls();
     const {data:busy,error:busyError} = await supabaseAdmin.from("solstone_calls")
       .select("id,caller_id,callee_id,status,expires_at")
       .in("status",["ringing","accepted"])
@@ -107,7 +129,8 @@ export async function PATCH(request: NextRequest) {
         return chatError("Poziv više nije dostupan.",409);
       }
       const {data:updated,error}=await supabaseAdmin.from("solstone_calls")
-        .update({status:"accepted",answered_at:now}).eq("id",callId).eq("status","ringing")
+        .update({status:"accepted",answered_at:now,caller_seen_at:now,callee_seen_at:now})
+        .eq("id",callId).eq("status","ringing")
         .select("id,status").maybeSingle();
       if (error) throw error;
       if (!updated) return chatError("Poziv je već završen.",409);
