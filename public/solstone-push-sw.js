@@ -8,7 +8,23 @@ self.addEventListener("push", (event) => {
     let title = "Solstone Baustelle";
     let body = "Nova poruka u Solstone chatu.";
     let url = "/team-chat";
+    let isCall = false;
     try {
+      const callsResponse = await fetch("/api/team-calls", {
+        credentials: "include", cache: "no-store",
+      });
+      if (callsResponse.ok) {
+        const calls = await callsResponse.json();
+        const incoming = (Array.isArray(calls.active) ? calls.active : [])
+          .find((item) => item.status === "ringing" &&
+            String(item.callee_id) === String(calls.userId));
+        if (incoming) {
+          isCall = true;
+          title = "📞 Solstone Baustelle";
+          body = "Dolazni poziv: " + String(incoming.callerName ?? "Mitarbeiter").slice(0, 100);
+        }
+      }
+      if (!isCall) {
       const response = await fetch("/api/team-chat", {
         credentials: "include",
         cache: "no-store",
@@ -29,6 +45,7 @@ self.addEventListener("push", (event) => {
           url = "/team-chat?roomId=" + encodeURIComponent(String(recent.id));
         }
       }
+      }
     } catch {
       // Generic notification only; do not cache or embed chat content.
     }
@@ -36,7 +53,7 @@ self.addEventListener("push", (event) => {
       body,
       icon: "/icon-512.png",
       badge: "/icon-512.png",
-      tag: "solstone-chat-message",
+      tag: isCall ? "solstone-incoming-call" : "solstone-chat-message",
       renotify: true,
       data: { url },
     });
