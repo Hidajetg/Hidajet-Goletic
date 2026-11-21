@@ -30,7 +30,12 @@ export async function getChatUser(): Promise<ChatUser | null> {
   const store = await cookies();
   const token = store.get("solstone_session")?.value;
   const session = verifySessionToken(token);
-  if (!session || !/^\d+$/.test(String(session.id))) return null;
+  // Never grant confidential chat access on the old app cookie alone:
+  // legacy logins still contain publicly documented PIN shortcuts.
+  const chatToken = store.get("solstone_chat_auth")?.value;
+  const chatSession = verifySessionToken(chatToken);
+  if (!session || !chatSession || session.id !== chatSession.id ||
+      !/^\d+$/.test(String(session.id))) return null;
 
   // Never trust roles, names or worker ids from localStorage, query strings,
   // request bodies or even a stale signed session alone.
