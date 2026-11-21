@@ -92,7 +92,7 @@ async function recipientIds(room: ChatRoom, senderId: string): Promise<string[]>
     ids = (data ?? []).map((x) => String(x.worker_id));
   } else {
     const { data: workers, error: workersError } = await supabaseAdmin
-      .from("workers").select("id,name").eq("active", true).limit(500);
+      .from("workers").select("id,name,role").eq("active", true).limit(500);
     if (workersError) throw workersError;
     if (room.kind === "site") {
       // Today's calendar is the authoritative worker/site membership.
@@ -101,7 +101,12 @@ async function recipientIds(room: ChatRoom, senderId: string): Promise<string[]>
         .eq("datum", currentViennaDate()).eq("baustelle_id", room.site_id).limit(200);
       if (error) throw error;
       const names = new Set((calendar ?? []).map((row) => String(row.worker_name)));
-      ids = (workers ?? []).filter((w) => names.has(String(w.name))).map((w) => String(w.id));
+      // Admins are allowed to see every active site conversation and must
+      // receive site-chat notifications even without a personal shift row.
+      ids = (workers ?? []).filter((w) =>
+        String(w.role ?? "").toLowerCase() === "admin" ||
+        names.has(String(w.name)),
+      ).map((w) => String(w.id));
     } else {
       ids = (workers ?? []).map((w) => String(w.id));
     }
