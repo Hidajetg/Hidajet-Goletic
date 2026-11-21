@@ -13,7 +13,7 @@ export function webPushPublicKey(): string | null {
     const pub = Buffer.from(publicKey, "base64url");
     const priv = Buffer.from(privateKey, "base64url");
     const validContact = contact.startsWith("mailto:")
-      ? /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(contact.slice(7))
+      ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.slice(7))
       : (() => {
           try {
             const url = new URL(contact);
