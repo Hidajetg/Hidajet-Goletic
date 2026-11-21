@@ -11,8 +11,24 @@ Ne pravimo novi `visualpreview` ili `internal` paket kao novu odvojenu aplikacij
 - GitHub workflow: `.github/workflows/android-stable-update.yml`. On se ručno pokreće kada želite novi potpisani Android paket.
 - Ovo je **internal-test** verzija s udaljenom web stranicom. Za Google Play treba zaseban pregled arhitekture: Capacitor `server.url` namijenjen je live-reload/test načinu, nije gotova store-release arhitektura.
 
+## Važno — pronađen je postojeći Solstone ključ
+
+**NE KREIRATI NOVI KLJUČ SADA.** Na Windows računaru pronađen je
+`OneDrive\\Dokumenti\\solstone-baustelle-upload.jks`, alias
+`solstone-upload`. Datoteka sadrži privatni ključ, ali korisnik još ne zna
+lozinku i njen integritet nije potvrđen. Prvo treba pronaći ispravnu
+lozinku i provjeriti potpis ranijeg instaliranog APK-a. Datoteku i lozinku
+nikada ne slati u ChatGPT.
+
+Ako stari ključ bude potvrđen, nastavak GitHub Actions distribucije koristi
+taj isti ključ i alias `solstone-upload`, ne novi `solstone_release`.
+Ako ga nije moguće oporaviti, nova trajna instalacija s novim ključem je
+posebna odluka i može zahtijevati uklanjanje ranijeg APK-a. Potpune upute
+za Android WhatsApp i iPhone Safari nalaze se u
+[`mobile/PRIVATE_INSTALLATION.md`](./PRIVATE_INSTALLATION.md).
+
 ## OBAVEZNO: prvi potpisni ključ
-1. U lokalnom repozitoriju na Windowsu pokreni PowerShell:
+1. **Samo ako je utvrđeno da nema odgovarajućeg postojećeg ključa i odobreno je novo prvo izdanje**, u lokalnom repozitoriju na Windowsu pokreni PowerShell:
    `powershell -ExecutionPolicy Bypass -File .\mobile\scripts\create_stable_signing_key.ps1`
 2. Skripta kreira privatni ključ u `%USERPROFILE%\SolstoneSigning\solstone-baustelle-update.jks` i base64 tekst za GitHub secret. Ne šalji te podatke ChatGPT-u ili javnom GitHub repozitoriju.
 3. Otvori GitHub repozitorij > Settings > Secrets and variables > Actions > **Repository secrets**. Dodaj:
