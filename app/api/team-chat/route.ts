@@ -11,7 +11,7 @@ type RoomRow = {
   created_by: number; created_at: string;
 };
 type RoomDisplay = {
-  id: string; kind: RoomRow["kind"]; label: string; siteId?: string;
+  id: string; kind: RoomRow["kind"]; label: string; siteId?: string; peerId?: string;
   unread: number; lastMessageId: string | null;
   lastSender: string | null; lastAt: string | null;
 };
@@ -98,6 +98,7 @@ export async function GET() {
       return {
         id: room.id, kind: room.kind, label: roomName(room),
         ...(room.kind === "site" ? {siteId: String(room.site_id)} : {}),
+        ...(room.kind === "private" ? {peerId: String(room.private_pair ?? "").split(":").find((id)=>id!==user.id)} : {}),
         unread: Math.min(count ?? 0,999),
         lastMessageId: last?.id ?? null,
         lastSender: last ? (workerName.get(String(last.sender_id)) ?? "Mitarbeiter") : null,
