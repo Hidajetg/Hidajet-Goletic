@@ -140,3 +140,30 @@ export async function notifyChatRecipients(room: ChatRoom, senderId: string): Pr
     console.error("Solstone push dispatch failed:", error instanceof Error ? error.message : "unknown");
   }
 }
+
+
+/** Best-effort incoming-call signal for one verified active worker. */
+export async function notifyWorkerIncomingCall(workerId: string): Promise<void> {
+  if (!webPushPublicKey() || !/^\d+$/.test(workerId)) return;
+  try {
+    const {data:worker,error:workerError}=await supabaseAdmin.from("workers")
+      .select("id").eq("id",workerId).eq("active",true).maybeSingle();
+    if (workerError || !worker) return;
+    const {data,error}=await supabaseAdmin
+      .from("solstone_chat_push_subscriptions")
+      .select("endpoint").eq("worker_id",workerId).limit(20);
+    if (error) throw error;
+    await Promise.allSettled((data??[])
+      .filter((item)=>isTrustedPushEndpoint(String(item.endpoint)))
+      .map(async (item)=>{
+        const status=await sendEmptyWebPush(String(item.endpoint));
+        if(status===404 || status===410){
+          await supabaseAdmin.from("solstone_chat_push_subscriptions")
+            .delete().eq("endpoint",item.endpoint);
+        }
+      }));
+  } catch(error) {
+    console.error("Solstone incoming-call push failed:",
+      error instanceof Error?error.message:"unknown");
+  }
+}
