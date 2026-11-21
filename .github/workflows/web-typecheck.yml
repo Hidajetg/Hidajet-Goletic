@@ -20,6 +20,8 @@ on:
       - 'app/layout.tsx'
       - 'app/components/SolstoneAIEntry.tsx'
       - 'app/assistant/**'
+      - 'app/instalacija/**'
+      - 'public/manifest.json'
       - 'app/api/solstone-ai/**'
       - 'app/globals.css'
       - 'app/components/SolstoneMobileNav.tsx'
