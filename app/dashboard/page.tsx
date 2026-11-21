@@ -358,7 +358,7 @@ export default function DashboardPage() {
       if (!response.ok) throw new Error("Signed session missing or inactive");
       const payload = await response.json();
       const u = payload?.user;
-      if (!u || !/^\\d+$/.test(String(u.id)) ||
+      if (!u || !/^\d+$/.test(String(u.id)) ||
           !["admin","worker"].includes(String(u.role)) || !String(u.name||"").trim()) {
         throw new Error("Invalid signed session user");
       }
