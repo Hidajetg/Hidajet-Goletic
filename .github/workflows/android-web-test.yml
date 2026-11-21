@@ -151,3 +151,6 @@ jobs:
           echo "It loads the hosted Next.js web app to preserve its current login and features. It needs internet access." >> "$GITHUB_STEP_SUMMARY"
           echo "Vercel Authentication / deployment protection may still prevent staff access. Test on a phone." >> "$GITHUB_STEP_SUMMARY"
           echo "The production web app, its deployment and database were not changed." >> "$GITHUB_STEP_SUMMARY"
+          echo "This APK uses the existing production web domain and therefore the SAME Supabase database as browser users." >> "$GITHUB_STEP_SUMMARY"
+          echo "New UI/AI features committed only to the test Git branch are not automatically available from the production website." >> "$GITHUB_STEP_SUMMARY"
+          echo "AI integration is disabled by default pending hardened auth/RLS and an approved server-side API configuration." >> "$GITHUB_STEP_SUMMARY"
