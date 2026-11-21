@@ -1,0 +1,243 @@
+.tc-root{min-height:100dvh;background:#0c0e11;color:#f9fafb;padding:14px;font-family:Arial,Helvetica,sans-serif}
+.tc-root button,.tc-root input,.tc-root textarea,.tc-root select{font:inherit}
+.tc-root button{cursor:pointer}.tc-root button:disabled{opacity:.45;cursor:not-allowed}
+.tc-root .tc-header{max-width:1400px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.tc-header h1{margin:7px 0;color:#f97316;font-size:clamp(22px,4vw,32px)}
+.tc-back{color:#a5b4fc;text-decoration:none;font-size:14px}.tc-subtitle{color:#9ca3af;font-size:13px}
+.tc-lang{display:flex;flex-wrap:wrap;gap:5px}.tc-lang button{color:#e5e7eb;border:1px solid #4b5563;border-radius:7px;padding:6px;background:#1f2937;font-size:12px}.tc-lang button.tc-on{background:#f97316;color:#111827;border-color:#f97316;font-weight:bold}
+.tc-settings{max-width:1400px;margin:15px auto;display:flex;gap:15px;flex-wrap:wrap;align-items:center;background:#171a20;border:1px solid #30353c;border-radius:12px;padding:10px 14px}
+.tc-settings label{display:flex;align-items:center;gap:7px;font-size:13px;white-space:nowrap;cursor:pointer}
+.tc-settings input{accent-color:#f97316;width:17px;height:17px}
+.tc-settings small{color:#9ca3af;flex-basis:100%;font-size:11px}
+.tc-error{max-width:1400px;margin:8px auto;background:#511c20;color:#fecaca;padding:11px;border-radius:9px;border:1px solid #992e36}
+.tc-layout{max-width:1400px;margin:0 auto;min-height:min(710px,78dvh);height:calc(100dvh - 190px);display:grid;grid-template-columns:minmax(250px,330px) minmax(0,1fr);gap:12px}
+.tc-sidebar,.tc-conversation{border:1px solid #343943;border-radius:15px;overflow:hidden;background:#151820}
+.tc-sidebar{display:flex;flex-direction:column}.tc-tabs{display:flex;border-bottom:1px solid #383e48;flex-shrink:0}
+.tc-tabs button{flex:1;border:0;background:#1b2029;color:#aeb7c5;padding:13px 6px;font-size:13px}
+.tc-tabs button.tc-selected{background:#37303a;color:#ffae6f;font-weight:bold;border-bottom:3px solid #f97316}
+.tc-tabs b{display:inline-block;min-width:19px;padding:3px;border-radius:20px;background:#e35a29;color:#fff;font-size:11px}
+.tc-new{display:grid;gap:7px;padding:12px;background:#20242e;border-bottom:1px solid #343943}
+.tc-new label{font-size:12px;color:#d1d5db}
+.tc-new select{background:#111827;color:#fff;padding:11px;border:1px solid #484f5a;border-radius:9px;max-width:100%}
+.tc-new button{padding:11px;background:#f97316;color:#111827;font-weight:bold;border:0;border-radius:9px}
+.tc-room-list{overflow-y:auto;flex:1}.tc-room{display:grid;width:100%;gap:7px;text-align:left;color:#fff;border:0;border-bottom:1px solid #2e323e;background:transparent;padding:16px 13px}
+.tc-room:hover,.tc-room.tc-current{background:#262b37}.tc-room-name{font-size:15px;font-weight:700;word-break:break-word}
+.tc-room-meta{display:flex;justify-content:space-between;color:#9ca3af;font-size:12px;min-height:18px}
+.tc-room small{color:#bdc4ce}.tc-count{background:#e75b20;color:#fff;border-radius:20px;min-width:22px;padding:3px 7px;text-align:center}
+.tc-conversation{display:flex;flex-direction:column;min-width:0}.tc-thread-title{padding:16px;background:#242936;display:flex;align-items:center;gap:15px}
+.tc-thread-title strong{font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tc-back-thread{display:none;background:#394455;color:#fff;padding:7px 9px;border:0;border-radius:8px}
+.tc-message-list{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:13px;background:#101218}
+.tc-muted{color:#adb5c2;padding:12px}.tc-center{text-align:center;margin:auto}.tc-empty{margin:auto;color:#b9c1cf;padding:25px;text-align:center}
+.tc-message{max-width:min(85%,680px);border-radius:15px;padding:11px 14px;border:1px solid #39404c;box-shadow:0 3px 10px #0003}
+.tc-mine{align-self:flex-end;background:#243d34;border-color:#32724e;border-bottom-right-radius:4px}
+.tc-other{align-self:flex-start;background:#212633;border-bottom-left-radius:4px}
+.tc-message-head{display:flex;align-items:center;justify-content:space-between;gap:15px;color:#fca764;font-size:12px}
+.tc-message-head time{color:#9ba4b2;font-size:11px;white-space:nowrap}
+.tc-message-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:9px 0;line-height:1.5;font-size:15px}
+.tc-trans-toggle{font-size:11px;background:transparent;color:#7dd3fc;border:0;padding:3px}
+.tc-attachment{display:grid;gap:5px;max-width:100%;margin-top:8px;padding:10px;background:#30384a;color:#fff;border:1px solid #4b596c;border-radius:10px;text-align:left}
+.tc-attachment small{color:#aeb7c8;overflow-wrap:anywhere}
+.tc-admin-only{text-align:center;padding:15px;background:#33302a}
+.tc-compose{background:#20252e;border-top:1px solid #39414f;padding:12px}
+.tc-compose textarea{width:100%;box-sizing:border-box;background:#10151f;color:#fff;border:1px solid #455166;border-radius:10px;padding:12px;font-size:15px;min-height:65px;resize:vertical}
+.tc-compose textarea:focus,.tc-new select:focus{outline:2px solid #f97316;outline-offset:1px}
+.tc-compose-actions{display:flex;justify-content:space-between;gap:9px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.tc-upload,.tc-record,.tc-send{border:1px solid #525c70;background:#323a48;color:#fff;padding:10px 13px;border-radius:10px;font-size:13px;cursor:pointer;min-height:42px;display:flex;align-items:center;justify-content:center}
+.tc-upload input{display:none}.tc-record{background:#5b3643}.tc-send{background:#f97316;color:#101820;border:0;font-weight:700;min-width:100px;margin-left:auto}
+.tc-file{background:#293445;color:#fbbf24;border:1px solid #45556a;border-radius:10px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;overflow-wrap:anywhere}
+.tc-file button{margin-left:auto;background:#a52d34;color:#fff;border:0;border-radius:6px;padding:3px 9px}
+.tc-recording{color:#fca5a5;padding:5px 0}.tc-preview-layer{position:fixed;inset:0;background:#000c;z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px}
+.tc-preview-content{width:min(900px,96vw);height:min(90dvh,870px);overflow:auto;background:#1a1c24;border:1px solid #4b5563;border-radius:15px;padding:15px;display:flex;flex-direction:column;gap:15px;align-items:center}
+.tc-preview-content img{max-width:100%;max-height:68dvh;object-fit:contain;border-radius:8px}
+.tc-preview-content audio{width:100%}.tc-preview-content a{color:#60a5fa}
+.tc-preview-head{display:flex;justify-content:space-between;align-items:center;gap:15px;width:100%}
+.tc-preview-head strong{overflow-wrap:anywhere}.tc-preview-head button{border:0;background:#db5127;color:#fff;padding:10px;border-radius:8px}
+.tc-preview-pdf{display:flex;flex-direction:column;gap:10px;width:100%;flex:1}.tc-preview-pdf iframe{width:100%;flex:1;min-height:60dvh;border:0;background:#fff}
+@media(max-width:720px){
+ .tc-root{padding:8px}.tc-header{align-items:flex-start}.tc-header h1{font-size:22px}
+ .tc-lang{max-width:150px;justify-content:flex-end}
+ .tc-settings{gap:10px;margin:10px auto;padding:10px}
+ .tc-settings label{font-size:12px}.tc-settings small{font-size:10px}
+ .tc-layout{grid-template-columns:1fr;height:calc(100dvh - 210px);min-height:450px}
+ .tc-sidebar,.tc-conversation{min-width:0;height:100%}
+ .tc-mobile-hide{display:none}
+ .tc-back-thread{display:inline-block}
+ .tc-room{padding:17px}.tc-message-list{padding:10px}
+ .tc-message{max-width:92%;padding:11px}
+ .tc-compose{padding:8px}.tc-compose-actions{gap:6px}
+ .tc-upload,.tc-record,.tc-send{font-size:12px;padding:8px}
+}
+
+/* Compact embedded Team Chat, shown inside the floating upper-right launcher.
+   Reuses the real secure room list, media upload and translation page. */
+.tc-root.tc-compact{
+  display:flex; flex-direction:column; width:100%; height:100dvh; min-height:0;
+  padding:5px; overflow:hidden; background:#10141d;
+}
+.tc-compact .tc-header{display:none}
+.tc-compact .tc-settings{flex-shrink:0;margin:0 0 5px;padding:6px 7px;
+  display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px;border-radius:8px}
+.tc-compact .tc-settings label{font-size:10px;gap:3px}
+.tc-compact .tc-settings input{width:14px;height:14px}
+.tc-compact .tc-settings small{display:none}
+.tc-compact .tc-error{font-size:12px;padding:5px;flex-shrink:0;margin:4px 0}
+.tc-compact .tc-layout{display:block;flex:1;min-height:0;min-width:0;
+  height:auto;max-width:none;width:100%;gap:0}
+.tc-compact .tc-sidebar,.tc-compact .tc-conversation{
+  display:flex;flex-direction:column;min-height:0;height:100%;
+  max-height:100%;border-radius:10px}
+.tc-compact .tc-mobile-hide{display:none!important}
+.tc-compact .tc-tabs button{padding:10px 2px;font-size:11px}
+.tc-compact .tc-tabs b{padding:1px 4px;min-width:16px}
+.tc-compact .tc-room{padding:12px 9px;gap:4px}
+.tc-compact .tc-room-name{font-size:13px}
+.tc-compact .tc-thread-title{padding:9px 10px;gap:8px}
+.tc-compact .tc-thread-title strong{font-size:13px}
+.tc-compact .tc-back-thread{display:inline-block;font-size:11px;padding:7px}
+.tc-compact .tc-message-list{min-height:0;padding:8px;gap:8px}
+.tc-compact .tc-message{max-width:94%;padding:9px 10px}
+.tc-compact .tc-message-text{font-size:13px;line-height:1.4;margin:6px 0}
+.tc-compact .tc-message-head{font-size:10px;gap:7px}
+.tc-compact .tc-message-head time{font-size:10px}
+.tc-compact .tc-new{padding:8px;gap:6px}
+.tc-compact .tc-new select,.tc-compact .tc-new button{padding:8px;font-size:12px}
+.tc-compact .tc-compose{padding:8px}
+.tc-compact .tc-compose textarea{min-height:45px;padding:9px;font-size:13px;resize:none}
+.tc-compact .tc-compose-actions{margin-top:5px;flex-wrap:wrap;gap:4px}
+.tc-compact .tc-upload,.tc-compact .tc-record,.tc-compact .tc-send{min-height:35px;font-size:11px;padding:6px 7px}
+.tc-compact .tc-send{min-width:62px;margin-left:auto}
+.tc-compact .tc-admin-only{padding:7px;font-size:12px}
+
+
+/* CHAT V2 — maximize the actual messages instead of banners and controls.
+   Full-page chat: one thin header + topic tabs/list + reading area + composer. */
+.tc-root:not(.tc-compact){
+  display:flex;flex-direction:column;box-sizing:border-box;
+  width:100%;height:100dvh;min-height:0;
+  overflow:hidden;padding:0;background:#0d1420;
+}
+.tc-root:not(.tc-compact) .tc-header{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  flex:0 0 auto;min-height:49px;width:100%;max-width:none;
+  box-sizing:border-box;padding:7px 12px;margin:0;
+  background:#1c2734;border-bottom:1px solid #344357;
+}
+.tc-root:not(.tc-compact) .tc-header h1{
+  flex:1;margin:0;color:#f8fafc;font-size:17px;font-weight:750;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.tc-root:not(.tc-compact) .tc-back,
+.tc-root:not(.tc-compact) .tc-settings-button{
+  display:grid;place-items:center;flex:0 0 35px;
+  width:35px;height:35px;padding:0;
+  color:#f8fafc;background:#2c3b4d;border:1px solid #42566e;
+  border-radius:9px;font-size:20px;cursor:pointer;text-decoration:none;
+}
+.tc-root:not(.tc-compact) .tc-settings-open{
+  flex:0 0 auto;box-sizing:border-box;width:100%;max-width:none;
+  max-height:185px;overflow-y:auto;
+  margin:0;padding:8px 12px;border:0;
+  border-bottom:1px solid #3b4c61;border-radius:0;background:#182637;
+  justify-content:flex-start;gap:10px;
+}
+.tc-settings-open .tc-lang{display:flex;flex-wrap:wrap;gap:5px;align-items:center;width:100%;max-width:none}
+.tc-settings-open .tc-lang button{padding:6px 12px}
+.tc-settings-open small{font-size:10px}
+.tc-root:not(.tc-compact) .tc-layout{
+  display:grid;grid-template-columns:minmax(235px,290px) minmax(0,1fr);
+  flex:1 1 auto;width:100%;max-width:none;
+  height:auto;min-height:0;overflow:hidden;gap:0;margin:0;
+}
+.tc-root:not(.tc-compact) .tc-sidebar,
+.tc-root:not(.tc-compact) .tc-conversation{
+  min-height:0;height:100%;max-height:100%;
+  border-radius:0;border:0;overflow:hidden;background:#121b28;
+}
+.tc-root:not(.tc-compact) .tc-sidebar{
+  border-right:1px solid #344153;
+}
+.tc-root:not(.tc-compact) .tc-tabs{flex:0 0 40px;min-height:40px}
+.tc-root:not(.tc-compact) .tc-tabs button{padding:7px 3px;font-size:12px}
+.tc-root:not(.tc-compact) .tc-room{padding:11px 12px;gap:4px}
+.tc-root:not(.tc-compact) .tc-thread-title{
+  flex:0 0 auto;min-height:36px;box-sizing:border-box;
+  padding:6px 10px;gap:8px;border-bottom:1px solid #334255;
+  background:#192737;
+}
+.tc-root:not(.tc-compact) .tc-thread-title strong{
+  font-size:14px;color:#d1dfed;
+}
+.tc-root:not(.tc-compact) .tc-message-list{
+  flex:1 1 auto;min-height:0;overflow-y:auto;
+  padding:12px 13px;gap:9px;overscroll-behavior:contain;
+}
+.tc-root:not(.tc-compact) .tc-message{
+  padding:10px 12px;max-width:min(88%,700px);
+}
+.tc-root:not(.tc-compact) .tc-message-text{
+  font-size:15px;line-height:1.48;margin:6px 0;
+}
+.tc-root:not(.tc-compact) .tc-compose{
+  flex:0 0 auto;box-sizing:border-box;padding:8px 10px;
+  border-top:1px solid #44546a;background:#202e3d;
+}
+.tc-root:not(.tc-compact) .tc-compose-line{
+  display:flex;align-items:center;gap:7px;min-height:42px;width:100%;
+}
+.tc-root:not(.tc-compact) .tc-compose-line textarea{
+  flex:1 1 auto;min-width:0;width:auto;box-sizing:border-box;
+  min-height:42px;max-height:116px;resize:none;margin:0;
+  font-size:15px;line-height:21px;padding:9px 10px;
+  border-radius:10px;
+}
+.tc-root:not(.tc-compact) .tc-compose-line .tc-upload,
+.tc-root:not(.tc-compact) .tc-compose-line .tc-record,
+.tc-root:not(.tc-compact) .tc-compose-line .tc-send{
+  display:grid;place-items:center;flex:0 0 39px;
+  width:39px;height:42px;min-height:42px;padding:0;
+  border-radius:10px;font-size:20px;margin:0;
+}
+.tc-root:not(.tc-compact) .tc-compose-line .tc-send{font-size:23px}
+.tc-root:not(.tc-compact) .tc-back-thread{
+  display:grid;place-items:center;min-height:29px;
+  padding:4px 8px;font-size:12px;
+}
+@media(max-width:720px){
+  .tc-root:not(.tc-compact) .tc-layout{
+    display:block;min-height:0;flex:1;height:auto;
+  }
+  .tc-root:not(.tc-compact) .tc-sidebar,
+  .tc-root:not(.tc-compact) .tc-conversation{height:100%;min-height:0}
+  .tc-root:not(.tc-compact) .tc-mobile-hide{display:none!important}
+  .tc-root:not(.tc-compact) .tc-message-list{padding:9px 8px}
+  .tc-root:not(.tc-compact) .tc-message{max-width:92%}
+  .tc-root:not(.tc-compact) .tc-thread-title{min-height:35px}
+}
+@media(max-width:365px){
+  .tc-root:not(.tc-compact) .tc-compose-line{gap:4px}
+  .tc-root:not(.tc-compact) .tc-compose-line .tc-upload,
+  .tc-root:not(.tc-compact) .tc-compose-line .tc-record,
+  .tc-root:not(.tc-compact) .tc-compose-line .tc-send{
+    width:35px;flex-basis:35px;height:40px;min-height:40px;
+  }
+}
+
+
+/* Shared language control is a single dropdown in the settings panel. */
+.tc-settings-open .tc-lang{
+  display:flex;align-items:center;gap:8px;max-width:260px;
+  color:#fdba74;font-size:14px;min-width:0;
+}
+.tc-settings-open .tc-lang select{
+  flex:1;min-width:0;max-width:226px;background:#1f3044;
+  color:#fff;border:1px solid #50627b;border-radius:9px;
+  padding:7px 10px;min-height:36px;font-size:12px;
+}
+/* Icon glyphs are 20% smaller, but hit areas stay touch friendly. */
+.tc-root .tc-settings-button,
+.tc-root .tc-back{font-size:16px}
+.tc-root .tc-compose-line .tc-upload,
+.tc-root .tc-compose-line .tc-record{font-size:16px}
+.tc-root .tc-compose-line .tc-send{font-size:18px}
+.tc-root .tc-back-thread{font-size:11px}
