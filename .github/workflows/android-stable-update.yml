@@ -22,8 +22,6 @@ jobs:
         working-directory: mobile
     env:
       SOLSTONE_WEB_URL: https://hidajet-goletic-frno.vercel.app
-      SOLSTONE_VERSION_CODE: ${{ 10000 + github.run_number * 100 + github.run_attempt }}
-      SOLSTONE_VERSION_NAME: 1.0.${{ github.run_number }}.${{ github.run_attempt }}
       # Never use the standalone Vite demo for this persistent release identity.
 
     steps:
@@ -61,6 +59,14 @@ jobs:
         run: |
           echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
           echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
+
+      - name: Compute monotonic Android version
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$((10000 + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
+          echo "SOLSTONE_VERSION_CODE=$code" >> "$GITHUB_ENV"
+          echo "SOLSTONE_VERSION_NAME=1.0.$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
