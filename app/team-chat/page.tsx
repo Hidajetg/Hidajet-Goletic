@@ -29,7 +29,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     photo:"Bild ansehen",pdf:"PDF öffnen",audio:"Sprachnachricht hören",
     recording:"Aufnahme läuft",noRecords:"Keine Gespräche",load:"Chat wird geladen…",
     pushOn:"🔔 Push-Benachrichtigungen aktivieren",pushOff:"🔕 Push deaktivieren",
-    warning:"Ton und Sprachausgabe funktionieren bei geöffneter App; Push bei geschlossener App folgt später."},
+    warning:"Web Push funktioniert in unterstützten Browsern und iPhone-Home-Screen-Apps. Android APK-Benachrichtigungen brauchen eine separate Integration."},
   ba:{title:"Team Chat",sites:"Grupni",private:"Privatno",announcements:"Obavijesti",
     newChat:"Novi privatni razgovor",choose:"Odaberi radnika",start:"Započni razgovor",
     empty:"Još nema poruka",write:"Napiši poruku…",send:"Pošalji",
@@ -40,7 +40,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     photo:"Pogledaj sliku",pdf:"Otvori PDF",audio:"Preslušaj glasovnu poruku",
     recording:"Snimanje traje",noRecords:"Nema razgovora",load:"Učitavam chat…",
     pushOn:"🔔 Uključi push obavijesti",pushOff:"🔕 Isključi push obavijesti",
-    warning:"Zvučna i glasovna upozorenja rade dok je aplikacija pokrenuta. Push kad je zatvorena dolazi kasnije."},
+    warning:"Web push radi u podržanim preglednicima i instaliranoj iPhone web-aplikaciji. Android APK treba posebno povezivanje."},
   uz:{title:"Team Chat",sites:"Guruhlar",private:"Shaxsiy",announcements:"E’lonlar",
     newChat:"Yangi shaxsiy suhbat",choose:"Xodimni tanlang",start:"Suhbatni boshlash",
     empty:"Hali xabar yo‘q",write:"Xabar yozing…",send:"Yuborish",
@@ -51,7 +51,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     photo:"Rasmni ko‘rish",pdf:"PDF ochish",audio:"Ovozli xabarni eshitish",
     recording:"Yozilmoqda",noRecords:"Suhbatlar yo‘q",load:"Chat yuklanmoqda…",
     pushOn:"🔔 Push xabarlarini yoqish",pushOff:"🔕 Push xabarlarini o‘chirish",
-    warning:"Ovozli bildirishnomalar ilova ochiq bo‘lganda ishlaydi. Yopiq ilova uchun push keyinroq."},
+    warning:"Web push brauzer va iPhone bosh ekranidagi ilovada ishlaydi. Android APK uchun alohida sozlama kerak."},
   cz:{title:"Team Chat",sites:"Skupiny",private:"Soukromé",announcements:"Oznámení",
     newChat:"Nový soukromý chat",choose:"Vyberte pracovníka",start:"Začít konverzaci",
     empty:"Zatím žádné zprávy",write:"Napište zprávu…",send:"Odeslat",
@@ -62,7 +62,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     photo:"Zobrazit fotku",pdf:"Otevřít PDF",audio:"Přehrát hlasovou zprávu",
     recording:"Nahrávání",noRecords:"Žádné konverzace",load:"Načítání chatu…",
     pushOn:"🔔 Zapnout push oznámení",pushOff:"🔕 Vypnout push oznámení",
-    warning:"Zvuk funguje při otevřené aplikaci. Push při zavřené aplikaci přijde později."},
+    warning:"Web push funguje v podporovaných prohlížečích a nainstalované iPhone webové aplikaci; Android APK potřebuje samostatnou integraci."},
   en:{title:"Team Chat",sites:"Groups",private:"Private",announcements:"Announcements",
     newChat:"New private chat",choose:"Choose worker",start:"Start chat",
     empty:"No messages yet",write:"Write a message…",send:"Send",
@@ -73,7 +73,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     photo:"View image",pdf:"Open PDF",audio:"Play voice message",
     recording:"Recording",noRecords:"No conversations",load:"Loading chat…",
     pushOn:"🔔 Enable push notifications",pushOff:"🔕 Disable push notifications",
-    warning:"Sound and speech alerts work while the app is running; closed-app push is planned separately."},
+    warning:"Web push works in supported browsers and iPhone Home Screen apps; the Android APK needs separate native integration."},
 };
 
 async function api<T>(url:string,init?:RequestInit):Promise<T>{
@@ -317,6 +317,13 @@ export default function TeamChatPage(){
     setPushBusy(true);
     setError("");
     try {
+      // Safari/iOS requires permission to be requested directly from the tap,
+      // before any asynchronous registration or network call.
+      let permission: NotificationPermission | null = null;
+      if (!pushEnabled) {
+        permission = await Notification.requestPermission();
+        if (permission !== "granted") throw new Error("Dozvoli obavijesti u postavkama telefona.");
+      }
       const registration = await navigator.serviceWorker.register("/solstone-push-sw.js", {scope:"/"});
       const existing = await registration.pushManager.getSubscription();
       if (pushEnabled) {
@@ -327,10 +334,6 @@ export default function TeamChatPage(){
         }
         setPushEnabled(false);
       } else {
-        // iOS requires this permission request to happen in a direct click
-        // inside the Home Screen-installed web app.
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") throw new Error("Dozvoli obavijesti u postavkama telefona.");
         const {publicKey} = await api<{publicKey:string}>("/api/team-chat/push");
         const encoded = publicKey.replace(/-/g, "+").replace(/_/g, "/");
         const raw = atob(encoded.padEnd(Math.ceil(encoded.length/4)*4,"="));
