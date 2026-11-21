@@ -9,7 +9,8 @@ BEGIN
     'solstone_chat_messages',
     'solstone_chat_pending_uploads',
     'solstone_chat_reads',
-    'solstone_chat_translations'
+    'solstone_chat_translations',
+    'solstone_chat_push_subscriptions'
   ] LOOP
     IF NOT (SELECT relrowsecurity FROM pg_class
             WHERE oid=('public.'||tbl)::regclass) THEN
@@ -56,8 +57,14 @@ select id,'ba','Zdravo' from public.solstone_chat_messages;
 insert into public.solstone_chat_reads(room_id,worker_id)
 select id,1002 from public.solstone_chat_rooms where kind='private';
 
+insert into public.solstone_chat_push_subscriptions(worker_id,endpoint)
+values(1001,'https://fcm.googleapis.com/fcm/send/solstone-test-subscription');
+
 DO $test$
 BEGIN
+  IF (SELECT count(*) FROM public.solstone_chat_push_subscriptions)<>1 THEN
+    RAISE EXCEPTION 'Push subscription insert failed';
+  END IF;
   IF (SELECT count(*) FROM public.solstone_chat_rooms)<>3 THEN
     RAISE EXCEPTION 'Room shape insert failed';
   END IF;
