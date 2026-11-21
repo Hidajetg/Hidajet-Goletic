@@ -19,6 +19,60 @@ if (-not $keytoolPath) {
 }
 if (-not $keytoolPath) { throw "Nisam našao keytool.exe. Instaliraj Android Studio/JDK pa pokreni ponovo." }
 
+# Safety first: look for an existing RELEASE signing key instead of
+# silently replacing the signing identity of the already installed app.
+# Only paths are printed; keystore contents and passwords are NEVER sent.
+if (-not (Test-Path -LiteralPath $keystore)) {
+    Write-Host "Provjeravam postoji li stari potpisni kljuc na racunaru..." -ForegroundColor Cyan
+    $roots = @(
+        (Join-Path $env:USERPROFILE "OneDrive"),
+        (Join-Path $env:USERPROFILE "Documents"),
+        (Join-Path $env:USERPROFILE "Desktop"),
+        (Join-Path $env:USERPROFILE "Downloads"),
+        (Join-Path $PSScriptRoot "..\\..")
+    ) | Select-Object -Unique
+
+    $found = New-Object 'System.Collections.Generic.List[string]'
+    $seenDirs = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    $skipDirs = @("node_modules", ".git", ".gradle", ".next", "dist", "build", ".cache")
+
+    foreach ($root in $roots) {
+        if (-not (Test-Path -LiteralPath $root -PathType Container)) { continue }
+        $stack = New-Object 'System.Collections.Generic.Stack[string]'
+        $stack.Push([IO.Path]::GetFullPath($root))
+        while ($stack.Count -gt 0) {
+            $current = $stack.Pop()
+            if (-not $seenDirs.Add($current)) { continue }
+            foreach ($item in @(Get-ChildItem -LiteralPath $current -Force -ErrorAction SilentlyContinue)) {
+                if ($item.PSIsContainer) {
+                    if ($item.Name -notin $skipDirs -and
+                        ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0) {
+                        $stack.Push($item.FullName)
+                    }
+                } elseif ($item.Extension -in @(".jks", ".keystore") -and
+                          $item.Name -notmatch "^debug\\.keystore$") {
+                    $found.Add($item.FullName)
+                }
+            }
+        }
+    }
+
+    if ($found.Count -gt 0) {
+        Write-Host "PRONADJEN POTENCIJALNI STARI POTPISNI KLJUC:" -ForegroundColor Yellow
+        $found | Sort-Object -Unique | ForEach-Object { Write-Host $_ }
+        Write-Host "Zaustavljeno. Prvo provjeri koji kljuc potpisuje postojecu aplikaciju." -ForegroundColor Yellow
+        Write-Host "NE kreiraj novi kljuc i NIKAD ne salji .jks ili lozinku u chat."
+        exit 0
+    }
+
+    Write-Host "Nije pronadjen kljuc u pregledanim folderima (ne dokazuje da ga nema drugdje)." -ForegroundColor Yellow
+    $confirmation = Read-Host "Ako si siguran da nemas stari release kljuc, upisi DA za kreiranje novog"
+    if ($confirmation -cne "DA") {
+        Write-Host "Nije kreiran novi kljuc."
+        exit 0
+    }
+}
+
 New-Item -ItemType Directory -Force -Path $targetDirectory | Out-Null
 if (Test-Path $keystore) {
     Write-Host "Postojeći Solstone ključ je pronađen. NOVI SE NEĆE KREIRATI:" -ForegroundColor Yellow
