@@ -80,10 +80,22 @@ same PushManager and still requires separate Firebase/native setup.
 
 The code is compiled and the isolated PostgreSQL schema tests pass; actual
 end-to-end locked-phone delivery still requires test VAPID credentials and
-real device validation. True WhatsApp-like incoming calls have NOT been
-implemented: WebRTC signaling, TURN relay and OS-specific incoming-call
-behavior are separate rollout gates. STUN alone cannot guarantee free calls
-across all mobile networks.
+real device validation. An experimental 1:1 voice calling feature is now in the staging branch:
+- staging/solstone-call-schema.sql: restricted calls/signals and active participant heartbeats.
+- app/api/team-calls and /signal: role/membership checks, call states, SDP/ICE polling.
+- app/components/SolstoneCalls.tsx: accept/decline/hang-up, microphone, WebRTC audio.
+- app/team-chat/page.tsx: phone button in private chats, workers can call each other or admins.
+- Service worker checks incoming calls and displays a push notification when
+  PWA Web Push is configured and the user is authenticated.
+
+This is a prototype, NOT yet a released or verified calling service. Both
+participants must be running compatible browsers and allow microphone access.
+The public Google STUN endpoint is a connectivity aid, not a TURN relay.
+Calls may fail on mobile networks until a reliable TURN server is configured;
+that may introduce hosting/bandwidth costs. iPhone Home Screen Web Push can
+alert the user but does not provide guaranteed native CallKit/full-screen ringing
+when closed. Android native APK push still needs separate FCM integration.
+No phone minutes are charged, but internet/server costs may apply.
 
 ## Authentication change (staging only)
 Legacy hard-coded PIN shortcuts were removed from the test login endpoint.
@@ -102,5 +114,6 @@ deployed to workers' production application.
 5. Validate camera/media chooser, PDF exports, notifications and battery usage.
 6. Verify every worker has a hashed PIN, retire old known PINs, and audit legacy production RLS.
 7. Configure VAPID in a separate preview environment, test locked iPhone Home Screen notifications and Android browser alerts.
-8. Implement/test Android APK FCM separately; verify call signaling and TURN separately.
+8. Implement/test Android APK FCM separately. Test call API access controls,
+   signaling/ringing, dropped-network cleanup, and TURN relay on real phones.
 9. Deploy to production only after testing; Google Play and App Store LAST.
