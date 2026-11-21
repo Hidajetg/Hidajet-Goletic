@@ -315,7 +315,7 @@ export default function TeamChatPage(){
     const siteId=new URLSearchParams(window.location.search).get("siteId");
     if (!siteId) return;
     initialSiteSelection.current=true;
-    if (!/^\\d+$/.test(siteId)) return;
+    if (!/^\d+$/.test(siteId)) return;
     const siteRoom=rooms.find((room)=>room.kind==="site" && room.siteId===siteId);
     if (siteRoom) void chooseRoom(siteRoom);
     else setError("Nemaš pristup razgovoru ove Baustelle.");
