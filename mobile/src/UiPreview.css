@@ -654,3 +654,19 @@
 }
 /* Keep the admin replica identical to the web-style dark version. */
 .spv:has(.spv-admin-web-preview){background:#000}
+
+/* Mobile test: fourth bottom action opens the user's own ChatGPT session.
+   No Solstone data is shared. This is NOT an embedded database-aware AI. */
+.spv .spv-bottom button{width:25%;max-width:none}
+.spv .spv-bottom .spv-ai-bottom{color:#fdba74;font-weight:700}
+.spv .spv-bottom .spv-ai-walker{
+  display:inline-block;font-size:20px;line-height:1.1;
+  animation:solstone-walk 1.25s ease-in-out infinite;
+}
+@keyframes solstone-walk{
+  0%,100%{transform:translateX(-2px) rotate(-7deg)}
+  50%{transform:translateX(2px) rotate(7deg)}
+}
+@media(prefers-reduced-motion:reduce){
+  .spv .spv-bottom .spv-ai-walker{animation:none}
+}
