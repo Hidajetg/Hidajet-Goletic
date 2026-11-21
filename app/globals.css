@@ -24,3 +24,12 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Solstone AI navigation, available to web and hosted mobile views. */
+@keyframes solstoneWalk {
+  0%, 100% { transform: translateX(-2px) rotate(-7deg); }
+  50% { transform: translateX(2px) rotate(7deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  a[aria-label="Solstone AI pomoćnik"] span:first-child { animation: none !important; }
+}
