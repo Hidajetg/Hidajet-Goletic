@@ -1,6 +1,8 @@
 # Run once on your own Windows computer, NOT in GitHub Actions.
 # The private release signing key never leaves your machine unless you choose
 # to upload its base64 representation to a PRIVATE GitHub Actions secret.
+param([switch]$ScanOnly)
+
 $ErrorActionPreference = "Stop"
 
 $targetDirectory = Join-Path $env:USERPROFILE "SolstoneSigning"
@@ -17,7 +19,7 @@ if (-not $keytoolPath) {
     $command = Get-Command keytool.exe -ErrorAction SilentlyContinue
     if ($command) { $keytoolPath = $command.Source }
 }
-if (-not $keytoolPath) { throw "Nisam našao keytool.exe. Instaliraj Android Studio/JDK pa pokreni ponovo." }
+if (-not $keytoolPath -and -not $ScanOnly) { throw "Nisam našao keytool.exe. Instaliraj Android Studio/JDK pa pokreni ponovo." }
 
 # Safety first: look for an existing RELEASE signing key instead of
 # silently replacing the signing identity of the already installed app.
@@ -29,7 +31,7 @@ if (-not (Test-Path -LiteralPath $keystore)) {
         (Join-Path $env:USERPROFILE "Documents"),
         (Join-Path $env:USERPROFILE "Desktop"),
         (Join-Path $env:USERPROFILE "Downloads"),
-        (Join-Path $PSScriptRoot "..\\..")
+        (Join-Path $PSScriptRoot "..\..")
     ) | Select-Object -Unique
 
     $found = New-Object 'System.Collections.Generic.List[string]'
@@ -50,7 +52,7 @@ if (-not (Test-Path -LiteralPath $keystore)) {
                         $stack.Push($item.FullName)
                     }
                 } elseif ($item.Extension -in @(".jks", ".keystore") -and
-                          $item.Name -notmatch "^debug\\.keystore$") {
+                          $item.Name -notmatch "^debug\.keystore$") {
                     $found.Add($item.FullName)
                 }
             }
@@ -66,11 +68,20 @@ if (-not (Test-Path -LiteralPath $keystore)) {
     }
 
     Write-Host "Nije pronadjen kljuc u pregledanim folderima (ne dokazuje da ga nema drugdje)." -ForegroundColor Yellow
+    if ($ScanOnly) {
+        Write-Host "Provjera je zavrsena bez kreiranja kljuca." -ForegroundColor Green
+        exit 0
+    }
     $confirmation = Read-Host "Ako si siguran da nemas stari release kljuc, upisi DA za kreiranje novog"
     if ($confirmation -cne "DA") {
         Write-Host "Nije kreiran novi kljuc."
         exit 0
     }
+}
+
+if ($ScanOnly) {
+    Write-Host "Postojeci Solstone potpisni kljuc: $keystore" -ForegroundColor Green
+    exit 0
 }
 
 New-Item -ItemType Directory -Force -Path $targetDirectory | Out-Null
