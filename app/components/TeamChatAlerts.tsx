@@ -70,6 +70,9 @@ export default function TeamChatAlerts() {
     };
 
     const poll = async () => {
+      if (document.visibilityState !== "visible" ||
+          window.location.pathname === "/login" ||
+          window.location.pathname === "/login-secure") return;
       try {
         const result = await fetch("/api/team-chat",{
           credentials:"include",cache:"no-store",
@@ -103,11 +106,14 @@ export default function TeamChatAlerts() {
       }
     };
 
+    const onVisibility = () => { if (active && document.visibilityState === "visible") void poll(); };
+    document.addEventListener("visibilitychange",onVisibility);
     void poll();
-    const interval = setInterval(() => { if (active) void poll(); },12000);
+    const interval = setInterval(() => { if (active) void poll(); },20000);
     return () => {
       active = false;
       clearInterval(interval);
+      document.removeEventListener("visibilitychange",onVisibility);
       document.removeEventListener("pointerdown",unlock);
       window.speechSynthesis?.cancel();
     };
