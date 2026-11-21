@@ -25,9 +25,19 @@ export async function GET() {
       .or("caller_id.eq."+user.id+",callee_id.eq."+user.id)
       .order("created_at",{ascending:false}).limit(20);
     if (error) throw error;
-    const active = (data ?? []).filter((c) => c.status === "ringing" || c.status === "accepted");
+    const ids = [...new Set((data ?? []).flatMap((c) => [String(c.caller_id),String(c.callee_id)]))];
+    const {data:workers,error:workersError} = ids.length
+      ? await supabaseAdmin.from("workers").select("id,name").in("id",ids).limit(50)
+      : {data:[],error:null};
+    if (workersError) throw workersError;
+    const names = new Map((workers??[]).map((w) => [String(w.id),String(w.name)]));
+    const calls = (data??[]).map((c) => ({
+      ...c, callerName:names.get(String(c.caller_id))??"Mitarbeiter",
+      calleeName:names.get(String(c.callee_id))??"Mitarbeiter",
+    }));
+    const active = calls.filter((c) => c.status === "ringing" || c.status === "accepted");
     return NextResponse.json({
-      userId:user.id, calls:data ?? [], active,
+      userId:user.id, calls, active,
     },{headers:noStore});
   } catch (error) {
     console.error("List Solstone calls failed:",error instanceof Error?error.message:"unknown");
