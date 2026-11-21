@@ -11,6 +11,8 @@ create table if not exists public.solstone_calls (
   expires_at timestamptz not null default (now() + interval '60 seconds'),
   answered_at timestamptz,
   ended_at timestamptz,
+  caller_seen_at timestamptz not null default now(),
+  callee_seen_at timestamptz not null default now(),
   constraint solstone_calls_distinct_participants check (caller_id <> callee_id)
 );
 create index if not exists solstone_calls_caller_idx
