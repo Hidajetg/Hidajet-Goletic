@@ -11,6 +11,8 @@ type Call = {
 type Signal = {id:number;kind:"offer"|"answer"|"candidate";payload:Record<string,unknown>};
 type Phase = "incoming"|"calling"|"connecting"|"connected";
 
+const CALLS_ENABLED = process.env.NEXT_PUBLIC_SOLSTONE_CALLS_ENABLED === "true";
+
 const TEXT = {
   de:{incoming:"Eingehender Anruf",calling:"Wird angerufen",connecting:"Verbindung wird hergestellt",
     connected:"Verbunden",accept:"Annehmen",decline:"Ablehnen",end:"Auflegen",mute:"Stumm",unmute:"Ton an",
@@ -253,16 +255,18 @@ export default function SolstoneCalls() {
       const id=String((event as CustomEvent<{targetWorkerId:string}>).detail?.targetWorkerId??"");
       void startCall(id);
     };
+    if (!CALLS_ENABLED) return;
     window.addEventListener("solstone-call-start",listener);
     return()=>window.removeEventListener("solstone-call-start",listener);
   },[startCall]);
   useEffect(()=>{
-    if (!pathname || pathname==="/" || pathname.startsWith("/login")) return;
+    if (!CALLS_ENABLED || !pathname || pathname==="/" || pathname.startsWith("/login")) return;
     void checkCalls();
     const timer=setInterval(()=>void checkCalls(),3000);
     return()=>clearInterval(timer);
   },[pathname,checkCalls]);
   useEffect(()=>{
+    if (!CALLS_ENABLED) return;
     const timer=setInterval(()=>void readSignals(),1050);
     return()=>clearInterval(timer);
   },[readSignals]);
@@ -275,7 +279,7 @@ export default function SolstoneCalls() {
     setMuted(!audio.enabled);
   }
 
-  if (!call && !error) return null;
+  if (!CALLS_ENABLED || (!call && !error)) return null;
   const isCaller=call && String(call.caller_id)===ownIdRef.current;
   const peerName=call
     ? isCaller ? (call.calleeName??"Mitarbeiter"):(call.callerName??"Mitarbeiter")
