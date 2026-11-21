@@ -34,27 +34,15 @@ if (-not (Test-Path -LiteralPath $keystore)) {
         (Join-Path $PSScriptRoot "..\..")
     ) | Select-Object -Unique
 
+    # ScanOneDrive and project trees the same way as a successful
+    # interactive PowerShell search; localised OneDrive folders like
+    # "Dokumenti" can be junctions/reparse points and must not be skipped.
     $found = New-Object 'System.Collections.Generic.List[string]'
-    $seenDirs = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
-    $skipDirs = @("node_modules", ".git", ".gradle", ".next", "dist", "build", ".cache")
-
     foreach ($root in $roots) {
         if (-not (Test-Path -LiteralPath $root -PathType Container)) { continue }
-        $stack = New-Object 'System.Collections.Generic.Stack[string]'
-        $stack.Push([IO.Path]::GetFullPath($root))
-        while ($stack.Count -gt 0) {
-            $current = $stack.Pop()
-            if (-not $seenDirs.Add($current)) { continue }
-            foreach ($item in @(Get-ChildItem -LiteralPath $current -Force -ErrorAction SilentlyContinue)) {
-                if ($item.PSIsContainer) {
-                    if ($item.Name -notin $skipDirs -and
-                        ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0) {
-                        $stack.Push($item.FullName)
-                    }
-                } elseif ($item.Extension -in @(".jks", ".keystore") -and
-                          $item.Name -notmatch "^debug\.keystore$") {
-                    $found.Add($item.FullName)
-                }
+        foreach ($item in @(Get-ChildItem -LiteralPath $root -Recurse -File -Force -Include *.jks,*.keystore -ErrorAction SilentlyContinue)) {
+            if ($item.Name -ine "debug.keystore") {
+                $found.Add($item.FullName)
             }
         }
     }
