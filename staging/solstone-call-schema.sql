@@ -41,7 +41,7 @@ create unique index if not exists solstone_call_one_offer_answer
 -- requests for the same worker are serialized with advisory transaction locks,
 -- then checked across BOTH caller/callee columns. No paid coordination server.
 create or replace function public.solstone_calls_prevent_overlap()
-returns trigger language plpgsql set search_path=pg_catalog,public as $
+returns trigger language plpgsql set search_path=pg_catalog,public as $solstone_busy$
 begin
   if new.status <> 'ringing' then
     raise exception 'A new call must be ringing' using errcode='23514';
@@ -62,7 +62,7 @@ begin
     raise exception 'Worker is already in another call' using errcode='23505';
   end if;
   return new;
-end $;
+end $solstone_busy$;
 
 drop trigger if exists solstone_calls_one_active_per_worker on public.solstone_calls;
 create trigger solstone_calls_one_active_per_worker
@@ -72,7 +72,7 @@ for each row execute function public.solstone_calls_prevent_overlap();
 -- Service-role access alone must not allow an unrelated worker's SDP/ICE into
 -- an established conversation if a future route accidentally omits its check.
 create or replace function public.solstone_call_signal_participant_only()
-returns trigger language plpgsql set search_path=pg_catalog,public as $
+returns trigger language plpgsql set search_path=pg_catalog,public as $solstone_signal$
 declare
   c record;
 begin
@@ -98,7 +98,7 @@ begin
     raise exception 'Oversized signal' using errcode='23514';
   end if;
   return new;
-end $;
+end $solstone_signal$;
 
 drop trigger if exists solstone_call_signals_participant_only
   on public.solstone_call_signals;
