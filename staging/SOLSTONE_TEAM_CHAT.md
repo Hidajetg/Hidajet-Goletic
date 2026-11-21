@@ -51,9 +51,48 @@ speak a short incoming-sender alert in the selected app language. Spoken
 alerts are OFF by default for privacy. Users can toggle sound, spoken alerts
 and auto-translate individually on the Team Chat page.
 
-These are alerts while the application is running. True Android FCM and iOS
-APNs push notifications while closed, plus native audio/permission testing,
-still require a separate implementation and authorized cloud credentials.
+## Web Push for installed iPhone PWA and Android browsers (2026-11-21)
+A test-only payload-free Web Push implementation has been added. Source:
+- public/solstone-push-sw.js: service worker does not cache message content.
+- app/api/team-chat/push/route.ts: signed-session opt-in/opt-out.
+- app/lib/web-push.ts: strict provider endpoint allow-list and VAPID-signed no-payload notifications.
+- staging/solstone-chat-push-schema.sql: separate RLS/restricted table.
+- app/team-chat/page.tsx: notification permission toggle.
+
+Required server-only environment variables:
+- SOLSTONE_VAPID_PUBLIC_KEY: base64url uncompressed P-256 (65-byte) public key
+- SOLSTONE_VAPID_PRIVATE_KEY: base64url P-256 (32-byte) private key
+- SOLSTONE_VAPID_CONTACT: valid mailto: or https: contact (public VAPID identity)
+
+Generate a P-256 VAPID keypair securely, save privately in the test deployment's
+environment. Keep private keys out of repository commits and browser bundles.
+Do not rotate the keypair between app upgrades unless users resubscribe.
+The API fails closed if these variables or the table are not configured.
+Use only a separate test Supabase DB until production release is approved.
+
+After a push arrives, the service worker checks the signed cookie and requests
+the authorized room summary; actual message bodies are NOT sent to Apple,
+Google or Mozilla push services. Only sender/room summary may appear in the
+visible notification. On iPhone this requires iOS 16.4+ and an installed
+Home Screen web app with Notifications permitted. Android browser PWAs can use
+Web Push where supported; Android native APK WebView does NOT support the
+same PushManager and still requires separate Firebase/native setup.
+
+The code is compiled and the isolated PostgreSQL schema tests pass; actual
+end-to-end locked-phone delivery still requires test VAPID credentials and
+real device validation. True WhatsApp-like incoming calls have NOT been
+implemented: WebRTC signaling, TURN relay and OS-specific incoming-call
+behavior are separate rollout gates. STUN alone cannot guarantee free calls
+across all mobile networks.
+
+## Authentication change (staging only)
+Legacy hard-coded PIN shortcuts were removed from the test login endpoint.
+All users/admins now need a worker_auth bcrypt hash. Read-only checks on
+2026-11-21 showed 8 active worker records but only 7 matching auth records.
+Provision the missing admin PIN securely through the existing authorized
+admin flow before production release. Rotate any old source-code PINs;
+do not copy PINs or password hashes into test reports. This change was not
+deployed to workers' production application.
 
 ## Rollout gates
 1. Apply staging schema to an isolated DB only, review all Storage policies.
@@ -61,5 +100,7 @@ still require a separate implementation and authorized cloud credentials.
 3. Test images, PDF and iOS/Android voice recording on actual phones.
 4. Set translation API key on server; test technical phrases all 5 languages.
 5. Validate camera/media chooser, PDF exports, notifications and battery usage.
-6. Fix existing weak legacy PIN security and unrelated production RLS issues.
-7. Deploy to production only after testing; Google Play and App Store LAST.
+6. Verify every worker has a hashed PIN, retire old known PINs, and audit legacy production RLS.
+7. Configure VAPID in a separate preview environment, test locked iPhone Home Screen notifications and Android browser alerts.
+8. Implement/test Android APK FCM separately; verify call signaling and TURN separately.
+9. Deploy to production only after testing; Google Play and App Store LAST.
