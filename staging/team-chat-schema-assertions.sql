@@ -87,3 +87,82 @@ BEGIN
   END IF;
 END
 $test$;
+
+
+-- Negative security tests: accidental server-code mistakes must not make an
+-- unrelated employee a participant in someone else's voice conversation.
+DO $negative_calls$
+DECLARE
+  call_uuid uuid;
+BEGIN
+  select id into strict call_uuid from public.solstone_calls
+    where caller_id=1001 and callee_id=1002;
+
+  BEGIN
+    insert into public.solstone_calls(caller_id,callee_id) values(1002,1003);
+    raise exception 'Overlap guard did not block a second call';
+  EXCEPTION WHEN unique_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    insert into public.solstone_call_signals(call_id,sender_id,kind,payload)
+    values(call_uuid,1003,'candidate','{"candidate":"outsider"}');
+    raise exception 'Outsider signal was accepted';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    insert into public.solstone_call_signals(call_id,sender_id,kind,payload)
+    values(call_uuid,1001,'answer','{"type":"answer","sdp":"spoof"}');
+    raise exception 'Caller was allowed to forge answer';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    insert into public.solstone_call_signals(call_id,sender_id,kind,payload)
+    values(call_uuid,1002,'answer','{"type":"answer","sdp":"too early"}');
+    raise exception 'Callee was allowed to answer before accepting';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    insert into public.solstone_call_signals(call_id,sender_id,kind,payload)
+    values(call_uuid,1001,'offer','{"type":"offer","sdp":"duplicate"}');
+    raise exception 'Duplicate offer was stored';
+  EXCEPTION WHEN unique_violation THEN
+    NULL;
+  END;
+
+  update public.solstone_calls set status='accepted',answered_at=now()
+    where id=call_uuid;
+  insert into public.solstone_call_signals(call_id,sender_id,kind,payload)
+    values(call_uuid,1002,'answer','{"type":"answer","sdp":"accepted"}');
+
+  BEGIN
+    insert into public.solstone_call_signals(call_id,sender_id,kind,payload)
+    values(call_uuid,1003,'candidate','{"candidate":"still outsider"}');
+    raise exception 'Outsider signal was accepted after answer';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  update public.solstone_calls set status='ended',ended_at=now()
+    where id=call_uuid;
+  BEGIN
+    insert into public.solstone_call_signals(call_id,sender_id,kind,payload)
+    values(call_uuid,1001,'candidate','{"candidate":"late"}');
+    raise exception 'Signal was accepted for ended call';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  insert into public.solstone_calls(caller_id,callee_id) values(1002,1003);
+  IF (select count(*) from public.solstone_calls) <> 2 THEN
+    raise exception 'Cleanly ended call did not release busy participants';
+  END IF;
+END
+$negative_calls$;
