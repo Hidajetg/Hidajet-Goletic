@@ -74,30 +74,9 @@ legacy PINs, removing hardcoded secrets, and validating server-side role
 authorization and Supabase RLS. This is separate from the mobile build.
 
 
-## Preventing screen captures in the native app (test branch)
+## Screen capture during internal development (test branch)
 
-- Android: The native MainActivity **always** sets
-  `WindowManager.LayoutParams.FLAG_SECURE`, covering the *entire* activity,
-  including its login, Team Chat, site photos, working hours and PDFs rendered
-  inside the app. On supported Android devices this prevents system screenshots,
-  most operating-system screen recordings, and screenshots in the task switcher.
-  It does not prevent a separate camera taking a photo, copying data through
-  other allowed workflows, or screenshots of the public web version in Chrome.
-- iPhone: iOS does **not** provide a supported per-app screenshot-block switch.
-  On the generated iOS simulator project, `scripts/patch_ios_privacy.py`
-  installs a native privacy overlay when the app resigns foreground activity
-  or the OS signals active screen recording, mirroring or remote control.
-  The overlay is a best-effort mitigation, NOT a guarantee against still
-  screenshots. Even a screenshot-detection notification arrives too late
-  to block that screenshot. Do not claim otherwise.
-- Both mobile changes are only on the isolated GitHub test branch.
-  Neither the existing Vercel web app nor the main branch is modified.
-- Real-device acceptance: With the protected Android APK open, attempt
-  hardware-key screenshot, screen recorder, and recent-app preview. None
-  should reveal Solstone content. On iPhone test screen recording and app
-  switcher once a signed test build is available; an ordinary screenshot is
-  still possible.
-- If the employer requires screenshot prohibition **also on managed iPhones**,
-  consider an Apple device-management (MDM) restriction across company-owned
-  devices, not an app-only setting. That is a device-wide restriction and
-  needs separate administrator approval.
+- Android test APK: normal screenshots, system screen recording, and app switcher previews are allowed. `MainActivity.java` does not use `FLAG_SECURE`.
+- iOS simulator test: no additional native privacy overlay is injected. Standard OS screenshot and recording behavior applies.
+- This change only affects the isolated test branch and future APK/simulator builds from it. Previously installed APKs must be replaced with a fresh build.
+- Do not include real worker, client, project, or private document data in screenshots shared outside the company. Production release privacy settings may be revisited later.
