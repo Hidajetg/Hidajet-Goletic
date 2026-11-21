@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import NotificationSound from "./components/NotificationSound";
 import TeamChatAlerts from "./components/TeamChatAlerts";
-import SolstoneCalls from "./components/SolstoneCalls";
 import TeamChatWidget from "./components/TeamChatWidget";
 import SolstoneAIEntry from "./components/SolstoneAIEntry";
 import SolstoneMobileNav from "./components/SolstoneMobileNav";
@@ -49,7 +48,6 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <NotificationSound />
         <TeamChatAlerts />
-        <SolstoneCalls />
         <TeamChatWidget />
         <SolstoneAIEntry />
         <SolstoneMobileNav />
