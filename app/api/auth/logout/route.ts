@@ -12,5 +12,8 @@ export async function POST() {
     maxAge: 0,
   });
 
+  response.cookies.set({
+    name: "solstone_chat_auth", value: "", path: "/", maxAge: 0,
+  });
   return response;
 }
