@@ -221,7 +221,7 @@ export default function SolstoneCalls() {
         lastSignalRef.current=Math.max(lastSignalRef.current,Number(signal.id));
         if(signal.kind==="offer" && String(selected.callee_id)===ownIdRef.current &&
            !pc.remoteDescription){
-          await pc.setRemoteDescription(signal.payload as RTCSessionDescriptionInit);
+          await pc.setRemoteDescription(signal.payload as unknown as RTCSessionDescriptionInit);
           for(const ice of pendingCandidates.current) await pc.addIceCandidate(ice);
           pendingCandidates.current=[];
           const answer=await pc.createAnswer();
@@ -230,7 +230,7 @@ export default function SolstoneCalls() {
             jsonRequest({callId:selected.id,kind:"answer",payload:answer}));
         } else if(signal.kind==="answer" && String(selected.caller_id)===ownIdRef.current &&
                   !pc.remoteDescription){
-          await pc.setRemoteDescription(signal.payload as RTCSessionDescriptionInit);
+          await pc.setRemoteDescription(signal.payload as unknown as RTCSessionDescriptionInit);
           for(const ice of pendingCandidates.current) await pc.addIceCandidate(ice);
           pendingCandidates.current=[];
           setPhase("connecting");
