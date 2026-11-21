@@ -4,6 +4,7 @@ import { chatError, getChatUser } from "../../../lib/team-chat";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const CALLS_ENABLED = process.env.SOLSTONE_CALLS_ENABLED === "true";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const noStore = { "Cache-Control": "no-store" };
@@ -18,6 +19,7 @@ async function authorizedCall(userId:string,id:string) {
 }
 
 export async function GET(request:NextRequest) {
+  if (!CALLS_ENABLED) return chatError("Pozivi nisu uključeni.",503);
   const user=await getChatUser();
   if (!user) return chatError("Prijava je istekla.",401);
   const callId=request.nextUrl.searchParams.get("callId") ?? "";
@@ -40,6 +42,7 @@ export async function GET(request:NextRequest) {
 }
 
 export async function POST(request:NextRequest) {
+  if (!CALLS_ENABLED) return chatError("Pozivi nisu uključeni.",503);
   if (request.headers.get("origin")!==request.nextUrl.origin) {
     return chatError("Neispravan zahtjev.",403);
   }
