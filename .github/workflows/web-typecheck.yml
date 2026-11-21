@@ -18,6 +18,10 @@ on:
       - 'app/kalendar/page.tsx'
       - 'app/api/worker/today/route.ts'
       - 'app/layout.tsx'
+      - 'app/components/SolstoneAIEntry.tsx'
+      - 'app/assistant/**'
+      - 'app/api/solstone-ai/**'
+      - 'app/globals.css'
   workflow_dispatch:
 
 permissions:
