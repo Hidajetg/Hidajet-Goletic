@@ -14,6 +14,8 @@ on:
       - 'app/components/TeamChatWidget.tsx'
       - 'app/components/team-chat-widget.css'
       - 'app/api/team-chat/**'
+      - 'app/api/team-calls/**'
+      - 'app/components/SolstoneCalls.tsx'
       - 'app/lib/team-chat.ts'
   workflow_dispatch:
 
