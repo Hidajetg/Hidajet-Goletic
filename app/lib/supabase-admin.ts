@@ -1,21 +1,26 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Create the privileged client only when a server route actually uses it.
-// This lets the isolated preview BUILD without production credentials;
-// requests fail closed until a separate staging Supabase key is configured.
-type AdminClient = ReturnType<typeof createClient>;
-let cached: AdminClient | null = null;
-
-function requireAdminClient(): AdminClient {
-  if (cached) return cached;
+// The server-only Supabase client is initialized lazily. Preview builds can
+// compile without a staging secret, while actual requests still fail closed.
+function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
     throw new Error("Solstone staging server Supabase credentials are not configured.");
   }
-  cached = createClient(url,key,{
+  return createClient(url,key,{
     auth:{persistSession:false,autoRefreshToken:false},
   });
+}
+
+// Infer the exact SupabaseClient generic from createClient's result. Using
+// ReturnType<typeof createClient> here mistakenly turns untyped table rows
+// into 'never' under some Supabase SDK versions.
+type AdminClient = ReturnType<typeof createAdminClient>;
+let cached: AdminClient | null = null;
+
+function requireAdminClient(): AdminClient {
+  if (!cached) cached=createAdminClient();
   return cached;
 }
 
