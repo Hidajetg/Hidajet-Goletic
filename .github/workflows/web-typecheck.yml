@@ -22,6 +22,9 @@ on:
       - 'app/assistant/**'
       - 'app/api/solstone-ai/**'
       - 'app/globals.css'
+      - 'app/components/SolstoneMobileNav.tsx'
+      - 'app/components/solstone-mobile-nav.css'
+      - 'app/components/SolstoneAIEntry.tsx'
   workflow_dispatch:
 
 permissions:
