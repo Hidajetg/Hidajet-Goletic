@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import NotificationSound from "./components/NotificationSound";
@@ -18,13 +18,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Baustelle App",
-  description: "Evidencija sati, materijala i prostorija",
+  title: "Solstone Baustelle",
+  description: "Solstone Baustelle – raspored, gradilišta, radni sati i tim",
+  applicationName: "Solstone Baustelle",
+  appleWebApp: { capable: true, title: "Solstone", statusBarStyle: "black-translucent" },
   manifest: "/manifest.json",
   icons: {
     icon: "/icon-512.png",
     apple: "/icon-512.png",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#151f2b",
 };
 
 export default function RootLayout({
