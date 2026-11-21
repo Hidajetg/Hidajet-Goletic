@@ -71,42 +71,39 @@ function createLoginResponse(
 export async function GET() {
   try {
     const cookieStore = await cookies();
-
-    const token =
-      cookieStore.get("solstone_session")?.value || null;
-
+    const token = cookieStore.get("solstone_session")?.value || null;
     const session = verifySessionToken(token);
-
-    if (!session) {
-      return NextResponse.json(
-        {
-          authenticated: false,
-        },
-        {
-          status: 401,
-        },
-      );
+    if (!session || !/^\d+$/.test(String(session.id))) {
+      return NextResponse.json({ authenticated: false }, {
+        status: 401, headers: { "Cache-Control": "no-store" },
+      });
     }
 
+    // The signed cookie proves the login happened, but its role and status
+    // may have changed. Recheck the active employee directly on every use.
+    const { data: worker, error } = await supabaseAdmin
+      .from("workers")
+      .select("id,name,role,active")
+      .eq("id", session.id)
+      .maybeSingle();
+    if (error || !worker || worker.active === false) {
+      return NextResponse.json({ authenticated: false }, {
+        status: 401, headers: { "Cache-Control": "no-store" },
+      });
+    }
     return NextResponse.json({
       authenticated: true,
       user: {
-        id: String(session.id),
-        name: String(session.name),
-        role: session.role,
+        id: String(worker.id),
+        name: String(worker.name),
+        role: String(worker.role || "").toLowerCase() === "admin" ? "admin" : "worker",
       },
-    });
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("SESSION CHECK ERROR:", error);
-
-    return NextResponse.json(
-      {
-        authenticated: false,
-      },
-      {
-        status: 401,
-      },
-    );
+    return NextResponse.json({ authenticated: false }, {
+      status: 401, headers: { "Cache-Control": "no-store" },
+    });
   }
 }
 
