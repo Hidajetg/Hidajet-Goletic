@@ -100,14 +100,14 @@ jobs:
           "$RUNNER_TEMP/solstone-icon-venv/bin/python" -m pip install --disable-pip-version-check Pillow==11.3.0
           "$RUNNER_TEMP/solstone-icon-venv/bin/python" scripts/generate_mobile_icons.py
 
-      - name: Build APK with FLAG_SECURE still enabled
+      - name: Build APK with screenshots allowed
         working-directory: mobile/android
         shell: bash
         run: |
           set -euo pipefail
           # Maven Central / Google Maven occasionally fail transiently on
           # GitHub runners; retry dependency resolution without changing
-          # application code or removing screenshot protection.
+          # application code.
           for attempt in 1 2 3; do
             if bash ./gradlew --no-daemon --console=plain assembleDebug; then
               echo "Android build passed on attempt $attempt"
