@@ -90,12 +90,10 @@ export default function SolstoneCalls() {
     });
   },[]);
 
-  const peerFor=useCallback((id:string)=>{
+  const peerFor=useCallback((id:string, iceServers: RTCIceServer[])=>{
     if (pcRef.current) return pcRef.current;
     if (!mediaRef.current) throw new Error("Microphone not ready");
-    const pc=new RTCPeerConnection({
-      iceServers:[{urls:"stun:stun.l.google.com:19302"}],
-    });
+    const pc=new RTCPeerConnection({iceServers});
     for (const track of mediaRef.current.getTracks()) {
       pc.addTrack(track,mediaRef.current);
     }
@@ -125,13 +123,14 @@ export default function SolstoneCalls() {
     try {
       // Browser microphone request is initiated by a direct user click.
       await openMicrophone();
+      const {iceServers}=await callApi<{iceServers:RTCIceServer[]}>("/api/team-calls/ice");
       const {call:newCall}=await callApi<{call:Call}>(
         "/api/team-calls",jsonRequest({targetWorkerId}));
       activeRef.current=newCall;
       lastSignalRef.current=0;
       setCall(newCall);
       setPhase("calling");
-      const pc=peerFor(newCall.id);
+      const pc=peerFor(newCall.id,iceServers);
       const offer=await pc.createOffer();
       await pc.setLocalDescription(offer);
       await callApi("/api/team-calls/signal",
@@ -158,8 +157,9 @@ export default function SolstoneCalls() {
     setError("");
     try{
       await openMicrophone();
+      const {iceServers}=await callApi<{iceServers:RTCIceServer[]}>("/api/team-calls/ice");
       await callApi("/api/team-calls",jsonRequest({callId:selected.id,action:"accept"},"PATCH"));
-      peerFor(selected.id);
+      peerFor(selected.id,iceServers);
       setPhase("connecting");
     }catch(e){
       // If microphone permission fails, release the ringing call and tracks.
