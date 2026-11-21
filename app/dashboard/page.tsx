@@ -348,9 +348,27 @@ export default function DashboardPage() {
   async function initializeDashboard() {
     setAuthLoading(true);
 
-    const user = readStoredUser();
-
-    if (!user) {
+    // localStorage is a display cache, never a trusted login or role source.
+    // The same signed cookie is checked on server for web and Android/iOS.
+    let user: StoredUser;
+    try {
+      const response = await fetch("/api/auth/login", {
+        credentials: "include", cache: "no-store",
+      });
+      if (!response.ok) throw new Error("Signed session missing or inactive");
+      const payload = await response.json();
+      const u = payload?.user;
+      if (!u || !/^\\d+$/.test(String(u.id)) ||
+          !["admin","worker"].includes(String(u.role)) || !String(u.name||"").trim()) {
+        throw new Error("Invalid signed session user");
+      }
+      user = {
+        id: String(u.id), name: String(u.name),
+        role: u.role === "admin" ? "admin" : "worker",
+      };
+    } catch {
+      clearStoredUser();
+      setAuthLoading(false);
       router.replace("/login");
       return;
     }
