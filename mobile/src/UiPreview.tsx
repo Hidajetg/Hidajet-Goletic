@@ -354,6 +354,7 @@ export default function UiPreview(){
     {notice&&<div className="spv-toast" role="alert"><span>{notice}</span><button onClick={()=>setNotice("")}>✕</button></div>}
     {screen==="home" && <footer className="spv-bottom"><button onClick={()=>setScreen("home")} className={screen==="home"?"active":""}>⌂ <span>Početna</span></button>
       <button onClick={openChatList}>💬 <span>Chat</span></button>
-      <button onClick={()=>setProfileOpen(true)}>♙ <span>Profil</span></button></footer>}
+      <button onClick={()=>setProfileOpen(true)}>♙ <span>Profil</span></button>
+      <button type="button" className="spv-ai-bottom" title="Otvori svoj ChatGPT" aria-label="Otvori svoj ChatGPT" onClick={()=>window.open("https://chatgpt.com/","_blank","noopener,noreferrer")}><span className="spv-ai-walker" aria-hidden="true">🚶</span><span>AI</span></button></footer>}
   </div>;
 }
