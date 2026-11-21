@@ -1,4 +1,4 @@
-name: Solstone Chat + Calls - isolated Android test APK
+name: Solstone Chat Messages - isolated Android test APK
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 jobs:
-  chat-calls-test-apk:
+  chat-messages-test-apk:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     defaults:
@@ -75,7 +75,7 @@ jobs:
           strings = Path("android/app/src/main/res/values/strings.xml")
           original_name = '<string name="app_name">Solstone Baustelle</string>'
           assert original_name in strings.read_text()
-          strings.write_text(strings.read_text().replace(original_name, '<string name="app_name">Solstone Chat Test</string>', 1))
+          strings.write_text(strings.read_text().replace(original_name, '<string name="app_name">Solstone Messages</string>', 1))
           PY
 
       - name: Generate approved launcher icon
@@ -115,10 +115,10 @@ jobs:
           unzip -p "$file" assets/capacitor.config.json | grep -F "$SOLSTONE_WEB_URL"
           sha256sum "$file"
 
-      - name: Upload Solstone Chat Test installer
+      - name: Upload Solstone Messages installer
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: solstone-chat-calls-android-test-${{ github.run_number }}
+          name: solstone-chat-messages-android-test-${{ github.run_number }}
           path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -128,10 +128,10 @@ jobs:
         shell: bash
         run: |
           {
-            echo '## Solstone Chat + Calls: isolated Android test'
+            echo '## Solstone Chat Messages: isolated Android test'
             echo 'This package is **not** a finished chat service.'
             echo 'It uses a different application ID from the production app.'
-            echo 'Calls need an isolated database, a reachable test Vercel server and server feature flags.'
-            echo 'WebRTC requires live microphone permissions; native FCM push and TURN are separate.'
+            echo 'Text, photo, PDF and voice-note messaging require a separate configured database and reachable test server.'
+            echo 'Voice notes require microphone permissions; native FCM push is a separate feature.'
             echo 'Do not distribute to workers before two-device tests pass.'
           } >> "$GITHUB_STEP_SUMMARY"
