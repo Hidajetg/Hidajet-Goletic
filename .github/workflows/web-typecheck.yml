@@ -16,6 +16,7 @@ on:
       - 'app/components/SolstoneCalls.tsx'
       - 'app/lib/team-chat.ts'
       - 'app/lib/web-push.ts'
+      - 'staging/tests/solstone-vapid.test.cjs'
       - 'app/lib/supabase-admin.ts'
       - 'app/api/auth/login/route.ts'
       - 'public/solstone-push-sw.js'
@@ -57,6 +58,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Validate TypeScript without touching the live web app
         run: npx tsc --noEmit
+      - name: Cryptographic Web Push and endpoint security regression tests
+        run: node --test staging/tests/solstone-vapid.test.cjs
       - name: Note scope
         if: always()
         run: |
