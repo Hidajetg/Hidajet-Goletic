@@ -36,6 +36,81 @@ create unique index if not exists solstone_call_one_offer_answer
   on public.solstone_call_signals(call_id,kind)
   where kind in ('offer','answer');
 
+
+-- Both workers share a single-user "busy" constraint. Two simultaneous
+-- requests for the same worker are serialized with advisory transaction locks,
+-- then checked across BOTH caller/callee columns. No paid coordination server.
+create or replace function public.solstone_calls_prevent_overlap()
+returns trigger language plpgsql set search_path=pg_catalog,public as $
+begin
+  if new.status <> 'ringing' then
+    raise exception 'A new call must be ringing' using errcode='23514';
+  end if;
+  perform pg_advisory_xact_lock(
+    hashtextextended('solstone-call:' || least(new.caller_id,new.callee_id)::text, 0));
+  perform pg_advisory_xact_lock(
+    hashtextextended('solstone-call:' || greatest(new.caller_id,new.callee_id)::text, 0));
+  if exists (
+    select 1 from public.solstone_calls c
+    where (
+      c.caller_id in (new.caller_id,new.callee_id)
+      or c.callee_id in (new.caller_id,new.callee_id)
+    )
+    and (c.status='accepted' or
+      (c.status='ringing' and c.expires_at > now()))
+  ) then
+    raise exception 'Worker is already in another call' using errcode='23505';
+  end if;
+  return new;
+end $;
+
+drop trigger if exists solstone_calls_one_active_per_worker on public.solstone_calls;
+create trigger solstone_calls_one_active_per_worker
+before insert on public.solstone_calls
+for each row execute function public.solstone_calls_prevent_overlap();
+
+-- Service-role access alone must not allow an unrelated worker's SDP/ICE into
+-- an established conversation if a future route accidentally omits its check.
+create or replace function public.solstone_call_signal_participant_only()
+returns trigger language plpgsql set search_path=pg_catalog,public as $
+declare
+  c record;
+begin
+  select caller_id,callee_id,status,expires_at into c
+    from public.solstone_calls where id=new.call_id;
+  if not found then
+    raise exception 'Call not found' using errcode='23503';
+  end if;
+  if new.sender_id not in (c.caller_id,c.callee_id) then
+    raise exception 'Not a call participant' using errcode='23514';
+  end if;
+  if c.status not in ('ringing','accepted') or
+     (c.status='ringing' and c.expires_at <= now()) then
+    raise exception 'Call is not active' using errcode='23514';
+  end if;
+  if (new.kind='offer' and (new.sender_id<>c.caller_id or
+      new.payload->>'type' <> 'offer')) or
+     (new.kind='answer' and (new.sender_id<>c.callee_id or
+      c.status<>'accepted' or new.payload->>'type' <> 'answer')) then
+    raise exception 'Invalid signal sender or state' using errcode='23514';
+  end if;
+  if length(new.payload::text)>14000 then
+    raise exception 'Oversized signal' using errcode='23514';
+  end if;
+  return new;
+end $;
+
+drop trigger if exists solstone_call_signals_participant_only
+  on public.solstone_call_signals;
+create trigger solstone_call_signals_participant_only
+before insert on public.solstone_call_signals
+for each row execute function public.solstone_call_signal_participant_only();
+
+revoke all on function public.solstone_calls_prevent_overlap()
+  from public, anon, authenticated;
+revoke all on function public.solstone_call_signal_participant_only()
+  from public, anon, authenticated;
+
 alter table public.solstone_calls enable row level security;
 alter table public.solstone_call_signals enable row level security;
 revoke all privileges on public.solstone_calls,public.solstone_call_signals
