@@ -8,8 +8,10 @@ android {
         applicationId "com.solstone.baustelle"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Keep one applicationId and increase versionCode for every signed update.
+        // CI injects these values; local debug builds retain version 1.
+        versionCode (System.getenv("SOLSTONE_VERSION_CODE") ?: "1").toInteger()
+        versionName (System.getenv("SOLSTONE_VERSION_NAME") ?: "1.0")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         aaptOptions {
