@@ -1,0 +1,137 @@
+name: Solstone Chat + Calls - isolated Android test APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chat-calls-test-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      # Set this only to the publicly reachable, independently deployed
+      # Solstone TEST origin. Never use the production server here.
+      SOLSTONE_WEB_URL: ${{ vars.SOLSTONE_CHAT_TEST_URL }}
+    steps:
+      - name: Verify dedicated test URL before any build
+        shell: bash
+        run: |
+          node --input-type=module - <<'JS'
+          const raw = process.env.SOLSTONE_WEB_URL;
+          if (!raw) throw Error("Set GitHub Actions variable SOLSTONE_CHAT_TEST_URL to an isolated HTTPS test origin first.");
+          const url = new URL(raw);
+          const productionHosts = new Set([
+            "hidajet-goletic-frno.vercel.app",
+            "hidajet-goletic-frno-stone-boutique.vercel.app",
+          ]);
+          if (url.protocol !== "https:" || url.origin !== raw || url.username || url.password ||
+              productionHosts.has(url.hostname) || url.hostname === "localhost" ||
+              url.hostname.endsWith(".local")) {
+            throw Error("SOLSTONE_CHAT_TEST_URL must be a dedicated HTTPS test origin, never production.");
+          }
+          console.log("Isolated test origin validated:", url.origin);
+          JS
+
+      - name: Checkout staging branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install JDK 21
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Compile mobile fallback
+        run: npm run build
+
+      - name: Sync test server into Capacitor Android
+        run: npx cap sync android
+
+      - name: Assign separate Android package and test label
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle = Path("android/app/build.gradle")
+          original = 'applicationId "com.solstone.baustelle"'
+          assert original in gradle.read_text()
+          gradle.write_text(gradle.read_text().replace(original, 'applicationId "com.solstone.baustelle.chattest"', 1))
+          strings = Path("android/app/src/main/res/values/strings.xml")
+          original_name = '<string name="app_name">Solstone Baustelle</string>'
+          assert original_name in strings.read_text()
+          strings.write_text(strings.read_text().replace(original_name, '<string name="app_name">Solstone Chat Test</string>', 1))
+          PY
+
+      - name: Generate approved launcher icon
+        shell: bash
+        run: |
+          python3 -m venv "$RUNNER_TEMP/solstone-icon-venv"
+          "$RUNNER_TEMP/solstone-icon-venv/bin/python" -m pip install --disable-pip-version-check Pillow==11.3.0
+          "$RUNNER_TEMP/solstone-icon-venv/bin/python" scripts/generate_mobile_icons.py
+
+      - name: Verify test host and microphone permissions
+        shell: bash
+        run: |
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          const config = JSON.parse(fs.readFileSync('android/app/src/main/assets/capacitor.config.json','utf8'));
+          if (config.server?.url !== process.env.SOLSTONE_WEB_URL || config.server?.cleartext !== false)
+            throw Error("APK must load the isolated HTTPS test server.");
+          const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml','utf8');
+          for (const permission of ['INTERNET','RECORD_AUDIO','MODIFY_AUDIO_SETTINGS']) {
+            if (!manifest.includes('android.permission.' + permission)) throw Error(permission + ' missing');
+          }
+          const gradle = fs.readFileSync('android/app/build.gradle','utf8');
+          if (!gradle.includes('applicationId "com.solstone.baustelle.chattest"'))
+            throw Error('Separate app identity missing');
+          console.log('Isolated origin, app ID and microphone permissions validated.');
+          JS
+
+      - name: Compile Android test APK
+        working-directory: mobile/android
+        run: bash ./gradlew --no-daemon --console=plain assembleDebug
+
+      - name: Verify APK output
+        run: |
+          set -euo pipefail
+          file=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$file"
+          unzip -p "$file" assets/capacitor.config.json | grep -F "$SOLSTONE_WEB_URL"
+          sha256sum "$file"
+
+      - name: Upload Solstone Chat Test installer
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: solstone-chat-calls-android-test-${{ github.run_number }}
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Explain test scope
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Solstone Chat + Calls: isolated Android test'
+            echo 'This package is **not** a finished chat service.'
+            echo 'It uses a different application ID from the production app.'
+            echo 'Calls need an isolated database, a reachable test Vercel server and server feature flags.'
+            echo 'WebRTC requires live microphone permissions; native FCM push and TURN are separate.'
+            echo 'Do not distribute to workers before two-device tests pass.'
+          } >> "$GITHUB_STEP_SUMMARY"
