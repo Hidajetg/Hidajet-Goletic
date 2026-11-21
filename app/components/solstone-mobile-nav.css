@@ -1,0 +1,58 @@
+/* Mobile navigation for the shared Next.js Solstone website.
+   Desktop retains its normal administrator dashboard and chat shortcuts. */
+.solstone-mobile-nav{display:none}
+.solstone-mobile-profile-backdrop{display:none}
+@media(max-width:767px){
+  body:has(.solstone-mobile-nav){padding-bottom:calc(67px + env(safe-area-inset-bottom,0px))}
+  .solstone-mobile-nav{
+    display:flex;align-items:stretch;justify-content:space-around;
+    position:fixed;z-index:120;left:0;right:0;bottom:0;
+    min-height:60px;padding-bottom:env(safe-area-inset-bottom,0px);
+    border-top:1px solid #47566a;background:#111b29f5;
+    box-shadow:0 -4px 20px #0008;
+  }
+  .solstone-mobile-nav>a,
+  .solstone-mobile-nav>button{
+    flex:1 1 25%;min-width:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:2px;
+    padding:8px 3px 7px;
+    background:transparent;border:0;color:#d1dbea;
+    text-decoration:none;font-family:system-ui,sans-serif;
+    font-size:21px;font-weight:600;line-height:1.15;
+  }
+  .solstone-mobile-nav>a.active{color:#fdba74}
+  .solstone-mobile-nav small{font-size:10px;font-weight:650}
+  .solstone-mobile-nav .solstone-mobile-ai{color:#fdba74}
+  .solstone-mobile-walker{display:inline-block;animation:solstoneMobileWalk 1.2s ease-in-out infinite}
+  @keyframes solstoneMobileWalk{
+    0%,100%{transform:translateX(-2px) rotate(-7deg)}
+    50%{transform:translateX(2px) rotate(7deg)}
+  }
+  /* Avoid floating duplicate chat/AI icons when the navigation bar is visible. */
+  .sw-widget,
+  a[aria-label="Solstone AI pomoćnik"]{display:none!important}
+  .solstone-mobile-profile-backdrop{
+    display:flex;position:fixed;inset:0;z-index:160;
+    background:#0009;align-items:flex-end;justify-content:center
+  }
+  .solstone-mobile-profile{
+    width:min(100%,540px);background:#1e2d40;color:#f7fbff;
+    border:1px solid #465a75;border-radius:18px 18px 0 0;
+    padding:18px 17px calc(18px + env(safe-area-inset-bottom,0px));
+    font-size:14px;font-family:system-ui,sans-serif;
+  }
+  .solstone-mobile-profile-head{display:flex;align-items:center;justify-content:space-between}
+  .solstone-mobile-profile-head strong{font-size:17px}
+  .solstone-mobile-profile-head button{
+    background:transparent;color:#fff;border:0;font-size:20px;
+    min-width:35px;min-height:35px
+  }
+  .solstone-mobile-profile p{margin:11px 0;color:#d8e6f8}
+  .solstone-mobile-close{
+    width:100%;margin-top:10px;min-height:42px;border:1px solid #576b82;
+    border-radius:9px;background:#2a3e54;color:#fff;font-weight:700
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .solstone-mobile-walker{animation:none!important}
+}
