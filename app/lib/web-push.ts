@@ -1,4 +1,4 @@
-import { createPrivateKey, sign } from "node:crypto";
+import { createECDH, createPrivateKey, sign } from "node:crypto";
 import { supabaseAdmin } from "./supabase-admin";
 import { currentViennaDate, type ChatRoom } from "./team-chat";
 
@@ -12,9 +12,24 @@ export function webPushPublicKey(): string | null {
   try {
     const pub = Buffer.from(publicKey, "base64url");
     const priv = Buffer.from(privateKey, "base64url");
-    const validContact = contact.startsWith("mailto:") || contact.startsWith("https://");
-    return pub.length === 65 && pub[0] === 4 && priv.length === 32 && validContact
-      ? publicKey : null;
+    const validContact = contact.startsWith("mailto:")
+      ? /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(contact.slice(7))
+      : (() => {
+          try {
+            const url = new URL(contact);
+            return url.protocol === "https:" && !!url.hostname &&
+              !url.username && !url.password && !url.hash;
+          } catch { return false; }
+        })();
+    if (pub.length !== 65 || pub[0] !== 4 || priv.length !== 32 || !validContact) {
+      return null;
+    }
+    // Prevent a mismatched VAPID public/private key pair from silently
+    // registering browsers for push messages the server can never deliver.
+    const ecdh = createECDH("prime256v1");
+    ecdh.setPrivateKey(priv);
+    if (!ecdh.getPublicKey(undefined, "uncompressed").equals(pub)) return null;
+    return publicKey;
   } catch {
     return null;
   }
