@@ -28,7 +28,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     close:"Zurück",unavailable:"Chat ist in der Testdatenbank noch nicht aktiviert.",
     photo:"Bild ansehen",pdf:"PDF öffnen",audio:"Sprachnachricht hören",
     recording:"Aufnahme läuft",noRecords:"Keine Gespräche",load:"Chat wird geladen…",
-    call:"Anrufen",pushOn:"🔔 Push-Benachrichtigungen aktivieren",pushOff:"🔕 Push deaktivieren",
+    pushOn:"🔔 Push-Benachrichtigungen aktivieren",pushOff:"🔕 Push deaktivieren",
     warning:"Web Push funktioniert in unterstützten Browsern und iPhone-Home-Screen-Apps. Android APK-Benachrichtigungen brauchen eine separate Integration."},
   ba:{title:"Team Chat",sites:"Grupni",private:"Privatno",announcements:"Obavijesti",
     newChat:"Novi privatni razgovor",choose:"Odaberi radnika",start:"Započni razgovor",
@@ -39,7 +39,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     close:"Nazad",unavailable:"Chat još nije uključen na testnoj bazi.",
     photo:"Pogledaj sliku",pdf:"Otvori PDF",audio:"Preslušaj glasovnu poruku",
     recording:"Snimanje traje",noRecords:"Nema razgovora",load:"Učitavam chat…",
-    call:"Pozovi",pushOn:"🔔 Uključi push obavijesti",pushOff:"🔕 Isključi push obavijesti",
+    pushOn:"🔔 Uključi push obavijesti",pushOff:"🔕 Isključi push obavijesti",
     warning:"Web push radi u podržanim preglednicima i instaliranoj iPhone web-aplikaciji. Android APK treba posebno povezivanje."},
   uz:{title:"Team Chat",sites:"Guruhlar",private:"Shaxsiy",announcements:"E’lonlar",
     newChat:"Yangi shaxsiy suhbat",choose:"Xodimni tanlang",start:"Suhbatni boshlash",
@@ -50,7 +50,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     close:"Orqaga",unavailable:"Chat hali sinov bazasida yoqilmagan.",
     photo:"Rasmni ko‘rish",pdf:"PDF ochish",audio:"Ovozli xabarni eshitish",
     recording:"Yozilmoqda",noRecords:"Suhbatlar yo‘q",load:"Chat yuklanmoqda…",
-    call:"Qo‘ng‘iroq",pushOn:"🔔 Push xabarlarini yoqish",pushOff:"🔕 Push xabarlarini o‘chirish",
+    pushOn:"🔔 Push xabarlarini yoqish",pushOff:"🔕 Push xabarlarini o‘chirish",
     warning:"Web push brauzer va iPhone bosh ekranidagi ilovada ishlaydi. Android APK uchun alohida sozlama kerak."},
   cz:{title:"Team Chat",sites:"Skupiny",private:"Soukromé",announcements:"Oznámení",
     newChat:"Nový soukromý chat",choose:"Vyberte pracovníka",start:"Začít konverzaci",
@@ -61,7 +61,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     close:"Zpět",unavailable:"Chat ještě není zapnutý v testovací databázi.",
     photo:"Zobrazit fotku",pdf:"Otevřít PDF",audio:"Přehrát hlasovou zprávu",
     recording:"Nahrávání",noRecords:"Žádné konverzace",load:"Načítání chatu…",
-    call:"Volat",pushOn:"🔔 Zapnout push oznámení",pushOff:"🔕 Vypnout push oznámení",
+    pushOn:"🔔 Zapnout push oznámení",pushOff:"🔕 Vypnout push oznámení",
     warning:"Web push funguje v podporovaných prohlížečích a nainstalované iPhone webové aplikaci; Android APK potřebuje samostatnou integraci."},
   en:{title:"Team Chat",sites:"Groups",private:"Private",announcements:"Announcements",
     newChat:"New private chat",choose:"Choose worker",start:"Start chat",
@@ -72,7 +72,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     close:"Back",unavailable:"Chat has not yet been enabled on the test database.",
     photo:"View image",pdf:"Open PDF",audio:"Play voice message",
     recording:"Recording",noRecords:"No conversations",load:"Loading chat…",
-    call:"Call",pushOn:"🔔 Enable push notifications",pushOff:"🔕 Disable push notifications",
+    pushOn:"🔔 Enable push notifications",pushOff:"🔕 Disable push notifications",
     warning:"Web push works in supported browsers and iPhone Home Screen apps; the Android APK needs separate native integration."},
 };
 
@@ -467,13 +467,7 @@ export default function TeamChatPage(){
               <button type="button" onClick={()=>{setCurrent(null);setMessages([]);}}
                 className="tc-back-thread">{t.close}</button>
               <strong style={{flex:1}}>{current.label}</strong>
-              {process.env.NEXT_PUBLIC_SOLSTONE_CALLS_ENABLED==="true" && current.kind==="private" && current.peerId && <button type="button"
-                onClick={()=>window.dispatchEvent(new CustomEvent("solstone-call-start",{
-                  detail:{targetWorkerId:current.peerId},
-                }))}
-                style={{padding:"8px 13px",background:"#16864c",color:"white",
-                  border:0,borderRadius:9,fontWeight:700,flexShrink:0}}
-                aria-label={t.call} title={t.call}>📞 {t.call}</button>}
+
             </div>
             <div className="tc-message-list">
               {messages.length===0 && <div className="tc-muted tc-center">{t.empty}</div>}
