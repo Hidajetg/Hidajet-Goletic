@@ -5,6 +5,7 @@ import { notifyWorkerIncomingCall } from "../../lib/web-push";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const CALLS_ENABLED = process.env.SOLSTONE_CALLS_ENABLED === "true";
 
 const noStore = { "Cache-Control": "no-store" };
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -29,6 +30,7 @@ async function expireStaleCalls() {
 }
 
 export async function GET() {
+  if (!CALLS_ENABLED) return chatError("Pozivi nisu uključeni.",503);
   const user = await getChatUser();
   if (!user) return chatError("Prijava je istekla.",401);
   try {
@@ -68,6 +70,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (!CALLS_ENABLED) return chatError("Pozivi nisu uključeni.",503);
   if (!sameOrigin(request)) return chatError("Neispravan zahtjev.",403);
   const user = await getChatUser();
   if (!user) return chatError("Prijava je istekla.",401);
@@ -106,6 +109,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  if (!CALLS_ENABLED) return chatError("Pozivi nisu uključeni.",503);
   if (!sameOrigin(request)) return chatError("Neispravan zahtjev.",403);
   const user = await getChatUser();
   if (!user) return chatError("Prijava je istekla.",401);
