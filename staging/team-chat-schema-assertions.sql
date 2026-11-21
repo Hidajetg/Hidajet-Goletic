@@ -10,7 +10,9 @@ BEGIN
     'solstone_chat_pending_uploads',
     'solstone_chat_reads',
     'solstone_chat_translations',
-    'solstone_chat_push_subscriptions'
+    'solstone_chat_push_subscriptions',
+    'solstone_calls',
+    'solstone_call_signals'
   ] LOOP
     IF NOT (SELECT relrowsecurity FROM pg_class
             WHERE oid=('public.'||tbl)::regclass) THEN
@@ -60,8 +62,17 @@ select id,1002 from public.solstone_chat_rooms where kind='private';
 insert into public.solstone_chat_push_subscriptions(worker_id,endpoint)
 values(1001,'https://fcm.googleapis.com/fcm/send/solstone-test-subscription');
 
+insert into public.solstone_calls(caller_id,callee_id)
+values(1001,1002);
+insert into public.solstone_call_signals(call_id,sender_id,kind,payload)
+select id,1001,'offer','{"type":"offer","sdp":"test only"}'::jsonb from public.solstone_calls;
+
 DO $test$
 BEGIN
+  IF (SELECT count(*) FROM public.solstone_calls)<>1 OR
+     (SELECT count(*) FROM public.solstone_call_signals)<>1 THEN
+    RAISE EXCEPTION 'Call signaling fixtures not created';
+  END IF;
   IF (SELECT count(*) FROM public.solstone_chat_push_subscriptions)<>1 THEN
     RAISE EXCEPTION 'Push subscription insert failed';
   END IF;
