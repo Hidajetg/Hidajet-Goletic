@@ -16,6 +16,7 @@ on:
       - 'app/components/SolstoneCalls.tsx'
       - 'app/lib/team-chat.ts'
       - 'app/lib/web-push.ts'
+      - 'app/lib/supabase-admin.ts'
       - 'app/api/auth/login/route.ts'
       - 'public/solstone-push-sw.js'
       - 'app/components/TeamChatAlerts.tsx'
