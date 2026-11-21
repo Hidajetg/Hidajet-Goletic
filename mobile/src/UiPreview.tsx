@@ -3,8 +3,8 @@ import "./UiPreview.css";
 import { SOLSTONE_APPROVED_LOGO } from "./approvedLogo";
 
 type Language="de"|"ba"|"uz"|"cz"|"en";
-type ChatKind="site"|"private"|"announcement";
-type Screen="home"|"chat";
+type ChatKind="site"|"private"|"private2"|"announcement";
+type Screen="home"|"chatList"|"chat";
 type ChatMessage={id:number;mine:boolean;sender:string;body:string;time:string;attachment?:string;mediaUrl?:string;mediaType?:string};
 
 type MenuKey =
@@ -54,11 +54,6 @@ function viennaISO():string {
 function moveISO(date:string,days:number):string {
   return new Date(Date.parse(date+"T00:00:00Z")+days*86_400_000).toISOString().slice(0,10);
 }
-function mondayWeek(date:string):string[] {
-  const day=new Date(date+"T00:00:00Z").getUTCDay();
-  const monday=moveISO(date,-((day+6)%7));
-  return Array.from({length:7},(_,i)=>moveISO(monday,i));
-}
 function inDateWindow(date:string):boolean {
   const from=Date.parse(viennaISO()+"T00:00:00Z");
   const actual=Date.parse(date+"T00:00:00Z");
@@ -78,13 +73,15 @@ const initial:Record<ChatKind,ChatMessage[]>={
     {id:2,mine:true,sender:"Ja (demo)",body:"Provjerit ću skladište. Danas nastavljamo izolaciju.",time:"08:48"},
   ],
   private:[
-    {id:3,mine:false,sender:"Primjer kolege",body:"Možeš li pogledati novi nacrt?",time:"09:03"},
+    {id:3,mine:false,sender:"Primjer kolege 1",body:"Možeš li pogledati novi nacrt?",time:"09:03"},
+  ],
+  private2:[
+    {id:5,mine:false,sender:"Primjer kolege 2",body:"Javi kad bude spreman materijal.",time:"09:11"},
   ],
   announcement:[
     {id:4,mine:false,sender:"Administrator (demo)",body:"Važno: sutra je sastanak ekipe u 07:00.",time:"09:15"},
   ],
 };
-const kinds:ChatKind[]=["site","private","announcement"];
 
 export default function UiPreview(){
   const [lang,setLang]=useState<Language>(() => {
@@ -96,6 +93,7 @@ export default function UiPreview(){
   const [selectedDate,setSelectedDate]=useState(viennaISO);
   const [screen,setScreen]=useState<Screen>("home");
   const [previewRole,setPreviewRole]=useState<"worker"|"admin">("worker");
+  const [profileOpen,setProfileOpen]=useState(false);
   const [kind,setKind]=useState<ChatKind>("site");
   const [text,setText]=useState("");
   const [messages,setMessages]=useState(initial);
@@ -161,24 +159,26 @@ export default function UiPreview(){
     }catch(e){setNotice(e instanceof Error?e.message:"Mikrofon nije dostupan.");}
   }
   function stopVoice(){if(recorder.current?.state==="recording")recorder.current.stop()}
-  function enterChat(group:ChatKind="site"){setKind(group);setScreen("chat");setShowChatOptions(false);setNotice("");}
+  function openChatList(){setScreen("chatList");setShowChatOptions(false);setNotice("");setProfileOpen(false);}
+  function openThread(group:ChatKind){setKind(group);setScreen("chat");setNotice("");setText("");setFile(null);}
 
-  const titleFor=(group:ChatKind)=>group==="site"?"🏗️ Baustelle – Primjer":group==="private"?"👤 Privatni razgovor – Primjer":"📢 Obavijesti firme";
+  const titleFor=(group:ChatKind)=>group==="site"?"Baustelle – Primjer":group==="private"?"Primjer kolege 1":group==="private2"?"Primjer kolege 2":"Obavijesti firme";
 
-  return <div className={"spv"+(screen==="chat"?" spv-chat-active":"")} data-solstone-preview="SOLSTONE_UI_PREVIEW_PRESENT_20261120">
+  return <div className={"spv"+(screen!=="home"?" spv-chat-active":"")} data-solstone-preview="SOLSTONE_UI_PREVIEW_PRESENT_20261120">
     {screen==="home" && <div className="spv-alert" role="status">
       <b>TEST IZGLEDA</b>
       <span>Nije prava prijava ni aktivni chat • ništa se ne šalje u bazu</span>
     </div>}
     {screen==="home" && previewRole==="worker" && <header className="spv-header">
       <div className="spv-brand"><img className="spv-brand-icon" src={SOLSTONE_APPROVED_LOGO} alt="Solstone – originalni logo" />
-        <span><strong>Solstone</strong><small>BAUSTELLE · NOCKER & BERNARDI</small></span>
+        <span><strong>Solstone</strong><small>BAUSTELLE · NOCKER & BERNARDI</small>
+          <span className="spv-worker-name">👷 Primjer radnika</span>
+        </span>
       </div>
-      <div className="spv-user">👷 <span>Demo korisnik</span></div>
     </header>}
     {screen==="home" && <button type="button" className="spv-chat-corner"
       aria-label="Otvori Team Chat kao novu stranicu"
-      onClick={()=>enterChat("site")}>💬</button>}
+      onClick={openChatList}>💬</button>}
     {screen==="home" && previewRole==="worker" &&
       <div className="spv-language-select-wrap">
         <select className="spv-language-code-select"
@@ -192,13 +192,6 @@ export default function UiPreview(){
         </select>
       </div>}
     {screen==="home" && <>
-      <div className="spv-role-switch" aria-label="Izbor demonstracijskog pregleda">
-        <small>DEMO PREGLED</small>
-        <button type="button" className={previewRole==="worker"?"active":""}
-          onClick={()=>setPreviewRole("worker")}>👷 Radnik</button>
-        <button type="button" className={previewRole==="admin"?"active":""}
-          onClick={()=>setPreviewRole("admin")}>🔧 Admin</button>
-      </div>
       {previewRole==="admin" ? (
         <section className="spv-admin-web-preview" aria-label="Admin pregled iz web aplikacije">
           <h1>STONE BOUTIQUE</h1>
@@ -239,21 +232,6 @@ export default function UiPreview(){
             onChange={e=>selectDay(e.target.value)}/>
           <button type="button" aria-label="Naredni dan" onClick={()=>selectDay(moveISO(selectedDate,1))}>›</button>
         </div>
-        <div className="spv-mini-week">
-          {mondayWeek(selectedDate).map(date=>{
-            const active=date===selectedDate;
-            const today=date===viennaISO();
-            const weekday=new Intl.DateTimeFormat(localeOf[lang],{
-              weekday:"short",timeZone:"UTC",
-            }).format(new Date(date+"T00:00:00Z"));
-            return <button type="button" key={date}
-              title={date} disabled={!inDateWindow(date)}
-              aria-pressed={active} className={(active?"active":"")+(today?" today":"")}
-              onClick={()=>selectDay(date)}>
-              <span>{weekday}</span><strong>{Number(date.slice(-2))}</strong>
-            </button>;
-          })}
-        </div>
         <p className="spv-day-label">
           {new Intl.DateTimeFormat(localeOf[lang],{
             weekday:"long",day:"2-digit",month:"long",year:"numeric",timeZone:"UTC",
@@ -281,11 +259,11 @@ export default function UiPreview(){
         </div>
       )}
     </>}
-    {screen==="chat" && <section className="spv-chat-page"
+    {screen!=="home" && <section className="spv-chat-page"
       aria-label="Solstone Team Chat – zasebna stranica">
       <div className="spv-chat-head">
-        <button type="button" className="spv-back" aria-label="Nazad na početnu" onClick={()=>setScreen("home")}>←</button>
-        <strong className="spv-page-title">💬 {t.chat}</strong>
+        <button type="button" className="spv-back" aria-label={screen==="chat"?"Nazad na razgovore":"Nazad na početnu"} onClick={()=>screen==="chat"?setScreen("chatList"):setScreen("home")}>←</button>
+        <strong className="spv-page-title">💬 {screen==="chat"?titleFor(kind):t.chat}</strong>
         <small className="spv-demo-mark">DEMO</small>
         <button type="button" className="spv-options-button"
           aria-label="Postavke chata" aria-expanded={showChatOptions}
@@ -308,11 +286,27 @@ export default function UiPreview(){
           </select>
         </label>
       </div>}
-      <nav className="spv-tabs" aria-label="Vrsta razgovora">{kinds.map(group=>
-        <button key={group} className={kind===group?"active":""}
-          onClick={()=>{setKind(group);setNotice("");}}>
-          {group==="site"?t.site:group==="private"?t.private:t.announcement}
-        </button>)}</nav>
+      {screen==="chatList" ? (
+        <section className="spv-conversations" aria-label="Lista grupnih i privatnih razgovora">
+          <p className="spv-conversation-caption">Primjeri razgovora – kao lista u WhatsAppu. Poruke ostaju samo u ovom testu.</p>
+          {(["site","private","private2","announcement"] as ChatKind[]).map(group=>{
+            const items=messages[group];
+            const last=items[items.length-1];
+            return <button key={group} type="button" className="spv-conversation-row"
+                onClick={()=>openThread(group)}>
+              <span className={"spv-conversation-avatar spv-avatar-"+group} aria-hidden="true">
+                {group==="site"?"🏗️":group==="announcement"?"📢":"👤"}
+              </span>
+              <span className="spv-conversation-copy">
+                <b>{titleFor(group)}</b>
+                <small>{last?.body||""}</small>
+              </span>
+              <time>{last?.time||""}</time>
+              <span className="spv-conversation-chevron" aria-hidden="true">›</span>
+            </button>;
+          })}
+        </section>
+      ) : (
       <section className="spv-thread">
         <div className="spv-thread-title">
           <b>{titleFor(kind)}</b>
@@ -345,10 +339,21 @@ export default function UiPreview(){
           </div>
         </div>
       </section>
+      )}
     </section>}
+    {profileOpen&&screen==="home"&&<div className="spv-profile-overlay" role="dialog" aria-modal="true" aria-label="Testna promjena uloge">
+      <div className="spv-profile-panel">
+        <div className="spv-profile-heading"><b>Test prikaza</b>
+          <button type="button" aria-label="Zatvori" onClick={()=>setProfileOpen(false)}>✕</button>
+        </div>
+        <p>Odaberi prikaz za test. U pravoj aplikaciji ulogu određuje prijava.</p>
+        <button type="button" onClick={()=>{setPreviewRole("worker");setProfileOpen(false);}}>👷 Radnik</button>
+        <button type="button" onClick={()=>{setPreviewRole("admin");setProfileOpen(false);}}>🔧 Admin</button>
+      </div>
+    </div>}
     {notice&&<div className="spv-toast" role="alert"><span>{notice}</span><button onClick={()=>setNotice("")}>✕</button></div>}
     {screen==="home" && <footer className="spv-bottom"><button onClick={()=>setScreen("home")} className={screen==="home"?"active":""}>⌂ <span>Početna</span></button>
-      <button onClick={()=>enterChat("site")}>💬 <span>Chat</span></button>
-      <button onClick={()=>alertDemo("Moj profil")}>♙ <span>Profil</span></button></footer>}
+      <button onClick={openChatList}>💬 <span>Chat</span></button>
+      <button onClick={()=>setProfileOpen(true)}>♙ <span>Profil</span></button></footer>}
   </div>;
 }
