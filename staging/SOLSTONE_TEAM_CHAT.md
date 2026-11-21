@@ -99,7 +99,20 @@ This is a prototype, NOT yet a released or verified calling service. Both
 participants must be running compatible browsers and allow microphone access.
 The public Google STUN endpoint is a connectivity aid, not a TURN relay.
 Calls may fail on mobile networks until a reliable TURN server is configured;
-that may introduce hosting/bandwidth costs. iPhone Home Screen Web Push can
+that may introduce hosting/bandwidth costs. An authenticated
+GET /api/team-calls/ice endpoint now returns browser ICE configuration.
+Optional preview-only variables: SOLSTONE_TURN_URLS (comma-separated turn:/turns:
+URIs) and SOLSTONE_TURN_SHARED_SECRET (coturn use-auth-secret key, at least
+20 characters). Credentials are HMAC-SHA1 coturn REST-style with one-hour
+expiry; the shared key is server-only and never sent to the browser.
+No TURN configuration means STUN-only and no relay cost, but no guarantee
+that all mobile connections will complete.
+
+Voice call status checks pause while idle in a hidden tab and run less
+frequently on an open screen. A failed microphone/offer operation stops media
+tracks and releases the busy call. Message/call push is scheduled after
+the HTTP response so a slow notification provider cannot create duplicate
+user messages. Chat mutating routes now enforce same-origin requests. iPhone Home Screen Web Push can
 alert the user but does not provide guaranteed native CallKit/full-screen ringing
 when closed. Android native APK push still needs separate FCM integration.
 No phone minutes are charged, but internet/server costs may apply.
