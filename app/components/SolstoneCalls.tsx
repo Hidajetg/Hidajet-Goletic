@@ -137,8 +137,14 @@ export default function SolstoneCalls() {
       await callApi("/api/team-calls/signal",
         jsonRequest({callId:newCall.id,kind:"offer",payload:offer}));
     } catch (err) {
-      setError(err instanceof Error?err.message:text.failed);
+      // A failed offer must not leave the recipient's number permanently busy.
+      const failedId=activeRef.current?.id;
       cleanup();
+      if (failedId) {
+        await callApi("/api/team-calls",
+          jsonRequest({callId:failedId,action:"end"},"PATCH")).catch(()=>{});
+      }
+      setError(err instanceof Error?err.message:text.failed);
     } finally {
       startingRef.current=false;
       setBusy(false);
@@ -156,9 +162,13 @@ export default function SolstoneCalls() {
       peerFor(selected.id);
       setPhase("connecting");
     }catch(e){
+      // If microphone permission fails, release the ringing call and tracks.
+      cleanup();
+      await callApi("/api/team-calls",
+        jsonRequest({callId:selected.id,action:"decline"},"PATCH")).catch(()=>{});
       setError(e instanceof Error?e.message:text.failed);
     }finally{setBusy(false);}
-  },[busy,openMicrophone,peerFor,text.failed]);
+  },[busy,cleanup,openMicrophone,peerFor,text.failed]);
 
   const finishCall=useCallback(async(action:"decline"|"end")=>{
     const id=activeRef.current?.id;
@@ -261,9 +271,26 @@ export default function SolstoneCalls() {
   },[startCall]);
   useEffect(()=>{
     if (!CALLS_ENABLED || !pathname || pathname==="/" || pathname.startsWith("/login")) return;
-    void checkCalls();
-    const timer=setInterval(()=>void checkCalls(),3000);
-    return()=>clearInterval(timer);
+    let cancelled=false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    async function tick() {
+      // Avoid burning function invocations and mobile battery while idle.
+      // Locked-phone incoming call alerts are handled by the service worker.
+      if (document.visibilityState==="visible" || activeRef.current) {
+        await checkCalls();
+      }
+      if (!cancelled) timer=setTimeout(()=>void tick(),activeRef.current?3000:10000);
+    }
+    const visible=()=>{
+      if(document.visibilityState==="visible") void checkCalls();
+    };
+    document.addEventListener("visibilitychange",visible);
+    void tick();
+    return()=>{
+      cancelled=true;
+      if(timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange",visible);
+    };
   },[pathname,checkCalls]);
   useEffect(()=>{
     if (!CALLS_ENABLED) return;
