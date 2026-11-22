@@ -8,6 +8,8 @@ import "./original-dashboard.css";
 type Assignment = {
   id: string; date: string; worker: string; mine: boolean;
   siteId: string | null; site: string; location: string; note: string;
+  startTime?: string|null; endTime?: string|null; task?: string|null; priority?: string|null;
+  responsible?: string|null; planStatus?: string|null; teamNote?: string|null;
 };
 type WeekData = {
   today: string; start: string; end: string; week: string[];
@@ -149,6 +151,9 @@ export default function WorkerDashboardSchedule() {
                       >
                       <strong>{row.site}</strong>
                       {row.location && <small>{row.location}</small>}
+                      {(row.startTime||row.endTime)&&<small>⏰ {row.startTime?.slice(0,5)||"?"}–{row.endTime?.slice(0,5)||"?"}</small>}
+                      {row.task && <small>{row.task}</small>}
+                      {row.planStatus && <small>{row.planStatus==="confirmed"?"✓":"◌"} {row.planStatus}</small>}
                       {row.note && <small>{row.note}</small>}
                     </Link> :
                     <span className="solstone-cell-site" key={row.id}>
