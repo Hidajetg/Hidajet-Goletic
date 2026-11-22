@@ -26,7 +26,7 @@ const weekdays: Record<AppLanguage, string[]> = {
 const showTime = (date: string) => new Date(date).toLocaleTimeString("de-AT", { timeZone: "Europe/Vienna", hour: "2-digit", minute: "2-digit" });
 const showDate = (iso: string) => new Date(iso + "T12:00:00Z").toLocaleDateString("de-AT", { timeZone: "UTC" });
 
-export default function AdminDashboardExtras() {
+export default function AdminDashboardExtras({ language }: { language?: AppLanguage }) {
   const [lang, setLang] = useState<AppLanguage>("de");
   const [schedule, setSchedule] = useState<Overview | null>(null);
   const [date, setDate] = useState<string | null>(null);
@@ -65,7 +65,8 @@ export default function AdminDashboardExtras() {
     return () => ctrl.abort();
   }, [date, load]);
   const workers = useMemo(() => [...new Set((schedule?.rows || []).map(r => r.worker).filter(Boolean))].sort((a,b) => a.localeCompare(b, "de-AT")), [schedule]);
-  const t = labels[lang] || labels.de;
+  const activeLang = language ?? lang;
+  const t = labels[activeLang] || labels.de;
   const week = schedule?.week || [];
   const count = schedule?.dayCounts || { photo:0, hours:0, work:0, material:0 };
   const activities = schedule?.dailyActivities || [];
@@ -85,7 +86,7 @@ export default function AdminDashboardExtras() {
           {error && <p role="alert" className="solstone-small-error">{error}</p>}
           {loading && !schedule && <p className="solstone-small-muted">{t.loading}</p>}
           {schedule && <div className="solstone-week-scroll"><table className="solstone-week-table">
-            <thead><tr><th>{t.worker}</th>{week.map((day,i)=><th key={day} className={day===schedule.today?"selected-day":""}>{weekdays[lang][i]} {day.slice(8,10)}.{day.slice(5,7)}.</th>)}</tr></thead>
+            <thead><tr><th>{t.worker}</th>{week.map((day,i)=><th key={day} className={day===schedule.today?"selected-day":""}>{weekdays[activeLang][i]} {day.slice(8,10)}.{day.slice(5,7)}.</th>)}</tr></thead>
             <tbody>{workers.length ? workers.map(worker => <tr key={worker}>
               <th scope="row">{worker}</th>
               {week.map(day => <td key={day} className={day===schedule.today?"selected-day":""}>
