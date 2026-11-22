@@ -241,3 +241,31 @@
 .tc-root .tc-compose-line .tc-record{font-size:16px}
 .tc-root .tc-compose-line .tc-send{font-size:18px}
 .tc-root .tc-back-thread{font-size:11px}
+
+/* Tablet and Android landscape: show a single usable panel, rather than
+   squeezing a narrow room sidebar beside an empty oversized message pane.
+   Keep desktop's two-panel view at larger widths. */
+@media (max-width: 1024px) {
+  .tc-root:not(.tc-compact) .tc-layout {
+    display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+  }
+  .tc-root:not(.tc-compact) .tc-sidebar,
+  .tc-root:not(.tc-compact) .tc-conversation {
+    height: 100%;
+    min-height: 0;
+    width: 100%;
+    border-right: 0;
+  }
+  .tc-root:not(.tc-compact) .tc-mobile-hide {
+    display: none !important;
+  }
+  .tc-root:not(.tc-compact) .tc-room {
+    min-height: 64px;
+  }
+  .tc-root:not(.tc-compact) .tc-thread-title {
+    min-height: 42px;
+  }
+}
