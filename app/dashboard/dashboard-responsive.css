@@ -1,0 +1,39 @@
+/* Shared touch-first dashboard layout for admins and workers.
+   Role-based access remains determined by the dashboard page, not CSS. */
+.solstone-dashboard { box-sizing: border-box; width: 100%; }
+.solstone-dashboard-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.solstone-dashboard-actions > a,
+.solstone-dashboard-actions > button {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 92px;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+@media (max-width: 1050px) {
+  .solstone-dashboard-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .solstone-dashboard-actions > a,
+  .solstone-dashboard-actions > button {
+    min-height: 110px;
+    font-size: 18px !important;
+    padding: 17px 12px !important;
+  }
+}
+@media (max-width: 560px) {
+  .solstone-dashboard-actions > a,
+  .solstone-dashboard-actions > button {
+    min-height: 90px;
+    font-size: 15px !important;
+    padding: 15px 9px !important;
+  }
+  .solstone-dashboard h1 { line-height: 1.13; overflow-wrap: anywhere; }
+}
+@media (max-width: 340px) {
+  .solstone-dashboard-actions > a,
+  .solstone-dashboard-actions > button {
+    font-size: 13px !important;
+    padding: 12px 6px !important;
+  }
+}
