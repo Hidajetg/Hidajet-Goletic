@@ -133,7 +133,13 @@ jobs:
           "$tool_dir/apksigner" verify --verbose "$final"
           # Compare the signing identity against the pinned fingerprint if
           # configured after the first signed release.
-          cert=$("$tool_dir/apksigner" verify --print-certs "$final" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr '[:upper:]' '[:lower:]')
+          # apksigner's --print-certs wording differs across installed build-tools.
+          # Hash the signing key's exported DER certificate directly instead:
+          # apksigner has just verified the APK signed with this keystore.
+          cert=$(keytool -exportcert \
+            -keystore "$RUNNER_TEMP/solstone-release.jks" \
+            -alias "$KEY_ALIAS" -storepass:env KEYSTORE_PASSWORD \
+            | sha256sum | awk '{print $1}')
           test -n "$cert"
           if [ -n "$EXPECTED_CERT_SHA256" ] &&
              [ "$cert" != "$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')" ]; then
