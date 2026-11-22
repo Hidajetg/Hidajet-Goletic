@@ -263,11 +263,11 @@ export default function WorkerAiChat({ mode = "page" }: { mode?: Mode }) {
   );
 
   if (mode === "page") return <div className="wai-page">{chat}</div>;
-  return <>
+  return <div className="wai-floating">
     {open && chat}
     <button className="wai-launcher" type="button" aria-label={open ? t.close : t.reopen}
       onClick={() => setOpen(v => !v)}>
       {open ? "✦ " + t.close : "🚶 AI"}
     </button>
-  </>;
+  </div>;
 }
