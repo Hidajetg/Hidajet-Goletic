@@ -24,7 +24,7 @@ const tinyButton: React.CSSProperties = {
 };
 
 export default function AdminAiFloating() {
-  const [opened, setOpened] = useState(true);
+  const [opened, setOpened] = useState(false);
   const [user, setUser] = useState("");
   const [text, setText] = useState("");
   const [messages, setMessages] = useState<AiMessage[]>([]);
