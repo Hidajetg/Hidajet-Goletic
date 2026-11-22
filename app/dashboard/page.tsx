@@ -650,7 +650,7 @@ export default function DashboardPage() {
           ))}
         </section>
       )}
-      {isAdmin && <AdminDashboardExtras />}
+      {isAdmin && <AdminDashboardExtras language={lang as AppLanguage} />}
       {!isAdmin && <WorkerDashboardSchedule />}
       {isAdmin && <AdminAiFloating />}
     </main>
