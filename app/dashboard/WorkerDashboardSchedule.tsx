@@ -109,7 +109,7 @@ export default function WorkerDashboardSchedule() {
     if (data) setSelected(advance(data.start, days));
   };
 
-  return <section className="solstone-original-overview" aria-label={t.title}
+  return <section className="solstone-original-overview solstone-worker-overview" aria-label={t.title}
     style={{ marginTop: 17, paddingBottom: 20 }}>
     <div className="solstone-original-panel solstone-original-week">
       <header className="solstone-panel-head">
@@ -122,9 +122,6 @@ export default function WorkerDashboardSchedule() {
           <Link href="/kalendar">{t.calendar}</Link>
         </div>
       </header>
-      <p className="solstone-small-muted" style={{ margin: "0 0 8px" }}>
-        {t.own} · {t.colleagues}
-      </p>
       {error && <p role="alert" className="solstone-small-error">{error}{" "}
         <button type="button" onClick={() => setRetry(n => n + 1)}
           style={{ background: "#223c5c", color: "white", border: "1px solid #57718a",
@@ -140,16 +137,16 @@ export default function WorkerDashboardSchedule() {
               {weekday[lang][index]} {day.slice(8, 10)}.{day.slice(5, 7)}.
             </th>)}
           </tr></thead>
-          <tbody>{people.map((person, index) =>
-            <tr key={person} style={index === 0 ? { background: "#152035" } : undefined}>
-              <th scope="row">{person}{index === 0 ? " ★" : ""}</th>
+          <tbody>{people.map((person) =>
+            <tr key={person}>
+              <th scope="row">{person}</th>
               {data.week.map(day => <td key={day}
                 className={day === data.today ? "selected-day" : ""}>
                 {data.rows.filter(row => row.worker === person && row.date === day)
                   .map(row => row.siteId ?
                     <Link href={"/baustellen/" + encodeURIComponent(row.siteId)}
                       className="solstone-cell-site" key={row.id}
-                      style={row.mine ? { borderLeft: "3px solid #f97316" } : undefined}>
+                      >
                       <strong>{row.site}</strong>
                       {row.location && <small>{row.location}</small>}
                       {row.note && <small>{row.note}</small>}

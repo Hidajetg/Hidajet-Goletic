@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/worker-home-schedule-privacy-20261122
+      - fix/calendar-tables-match-nov18-reference
   workflow_dispatch:
 
 permissions:

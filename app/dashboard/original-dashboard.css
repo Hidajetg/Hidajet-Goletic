@@ -109,3 +109,18 @@
  .solstone-original-dashboard > h1 { font-size: 31px !important; }
  .solstone-original-info { min-height: 0 !important; }
 }
+
+/* Worker-only calendar: same visual grid as the admin's left-hand table
+   in the 18 Nov reference. Admin and Team Chat layouts remain unchanged. */
+.solstone-worker-overview {
+  width: calc(50% - 4px);
+  max-width: 100%;
+  margin-top: 8px !important;
+  padding-bottom: 0 !important;
+}
+.solstone-worker-overview .solstone-original-week {
+  min-height: 244px;
+}
+@media (max-width: 1040px) {
+  .solstone-worker-overview { width: 100%; }
+}
