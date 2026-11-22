@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { type AppLanguage, readAppLanguage, saveAppLanguage, localeForLanguage } from "../lib/language";
 import { SOLSTONE_APPROVED_LOGO } from "../components/solstone-approved-logo";
 import AdminWebDashboard from "./AdminWebDashboard";
+import "./mobile-dashboard.css";
 
 const DAY_MS = 86_400_000;
 
@@ -640,7 +641,7 @@ export default function DashboardPage() {
   if (isAdmin) return <AdminWebDashboard />;
 
   return (
-    <main style={workerMainStyle}>
+    <main className="solstone-worker-dashboard" style={workerMainStyle}>
       <header style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 7, paddingRight: 43 }}>
         <img
           src={SOLSTONE_APPROVED_LOGO}
@@ -672,7 +673,7 @@ export default function DashboardPage() {
       </div>
 
       {!isAdmin && (
-        <section style={workerTodayBoxStyle} aria-label={t.today}>
+        <section className="solstone-worker-today" style={workerTodayBoxStyle} aria-label={t.today}>
           <div style={workerTodayHeadingStyle}>
             <h2 style={{ margin: 0, fontSize: 10, color: "#fff" }}>📅 {t.today}</h2>
             <Link href="/kalendar" style={{ color: "#fdba74", textDecoration: "none", fontSize: 8 }}>
@@ -760,7 +761,7 @@ export default function DashboardPage() {
         </section>
       )}
 
-      <div style={gridStyle}>
+      <div className="solstone-worker-dashboard-grid" style={gridStyle}>
         <Link href="/baustellen" style={buttonStyle}>
           <span aria-hidden="true" style={{ display: "inline-block", fontSize: "0.72em", marginRight: 3 }}>🏗️</span> {t.baustelle}
         </Link>
