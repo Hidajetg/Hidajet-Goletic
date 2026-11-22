@@ -1,6 +1,9 @@
 name: Verify Solstone chat and mobile layout fix
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - fix/2026-11-22-chat-layout-sounds
