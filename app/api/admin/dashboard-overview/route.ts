@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getChatUser } from "../../../lib/team-chat";
+import { getVerifiedAdmin } from "../../../lib/verified-dashboard-admin";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 
 export const runtime = "nodejs";
@@ -20,12 +20,11 @@ function advance(iso: string, days: number) {
 }
 function monday(iso: string) {
   const day = new Date(iso + "T12:00:00Z").getUTCDay();
-  return advance(iso, day === 0 ? 1 : 1 - day);
+  return advance(iso, day === 0 ? -6 : 1 - day);
 }
 export async function GET(req: NextRequest) {
-  const session = await getChatUser();
+  const session = await getVerifiedAdmin();
   if (!session) return NextResponse.json({ error: "Prijava je istekla." }, { status: 401, headers: noStore });
-  if (!session.isAdmin) return NextResponse.json({ error: "Administratorski pristup je obavezan." }, { status: 403, headers: noStore });
   const today = viennaDate();
   const param = req.nextUrl.searchParams.get("start");
   let start = monday(today);
