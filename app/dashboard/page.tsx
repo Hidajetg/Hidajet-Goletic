@@ -230,6 +230,7 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState("");
   const [workerName, setWorkerName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -252,10 +253,34 @@ export default function DashboardPage() {
   async function initializeDashboard() {
     setAuthLoading(true);
 
-    const user = readStoredUser();
-
-    if (!user) {
-      router.replace("/login");
+    setAuthError("");
+    let user: StoredUser;
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (response.status === 401 || response.status === 403) {
+        // The old home page trusted an expired localStorage login. Stop here
+        // and ask for a normal PIN login; keep the saved preferred username.
+        router.replace("/login");
+        return;
+      }
+      if (!response.ok) throw new Error("Sigurna prijava trenutno nije dostupna.");
+      const result = await response.json();
+      const verified = result?.user;
+      const role = normalizeRole(verified?.role);
+      if (!result?.authenticated || !role || !verified?.name ||
+          !/^\d+$/.test(String(verified?.id || ""))) {
+        router.replace("/login");
+        return;
+      }
+      user = { id: String(verified.id), name: String(verified.name), role };
+    } catch (error) {
+      console.error("Dashboard authentication unavailable", error);
+      setAuthError("Prijava se trenutno ne može provjeriti. Pokušaj ponovo.");
+      setAuthLoading(false);
       return;
     }
 
@@ -471,6 +496,21 @@ export default function DashboardPage() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  }
+
+  if (authError) {
+    return (
+      <main style={loadingPageStyle}>
+        <div style={loadingBoxStyle}>
+          <p role="alert" style={loadingTextStyle}>{authError}</p>
+          <button type="button" onClick={() => void initializeDashboard()}
+            style={{ background: "#2563eb", border: 0, borderRadius: 9,
+              color: "#fff", padding: "12px 18px", cursor: "pointer" }}>
+            Pokušaj ponovo
+          </button>
+        </div>
+      </main>
+    );
   }
 
   if (authLoading) {
