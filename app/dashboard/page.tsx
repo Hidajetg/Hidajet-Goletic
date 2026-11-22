@@ -582,13 +582,11 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <section style={infoBoxStyle}>
-        <h2 style={infoTitleStyle}>📢 {t.info}</h2>
+      {messages.length > 0 && (
+        <section style={infoBoxStyle}>
+          <h2 style={infoTitleStyle}>📢 {t.info}</h2>
 
-        {messages.length === 0 ? (
-          <p style={emptyMessageStyle}>{t.noMessages}</p>
-        ) : (
-          messages.map((message) => (
+          {messages.map((message) => (
             <div key={message.id} style={messageStyle}>
               <div style={messageTopStyle}>
                 <strong>{message.sender_name || "Admin"}</strong>
@@ -598,9 +596,9 @@ export default function DashboardPage() {
 
               <p style={messageTextStyle}>{message.message}</p>
             </div>
-          ))
-        )}
-      </section>
+          ))}
+        </section>
+      )}
     </main>
   );
 }
