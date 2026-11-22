@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import WorkerAiChat from "./WorkerAiChat";
 
 /**
  * Web and hosted mobile wrapper share this same authenticated AI entry.
@@ -12,6 +13,7 @@ export default function SolstoneAIEntry() {
   const path = usePathname();
   const [authorized, setAuthorized] = useState(false);
   const [adminDashboard, setAdminDashboard] = useState(false);
+  const [workerDashboard, setWorkerDashboard] = useState(false);
 
   useEffect(() => {
     if (!path || path === "/" || path.startsWith("/login") || path.startsWith("/assistant")) {
@@ -25,6 +27,7 @@ export default function SolstoneAIEntry() {
         if (active) {
           setAuthorized(response.ok);
           setAdminDashboard(path === "/dashboard" && json?.user?.role === "admin");
+          setWorkerDashboard(json?.user?.role === "worker");
         }
       })
       .catch(() => { if (active) setAuthorized(false); });
@@ -34,6 +37,8 @@ export default function SolstoneAIEntry() {
   if (!authorized || adminDashboard || !path || path === "/" || path.startsWith("/login") || path.startsWith("/assistant")) {
     return null;
   }
+
+  if (workerDashboard) return <WorkerAiChat mode="floating" />;
 
   return <Link href="/assistant" aria-label="Solstone AI pomoćnik" title="Solstone AI"
     style={{
