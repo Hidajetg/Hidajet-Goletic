@@ -1,38 +1,32 @@
-.wai-page{min-height:calc(100dvh - 130px);display:flex;justify-content:center;align-items:flex-start;padding:4px 0 30px}
-.wai-panel{background:#111b2b;border:1px solid #405067;border-radius:18px;color:#edf4ff;display:flex;flex-direction:column;overflow:hidden;font:13px system-ui,sans-serif;box-shadow:0 16px 45px #0008;min-height:0}
-.wai-page .wai-panel{width:min(100%,760px);height:min(710px,calc(100dvh - 185px));min-height:390px}
-.wai-header{background:#1d293a;border-bottom:1px solid #35455b;min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:9px;padding:10px 13px}
-.wai-header strong{font-size:16px;display:block;color:#fff}
-.wai-header small{display:block;margin-top:3px;color:#a9b9ce}
-.wai-top-buttons,.wai-tool-group,.wai-tools{display:flex;align-items:center;gap:5px}
-.wai-top-buttons button,.wai-small-btn,.wai-photo button{background:#233147;border:1px solid #40526c;border-radius:9px;color:#fff;min-height:34px;padding:6px 10px;cursor:pointer;font-size:12px}
+/* Match the existing administrator Baustelle AI design, without changing admin code. */
+.wai-page{min-height:calc(100dvh - 116px);display:flex;justify-content:center;align-items:flex-start;padding:0 0 25px}
+.wai-panel{background:#111b2b;border:1px solid #405067;border-radius:18px;color:#edf4ff;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 16px 45px #000b;font:13px system-ui,sans-serif;min-height:0}
+.wai-page .wai-panel{width:377px;max-width:calc(100vw - 20px);height:min(570px,calc(100dvh - 146px))}
+.wai-floating .wai-panel{position:fixed;right:20px;bottom:72px;z-index:500;width:377px;max-width:calc(100vw - 20px);height:min(570px,calc(100dvh - 100px))}
+.wai-header{background:#1d293a;border-bottom:1px solid #35455b;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-shrink:0}
+.wai-header strong{display:block;color:#fff;font-size:14px}
+.wai-header small{display:block;color:#a9b9ce;font-size:11px;margin-top:3px}
+.wai-top-buttons,.wai-tool-group{display:flex;gap:5px;align-items:center}
+.wai-top-buttons button,.wai-small-btn,.wai-photo button{border:1px solid #40526c;border-radius:9px;background:#233147;color:white;min-height:34px;padding:6px 9px;cursor:pointer;font-size:12px;font-family:inherit}
 .wai-top-buttons button:disabled{opacity:.5;cursor:default}
-.wai-messages{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:9px;padding:12px}
-.wai-empty{color:#adbed2;text-align:center;margin:auto;padding:10px;line-height:1.55}
-.wai-info{background:#26364b;border-radius:10px;padding:11px;line-height:1.5;margin:0}
-.wai-bubble{display:block;border-radius:12px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;max-width:min(94%,590px)}
-.wai-bubble strong{font-size:12px;display:block}
-.wai-bubble p{font-size:14px;margin:7px 0 0}
+.wai-messages{flex:1;min-height:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain}
+.wai-empty{color:#aebdd1;text-align:center;margin:auto 0;line-height:1.45}
+.wai-info{background:#26364b;border-radius:10px;padding:11px;margin:0;line-height:1.45}
+.wai-bubble{border-radius:11px;max-width:94%;padding:12px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;color:#fff}
+.wai-bubble strong{font-size:12px}
+.wai-bubble p{font-size:13px;margin:6px 0 0}
 .wai-bubble .wai-small-btn{margin-top:9px}
-.wai-user{background:#a84919;align-self:flex-end;max-width:88%}
+.wai-user{background:#a84919;max-width:88%;align-self:flex-end}
 .wai-assistant{background:#324259;align-self:flex-start}
-.wai-form{background:#182638;border-top:1px solid #3c4b61;padding:10px 11px 12px}
-.wai-form textarea{display:block;width:100%;box-sizing:border-box;resize:vertical;max-height:135px;min-height:55px;padding:11px;border:1px solid #9cacbb;border-radius:10px;background:#090f1c;color:#fff;font:14px system-ui,sans-serif;outline-offset:2px}
-.wai-form textarea:focus-visible{outline:2px solid #fb923c}
-.wai-tools{justify-content:space-between;gap:8px;margin-top:8px;flex-wrap:wrap}
-.wai-auto{display:flex;align-items:center;gap:4px;font-size:12px;color:#cbd5e1;white-space:nowrap}
-.wai-send{background:#c56721;border:0;border-radius:9px;color:white;font-weight:750;min-height:36px;padding:9px 15px;cursor:pointer}
-.wai-send:disabled{opacity:.5;cursor:not-allowed}
-.wai-photo{color:#b7d7fa;display:flex;align-items:center;gap:7px;overflow-wrap:anywhere;margin:0 0 8px}
-.wai-notice{color:#ffe0bb;background:#3b2a22;padding:9px 12px;margin:0;font-size:12px}
-.wai-launcher{position:fixed;right:13px;bottom:13px;z-index:502;background:#f97316;border:1px solid #fdba74;border-radius:16px;color:#fff;box-shadow:0 5px 20px #0008;font-weight:800;padding:11px 15px;cursor:pointer}
-.wai-floating .wai-panel{position:fixed;right:14px;bottom:72px;z-index:501;width:min(382px,calc(100vw - 28px));height:min(570px,calc(100dvh - 105px));box-shadow:0 16px 45px #000b}
-@media(max-width:640px){
- .wai-page{min-height:calc(100dvh - 94px);padding:0 0 16px}
- .wai-page .wai-panel{height:calc(100dvh - 150px);min-height:320px;border-radius:13px}
- .wai-form{padding:8px}
- .wai-tools{gap:5px}
- .wai-send{padding:8px 11px}
- .wai-header{min-height:60px}
-}
-@media(max-height:590px){.wai-page .wai-panel{height:calc(100dvh - 115px);min-height:280px}}
+.wai-form{border-top:1px solid #3c4b61;padding:8px 9px 10px;background:#182638;flex-shrink:0}
+.wai-form textarea{display:block;width:100%;box-sizing:border-box;resize:vertical;min-height:56px;max-height:120px;padding:10px;border-radius:10px;background:#090f1c;color:white;font:13px system-ui,sans-serif;border:1px solid #9cacbb}
+.wai-form textarea:focus-visible{outline:2px solid #fb923c;outline-offset:1px}
+.wai-tools{display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap;margin-top:5px}
+.wai-auto{display:flex;align-items:center;gap:3px;color:#cbd5e1;font-size:11px;white-space:nowrap}
+.wai-send{border:0;border-radius:9px;background:#b65e24;color:#fff;padding:11px 13px;font-weight:750;cursor:pointer;font-family:inherit}
+.wai-send:disabled{opacity:.6;cursor:not-allowed}
+.wai-photo{color:#b7d7fa;display:flex;align-items:center;gap:7px;overflow-wrap:anywhere;margin:0 0 6px}
+.wai-notice{color:#ffcca9;margin:0 10px 6px;font-size:12px}
+.wai-launcher{position:fixed;right:20px;bottom:20px;z-index:501;background:#f97316;border:1px solid #fb923c;border-radius:20px;color:#fff;box-shadow:0 5px 20px #0008;font-weight:750;padding:11px 16px;cursor:pointer;font-family:inherit}
+@media(max-width:430px){.wai-floating .wai-panel{right:10px;max-width:calc(100vw - 20px);bottom:68px;height:min(570px,calc(100dvh - 88px))}.wai-launcher{right:10px;bottom:12px}.wai-page .wai-panel{height:calc(100dvh - 145px);min-height:275px}}
+@media(max-height:550px){.wai-page .wai-panel{height:calc(100dvh - 120px);min-height:200px}}

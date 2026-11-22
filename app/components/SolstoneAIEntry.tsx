@@ -14,6 +14,7 @@ export default function SolstoneAIEntry() {
   const [authorized, setAuthorized] = useState(false);
   const [adminDashboard, setAdminDashboard] = useState(false);
   const [workerDashboard, setWorkerDashboard] = useState(false);
+  const [verifiedWorkerName, setVerifiedWorkerName] = useState("");
 
   useEffect(() => {
     if (!path || path === "/" || path.startsWith("/login") || path.startsWith("/assistant")) {
@@ -28,6 +29,7 @@ export default function SolstoneAIEntry() {
           setAuthorized(response.ok);
           setAdminDashboard(path === "/dashboard" && json?.user?.role === "admin");
           setWorkerDashboard(json?.user?.role === "worker");
+          setVerifiedWorkerName(response.ok && json?.user?.role === "worker" ? String(json.user.name || "") : "");
         }
       })
       .catch(() => { if (active) setAuthorized(false); });
@@ -38,7 +40,7 @@ export default function SolstoneAIEntry() {
     return null;
   }
 
-  if (workerDashboard) return <WorkerAiChat mode="floating" />;
+  if (workerDashboard) return <WorkerAiChat mode="floating" verifiedName={verifiedWorkerName} />;
 
   return <Link href="/assistant" aria-label="Solstone AI pomoćnik" title="Solstone AI"
     style={{
