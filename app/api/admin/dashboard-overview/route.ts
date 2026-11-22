@@ -39,7 +39,11 @@ export async function GET(req: NextRequest) {
   }
   const end = advance(start, 5);
   try {
-    const [calendar, sites, workers, questions, aiInfo, hours, docs] = await Promise.all([
+    // Include all four source categories from the original "Današnja dodavanja" panel.
+    // Read records around local Vienna day boundaries to handle DST safely.
+    const windowStart = advance(today, -1) + "T18:00:00Z";
+    const windowEnd = advance(today, 1) + "T07:00:00Z";
+    const [calendar, sites, workers, questions, aiInfo, hours, docs, photosDay, hoursDay, workDay, materialDay] = await Promise.all([
       supabaseAdmin.from("work_calendar")
         .select("id,datum,worker_name,baustelle_id,napomena")
         .gte("datum", start).lte("datum", end)
@@ -56,6 +60,22 @@ export async function GET(req: NextRequest) {
       supabaseAdmin.from("bau_dokumentation")
         .select("id,baustelle_id,titel,erstellt_von,created_at")
         .order("created_at", { ascending: false }).limit(8),
+      supabaseAdmin.from("room_photos")
+        .select("id,baustelle_id,worker_name,radnik,room_name,created_at")
+        .gte("created_at", windowStart).lt("created_at", windowEnd)
+        .order("created_at", { ascending: false }).limit(300),
+      supabaseAdmin.from("baustelle_hours")
+        .select("id,baustelle_id,radnik,opis_posla,ukupno_sati,sati,created_at")
+        .gte("created_at", windowStart).lt("created_at", windowEnd)
+        .order("created_at", { ascending: false }).limit(300),
+      supabaseAdmin.from("produktivnost")
+        .select("id,baustelle_id,radnik,posao,pozicija,kolicina,jedinica,created_at")
+        .gte("created_at", windowStart).lt("created_at", windowEnd)
+        .order("created_at", { ascending: false }).limit(300),
+      supabaseAdmin.from("baustelle_material")
+        .select("id,baustelle_id,materijal,custom_naziv,kolicina,jedinica,created_at")
+        .gte("created_at", windowStart).lt("created_at", windowEnd)
+        .order("created_at", { ascending: false }).limit(300),
     ]);
     if (calendar.error || sites.error || workers.error) {
       console.error("Admin home calendar failed", calendar.error?.message || sites.error?.message || workers.error?.message);
@@ -82,8 +102,46 @@ export async function GET(req: NextRequest) {
         site: byId.get(String(d.baustelle_id))?.naziv || "Baustelle",
       })),
     ].sort((a,b) => Date.parse(b.at || "0") - Date.parse(a.at || "0")).slice(0,10);
+    const todayLocal = (timestamp: string | null) => {
+      if (!timestamp) return false;
+      const dt = new Date(timestamp);
+      return !Number.isNaN(dt.valueOf()) &&
+        new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Vienna" }).format(dt) === today;
+    };
+    const photos = (photosDay.data ?? []).filter(a => todayLocal(a.created_at));
+    const workHours = (hoursDay.data ?? []).filter(a => todayLocal(a.created_at));
+    const production = (workDay.data ?? []).filter(a => todayLocal(a.created_at));
+    const materials = (materialDay.data ?? []).filter(a => todayLocal(a.created_at));
+    const dailyActivities = [
+      ...photos.map(p => ({
+        id: "photo-" + p.id, type: "photo", at: p.created_at,
+        actor: p.worker_name || p.radnik || "", site: byId.get(String(p.baustelle_id))?.naziv ?? "Baustelle",
+        siteId: p.baustelle_id,
+        title: "Neue Fotos", detail: p.room_name ?? "",
+      })),
+      ...workHours.map(h => ({
+        id: "hours-" + h.id, type: "hours", at: h.created_at,
+        actor: h.radnik ?? "", site: byId.get(String(h.baustelle_id))?.naziv ?? "Baustelle",
+        siteId: h.baustelle_id,
+        title: "Uneseni radni sati", detail: h.opis_posla || ((h.ukupno_sati ?? h.sati ?? "") + " h"),
+      })),
+      ...production.map(p => ({
+        id: "work-" + p.id, type: "work", at: p.created_at,
+        actor: p.radnik ?? "", site: byId.get(String(p.baustelle_id))?.naziv ?? "Baustelle",
+        siteId: p.baustelle_id,
+        title: "Produktivität", detail: p.posao || p.pozicija || "",
+      })),
+      ...materials.map(m => ({
+        id: "material-" + m.id, type: "material", at: m.created_at,
+        actor: "", site: byId.get(String(m.baustelle_id))?.naziv ?? "Baustelle",
+        siteId: m.baustelle_id,
+        title: "Material", detail: m.custom_naziv || m.materijal || "",
+      })),
+    ].sort((a,b) => Date.parse(b.at || "0") - Date.parse(a.at || "0")).slice(0,30);
     return NextResponse.json({
       week, start, end, today, rows,
+      dayCounts: { photo: photos.length, hours: workHours.length, work: production.length, material: materials.length },
+      dailyActivities,
       workerCount: (workers.data ?? []).filter(w => w.role !== "admin").length,
       aiQuestions: questions.error ? [] : (questions.data ?? []).map(q => ({
         id: q.id, worker: q.worker_name, question: q.last_question, at: q.last_message_at,
