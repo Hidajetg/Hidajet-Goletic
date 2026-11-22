@@ -1,0 +1,38 @@
+.wai-page{min-height:calc(100dvh - 130px);display:flex;justify-content:center;align-items:flex-start;padding:4px 0 30px}
+.wai-panel{background:#111b2b;border:1px solid #405067;border-radius:18px;color:#edf4ff;display:flex;flex-direction:column;overflow:hidden;font:13px system-ui,sans-serif;box-shadow:0 16px 45px #0008;min-height:0}
+.wai-page .wai-panel{width:min(100%,760px);height:min(710px,calc(100dvh - 185px));min-height:390px}
+.wai-header{background:#1d293a;border-bottom:1px solid #35455b;min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:9px;padding:10px 13px}
+.wai-header strong{font-size:16px;display:block;color:#fff}
+.wai-header small{display:block;margin-top:3px;color:#a9b9ce}
+.wai-top-buttons,.wai-tool-group,.wai-tools{display:flex;align-items:center;gap:5px}
+.wai-top-buttons button,.wai-small-btn,.wai-photo button{background:#233147;border:1px solid #40526c;border-radius:9px;color:#fff;min-height:34px;padding:6px 10px;cursor:pointer;font-size:12px}
+.wai-top-buttons button:disabled{opacity:.5;cursor:default}
+.wai-messages{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:9px;padding:12px}
+.wai-empty{color:#adbed2;text-align:center;margin:auto;padding:10px;line-height:1.55}
+.wai-info{background:#26364b;border-radius:10px;padding:11px;line-height:1.5;margin:0}
+.wai-bubble{display:block;border-radius:12px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;max-width:min(94%,590px)}
+.wai-bubble strong{font-size:12px;display:block}
+.wai-bubble p{font-size:14px;margin:7px 0 0}
+.wai-bubble .wai-small-btn{margin-top:9px}
+.wai-user{background:#a84919;align-self:flex-end;max-width:88%}
+.wai-assistant{background:#324259;align-self:flex-start}
+.wai-form{background:#182638;border-top:1px solid #3c4b61;padding:10px 11px 12px}
+.wai-form textarea{display:block;width:100%;box-sizing:border-box;resize:vertical;max-height:135px;min-height:55px;padding:11px;border:1px solid #9cacbb;border-radius:10px;background:#090f1c;color:#fff;font:14px system-ui,sans-serif;outline-offset:2px}
+.wai-form textarea:focus-visible{outline:2px solid #fb923c}
+.wai-tools{justify-content:space-between;gap:8px;margin-top:8px;flex-wrap:wrap}
+.wai-auto{display:flex;align-items:center;gap:4px;font-size:12px;color:#cbd5e1;white-space:nowrap}
+.wai-send{background:#c56721;border:0;border-radius:9px;color:white;font-weight:750;min-height:36px;padding:9px 15px;cursor:pointer}
+.wai-send:disabled{opacity:.5;cursor:not-allowed}
+.wai-photo{color:#b7d7fa;display:flex;align-items:center;gap:7px;overflow-wrap:anywhere;margin:0 0 8px}
+.wai-notice{color:#ffe0bb;background:#3b2a22;padding:9px 12px;margin:0;font-size:12px}
+.wai-launcher{position:fixed;right:13px;bottom:13px;z-index:502;background:#f97316;border:1px solid #fdba74;border-radius:16px;color:#fff;box-shadow:0 5px 20px #0008;font-weight:800;padding:11px 15px;cursor:pointer}
+body:has(.wai-launcher) .wai-panel{position:fixed;right:14px;bottom:72px;z-index:501;width:min(382px,calc(100vw - 28px));height:min(570px,calc(100dvh - 105px));box-shadow:0 16px 45px #000b}
+@media(max-width:640px){
+ .wai-page{min-height:calc(100dvh - 94px);padding:0 0 16px}
+ .wai-page .wai-panel{height:calc(100dvh - 150px);min-height:320px;border-radius:13px}
+ .wai-form{padding:8px}
+ .wai-tools{gap:5px}
+ .wai-send{padding:8px 11px}
+ .wai-header{min-height:60px}
+}
+@media(max-height:590px){.wai-page .wai-panel{height:calc(100dvh - 115px);min-height:280px}}
