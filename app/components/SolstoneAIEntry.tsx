@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 export default function SolstoneAIEntry() {
   const path = usePathname();
   const [authorized, setAuthorized] = useState(false);
+  const [adminDashboard, setAdminDashboard] = useState(false);
 
   useEffect(() => {
     if (!path || path === "/" || path.startsWith("/login") || path.startsWith("/assistant")) {
@@ -19,12 +20,18 @@ export default function SolstoneAIEntry() {
     }
     let active = true;
     void fetch("/api/auth/login", { credentials: "include", cache: "no-store" })
-      .then(response => { if (active) setAuthorized(response.ok); })
+      .then(async response => {
+        const json = await response.json().catch(() => ({}));
+        if (active) {
+          setAuthorized(response.ok);
+          setAdminDashboard(path === "/dashboard" && json?.user?.role === "admin");
+        }
+      })
       .catch(() => { if (active) setAuthorized(false); });
     return () => { active = false; };
   }, [path]);
 
-  if (!authorized || !path || path === "/" || path.startsWith("/login") || path.startsWith("/assistant")) {
+  if (!authorized || adminDashboard || !path || path === "/" || path.startsWith("/login") || path.startsWith("/assistant")) {
     return null;
   }
 

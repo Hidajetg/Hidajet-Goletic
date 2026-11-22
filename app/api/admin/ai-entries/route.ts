@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getChatUser } from "../../../lib/team-chat";
+import { getVerifiedAdmin } from "../../../lib/verified-dashboard-admin";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "private, no-store" };
 async function requireAdmin() {
-  const user = await getChatUser();
-  return user?.isAdmin ? user : null;
+  const user = await getVerifiedAdmin();
+  return user;
 }
 function sameOrigin(req: NextRequest) {
   return req.headers.get("origin") === req.nextUrl.origin;

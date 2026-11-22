@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getChatUser } from "../../../lib/team-chat";
+import { getVerifiedAdmin } from "../../../lib/verified-dashboard-admin";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 
 export const runtime = "nodejs";
@@ -7,9 +7,8 @@ export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "private, no-store" };
 
 export async function GET(request: NextRequest) {
-  const user = await getChatUser();
+  const user = await getVerifiedAdmin();
   if (!user) return NextResponse.json({ error: "Prijava je istekla." }, { status: 401, headers: noStore });
-  if (!user.isAdmin) return NextResponse.json({ error: "Samo administrator." }, { status: 403, headers: noStore });
   const id = request.nextUrl.searchParams.get("conversation");
   try {
     if (id !== null) {

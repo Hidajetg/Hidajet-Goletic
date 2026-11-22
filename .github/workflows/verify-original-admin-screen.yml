@@ -1,0 +1,56 @@
+name: Verify screenshot-accurate 18 Nov admin restoration
+
+on:
+  push:
+    branches:
+      - restore/exact-admin-screen-20261118
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: compile-only-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: compile-only-placeholder
+      APP_SESSION_SECRET: compile-only-placeholder
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Use Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: TypeScript check
+        run: npx tsc --noEmit
+      - name: Next.js production build
+        run: npm run build
+      - name: Check original home and chat retention
+        run: |
+          node <<'JS'
+          const fs=require('fs');
+          const dashboard=fs.readFileSync('app/dashboard/page.tsx','utf8');
+          const panel=fs.readFileSync('app/dashboard/AdminAiFloating.tsx','utf8');
+          const overview=fs.readFileSync('app/dashboard/AdminDashboardExtras.tsx','utf8');
+          const api=fs.readFileSync('app/api/admin/dashboard-overview/route.ts','utf8');
+          const layout=fs.readFileSync('app/layout.tsx','utf8');
+          const css=fs.readFileSync('app/dashboard/original-dashboard.css','utf8');
+          if(!dashboard.includes('solstone-original-menu'))throw Error('Menu missing');
+          if(!dashboard.includes('APP PITANJA'))throw Error('APP PITANJA missing');
+          if(!layout.includes('TeamChatWidget')||!layout.includes('TeamChatAlerts'))throw Error('Chat removed');
+          if(!css.includes('repeat(10'))throw Error('Screenshot 10-column grid missing');
+          if(!overview.includes('Sedmični raspored')||!overview.includes('Današnja dodavanja'))throw Error('Screenshot dashboard lower panes missing');
+          if(!panel.includes('Baustelle AI'))throw Error('AI panel missing');
+          if(!api.includes('getVerifiedAdmin')||!api.includes('dailyActivities'))throw Error('Admin API missing or insecure');
+          console.log('Screenshot menu, original chat, calendar, daily additions, APP questions and floating AI all present');
+          JS
