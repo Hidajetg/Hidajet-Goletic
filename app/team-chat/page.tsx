@@ -23,7 +23,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     newChat:"Neuer Privatchat",choose:"Mitarbeiter auswählen",start:"Chat starten",
     empty:"Noch keine Nachrichten",write:"Nachricht schreiben…",send:"Senden",
     attach:"Bild oder PDF",record:"Sprachnachricht",stop:"Aufnahme beenden",
-    original:"Original",translated:"Übersetzung",sound:"Ton",voice:"Sprachansage",
+    original:"Original",translated:"Übersetzung",sound:"Ton",testSound:"Ton testen",voice:"Sprachansage",
     autoTranslate:"Automatisch übersetzen",adminOnly:"Nur Admins können hier schreiben.",
     close:"Zurück",unavailable:"Chat ist in der Testdatenbank noch nicht aktiviert.",
     photo:"Bild ansehen",pdf:"PDF öffnen",audio:"Sprachnachricht hören",
@@ -34,7 +34,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     newChat:"Novi privatni razgovor",choose:"Odaberi radnika",start:"Započni razgovor",
     empty:"Još nema poruka",write:"Napiši poruku…",send:"Pošalji",
     attach:"Slika ili PDF",record:"Glasovna poruka",stop:"Završi snimanje",
-    original:"Original",translated:"Prijevod",sound:"Zvuk",voice:"Glasovno upozorenje",
+    original:"Original",translated:"Prijevod",sound:"Zvuk",testSound:"Provjeri zvuk",voice:"Glasovno upozorenje",
     autoTranslate:"Automatski prevodi",adminOnly:"Samo administratori mogu pisati ovdje.",
     close:"Nazad",unavailable:"Chat još nije uključen na testnoj bazi.",
     photo:"Pogledaj sliku",pdf:"Otvori PDF",audio:"Preslušaj glasovnu poruku",
@@ -45,7 +45,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     newChat:"Yangi shaxsiy suhbat",choose:"Xodimni tanlang",start:"Suhbatni boshlash",
     empty:"Hali xabar yo‘q",write:"Xabar yozing…",send:"Yuborish",
     attach:"Rasm yoki PDF",record:"Ovozli xabar",stop:"Yozishni tugatish",
-    original:"Asl matn",translated:"Tarjima",sound:"Ovoz",voice:"Ovozli ogohlantirish",
+    original:"Asl matn",translated:"Tarjima",sound:"Ovoz",testSound:"Ovozni sinash",voice:"Ovozli ogohlantirish",
     autoTranslate:"Avtomatik tarjima",adminOnly:"Bu yerga faqat administrator yoza oladi.",
     close:"Orqaga",unavailable:"Chat hali sinov bazasida yoqilmagan.",
     photo:"Rasmni ko‘rish",pdf:"PDF ochish",audio:"Ovozli xabarni eshitish",
@@ -56,7 +56,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     newChat:"Nový soukromý chat",choose:"Vyberte pracovníka",start:"Začít konverzaci",
     empty:"Zatím žádné zprávy",write:"Napište zprávu…",send:"Odeslat",
     attach:"Fotka nebo PDF",record:"Hlasová zpráva",stop:"Ukončit nahrávání",
-    original:"Originál",translated:"Překlad",sound:"Zvuk",voice:"Hlasové upozornění",
+    original:"Originál",translated:"Překlad",sound:"Zvuk",testSound:"Vyzkoušet zvuk",voice:"Hlasové upozornění",
     autoTranslate:"Automatický překlad",adminOnly:"Zde může psát jen administrátor.",
     close:"Zpět",unavailable:"Chat ještě není zapnutý v testovací databázi.",
     photo:"Zobrazit fotku",pdf:"Otevřít PDF",audio:"Přehrát hlasovou zprávu",
@@ -67,7 +67,7 @@ const WORDS:Record<AppLanguage,Record<string,string>> = {
     newChat:"New private chat",choose:"Choose worker",start:"Start chat",
     empty:"No messages yet",write:"Write a message…",send:"Send",
     attach:"Photo or PDF",record:"Voice message",stop:"Stop recording",
-    original:"Original",translated:"Translation",sound:"Sound",voice:"Spoken alert",
+    original:"Original",translated:"Translation",sound:"Sound",testSound:"Test sound",voice:"Spoken alert",
     autoTranslate:"Automatic translation",adminOnly:"Only admins can post here.",
     close:"Back",unavailable:"Chat has not yet been enabled on the test database.",
     photo:"View image",pdf:"Open PDF",audio:"Play voice message",
@@ -416,6 +416,10 @@ export default function TeamChatPage(){
       {showChatSettings && <div className="tc-settings tc-settings-open">
         <label><input type="checkbox" checked={sound}
           onChange={(e)=>settings("solstone_chat_sound",e.target.checked)}/> 🔔 {t.sound}</label>
+        <button type="button" className="tc-test-sound" onClick={()=>{
+          settings("solstone_chat_sound",true);
+          window.dispatchEvent(new Event("solstone-chat-test-sound"));
+        }}>🔊 {t.testSound}</button>
         <label><input type="checkbox" checked={voice}
           onChange={(e)=>settings("solstone_chat_voice",e.target.checked)}/> 🔊 {t.voice}</label>
         <label><input type="checkbox" checked={autoTranslate}
