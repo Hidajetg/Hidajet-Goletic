@@ -80,28 +80,6 @@ export default function KalendarPage() {
     await loadPlans(name, adminStatus);
   }
 
-  /* Keep historic schedule entries: AI uses past planned vs actual work. */
-  async function cleanupOldPlans() {
-    const now = new Date();
-
-    const { data } = await supabase.from("work_calendar").select("*");
-
-    const oldPlans = (data || []).filter((p: any) => {
-      if (!p.datum) return false;
-
-      const expiry = new Date(`${p.datum}T15:00:00`);
-      expiry.setDate(expiry.getDate() + 1);
-
-      return expiry < now;
-    });
-
-    if (oldPlans.length === 0) return;
-
-    const oldIds = oldPlans.map((p: any) => p.id);
-
-    await supabase.from("work_calendar").delete().in("id", oldIds);
-  }
-
   async function loadPlans(name = currentUser, adminStatus = isAdmin) {
     let query = supabase
       .from("work_calendar")
