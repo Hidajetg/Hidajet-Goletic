@@ -1,79 +1,51 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { playNotificationTone, unlockNotificationTone } from "../lib/notification-tone";
 
+/**
+ * Foreground info alerts only. Never listen to all public-table INSERTs:
+ * those events are unrelated to this worker and can produce false alarms.
+ */
 export default function NotificationSound() {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioEnabledRef = useRef(false);
-  const startedRef = useRef(false);
-
   useEffect(() => {
-    audioRef.current = new Audio("/sounds/notification.mp3");
-    audioRef.current.volume = 1;
-
-    function unlockAudio() {
-      if (!audioRef.current) return;
-
-      audioRef.current
-        .play()
-        .then(() => {
-          audioRef.current?.pause();
-          if (audioRef.current) {
-            audioRef.current.currentTime = 0;
-          }
-          audioEnabledRef.current = true;
-        })
-        .catch(() => {});
-    }
-
-    document.addEventListener("click", unlockAudio, { once: true });
-    document.addEventListener("touchstart", unlockAudio, { once: true });
-
-    const oldTitle = document.title;
-
-    function playSound() {
-      if (!audioRef.current) return;
-      if (!audioEnabledRef.current) return;
-
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {});
-
-      document.title = "🔔 Nova informacija!";
-      setTimeout(() => {
-        document.title = oldTitle;
-      }, 5000);
-    }
+    let active = true;
+    let subscribed = false;
+    let readyTimer: ReturnType<typeof setTimeout> | undefined;
+    const unlock = () => { void unlockNotificationTone(); };
+    document.addEventListener("pointerdown", unlock, { passive: true });
 
     const channel = supabase
-      .channel("global-app-notifications")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-        },
-        (payload) => {
-          if (!startedRef.current) return;
-
-          console.log("Nova informacija:", payload.table, payload.new);
-          playSound();
-        }
-      )
+      .channel("solstone-info-notifications")
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "info_messages",
+      }, (payload) => {
+        if (!active || !subscribed || document.visibilityState !== "visible") return;
+        const info = payload.new as Record<string, unknown>;
+        const workerId = window.localStorage.getItem("worker_id");
+        if (!workerId) return;
+        // The event is only a hint to play a chime, not authorization to show data.
+        const addressedToWorker =
+          info.visible_to_all === true ||
+          String(info.target_worker_id ?? "") === workerId;
+        if (!addressedToWorker || String(info.sender_id ?? "") === workerId) return;
+        if (window.localStorage.getItem("solstone_chat_sound") === "false") return;
+        playNotificationTone();
+      })
       .subscribe((status) => {
-        console.log("Notification channel:", status);
-
-        if (status === "SUBSCRIBED") {
-          setTimeout(() => {
-            startedRef.current = true;
-          }, 1500);
-        }
+        if (status !== "SUBSCRIBED") return;
+        if (readyTimer) clearTimeout(readyTimer);
+        readyTimer = setTimeout(() => { subscribed = true; }, 1500);
       });
 
     return () => {
-      document.removeEventListener("click", unlockAudio);
-      document.removeEventListener("touchstart", unlockAudio);
-      supabase.removeChannel(channel);
+      active = false;
+      if (readyTimer) clearTimeout(readyTimer);
+      document.removeEventListener("pointerdown", unlock);
+      void supabase.removeChannel(channel);
     };
   }, []);
 

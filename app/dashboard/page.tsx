@@ -5,6 +5,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 import { type AppLanguage, saveAppLanguage } from "../lib/language";
+import "./dashboard-responsive.css";
 
 type UserRole = "admin" | "worker";
 
@@ -481,7 +482,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main style={mainStyle}>
+    <main className="solstone-dashboard" style={mainStyle}>
       <h1 style={titleStyle}>STONE BOUTIQUE</h1>
 
       <h2 style={subtitleStyle}>
@@ -501,7 +502,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div style={gridStyle}>
+      <div className="solstone-dashboard-actions" style={gridStyle}>
         <Link href="/baustellen" style={buttonStyle}>
           🏗️ {t.baustelle}
         </Link>
@@ -650,11 +651,11 @@ const mainStyle: CSSProperties = {
   background: "#000000",
   minHeight: "100vh",
   color: "#ffffff",
-  padding: "20px",
+  padding: "clamp(14px, 2.5vw, 22px)",
 };
 
 const titleStyle: CSSProperties = {
-  fontSize: "38px",
+  fontSize: "clamp(28px, 4vw, 42px)",
   marginBottom: "6px",
   color: "#f97316",
 };
@@ -691,7 +692,7 @@ const activeLangButtonStyle: CSSProperties = {
 
 const gridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: "10px",
 };
 
