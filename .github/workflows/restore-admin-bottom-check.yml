@@ -1,0 +1,49 @@
+name: Verify admin calendar and AI restoration
+
+on:
+  push:
+    branches:
+      - fix/restore-admin-bottom-calendar-ai-20261122
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: compile-only-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: compile-only-placeholder
+      APP_SESSION_SECRET: compile-only-placeholder
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build
+      - name: Verify original dashboard and Team Chat unchanged
+        run: |
+          node <<'JS'
+          const fs = require('fs');
+          const a = fs.readFileSync('app/dashboard/page.tsx','utf8');
+          const b = fs.readFileSync('app/layout.tsx','utf8');
+          const c = fs.readFileSync('app/api/admin/dashboard-overview/route.ts','utf8');
+          const ai = fs.readFileSync('app/api/admin/ai-questions/route.ts','utf8');
+          if(!a.includes('AdminDashboardExtras'))throw Error('Missing admin bottom');
+          if(!a.includes('gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))"'))throw Error('Original responsive menu modified');
+          if(!b.includes('TeamChatWidget')||!b.includes('SolstoneAIEntry'))throw Error('Chat or AI missing');
+          if(!c.includes('getChatUser')||!c.includes('!session.isAdmin'))throw Error('Calendar not secured');
+          if(!ai.includes('getChatUser')||!ai.includes('!user.isAdmin'))throw Error('AI admin not secured');
+          JS

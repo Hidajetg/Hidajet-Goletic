@@ -5,6 +5,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 import { type AppLanguage, saveAppLanguage } from "../lib/language";
+import AdminDashboardExtras from "./AdminDashboardExtras";
 
 type UserRole = "admin" | "worker";
 
@@ -599,6 +600,7 @@ export default function DashboardPage() {
           ))}
         </section>
       )}
+      {isAdmin && <AdminDashboardExtras />}
     </main>
   );
 }
