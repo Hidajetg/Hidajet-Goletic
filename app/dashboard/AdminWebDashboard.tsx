@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
+import { SOLSTONE_APPROVED_LOGO } from "../components/solstone-approved-logo";
 import { type AppLanguage, saveAppLanguage } from "../lib/language";
 
 type UserRole = "admin" | "worker";
@@ -481,12 +482,14 @@ export default function DashboardPage() {
   }
 
   return (
-    <main style={mainStyle}>
-      <h1 style={titleStyle}>STONE BOUTIQUE</h1>
-
-      <h2 style={subtitleStyle}>
-        {t.welcome} {workerName}
-      </h2>
+    <main className="solstone-admin-dashboard" style={mainStyle}>
+      <header className="solstone-admin-header">
+        <img src={SOLSTONE_APPROVED_LOGO} alt="Solstone Baustelle" width={52} height={52} />
+        <div>
+          <h1 style={titleStyle}>SOLSTONE BAUSTELLE</h1>
+          <h2 style={subtitleStyle}>{t.welcome} {workerName}</h2>
+        </div>
+      </header>
 
       <div style={languageBoxStyle}>
         {(["de", "ba", "uz", "cz", "en"] as AppLanguage[]).map((code) => (
@@ -501,7 +504,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div style={gridStyle}>
+      <div className="solstone-admin-dashboard-grid" style={gridStyle}>
         <Link href="/baustellen" style={buttonStyle}>
           🏗️ {t.baustelle}
         </Link>
