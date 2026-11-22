@@ -5,7 +5,9 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 import { type AppLanguage, saveAppLanguage } from "../lib/language";
+import "./original-dashboard.css";
 import AdminDashboardExtras from "./AdminDashboardExtras";
+import AdminAiFloating from "./AdminAiFloating";
 
 type UserRole = "admin" | "worker";
 
@@ -437,6 +439,7 @@ export default function DashboardPage() {
   function changeLanguage(newLang: AppLanguage) {
     saveAppLanguage(newLang);
     setLang(newLang);
+    window.dispatchEvent(new Event("solstone-language-change"));
   }
 
   async function logout() {
@@ -482,7 +485,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main style={mainStyle}>
+    <main className={isAdmin ? "solstone-original-dashboard" : undefined} style={mainStyle}>
       <h1 style={titleStyle}>STONE BOUTIQUE</h1>
 
       <h2 style={subtitleStyle}>
@@ -502,7 +505,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div style={gridStyle}>
+      <div className={isAdmin ? "solstone-original-menu" : undefined} style={gridStyle}>
         <Link href="/baustellen" style={buttonStyle}>
           🏗️ {t.baustelle}
         </Link>
@@ -564,6 +567,12 @@ export default function DashboardPage() {
         </Link>
 
         {isAdmin && (
+          <Link href="/admin/ai-pitanja" style={aiQuestionsButtonStyle}>
+            💬 {lang === "ba" ? "APP PITANJA" : lang === "de" ? "APP FRAGEN" : lang === "uz" ? "APP SAVOLLAR" : lang === "cz" ? "APP DOTAZY" : "APP QUESTIONS"}
+          </Link>
+        )}
+
+        {isAdmin && (
           <Link href="/material" style={materialAdminButtonStyle}>
             🧱 {t.adminMaterial}
           </Link>
@@ -583,11 +592,11 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {messages.length > 0 && (
-        <section style={infoBoxStyle}>
+      {(isAdmin || messages.length > 0) && (
+        <section className={isAdmin ? "solstone-original-info" : undefined} style={infoBoxStyle}>
           <h2 style={infoTitleStyle}>📢 {t.info}</h2>
 
-          {messages.map((message) => (
+          {messages.length === 0 ? <p className="solstone-info-empty">{t.noMessages}</p> : messages.map((message) => (
             <div key={message.id} style={messageStyle}>
               <div style={messageTopStyle}>
                 <strong>{message.sender_name || "Admin"}</strong>
@@ -601,6 +610,7 @@ export default function DashboardPage() {
         </section>
       )}
       {isAdmin && <AdminDashboardExtras />}
+      {isAdmin && <AdminAiFloating />}
     </main>
   );
 }
@@ -723,6 +733,11 @@ const adminProjectButtonStyle: CSSProperties = {
 const employeeButtonStyle: CSSProperties = {
   ...buttonStyle,
   background: "#0891b2",
+};
+
+const aiQuestionsButtonStyle: CSSProperties = {
+  ...buttonStyle,
+  background: "#7c3aed",
 };
 
 const materialAdminButtonStyle: CSSProperties = {
