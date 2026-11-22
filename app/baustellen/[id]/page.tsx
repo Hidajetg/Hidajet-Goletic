@@ -33,6 +33,8 @@ const translations: any = {
 
     bauDocumentation: "Bau-Dokumentation",
     openBauDocumentation: "Tagesberichte, Fotos und Pläne",
+    aiOffer: "KI – Angebot umwandeln",
+    aiOfferDescription: "Angebot per AI auswerten",
 
     siteInfo: "Informationen zur Baustelle",
     addInfo: "Information hinzufügen",
@@ -112,6 +114,8 @@ const translations: any = {
 
     bauDocumentation: "Bau-Dokumentation",
     openBauDocumentation: "Dnevni izvještaji, slike i planovi",
+    aiOffer: "AI – Pretvori ponudu",
+    aiOfferDescription: "Ponuda u plan radova",
 
     siteInfo: "Informacije o Baustelle",
     addInfo: "Dodaj informaciju",
@@ -192,6 +196,8 @@ const translations: any = {
 
     bauDocumentation: "Construction documentation",
     openBauDocumentation: "Daily reports, photos and plans",
+    aiOffer: "AI – Convert offer",
+    aiOfferDescription: "Offer to work plan",
 
     siteInfo: "Site information",
     addInfo: "Add information",
@@ -272,6 +278,8 @@ const translations: any = {
 
     bauDocumentation: "Qurilish hujjatlari",
     openBauDocumentation: "Kunlik hisobotlar, rasmlar va rejalar",
+    aiOffer: "AI – Taklifni aylantirish",
+    aiOfferDescription: "Taklifdan ish rejasi",
 
     siteInfo: "Obyekt ma’lumoti",
     addInfo: "Ma’lumot qo‘shish",
@@ -352,6 +360,8 @@ const translations: any = {
 
     bauDocumentation: "Stavební dokumentace",
     openBauDocumentation: "Denní zprávy, fotografie a plány",
+    aiOffer: "AI – Převést nabídku",
+    aiOfferDescription: "Z nabídky vytvořit plán",
 
     siteInfo: "Informace o stavbě",
     addInfo: "Přidat informaci",
@@ -1121,6 +1131,18 @@ export default function BaustelleDetailPage() {
           </Link>
         )}
 
+        {/* AI ponuda – samo administrator, bez promjena ostalih modula */}
+        {isAdmin && (
+          <Link
+            href={"/admin/ai-unosi?siteId=" + encodeURIComponent(baustelleId) + "&kind=angebot"}
+            style={aiOfferButtonStyle}
+          >
+            <div style={googleIconStyle}>🤖</div>
+            <div style={googleTitleStyle}>{t.aiOffer}</div>
+            <div style={googleSmallTextStyle}>{t.aiOfferDescription}</div>
+          </Link>
+        )}
+
         <div
           style={
             topDividerStyle
@@ -1660,6 +1682,11 @@ const bauDocumentationButtonStyle: any = {
   fontWeight: "bold",
 
   display: "block",
+};
+
+const aiOfferButtonStyle: any = {
+  ...bauDocumentationButtonStyle,
+  background: "#b45309",
 };
 
 const googleIconStyle: any = {
