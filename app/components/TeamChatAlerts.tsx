@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { readAppLanguage, type AppLanguage } from "../lib/language";
+import { playNotificationTone, unlockNotificationTone } from "../lib/notification-tone";
 
 type RoomSignal = {
   id: string; lastMessageId: string | null;
@@ -24,23 +25,25 @@ const LOCALES: Record<AppLanguage,string> = {
 export default function TeamChatAlerts() {
   const previous = useRef(new Map<string,string>());
   const initialized = useRef(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const unlocked = useRef(false);
 
   useEffect(() => {
-    audioRef.current = new Audio("/sounds/notification.mp3");
-    audioRef.current.volume = 0.8;
     let active = true;
 
     const unlock = () => {
-      if (!audioRef.current || unlocked.current) return;
-      audioRef.current.play().then(() => {
-        audioRef.current?.pause();
-        if (audioRef.current) audioRef.current.currentTime = 0;
-        unlocked.current = true;
-      }).catch(() => {});
+      if (unlocked.current) return;
+      void unlockNotificationTone().then((enabled) => {
+        unlocked.current = enabled;
+      });
+    };
+    const testSound = () => {
+      void unlockNotificationTone().then((enabled) => {
+        unlocked.current = enabled;
+        if (enabled) playNotificationTone();
+      });
     };
     document.addEventListener("pointerdown",unlock,{passive:true});
+    window.addEventListener("solstone-chat-test-sound",testSound);
 
     const announce = (sender: string) => {
       const lang = readAppLanguage("de");
@@ -48,11 +51,7 @@ export default function TeamChatAlerts() {
         ? sender + ": " + VOICE_MESSAGES.uz
         : VOICE_MESSAGES[lang] + " " + sender;
       if (localStorage.getItem("solstone_chat_sound") !== "false" && unlocked.current) {
-        const audio = audioRef.current;
-        if (audio) {
-          audio.currentTime = 0;
-          audio.play().catch(() => {});
-        }
+        playNotificationTone();
       }
       if (localStorage.getItem("solstone_chat_voice") === "true" &&
           typeof window.speechSynthesis !== "undefined") {
@@ -115,6 +114,7 @@ export default function TeamChatAlerts() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange",onVisibility);
       document.removeEventListener("pointerdown",unlock);
+      window.removeEventListener("solstone-chat-test-sound",testSound);
       window.speechSynthesis?.cancel();
     };
   },[]);
