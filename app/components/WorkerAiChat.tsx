@@ -69,10 +69,10 @@ const speechLanguage: Record<AppLanguage, string> = {
   de: "de-DE", ba: "bs-BA", uz: "uz-UZ", cz: "cs-CZ", en: "en-US",
 };
 
-export default function WorkerAiChat({ mode = "page" }: { mode?: Mode }) {
+export default function WorkerAiChat({ mode = "page", verifiedName }: { mode?: Mode; verifiedName?: string }) {
   const [open, setOpen] = useState(mode === "page");
   const [lang, setLang] = useState<AppLanguage>("de");
-  const [name, setName] = useState("");
+  const [name, setName] = useState(verifiedName || "");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
@@ -92,12 +92,13 @@ export default function WorkerAiChat({ mode = "page" }: { mode?: Mode }) {
     setLang(readAppLanguage("de"));
     const onLanguageChange = () => setLang(readAppLanguage("de"));
     window.addEventListener("solstone-language-change", onLanguageChange);
-    void fetch("/api/auth/login", { credentials: "same-origin", cache: "no-store" })
+    // Reuse the application login; never require a separate AI/ChatGPT login.
+    if (!verifiedName) void fetch("/api/auth/login", { credentials: "same-origin", cache: "no-store" })
       .then(async r => r.ok ? r.json() : null)
       .then(data => setName(String(data?.user?.name || "")))
       .catch(() => {});
     return () => window.removeEventListener("solstone-language-change", onLanguageChange);
-  }, []);
+  }, [verifiedName]);
 
   const reloadHistory = useCallback(async (visibleNotice = false) => {
     setLoadingHistory(true);
@@ -267,7 +268,7 @@ export default function WorkerAiChat({ mode = "page" }: { mode?: Mode }) {
     {open && chat}
     <button className="wai-launcher" type="button" aria-label={open ? t.close : t.reopen}
       onClick={() => setOpen(v => !v)}>
-      {open ? "✦ " + t.close : "🚶 AI"}
+      {open ? "✦ " + t.close : "✦ Baustelle AI"}
     </button>
   </div>;
 }
