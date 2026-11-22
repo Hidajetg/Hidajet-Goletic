@@ -69,6 +69,26 @@ jobs:
           echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
           echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
 
+      - name: Verify original signing certificate before costly build
+        shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.SOLSTONE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SOLSTONE_KEY_ALIAS }}
+          EXPECTED_CERT_SHA256: ${{ vars.SOLSTONE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          cert=$(keytool -exportcert \
+            -keystore "$RUNNER_TEMP/solstone-release.jks" \
+            -alias "$KEY_ALIAS" -storepass:env KEYSTORE_PASSWORD \
+            | sha256sum | awk '{print $1}')
+          expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')
+          echo "Signing certificate SHA-256: $cert"
+          echo "Configured fingerprint SHA-256: $expected"
+          if [ -z "$expected" ] || [ "$cert" != "$expected" ]; then
+            echo "::error::Pinned signing certificate fingerprint mismatch. Do not skip validation."
+            exit 1
+          fi
+
       - name: Compute monotonic Android version
         shell: bash
         run: |
