@@ -27,6 +27,13 @@ export default function KalendarPage() {
   const [selectedWorkers, setSelectedWorkers] = useState<string[]>([]);
   const [baustelleId, setBaustelleId] = useState("");
   const [napomena, setNapomena] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [task, setTask] = useState("");
+  const [priority, setPriority] = useState("");
+  const [responsible, setResponsible] = useState("");
+  const [planStatus, setPlanStatus] = useState("");
+  const [teamNote, setTeamNote] = useState("");
 
   const [workers, setWorkers] = useState<any[]>([]);
   const [baustellen, setBaustellen] = useState<any[]>([]);
@@ -70,10 +77,10 @@ export default function KalendarPage() {
 
     setBaustellen(baustellenRes.data || []);
 
-    await cleanupOldPlans();
     await loadPlans(name, adminStatus);
   }
 
+  /* Keep historic schedule entries: AI uses past planned vs actual work. */
   async function cleanupOldPlans() {
     const now = new Date();
 
@@ -156,11 +163,22 @@ export default function KalendarPage() {
       return;
     }
 
+    if (startTime && endTime && startTime >= endTime) {
+      alert("Ende / Kraj rada mora biti nakon početka.");
+      return;
+    }
     const rows = selectedWorkers.map((worker) => ({
       datum,
       worker_name: worker,
       baustelle_id: Number(baustelleId),
       napomena: napomena.trim(),
+      start_time: startTime || null,
+      end_time: endTime || null,
+      task: task.trim() || null,
+      priority: priority || null,
+      responsible_person: responsible.trim() || null,
+      plan_status: planStatus || null,
+      team_note: teamNote.trim() || null,
     }));
 
     const { error } = await supabase.from("work_calendar").insert(rows);
@@ -175,8 +193,9 @@ export default function KalendarPage() {
     setSelectedWorkers([]);
     setBaustelleId("");
     setNapomena("");
+    setStartTime(""); setEndTime(""); setTask(""); setPriority("");
+    setResponsible(""); setPlanStatus(""); setTeamNote("");
 
-    await cleanupOldPlans();
     await loadPlans(currentUser, isAdmin);
   }
 
@@ -277,6 +296,38 @@ export default function KalendarPage() {
             ))}
           </select>
 
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(160px,1fr))",gap:12}}>
+            <label style={labelStyle}>{lang==="de"?"Beginn":"Početak"}<input type="time" value={startTime}
+              onChange={e=>setStartTime(e.target.value)} style={inputStyle}/></label>
+            <label style={labelStyle}>{lang==="de"?"Ende":"Kraj"}<input type="time" value={endTime}
+              onChange={e=>setEndTime(e.target.value)} style={inputStyle}/></label>
+          </div>
+          <label style={labelStyle}>{lang==="de"?"Aufgabe / Arbeitsphase":"Zadatak / faza rada"}</label>
+          <input value={task} onChange={e=>setTask(e.target.value)} maxLength={450}
+            placeholder={lang==="de"?"z. B. Abdichtung vorbereiten":"npr. priprema hidroizolacije"} style={inputStyle}/>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(180px,1fr))",gap:12}}>
+            <label style={labelStyle}>{lang==="de"?"Priorität":"Prioritet"}
+              <select value={priority} onChange={e=>setPriority(e.target.value)} style={inputStyle}>
+                <option value="">{lang==="de"?"Nicht angegeben":"Nije navedeno"}</option>
+                <option value="high">{lang==="de"?"Hoch":"Visok"}</option>
+                <option value="normal">{lang==="de"?"Normal":"Normalan"}</option>
+                <option value="low">{lang==="de"?"Niedrig":"Nizak"}</option>
+              </select>
+            </label>
+            <label style={labelStyle}>{lang==="de"?"Status":"Status"}
+              <select value={planStatus} onChange={e=>setPlanStatus(e.target.value)} style={inputStyle}>
+                <option value="">{lang==="de"?"Nicht angegeben":"Nije navedeno"}</option>
+                <option value="planned">{lang==="de"?"Geplant":"Planirano"}</option>
+                <option value="confirmed">{lang==="de"?"Bestätigt":"Potvrđeno"}</option>
+              </select>
+            </label>
+          </div>
+          <label style={labelStyle}>{lang==="de"?"Verantwortlich vor Ort":"Odgovorna osoba na gradilištu"}</label>
+          <input value={responsible} onChange={e=>setResponsible(e.target.value)}
+            maxLength={120} style={inputStyle} />
+          <label style={labelStyle}>{lang==="de"?"Team-Hinweis (gleicher Einsatzort)":"Napomena za ekipu na istom gradilištu"}</label>
+          <input value={teamNote} onChange={e=>setTeamNote(e.target.value)}
+            maxLength={350} style={inputStyle}/>
           <label style={labelStyle}>{t.note}</label>
           <textarea
             placeholder={t.notePlaceholder}
@@ -317,6 +368,14 @@ export default function KalendarPage() {
                 </p>
               )}
 
+              {(p.start_time || p.end_time) && <p>
+                <strong>{lang==="de"?"Arbeitszeit":"Radno vrijeme"}:</strong> {p.start_time?.slice(0,5)||"?"} – {p.end_time?.slice(0,5)||"?"}
+              </p>}
+              {p.task && <p><strong>{lang==="de"?"Aufgabe":"Zadatak"}:</strong> {p.task}</p>}
+              {p.priority && <p><strong>Priorität:</strong> {p.priority}</p>}
+              {p.plan_status && <p><strong>Status:</strong> {p.plan_status}</p>}
+              {p.responsible_person && <p><strong>{lang==="de"?"Verantwortlich":"Odgovorni"}:</strong> {p.responsible_person}</p>}
+              {p.team_note && <p><strong>Team:</strong> {p.team_note}</p>}
               {p.napomena && (
                 <p>
                   <strong>{t.note}:</strong> {p.napomena}
