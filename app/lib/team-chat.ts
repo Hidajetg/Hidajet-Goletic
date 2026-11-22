@@ -73,13 +73,19 @@ export async function authorizedSiteIds(user: ChatUser): Promise<string[]> {
     return (data ?? []).map((site) => String(site.id));
   }
 
-  // Site membership follows TODAY'S actual calendar. A previous job does not
-  // allow a worker to read that site's future conversations.
-  // Exact name match only: contains/substring matches could expose other sites.
+  // Include confirmed assignments for today and the coming 7 days.
+  // A Sunday or non-working day must not make a worker's upcoming site
+  // disappear from Team Chat. Never include unrelated or past projects.
+  // Match the authenticated worker's exact name, not a substring.
+  const today = currentViennaDate();
+  const through = new Date(today + "T12:00:00Z");
+  through.setUTCDate(through.getUTCDate() + 7);
+  const throughDate = through.toISOString().slice(0, 10);
   const { data, error } = await supabaseAdmin
     .from("work_calendar")
     .select("baustelle_id")
-    .eq("datum", currentViennaDate())
+    .gte("datum", today)
+    .lte("datum", throughDate)
     .eq("worker_name", user.name)
     .not("baustelle_id", "is", null)
     .limit(200);
