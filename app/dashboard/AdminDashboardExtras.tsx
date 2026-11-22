@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { readAppLanguage, type AppLanguage } from "../lib/language";
 import "./original-dashboard.css";
 
-type Assignment = { id: string; date: string; worker: string; site: string; siteId: string | null; location: string; note: string };
+type Assignment = { id: string; date: string; worker: string; site: string; siteId: string | null; location: string; note: string; startTime?: string|null; endTime?: string|null; task?: string|null; priority?: string|null; responsible?: string|null; planStatus?: string|null; teamNote?: string|null };
 type Question = { id: string; worker: string; question: string; at: string };
 type DailyActivity = { id: string; type: "photo" | "hours" | "work" | "material"; at: string; actor: string; site: string; siteId: number | null; title: string; detail: string };
 type Overview = { week: string[]; start: string; end: string; today: string; rows: Assignment[]; workerCount: number; aiQuestions: Question[]; dailyActivities: DailyActivity[];
@@ -92,7 +92,7 @@ export default function AdminDashboardExtras({ language }: { language?: AppLangu
               {week.map(day => <td key={day} className={day===schedule.today?"selected-day":""}>
                 {schedule.rows.filter(r => r.worker===worker && r.date===day).map(r =>
                   r.siteId ? <Link key={r.id} className="solstone-cell-site" href={"/baustellen/"+encodeURIComponent(r.siteId)}>
-                    <strong>{r.site}</strong>{r.location && <small>{r.location}</small>}{r.note && <small>{r.note}</small>}
+                    <strong>{r.site}</strong>{r.location && <small>{r.location}</small>}{(r.startTime||r.endTime) && <small>⏰ {r.startTime?.slice(0,5)||"?"}–{r.endTime?.slice(0,5)||"?"}</small>}{r.task && <small>{r.task}</small>}{r.planStatus && <small>{r.planStatus==="confirmed"?"✓":"◌"} {r.planStatus}</small>}{r.note && <small>{r.note}</small>}
                   </Link> : <span key={r.id} className="solstone-cell-site"><strong>{r.site}</strong></span>)}
               </td>)}
             </tr>) : <tr><td colSpan={7} className="solstone-small-muted">{t.noPlans}</td></tr>}</tbody>
