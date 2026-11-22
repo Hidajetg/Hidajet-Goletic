@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { type AppLanguage, saveAppLanguage } from "../lib/language";
 import "./original-dashboard.css";
 import AdminDashboardExtras from "./AdminDashboardExtras";
+import WorkerDashboardSchedule from "./WorkerDashboardSchedule";
 import AdminAiFloating from "./AdminAiFloating";
 
 type UserRole = "admin" | "worker";
@@ -610,6 +611,7 @@ export default function DashboardPage() {
         </section>
       )}
       {isAdmin && <AdminDashboardExtras />}
+      {!isAdmin && <WorkerDashboardSchedule />}
       {isAdmin && <AdminAiFloating />}
     </main>
   );

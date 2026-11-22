@@ -1,0 +1,52 @@
+name: Verify worker weekly dashboard schedule and privacy
+
+on:
+  push:
+    branches:
+      - fix/worker-home-schedule-privacy-20261122
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: compile-only-key
+      SUPABASE_SERVICE_ROLE_KEY: compile-only-key
+      APP_SESSION_SECRET: compile-only-local-key
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Check TypeScript
+        run: npx tsc --noEmit
+      - name: Build app
+        run: npm run build
+      - name: Verify worker privacy boundary and unchanged admin/chat
+        run: |
+          node <<'JS'
+          const fs = require('fs');
+          const dashboard=fs.readFileSync('app/dashboard/page.tsx','utf8');
+          const worker=fs.readFileSync('app/dashboard/WorkerDashboardSchedule.tsx','utf8');
+          const api=fs.readFileSync('app/api/worker/dashboard-schedule/route.ts','utf8');
+          const layout=fs.readFileSync('app/layout.tsx','utf8');
+          if(!dashboard.includes('!isAdmin && <WorkerDashboardSchedule />')) throw Error('Worker schedule missing');
+          if(!dashboard.includes('isAdmin && <AdminDashboardExtras />')) throw Error('Admin schedule removed');
+          if(!layout.includes('TeamChatWidget')||!layout.includes('TeamChatAlerts')) throw Error('Team Chat removed');
+          if(!api.includes('getVerifiedAppUser()')||!api.includes('permittedPairs.has(')||!api.includes('normalizedName(row.worker_name)')) throw Error('Worker role/site authorization missing');
+          if(!worker.includes('solstone-week-table')||!worker.includes('data.week.map(')) throw Error('Mon-Sat table missing');
+          console.log('Worker schedule, role filtering, original admin home and Team Chat verified');
+          JS
