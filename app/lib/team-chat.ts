@@ -73,13 +73,19 @@ export async function authorizedSiteIds(user: ChatUser): Promise<string[]> {
     return (data ?? []).map((site) => String(site.id));
   }
 
-  // Site membership follows TODAY'S actual calendar. A previous job does not
-  // allow a worker to read that site's future conversations.
-  // Exact name match only: contains/substring matches could expose other sites.
+  // Workers may access site conversations for their scheduled upcoming work.
+  // On non-working days (e.g. Sunday) today's-only filtering hides every site.
+  // Keep the horizon short and verify membership server-side on each request;
+  // never include unrelated workers' sites or rely on localStorage for access.
+  const today = currentViennaDate();
+  const [year, month, day] = today.split("-").map(Number);
+  const end = new Date(Date.UTC(year, month - 1, day + 7))
+    .toISOString().slice(0, 10);
   const { data, error } = await supabaseAdmin
     .from("work_calendar")
     .select("baustelle_id")
-    .eq("datum", currentViennaDate())
+    .gte("datum", today)
+    .lte("datum", end)
     .eq("worker_name", user.name)
     .not("baustelle_id", "is", null)
     .limit(200);
