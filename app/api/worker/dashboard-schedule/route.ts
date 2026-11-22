@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     // Only one selected week is read. This stays on the server with the
     // service role; unfiltered rows are NEVER returned to a worker.
     const { data, error } = await supabaseAdmin.from("work_calendar")
-      .select("id,datum,worker_name,baustelle_id,napomena")
+      .select("id,datum,worker_name,baustelle_id,napomena,start_time,end_time,task,priority,responsible_person,plan_status,team_note")
       .gte("datum", start).lte("datum", end)
       .order("datum", { ascending: true })
       .order("worker_name", { ascending: true })
@@ -97,6 +97,10 @@ export async function GET(request: NextRequest) {
         site: byId.get(String(row.baustelle_id))?.naziv ?? "Baustelle",
         location: byId.get(String(row.baustelle_id))?.lokacija ?? "",
         note: row.napomena ?? "",
+        startTime: row.start_time ?? null, endTime: row.end_time ?? null,
+        task: row.task ?? null, priority: row.priority ?? null,
+        responsible: row.responsible_person ?? null, planStatus: row.plan_status ?? null,
+        teamNote: row.team_note ?? null,
       })),
     }, { headers: noStore });
   } catch (error) {
