@@ -105,6 +105,7 @@ export default function AdminDashboardExtras() {
         <h2 style={{margin:"0 0 12px",fontSize:22,color:"#f97316"}}>🤖 {t.ai}</h2>
         <div style={{display:"flex",gap:9,flexWrap:"wrap",marginBottom:14}}>
           <Link href="/admin/ai-pitanja" style={actions}>{t.open}</Link>
+          <Link href="/admin/ai-unosi" style={{...actions,background:"#8d4b17"}}>+ AI Baustellen-Info</Link>
           <Link href="/assistant" style={actions}>{t.openAi}</Link>
           <Link href="/baustellen" style={actions}>{t.allSites}</Link>
         </div>
