@@ -20,7 +20,7 @@ function advance(iso: string, days: number) {
 }
 function monday(iso: string) {
   const day = new Date(iso + "T12:00:00Z").getUTCDay();
-  return advance(iso, day === 0 ? -6 : 1 - day);
+  return advance(iso, day === 0 ? 1 : 1 - day);
 }
 export async function GET(req: NextRequest) {
   const session = await getVerifiedAdmin();
