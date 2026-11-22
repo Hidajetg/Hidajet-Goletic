@@ -14,6 +14,9 @@ export default function AdminAiEntries() {
   const [kind,setKind]=useState<"note"|"angebot">("note");
   const [title,setTitle]=useState("");
   const [sourceText,setSourceText]=useState("");
+  const [offerText,setOfferText]=useState("");
+  const [offerFile,setOfferFile]=useState<File | null>(null);
+  const [converting,setConverting]=useState(false);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
@@ -24,7 +27,34 @@ export default function AdminAiEntries() {
     setSites(data.sites||[]);
     setEntries(data.entries||[]);
   },[]);
-  useEffect(()=>{void reload().catch(e=>setError(e instanceof Error?e.message:"Fehler"));},[reload]);
+  useEffect(()=>{
+    const query = new URLSearchParams(window.location.search);
+    const selectedSite = query.get("siteId");
+    if (selectedSite && /^[0-9]+$/.test(selectedSite)) setSiteId(selectedSite);
+    if (query.get("kind") === "angebot") setKind("angebot");
+    void reload().catch(e=>setError(e instanceof Error?e.message:"Fehler"));
+  },[reload]);
+  const convertOffer=async()=>{
+    if (!siteId) {setError("Prvo odaberi gradilište.");return;}
+    if (!offerFile && !offerText.trim()) {setError("Dodaj PDF, DOCX, sliku ili tekst ponude.");return;}
+    if (offerFile && offerFile.size > 4_000_000) {setError("Datoteka mora biti manja od 4 MB.");return;}
+    setConverting(true);setError("");setMessage("");
+    try {
+      const body=new FormData();
+      body.set("siteId",siteId);
+      body.set("text",offerText);
+      if (offerFile) body.set("file",offerFile);
+      const response=await fetch("/api/admin/angebot-konvert",{
+        method:"POST",credentials:"same-origin",body,
+      });
+      const data=await response.json();
+      if(!response.ok)throw Error(data?.error||"AI nije dostupan.");
+      setSourceText(String(data.draft||"").slice(0,11800));
+      setTitle(String(data.title||"Angebot").slice(0,180));
+      setMessage(String(data.warning||"AI nacrt je spreman za provjeru. Ništa nije automatski spremljeno."));
+    }catch(e){setError(e instanceof Error?e.message:"AI obrada nije uspjela.");}
+    finally{setConverting(false);}
+  };
   const save=async(e:React.FormEvent)=>{
     e.preventDefault();setBusy(true);setError("");setMessage("");
     try{
@@ -58,10 +88,29 @@ export default function AdminAiEntries() {
             <option value="angebot">Angebot / Ponuda</option>
           </select>
         </label>
+        {kind==="angebot"&&<section style={{padding:14,background:"#19140e",border:"1px solid #815723",borderRadius:10,display:"grid",gap:12}}>
+          <strong style={{color:"#fb923c",fontSize:18}}>🤖 AI – Angebot in Arbeitsplan umwandeln</strong>
+          <p style={{color:"#e5e5e5",margin:0}}>Dodaj ponudu (PDF, DOCX, JPG, PNG ili TXT) ili zalijepi njen tekst. AI priprema pregled pozicija, količina, radova i materijala kao <b>nacrt za provjeru</b>. Dokument se šalje AI servisu tek kada klikneš dugme za analizu.</p>
+          <label>Datoteka ponude (do 4 MB)
+            <input type="file" accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.webp" onChange={e=>setOfferFile(e.target.files?.[0]||null)}
+              style={{...control,marginTop:7}}/>
+          </label>
+          <label>Originalni tekst ponude (neobavezno)
+            <textarea value={offerText} maxLength={30000} rows={4}
+              onChange={e=>setOfferText(e.target.value)}
+              placeholder="Ili ovdje zalijepi tekst ponude..."
+              style={{...control,marginTop:7,resize:"vertical"}}/>
+          </label>
+          <button type="button" disabled={converting||busy} onClick={()=>void convertOffer()}
+            style={{...button,background:"#c35d14",opacity:converting?.6:1}}>
+            {converting?"AI obrađuje ponudu...":"✨ Pretvori ponudu uz AI"}
+          </button>
+          <small style={{color:"#e7c6a2"}}>AI može pogriješiti. Obavezno provjeri količine i cijene. Automatski se ne mijenjaju prostorije, pozicije ni materijal.</small>
+        </section>}
         <label>Naslov
           <input required minLength={2} maxLength={180} value={title} onChange={e=>setTitle(e.target.value)} style={{...control,marginTop:7}} placeholder="Npr. Priprema hidroizolacije"/>
         </label>
-        <label>Opis / Materijal / Radni koraci
+        <label>{kind==="angebot"?"AI nacrt / pregled ponude (možeš urediti prije spremanja)":"Opis / Materijal / Radni koraci"}
           <textarea required maxLength={12000} rows={7} value={sourceText} onChange={e=>setSourceText(e.target.value)} style={{...control,marginTop:7,resize:"vertical"}} placeholder="Unesi potrebne materijale, korake rada i napomene…"/>
         </label>
         <button disabled={busy} type="submit" style={{...button,background:"#b45309",opacity:busy?.6:1}}>{busy?"Spremam…":"Spremi nacrt"}</button>
