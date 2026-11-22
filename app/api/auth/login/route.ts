@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
 import { supabaseAdmin } from "../../../lib/supabase-admin";
+import { getVerifiedAppUser } from "../../../lib/verified-dashboard-admin";
 import {
   createSessionToken,
   verifySessionToken,
@@ -70,43 +71,23 @@ function createLoginResponse(
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-
-    const token =
-      cookieStore.get("solstone_session")?.value || null;
-
-    const session = verifySessionToken(token);
-
-    if (!session) {
-      return NextResponse.json(
-        {
-          authenticated: false,
-        },
-        {
-          status: 401,
-        },
-      );
+    // Check the same signed cookie AND active Supabase identity used by
+    // worker/admin calendar APIs. Never claim localStorage alone is a login.
+    const user = await getVerifiedAppUser();
+    if (!user) {
+      return NextResponse.json({ authenticated: false }, {
+        status: 401, headers: { "Cache-Control": "private, no-store" },
+      });
     }
-
     return NextResponse.json({
       authenticated: true,
-      user: {
-        id: String(session.id),
-        name: String(session.name),
-        role: session.role,
-      },
-    });
+      user: { id: user.id, name: user.name, role: user.isAdmin ? "admin" : "worker" },
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("SESSION CHECK ERROR:", error);
-
-    return NextResponse.json(
-      {
-        authenticated: false,
-      },
-      {
-        status: 401,
-      },
-    );
+    return NextResponse.json({ authenticated: false }, {
+      status: 503, headers: { "Cache-Control": "private, no-store" },
+    });
   }
 }
 

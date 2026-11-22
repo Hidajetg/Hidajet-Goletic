@@ -1,0 +1,57 @@
+name: Verify dashboard session and worker calendar
+
+on:
+  push:
+    branches:
+      - fix/dashboard-auth-session-consistency-20261122
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: compile-only-key
+      SUPABASE_SERVICE_ROLE_KEY: compile-only-key
+      APP_SESSION_SECRET: compile-only-local-key
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+      - name: Check browser versus secure session and calendars
+        run: |
+          node <<'JS'
+          const fs = require('fs');
+          const dash = fs.readFileSync('app/dashboard/page.tsx','utf8');
+          const auth = fs.readFileSync('app/api/auth/login/route.ts','utf8');
+          const verified = fs.readFileSync('app/lib/verified-dashboard-admin.ts','utf8');
+          const worker = fs.readFileSync('app/api/worker/dashboard-schedule/route.ts','utf8');
+          const layout = fs.readFileSync('app/layout.tsx','utf8');
+          if (!dash.includes('fetch("/api/auth/login"')) throw Error('Missing secure session check');
+          if (!dash.includes('isAdmin && <AdminDashboardExtras />') ||
+              !dash.includes('!isAdmin && <WorkerDashboardSchedule />'))
+            throw Error('Worker/admin tables removed');
+          if (!auth.includes('getVerifiedAppUser()') || !verified.includes('verifySessionToken('))
+            throw Error('Server identity verification missing');
+          if (!worker.includes('permittedPairs.has(')) throw Error('Worker privacy filter missing');
+          if (!layout.includes('TeamChatWidget') || !layout.includes('TeamChatAlerts'))
+            throw Error('Team Chat removed');
+          console.log('Role-aware login, admin and worker schedule, Team Chat verified');
+          JS
