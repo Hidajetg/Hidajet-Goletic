@@ -1,132 +1,137 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { readAppLanguage, type AppLanguage } from "../lib/language";
+import "./original-dashboard.css";
 
-type Row = { id: string; date: string; worker: string; site: string; location: string; note: string };
-type AiQuestion = { id: string; worker: string; question: string; at: string };
-type AiInfo = { id: string; site: string; title: string; status: string; at: string };
-type Activity = { id: string; title: string; detail: string; actor: string; site: string; at: string };
-type Overview = {
-  week: string[]; start: string; end: string; today: string; rows: Row[];
-  workerCount: number; aiQuestions: AiQuestion[]; aiInfo: AiInfo[]; activities: Activity[];
+type Assignment = { id: string; date: string; worker: string; site: string; siteId: string | null; location: string; note: string };
+type Question = { id: string; worker: string; question: string; at: string };
+type DailyActivity = { id: string; type: "photo" | "hours" | "work" | "material"; at: string; actor: string; site: string; siteId: number | null; title: string; detail: string };
+type Overview = { week: string[]; start: string; end: string; today: string; rows: Assignment[]; workerCount: number; aiQuestions: Question[]; dailyActivities: DailyActivity[];
+  dayCounts: { photo: number; hours: number; work: number; material: number } };
+
+const labels = {
+  de: { calendar: "Wochenplan (Mo–Sa)", openCalendar: "Kalender öffnen", worker: "Mitarbeiter", noPlans: "Für diese Woche sind keine Einsätze eingetragen.", today: "Heutige Einträge", photo: "Fotos", hours: "Arbeitszeit", work: "Produktivität", material: "Material", noToday: "Heute noch keine Einträge.", questions: "APP FRAGEN – Übersicht", recent: "Letzte Gespräche. Offene Fragen bitte unter APP FRAGEN beantworten.", manage: "APP FRAGEN", inputs: "KI-Baustelleninfos", older: "Vorherige Woche", newer: "Nächste Woche", loading: "Wird geladen…", empty: "Noch keine Fragen.", back: "←", next: "→" },
+  ba: { calendar: "Sedmični raspored (pon–sub)", openCalendar: "Otvori kalendar", worker: "Radnik", noPlans: "Nema upisanih rasporeda za ovu sedmicu.", today: "Današnja dodavanja", photo: "Slika", hours: "Radno vrijeme", work: "Produktivnost", material: "Materijal", noToday: "Danas nema novih unosa.", questions: "APP PITANJA – pregled", recent: "Posljednji razgovori. Status neriješenih pitanja provjeri u APP PITANJA.", manage: "APP PITANJA", inputs: "AI unosi gradilišta", older: "Prethodna sedmica", newer: "Sljedeća sedmica", loading: "Učitavanje…", empty: "Još nema pitanja.", back: "←", next: "→" },
+  uz: { calendar: "Haftalik jadval (Du–Sh)", openCalendar: "Taqvimni ochish", worker: "Ishchi", noPlans: "Bu hafta rejalar yo‘q.", today: "Bugungi kiritmalar", photo: "Surat", hours: "Ish vaqti", work: "Unumdorlik", material: "Material", noToday: "Bugun maʼlumot yoʻq.", questions: "APP SAVOLLAR – Ko‘rish", recent: "Oxirgi savollar va javoblar.", manage: "APP SAVOLLAR", inputs: "AI obyekt maʼlumotlari", older: "Oldingi hafta", newer: "Keyingi hafta", loading: "Yuklanmoqda…", empty: "Savollar yo‘q.", back: "←", next: "→" },
+  cz: { calendar: "Týdenní rozvrh (Po–So)", openCalendar: "Otevřít kalendář", worker: "Pracovník", noPlans: "Žádné pracovní plány.", today: "Dnešní záznamy", photo: "Fotografie", hours: "Pracovní hodiny", work: "Produktivita", material: "Materiál", noToday: "Dnes žádné záznamy.", questions: "APP DOTAZY – přehled", recent: "Poslední rozhovory a otázky.", manage: "APP DOTAZY", inputs: "AI informace o stavbách", older: "Předchozí týden", newer: "Další týden", loading: "Načítání…", empty: "Žádné dotazy.", back: "←", next: "→" },
+  en: { calendar: "Weekly schedule (Mon–Sat)", openCalendar: "Open calendar", worker: "Worker", noPlans: "No assignments this week.", today: "Today's additions", photo: "Photos", hours: "Work hours", work: "Productivity", material: "Material", noToday: "No entries today.", questions: "APP QUESTIONS – overview", recent: "Recent conversations and unanswered questions.", manage: "APP QUESTIONS", inputs: "AI site entries", older: "Previous week", newer: "Next week", loading: "Loading…", empty: "No questions yet.", back: "←", next: "→" },
 };
-const words = {
-  de: { title:"Mitarbeiter-Kalender", week:"Wo arbeiten unsere Mitarbeiter?", back:"Vorherige Woche", next:"Nächste Woche", day:"Tag", worker:"Mitarbeiter", site:"Baustelle", note:"Notiz", none:"Keine Einsätze eingetragen.", manage:"Kalender bearbeiten", ai:"KI – Administrator", questions:"Fragen der Mitarbeiter", aiInfo:"KI-Baustelleninformationen", activity:"Letzte Einträge", noQuestions:"Noch keine KI-Fragen.", noActivities:"Keine neuen Einträge.", open:"KI Fragen verwalten", allSites:"Baustellen / Eingaben", loading:"Wird geladen…", retry:"Erneut versuchen", workers:"Aktive Mitarbeiter", openAi:"KI-Assistent", unnamed:"Ohne Eintrag" },
-  ba: { title:"Kalendar radnika", week:"Gdje rade naši radnici?", back:"Prethodna sedmica", next:"Sljedeća sedmica", day:"Dan", worker:"Radnik", site:"Baustelle", note:"Napomena", none:"Nema rasporeda za ovaj dan.", manage:"Uredi kalendar", ai:"AI – Administrator", questions:"Pitanja radnika", aiInfo:"AI informacije gradilišta", activity:"Posljednji unosi", noQuestions:"Još nema AI pitanja.", noActivities:"Nema novih unosa.", open:"Upravljaj AI pitanjima", allSites:"Gradilišta / unosi", loading:"Učitavanje…", retry:"Pokušaj ponovo", workers:"Aktivni radnici", openAi:"AI asistent", unnamed:"Bez unosa" },
-  uz: { title:"Ishchilar taqvimi", week:"Ishchilar qayerda ishlaydi?", back:"Oldingi hafta", next:"Keyingi hafta", day:"Kun", worker:"Ishchi", site:"Obyekt", note:"Izoh", none:"Jadval yo‘q.", manage:"Taqvimni tahrirlash", ai:"AI – Administrator", questions:"Ishchilar savollari", aiInfo:"AI obyekt ma’lumotlari", activity:"So‘nggi kiritmalar", noQuestions:"AI savollar yo‘q.", noActivities:"Yangi ma’lumot yo‘q.", open:"AI savollarini ko‘rish", allSites:"Obyektlar / yozuvlar", loading:"Yuklanmoqda…", retry:"Qayta urinish", workers:"Faol ishchilar", openAi:"AI yordamchi", unnamed:"Ma’lumot yo‘q" },
-  en: { title:"Worker calendar", week:"Where is everyone working?", back:"Previous week", next:"Next week", day:"Day", worker:"Worker", site:"Site", note:"Note", none:"No assignments.", manage:"Edit calendar", ai:"AI – Admin", questions:"Worker questions", aiInfo:"AI site information", activity:"Latest entries", noQuestions:"No AI questions yet.", noActivities:"No recent entries.", open:"Manage AI questions", allSites:"Sites / entries", loading:"Loading…", retry:"Try again", workers:"Active workers", openAi:"AI assistant", unnamed:"No entry" },
-  cz: { title:"Kalendář pracovníků", week:"Kde pracují pracovníci?", back:"Předchozí týden", next:"Další týden", day:"Den", worker:"Pracovník", site:"Stavba", note:"Poznámka", none:"Žádné plány.", manage:"Upravit kalendář", ai:"AI – Administrátor", questions:"Otázky pracovníků", aiInfo:"AI informace o stavbách", activity:"Poslední záznamy", noQuestions:"Zatím žádné AI otázky.", noActivities:"Žádné nové záznamy.", open:"Spravovat otázky AI", allSites:"Stavby / záznamy", loading:"Načítání…", retry:"Zkusit znovu", workers:"Aktivní pracovníci", openAi:"AI asistent", unnamed:"Bez záznamu" },
+const datePlus = (iso: string, days: number) => new Date(Date.parse(iso + "T12:00:00Z") + days * 86_400_000).toISOString().slice(0, 10);
+const weekdays: Record<AppLanguage, string[]> = {
+  de: ["Mo", "Di", "Mi", "Do", "Fr", "Sa"], ba: ["Pon", "Uto", "Sri", "Čet", "Pet", "Sub"],
+  uz: ["Du", "Se", "Ch", "Pa", "Ju", "Sh"], cz: ["Po", "Út", "St", "Čt", "Pá", "So"], en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
 };
-const weekday = (iso: string, lang: AppLanguage) => new Date(iso + "T12:00:00Z").toLocaleDateString(
-  lang === "ba" ? "bs-BA" : lang === "cz" ? "cs-CZ" : lang === "uz" ? "uz-UZ" : lang === "en" ? "en-GB" : "de-AT",
-  { weekday:"short", day:"2-digit", month:"2-digit", timeZone:"UTC" });
-const dateChange = (iso: string, days: number) => new Date(Date.parse(iso + "T12:00:00Z") + days * 86_400_000).toISOString().slice(0, 10);
-const card: React.CSSProperties = { border: "1px solid #373737", borderRadius: 15, background:"#101010", padding:16, marginTop:16 };
-const actions: React.CSSProperties = { color:"#fff", background:"#1e4770", borderRadius:9, padding:"9px 12px", textDecoration:"none", fontSize:13, fontWeight:700, border:"1px solid #57718a", cursor:"pointer", display:"inline-block" };
+const showTime = (date: string) => new Date(date).toLocaleTimeString("de-AT", { timeZone: "Europe/Vienna", hour: "2-digit", minute: "2-digit" });
+const showDate = (iso: string) => new Date(iso + "T12:00:00Z").toLocaleDateString("de-AT", { timeZone: "UTC" });
 
 export default function AdminDashboardExtras() {
   const [lang, setLang] = useState<AppLanguage>("de");
-  const [overview, setOverview] = useState<Overview | null>(null);
-  const [start, setStart] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [schedule, setSchedule] = useState<Overview | null>(null);
+  const [date, setDate] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    const update = () => setLang(readAppLanguage("de"));
-    update();
-    window.addEventListener("storage", update);
-    return () => window.removeEventListener("storage", update);
+    const read = () => setLang(readAppLanguage("de"));
+    read();
+    window.addEventListener("storage", read);
+    window.addEventListener("solstone-language-change", read);
+    return () => {
+      window.removeEventListener("storage", read);
+      window.removeEventListener("solstone-language-change", read);
+    };
   }, []);
-  const load = useCallback(async (selected: string | null, signal: AbortSignal) => {
+  const load = useCallback(async (start: string | null, signal: AbortSignal) => {
     setLoading(true); setError("");
     try {
-      const res = await fetch("/api/admin/dashboard-overview" + (selected ? "?start=" + encodeURIComponent(selected) : ""), {
-        credentials:"same-origin", cache:"no-store", signal,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Fehler");
-      setOverview(data as Overview);
-      if (!selected) setStart((data as Overview).start);
-    } catch (e) {
-      if (!signal.aborted) setError(e instanceof Error ? e.message : "Fehler");
+      const result = await fetch("/api/admin/dashboard-overview" + (start ? "?start=" + encodeURIComponent(start) : ""), { credentials: "same-origin", cache: "no-store", signal });
+      const data = await result.json();
+      if (!result.ok) throw Error(data.error || "Kalender nicht verfügbar");
+      if (!signal.aborted) {
+        setSchedule(data as Overview);
+        setDate(data.start);
+      }
+    } catch (ex) {
+      if (!signal.aborted) setError(ex instanceof Error ? ex.message : "Fehler");
     } finally {
       if (!signal.aborted) setLoading(false);
     }
   }, []);
   useEffect(() => {
     const ctrl = new AbortController();
-    void load(start, ctrl.signal);
+    void load(date, ctrl.signal);
     return () => ctrl.abort();
-  }, [start, load]);
-  const t = words[lang] || words.de;
-  const shift = (days: number) => {
-    if (overview) setStart(dateChange(overview.start, days));
-  };
+  }, [date, load]);
+  const workers = useMemo(() => [...new Set((schedule?.rows || []).map(r => r.worker).filter(Boolean))].sort((a,b) => a.localeCompare(b, "de-AT")), [schedule]);
+  const t = labels[lang] || labels.de;
+  const week = schedule?.week || [];
+  const count = schedule?.dayCounts || { photo:0, hours:0, work:0, material:0 };
+  const activities = schedule?.dailyActivities || [];
+  const questions = schedule?.aiQuestions || [];
   return (
-    <section aria-label={t.title} style={{marginTop:24, maxWidth:1100}}>
-      <div style={card}>
-        <h2 style={{margin:"0 0 6px", fontSize:23, color:"#f97316"}}>📅 {t.title}</h2>
-        <p style={{margin:"0 0 13px",color:"#ccc"}}>{t.week}</p>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap",marginBottom:14}}>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <button type="button" style={actions} onClick={() => shift(-7)} disabled={!overview || loading}>{t.back}</button>
-            <button type="button" style={actions} onClick={() => shift(7)} disabled={!overview || loading}>{t.next}</button>
+    <div className="solstone-original-overview">
+      <div className="solstone-original-duo">
+        <section className="solstone-original-panel solstone-original-week">
+          <header className="solstone-panel-head">
+            <strong>📅 {t.calendar}</strong>
+            <div className="solstone-panel-actions">
+              <button type="button" onClick={() => schedule && setDate(datePlus(schedule.start,-7))} title={t.older} aria-label={t.older} disabled={!schedule || loading}>‹</button>
+              <button type="button" onClick={() => schedule && setDate(datePlus(schedule.start,7))} title={t.newer} aria-label={t.newer} disabled={!schedule || loading}>›</button>
+              <Link href="/kalendar">{t.openCalendar}</Link>
+            </div>
+          </header>
+          {error && <p role="alert" className="solstone-small-error">{error}</p>}
+          {loading && !schedule && <p className="solstone-small-muted">{t.loading}</p>}
+          {schedule && <div className="solstone-week-scroll"><table className="solstone-week-table">
+            <thead><tr><th>{t.worker}</th>{week.map((day,i)=><th key={day} className={day===schedule.today?"selected-day":""}>{weekdays[lang][i]} {day.slice(8,10)}.{day.slice(5,7)}.</th>)}</tr></thead>
+            <tbody>{workers.length ? workers.map(worker => <tr key={worker}>
+              <th scope="row">{worker}</th>
+              {week.map(day => <td key={day} className={day===schedule.today?"selected-day":""}>
+                {schedule.rows.filter(r => r.worker===worker && r.date===day).map(r =>
+                  r.siteId ? <Link key={r.id} className="solstone-cell-site" href={"/baustellen/"+encodeURIComponent(r.siteId)}>
+                    <strong>{r.site}</strong>{r.location && <small>{r.location}</small>}{r.note && <small>{r.note}</small>}
+                  </Link> : <span key={r.id} className="solstone-cell-site"><strong>{r.site}</strong></span>)}
+              </td>)}
+            </tr>) : <tr><td colSpan={7} className="solstone-small-muted">{t.noPlans}</td></tr>}</tbody>
+          </table></div>}
+        </section>
+        <section className="solstone-original-panel solstone-original-daily">
+          <header className="solstone-panel-head"><strong>📝 {t.today} – {schedule ? showDate(schedule.today) : ""}</strong></header>
+          <div className="solstone-daily-counters">
+            <span>🖼️ {t.photo}: <b>{count.photo}</b></span>
+            <span>⏱️ {t.hours}: <b>{count.hours}</b></span>
+            <span>🧱 {t.work}: <b>{count.work}</b></span>
+            <span>📦 {t.material}: <b>{count.material}</b></span>
           </div>
-          <Link href="/kalendar" style={{...actions,background:"#c26021"}}>+ {t.manage}</Link>
-        </div>
-        {error ? <p role="alert" style={{color:"#fca5a5"}}>{error} <button type="button" style={actions} onClick={() => {setStart(null);setOverview(null)}}>{t.retry}</button></p> : null}
-        {loading && !overview ? <p>{t.loading}</p> : null}
-        {overview ? <div style={{overflowX:"auto"}}>
-          <table style={{borderCollapse:"collapse",width:"100%",minWidth:490,fontSize:14}}>
-            <thead><tr style={{color:"#f97316",borderBottom:"1px solid #555",textAlign:"left"}}>
-              <th style={{padding:9,width:100}}>{t.day}</th>
-              <th style={{padding:9}}>{t.worker}</th><th style={{padding:9}}>{t.site}</th><th style={{padding:9}}>{t.note}</th>
-            </tr></thead>
-            <tbody>{overview.week.map((day) => {
-              const rows = overview.rows.filter(row => row.date === day);
-              return rows.length ? rows.map((entry, i) => (
-                <tr key={entry.id} style={{borderBottom:"1px solid #292929",background:day===overview.today?"#231c12":"transparent"}}>
-                  <td style={{padding:9,whiteSpace:"nowrap",fontWeight:700}}>{i===0?weekday(day,lang):""}</td>
-                  <td style={{padding:9}}>{entry.worker}</td>
-                  <td style={{padding:9}}>{entry.site}{entry.location ? <small style={{display:"block",color:"#aaa"}}>{entry.location}</small>:null}</td>
-                  <td style={{padding:9,color:"#ccc"}}>{entry.note}</td>
-                </tr>
-              )) : <tr key={day} style={{borderBottom:"1px solid #292929"}}>
-                <td style={{padding:9,fontWeight:700}}>{weekday(day,lang)}</td>
-                <td colSpan={3} style={{padding:9,color:"#888"}}>{t.none}</td>
-              </tr>;
-            })}</tbody>
-          </table>
-          <p style={{margin:"12px 0 0",color:"#aaa",fontSize:12}}>{t.workers}: {overview.workerCount}</p>
-        </div> : null}
+          <div className="solstone-daily-feed">
+            {activities.map(a=><div key={a.id} className={"solstone-daily-entry type-"+a.type}>
+              <time>{showTime(a.at)}</time>
+              <div><strong>{a.type==="photo"?"🖼️":a.type==="hours"?"⏱️":a.type==="work"?"🧱":"📦"} {a.title}</strong>
+                <div>{a.siteId ? <Link href={"/baustellen/"+encodeURIComponent(a.siteId)}>{a.site}</Link> : a.site} {a.actor ? "· "+a.actor:""}</div>
+                {a.detail && <small>{a.detail}</small>}
+              </div>
+            </div>)}
+            {!activities.length && <p className="solstone-small-muted">{loading ? t.loading : t.noToday}</p>}
+          </div>
+          <small className="solstone-panel-footnote">Klick auf einen Eintrag öffnet die Baustelle.</small>
+        </section>
       </div>
-      <div style={card}>
-        <h2 style={{margin:"0 0 12px",fontSize:22,color:"#f97316"}}>🤖 {t.ai}</h2>
-        <div style={{display:"flex",gap:9,flexWrap:"wrap",marginBottom:14}}>
-          <Link href="/admin/ai-pitanja" style={actions}>{t.open}</Link>
-          <Link href="/admin/ai-unosi" style={{...actions,background:"#8d4b17"}}>+ AI Baustellen-Info</Link>
-          <Link href="/assistant" style={actions}>{t.openAi}</Link>
-          <Link href="/baustellen" style={actions}>{t.allSites}</Link>
-        </div>
-        <h3 style={{fontSize:16,margin:"12px 0",color:"#ddd"}}>{t.questions}</h3>
-        {overview?.aiQuestions.length ? overview.aiQuestions.slice(0,5).map(q=><div key={q.id} style={{padding:"9px 0",borderTop:"1px solid #303030"}}>
-          <strong>{q.worker}</strong><span style={{color:"#aaa",fontSize:12,marginLeft:8}}>{q.at ? new Date(q.at).toLocaleDateString("de-AT") : ""}</span>
-          <p style={{margin:"4px 0",whiteSpace:"pre-wrap"}}>{q.question}</p>
-        </div>) : <p style={{color:"#888"}}>{t.noQuestions}</p>}
-        <h3 style={{fontSize:16,margin:"15px 0 8px",color:"#ddd"}}>{t.aiInfo}</h3>
-        {overview?.aiInfo.length ? overview.aiInfo.slice(0,6).map(q=><div key={q.id} style={{padding:"7px 0",borderTop:"1px solid #303030"}}>
-          <strong>{q.site}</strong> – {q.title} <span style={{color:"#aaa",fontSize:12}}>({q.status})</span>
-        </div>) : <p style={{color:"#888"}}>{t.unnamed}</p>}
-      </div>
-      <div style={card}>
-        <h2 style={{margin:"0 0 12px",fontSize:22,color:"#f97316"}}>📋 {t.activity}</h2>
-        {overview?.activities.length ? overview.activities.map(a=><div key={a.id} style={{padding:"9px 0",borderTop:"1px solid #303030"}}>
-          <strong>{a.title}</strong> – {a.site}
-          <span style={{display:"block",color:"#aaa",fontSize:12}}>{a.actor} · {a.at ? new Date(a.at).toLocaleString("de-AT") : ""}</span>
-          <span style={{fontSize:13}}>{a.detail}</span>
-        </div>) : <p style={{color:"#888"}}>{t.noActivities}</p>}
-      </div>
-    </section>
+      <section className="solstone-original-panel solstone-original-questions">
+        <header className="solstone-panel-head">
+          <strong>💬 {t.questions}</strong>
+          <div className="solstone-panel-actions">
+            <Link href="/admin/ai-pitanja">{t.manage}</Link>
+            <Link href="/admin/ai-unosi">{t.inputs}</Link>
+          </div>
+        </header>
+        <p className="solstone-small-muted">{t.recent}</p>
+        {questions.length ? questions.slice(0,8).map(q=><Link href="/admin/ai-pitanja" key={q.id} className="solstone-question-line">
+          <strong>{q.worker}</strong>
+          <span>{q.question}</span>
+        </Link>) : <p className="solstone-small-muted">{t.empty}</p>}
+      </section>
+    </div>
   );
 }
