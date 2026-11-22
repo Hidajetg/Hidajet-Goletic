@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     const windowEnd = advance(today, 1) + "T07:00:00Z";
     const [calendar, sites, workers, questions, aiInfo, hours, docs, photosDay, hoursDay, workDay, materialDay] = await Promise.all([
       supabaseAdmin.from("work_calendar")
-        .select("id,datum,worker_name,baustelle_id,napomena")
+        .select("id,datum,worker_name,baustelle_id,napomena,start_time,end_time,task,priority,responsible_person,plan_status,team_note")
         .gte("datum", start).lte("datum", end)
         .order("datum", { ascending: true }).order("worker_name", { ascending: true }).limit(1500),
       supabaseAdmin.from("baustellen").select("id,naziv,lokacija").limit(500),
@@ -89,6 +89,10 @@ export async function GET(req: NextRequest) {
       site: byId.get(String(x.baustelle_id))?.naziv ?? "Baustelle",
       location: byId.get(String(x.baustelle_id))?.lokacija ?? "",
       note: x.napomena ?? "",
+      startTime: x.start_time ?? null, endTime: x.end_time ?? null,
+      task: x.task ?? null, priority: x.priority ?? null,
+      responsible: x.responsible_person ?? null, planStatus: x.plan_status ?? null,
+      teamNote: x.team_note ?? null,
     }));
     const activity = [
       ...(hours.data ?? []).map(h => ({
