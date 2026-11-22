@@ -1,0 +1,51 @@
+name: Verify Solstone chat and mobile layout fix
+
+on:
+  push:
+    branches:
+      - fix/2026-11-22-chat-layout-sounds
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: compile-only-public-key
+      SUPABASE_SERVICE_ROLE_KEY: compile-only-server-key
+      APP_SESSION_SECRET: compile-only-unusable-secret
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout fix
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Next.js production build
+        run: npm run build
+      - name: Verify role checks and notification implementation
+        run: |
+          node <<'JS'
+          const fs=require("fs");
+          const auth=fs.readFileSync("app/lib/team-chat.ts","utf8");
+          const sound=fs.readFileSync("app/components/TeamChatAlerts.tsx","utf8");
+          const chat=fs.readFileSync("app/team-chat/page.tsx","utf8");
+          const css=fs.readFileSync("app/team-chat/team-chat.css","utf8");
+          if (!auth.includes("solstone_chat_auth") || !auth.includes("session.id !== chatSession.id")) process.exit(1);
+          if (!auth.includes('gte("datum", today)') || !auth.includes('lte("datum", throughDate)')) process.exit(1);
+          if (!sound.includes("playNotificationTone") || !chat.includes("solstone-chat-test-sound")) process.exit(1);
+          if (!css.includes("@media(max-width:1024px)")) process.exit(1);
+          console.log("Role checks, weekday bridging, sound and responsive chat verified");
+          JS
