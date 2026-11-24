@@ -34,6 +34,7 @@ function loadWebPush(env, fetch = async () => ({status: 201})) {
       require: (module) => {
         if (module === "node:crypto") return crypto;
         if (module === "./supabase-admin") return { supabaseAdmin: {} };
+        if (module === "./native-push") return { nativePushConfigured: () => false, notifyNativeWorkers: async () => {} };
         if (module === "./team-chat") return { currentViennaDate: () => "2026-11-21" };
         throw Error("Unexpected dependency " + module);
       },

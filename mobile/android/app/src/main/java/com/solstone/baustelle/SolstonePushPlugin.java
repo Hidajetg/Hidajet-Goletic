@@ -55,11 +55,13 @@ public class SolstonePushPlugin extends Plugin {
     }
     @PluginMethod public void bind(PluginCall call) {
         String binding=call.getString("binding","");
-        Long expires=call.getLong("expiresAt");
-        if(!allowed() || !binding.matches("[0-9a-f]{64}") || expires==null || expires<=System.currentTimeMillis()) {
+        long expires;
+        try {expires=Long.parseLong(call.getString("expiresAt",""));} catch(Exception e){call.reject("Invalid expiry");return;}
+        String token=call.getString("token","");
+        if(!allowed() || !binding.matches("[0-9a-f]{64}") || token.length()<32 || expires<=System.currentTimeMillis()) {
             call.reject("Invalid notification binding");return;
         }
-        prefs(getContext()).edit().putString("binding",binding).putLong("expires",expires).apply();
+        prefs(getContext()).edit().putString("binding",binding).putLong("expires",expires).putString("registeredToken",token).apply();
         call.resolve();
     }
     @PluginMethod public void clear(PluginCall call) {

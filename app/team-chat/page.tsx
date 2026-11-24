@@ -121,6 +121,7 @@ export default function TeamChatPage(){
   const [voice,setVoice]=useState(false);
   const [autoTranslate,setAutoTranslate]=useState(true);
   const [pushSupported,setPushSupported]=useState(false);
+  const [isNativePush,setIsNativePush]=useState(false);
   const [pushEnabled,setPushEnabled]=useState(false);
   const [pushBusy,setPushBusy]=useState(false);
   const [showOriginal,setShowOriginal]=useState<Set<string>>(new Set());
@@ -157,6 +158,7 @@ export default function TeamChatPage(){
     setVoice(localStorage.getItem("solstone_chat_voice")==="true");
     setAutoTranslate(localStorage.getItem("solstone_chat_auto_translate")!=="false");
     const native = nativePushBridge();
+    setIsNativePush(!!native);
     const supported = !!native || ("serviceWorker" in navigator && "PushManager" in window && "Notification" in window);
     setPushSupported(supported);
     if (native) {
@@ -429,7 +431,7 @@ export default function TeamChatPage(){
           style={{background:"#1d4ed8",color:"white",borderRadius:9,padding:"10px 12px",fontWeight:700}}>
           {pushBusy ? "…" : pushEnabled ? t.pushOff : t.pushOn}
         </button>}
-        <small>{nativePushBridge() ? ({de:"Android: Benachrichtigungen über die Systemeinstellungen erlauben.",ba:"Android: dozvoli obavijesti u postavkama telefona.",uz:"Android: telefon sozlamalarida bildirishnomalarga ruxsat bering.",cz:"Android: povolte oznámení v nastavení telefonu.",en:"Android: allow notifications in system settings."}[lang]) : t.warning}</small>
+        <small>{isNativePush ? ({de:"Android: Benachrichtigungen über die Systemeinstellungen erlauben.",ba:"Android: dozvoli obavijesti u postavkama telefona.",uz:"Android: telefon sozlamalarida bildirishnomalarga ruxsat bering.",cz:"Android: povolte oznámení v nastavení telefonu.",en:"Android: allow notifications in system settings."}[lang]) : t.warning}</small>
       </div>}
 
       {error && <div className="tc-error" role="alert">{error}</div>}

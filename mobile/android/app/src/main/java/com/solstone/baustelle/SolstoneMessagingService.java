@@ -3,6 +3,8 @@ package com.solstone.baustelle;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.media.RingtoneManager;
+import android.media.AudioAttributes;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
@@ -21,6 +23,8 @@ public class SolstoneMessagingService extends FirebaseMessagingService {
             for(String id:new String[]{CHAT,CALL}){
                 NotificationChannel channel=new NotificationChannel(id,id.equals(CALL)?"Solstone Anrufe":"Solstone Nachrichten",NotificationManager.IMPORTANCE_HIGH);
                 channel.enableVibration(true);
+                channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                    new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
                 channel.setLockscreenVisibility(NotificationCompat.VISIBILITY_PRIVATE);
                 m.createNotificationChannel(channel);
             }
@@ -56,6 +60,7 @@ public class SolstoneMessagingService extends FirebaseMessagingService {
     }
     @Override public void onNewToken(String token) {
         // Refresh binding and server registration on next authenticated foreground sync.
-        SolstonePushPlugin.prefs(this).edit().clear().apply();
+        android.content.SharedPreferences prefs=SolstonePushPlugin.prefs(this);
+        if(!token.equals(prefs.getString("registeredToken",""))) prefs.edit().clear().apply();
     }
 }

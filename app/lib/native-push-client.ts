@@ -2,14 +2,14 @@
 type NativePush = {
   status():Promise<{enabled:boolean;configured:boolean}>;
   registration(options:{prompt:boolean}):Promise<{token?:string}>;
-  bind(options:{binding:string;expiresAt:number}):Promise<void>;
+  bind(options:{binding:string;expiresAt:string;token:string}):Promise<void>;
   clear():Promise<void>;
 };
 const optIn="solstone_native_push_enabled";
 export function nativePushBridge():NativePush|null {
   if(typeof window==="undefined") return null;
-  const c=(window as Window & {Capacitor?:{getPlatform?:()=>string;Plugins?:{SolstonePush?:NativePush}}}).Capacitor;
-  return c?.getPlatform?.()==="android" ? c.Plugins?.SolstonePush??null : null;
+  const c=(window as Window & {Capacitor?:{getPlatform?:()=>string;isPluginAvailable?:(name:string)=>boolean;Plugins?:{SolstonePush?:NativePush}}}).Capacitor;
+  return c?.getPlatform?.()==="android" && c.isPluginAvailable?.("SolstonePush") ? c.Plugins?.SolstonePush??null : null;
 }
 let pending:Promise<void>|null=null;
 let epoch=0;
@@ -34,7 +34,7 @@ export function syncNativePush(prompt=false):Promise<void>{
     if(epoch!==runEpoch || location.pathname.startsWith("/login")) {
       await native.clear(); return;
     }
-    await native.bind({binding:data.binding,expiresAt:data.expiresAt});
+    await native.bind({binding:data.binding,expiresAt:String(data.expiresAt),token});
     localStorage.setItem(optIn,"true");
   })().finally(()=>{pending=null;});
   return pending;
