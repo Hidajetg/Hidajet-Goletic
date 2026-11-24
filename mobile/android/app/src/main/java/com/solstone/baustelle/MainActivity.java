@@ -26,8 +26,12 @@ import com.getcapacitor.BridgeActivity;
  */
 public class MainActivity extends BridgeActivity {
     static volatile boolean foreground = false;
+    private SolstoneUpdateChecker updater;
 
-    @Override public void onResume() { super.onResume(); foreground = true; }
+    @Override public void onResume() {
+        super.onResume(); foreground = true;
+        if (updater != null) updater.onResume();
+    }
     @Override public void onPause() { foreground = false; super.onPause(); }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,6 +41,7 @@ public class MainActivity extends BridgeActivity {
 
         registerPlugin(SolstonePushPlugin.class);
         super.onCreate(savedInstanceState);
+        updater = new SolstoneUpdateChecker(this);
 
         if (bridge != null && bridge.getWebView() != null) {
             bridge.getWebView().setDownloadListener(
@@ -44,6 +49,11 @@ public class MainActivity extends BridgeActivity {
                     startSystemDownload(url, userAgent, contentDisposition, mimeType)
             );
         }
+    }
+
+    @Override protected void onDestroy() {
+        if (updater != null) updater.close();
+        super.onDestroy();
     }
 
     private void startSystemDownload(

@@ -1,0 +1,6 @@
+# Automatic Android updates
+No extra button is added to the web UI. On app resume the native checker checks the public GitHub Releases channel at most every six hours after a successful check. It downloads only a newer approved APK over HTTPS, verifies the file hash, package name, version and matching installed signing certificate, then launches the Android system installer. On first use Android may ask to allow installation from Solstone. User approval remains required; force-installing or bypassing Android protections is not supported.
+The first updater-capable APK must be installed over the existing app once. Old APKs do not contain the updater.
+Builds are not published automatically merely because CI passes. Test a signed build on a physical device, then approve that exact run for release:
+  gh workflow run android-stable-update.yml --repo Hidajetg/Hidajet-Goletic --ref mobile-android-ios-test-2026-11-20 -f approved_run_id=RUN_ID
+The release job verifies the signed build, FCM configuration, package, digest, and pinned certificate, and rejects downgrades. It publishes only the APK and non-secret update metadata to the public repository release channel. No GitHub login is needed on worker phones. Do not include keystores or service-account files in releases. Test update path with two successively signed builds before worker rollout.

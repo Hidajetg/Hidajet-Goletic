@@ -15,6 +15,11 @@ on:
       - 'mobile/scripts/generate_mobile_icons.py'
       - 'app/lib/notification-audio.ts'
   workflow_dispatch:
+    inputs:
+      approved_run_id:
+        description: 'Optional: publish an already tested signed build run ID to automatic update channel'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -25,6 +30,7 @@ concurrency:
 
 jobs:
   signed-android-apk:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.approved_run_id == '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     defaults:
@@ -188,6 +194,7 @@ jobs:
           fi
           unzip -p "$final" assets/capacitor.config.json | grep -F "$SOLSTONE_WEB_URL" >/dev/null
           sha256sum "$final"
+          python3 -c 'import json,os,sys,hashlib; p=sys.argv[1]; print(json.dumps(dict(appId="com.solstone.baustelle",versionCode=int(os.environ["SOLSTONE_VERSION_CODE"]),versionName=os.environ["SOLSTONE_VERSION_NAME"],sha256=hashlib.sha256(open(p,"rb").read()).hexdigest(),size=os.path.getsize(p))))' "$final" > "$RUNNER_TEMP/solstone-distribution/solstone-update.json"
           printf 'appId=com.solstone.baustelle\nversionCode=%s\nversionName=%s\ncertificateSHA256=%s\nwebOrigin=%s\n' \
             "$SOLSTONE_VERSION_CODE" "$SOLSTONE_VERSION_NAME" "$cert" "$SOLSTONE_WEB_URL" \
             > "$RUNNER_TEMP/solstone-distribution/BUILD-INFO.txt"
@@ -214,3 +221,57 @@ jobs:
         run: |
           echo "## Solstone signed APK not produced" >> "$GITHUB_STEP_SUMMARY"
           echo "Inspect the first failing job step. No unsigned or debug-signed APK is offered as an upgrade." >> "$GITHUB_STEP_SUMMARY"
+
+  publish-approved-update:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.approved_run_id != '' && github.ref_name == 'mobile-android-ios-test-2026-11-20' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      APPROVED_RUN: ${{ inputs.approved_run_id }}
+      EXPECTED_CERT: ${{ vars.SOLSTONE_CERT_SHA256 }}
+    steps:
+      - name: Download exact successful signed build and verify public release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$APPROVED_RUN" =~ ^[0-9]+$ ]]
+          [[ "$GH_REPO" == "Hidajetg/Hidajet-Goletic" ]]
+          expected_workflow=$(gh api "repos/$GH_REPO/actions/workflows/android-stable-update.yml" --jq .id)
+          gh api "repos/$GH_REPO/actions/runs/$APPROVED_RUN" > run.json
+          jq -e --argjson id "$expected_workflow" '.workflow_id==$id and .conclusion=="success" and .head_branch=="mobile-android-ios-test-2026-11-20"' run.json >/dev/null
+          gh run download "$APPROVED_RUN" --pattern 'solstone-stable-upgrade-*' --dir approved
+          mapfile -t manifests < <(find approved -name solstone-update.json)
+          test "${#manifests[@]}" = 1
+          dir=$(dirname "${manifests[0]}")
+          manifest="$dir/solstone-update.json"
+          name=$(jq -er '.versionName | select(test("^1[.]0[.][0-9]{1,7}[.][0-9]{1,3}$"))' "$manifest")
+          code=$(jq -er '.versionCode | numbers' "$manifest")
+          apk="$dir/Solstone-Baustelle-v$name.apk"
+          test -s "$apk"
+          grep -Fx 'nativePushConfigured=true' "$dir/BUILD-INFO.txt"
+          grep -Fx "versionName=$name" "$dir/BUILD-INFO.txt"
+          grep -Fx "versionCode=$code" "$dir/BUILD-INFO.txt"
+          jq -e --arg hash "$(sha256sum "$apk" | cut -d' ' -f1)" --argjson size "$(stat -c %s "$apk")" '.appId=="com.solstone.baustelle" and .sha256==$hash and .size==$size' "$manifest" >/dev/null
+          tool_dir=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n1)
+          cert=$("$tool_dir/apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          expected=$(printf '%s' "$EXPECTED_CERT" | tr -d '[:space:]:' | tr '[:upper:]' '[:lower:]')
+          test -n "$expected"
+          test "$cert" = "$expected"
+          "$tool_dir/aapt" dump badging "$apk" | grep -F "package: name='com.solstone.baustelle' versionCode='$code' versionName='$name'"
+          # Only move the release channel forward; refuse to overwrite existing releases.
+          latest=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+          if [[ -n "$latest" ]]; then
+            [[ "$latest" =~ ^android-v1[.]0[.]([0-9]+)[.]([0-9]+)$ ]]
+            previous=$((10000+10#${BASH_REMATCH[1]}*100+10#${BASH_REMATCH[2]}))
+            test "$code" -gt "$previous"
+          fi
+          tag="android-v$name"
+          sha=$(jq -r .head_sha run.json)
+          gh release create "$tag" "$apk" "$manifest" --draft --target "$sha" --title "Solstone Baustelle $name" --notes "Approved signed Android update. Installation requires Android confirmation."
+          gh release edit "$tag" --draft=false --latest
+          echo "Published approved Android update $name" >> "$GITHUB_STEP_SUMMARY"
