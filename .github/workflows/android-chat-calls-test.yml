@@ -31,6 +31,7 @@ jobs:
           if (!raw) throw Error("Set GitHub Actions variable SOLSTONE_CHAT_TEST_URL to an isolated HTTPS test origin first.");
           const url = new URL(raw);
           const productionHosts = new Set([
+            "solstone.vercel.app",
             "hidajet-goletic-frno.vercel.app",
             "hidajet-goletic-frno-stone-boutique.vercel.app",
           ]);

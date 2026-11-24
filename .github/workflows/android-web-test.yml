@@ -30,7 +30,7 @@ jobs:
     env:
       # TEST ONLY: URL discovered from connected Vercel project's production domain.
       # Do not use this live-reload mode in store-release builds.
-      SOLSTONE_WEB_URL: https://hidajet-goletic-frno.vercel.app
+      SOLSTONE_WEB_URL: https://solstone.vercel.app
     steps:
       - name: Checkout separate mobile branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

@@ -37,7 +37,7 @@ jobs:
       run:
         working-directory: mobile
     env:
-      SOLSTONE_WEB_URL: https://hidajet-goletic-frno.vercel.app
+      SOLSTONE_WEB_URL: https://solstone.vercel.app
       # Never use the standalone Vite demo for this persistent release identity.
 
     steps:
@@ -254,6 +254,8 @@ jobs:
           apk="$dir/Solstone-Baustelle-v$name.apk"
           test -s "$apk"
           grep -Fx 'nativePushConfigured=true' "$dir/BUILD-INFO.txt"
+          grep -Fx 'webOrigin=https://solstone.vercel.app' "$dir/BUILD-INFO.txt"
+          unzip -p "$apk" assets/capacitor.config.json | jq -e '.server.url=="https://solstone.vercel.app" and .server.cleartext==false' >/dev/null
           grep -Fx "versionName=$name" "$dir/BUILD-INFO.txt"
           grep -Fx "versionCode=$code" "$dir/BUILD-INFO.txt"
           jq -e --arg hash "$(sha256sum "$apk" | cut -d' ' -f1)" --argjson size "$(stat -c %s "$apk")" '.appId=="com.solstone.baustelle" and .sha256==$hash and .size==$size' "$manifest" >/dev/null

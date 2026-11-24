@@ -4,3 +4,6 @@ The first updater-capable APK must be installed over the existing app once. Old 
 Builds are not published automatically merely because CI passes. Test a signed build on a physical device, then approve that exact run for release:
   gh workflow run android-stable-update.yml --repo Hidajetg/Hidajet-Goletic --ref mobile-android-ios-test-2026-11-20 -f approved_run_id=RUN_ID
 The release job verifies the signed build, FCM configuration, package, digest, and pinned certificate, and rejects downgrades. It publishes only the APK and non-secret update metadata to the public repository release channel. No GitHub login is needed on worker phones. Do not include keystores or service-account files in releases. Test update path with two successively signed builds before worker rollout.
+
+## Production hostname migration
+New stable APKs open https://solstone.vercel.app. Keep https://hidajet-goletic-frno.vercel.app active on the same production project until all legacy Android and iPhone home-screen installations are migrated and checked. Browser cookies and push subscriptions are origin-bound; users may need to sign in and enable notifications once again. Do not redirect or remove the old origin while legacy native builds remain in use. Publish only a physically tested signed APK after approval; confirm rollout before removing the old domain.
