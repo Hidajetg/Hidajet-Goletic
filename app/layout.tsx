@@ -6,6 +6,7 @@ import NativePushSync from "./components/NativePushSync";
 import TeamChatWidget from "./components/TeamChatWidget";
 import TeamChatAlerts from "./components/TeamChatAlerts";
 import SolstoneAIEntry from "./components/SolstoneAIEntry";
+import NativeBackGuard from "./components/NativeBackGuard";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +45,7 @@ export default function RootLayout({
         <TeamChatAlerts />
         <SolstoneAIEntry />
         {children}
+        <NativeBackGuard />
       </body>
     </html>
   );

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useNativeBack } from "../../lib/use-native-back";
+import { confirmUnsavedBack } from "../../components/NativeBackGuard";
 
 type Site = { id: number; naziv: string; lokacija?: string; status?: string };
 type Entry = { id: string; baustelle_id: number; kind: "angebot"|"note"; status: string; title: string; source_text: string; created_by: string; created_at: string };
@@ -20,6 +22,11 @@ export default function AdminAiEntries() {
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
+  useNativeBack(() => {
+    if (busy || converting) return true;
+    if (title.trim() || sourceText.trim() || offerText.trim() || offerFile) return !confirmUnsavedBack();
+    return false;
+  });
   const reload=useCallback(async()=>{
     const response=await fetch("/api/admin/ai-entries",{cache:"no-store",credentials:"same-origin"});
     const data=await response.json();
@@ -64,7 +71,9 @@ export default function AdminAiEntries() {
       });
       const data=await response.json();
       if(!response.ok)throw Error(data?.error||"Fehler");
-      setTitle("");setSourceText("");
+      setTitle("");setSourceText("");setOfferText("");setOfferFile(null);
+      const fileInput = document.querySelector<HTMLInputElement>('[data-native-back-managed] input[type="file"]');
+      if (fileInput) fileInput.value = "";
       setMessage("AI unos spremljen kao nacrt. Nije objavljen radnicima.");
       await reload();
     }catch(e){setError(e instanceof Error?e.message:"Greška");}
@@ -75,7 +84,7 @@ export default function AdminAiEntries() {
       <Link href="/dashboard" style={button}>← Dashboard</Link>
       <h1 style={{color:"#f97316",marginTop:22,fontSize:28}}>🤖 AI Baustellen-Info · Administrator</h1>
       <p style={{color:"#ccc"}}>Dodaj radne upute, napomene i informacije iz ponude za pojedino gradilište. Novi unosi se spremaju kao nacrti i ne objavljuju se automatski.</p>
-      <form onSubmit={e=>void save(e)} style={{background:"#121212",border:"1px solid #444",borderRadius:14,padding:16,display:"grid",gap:14}}>
+      <form data-native-back-managed onSubmit={e=>void save(e)} style={{background:"#121212",border:"1px solid #444",borderRadius:14,padding:16,display:"grid",gap:14}}>
         <label>Baustelle / Gradilište
           <select required value={siteId} onChange={e=>setSiteId(e.target.value)} style={{...control,marginTop:7}}>
             <option value="">Odaberi gradilište…</option>
