@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
+import { notifyAuthorizedChatRoom } from "../../../lib/native-push-recipients";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { isSameOriginChatMutation, CHAT_BUCKET, canWriteChatRoom, chatError, getAuthorizedRoom, getChatUser } from "../../../lib/team-chat";
 
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
         .update({consumed_at:new Date().toISOString()}).eq("id",upload.id).is("consumed_at",null);
       if (markError) console.error("Chat upload cleanup flag failed:",markError);
     }
+    after(()=>notifyAuthorizedChatRoom(room,user.id));
     return NextResponse.json({id:message.id,success:true},{status:201,headers:{"Cache-Control":"no-store"}});
   } catch(error) {
     console.error("Team chat POST failed:",error);

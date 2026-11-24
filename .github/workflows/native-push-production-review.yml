@@ -1,0 +1,28 @@
+name: Solstone production-compatible native push review
+on:
+  push:
+    branches: [solstone-native-push-production-review]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: offline-test-publishable-key
+      SUPABASE_SERVICE_ROLE_KEY: offline-test-service-key
+      APP_SESSION_SECRET: offline-compile-only-test-session-secret
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node --test staging/tests/solstone-native-push.test.cjs
+      - run: npm run build
