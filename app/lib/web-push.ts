@@ -1,5 +1,6 @@
 import { createECDH, createPrivateKey, sign } from "node:crypto";
 import { supabaseAdmin } from "./supabase-admin";
+import { nativePushConfigured, notifyNativeWorkers } from "./native-push";
 import { currentViennaDate, type ChatRoom } from "./team-chat";
 
 // Payload-free Web Push: the service worker fetches the signed-cookie API
@@ -136,10 +137,12 @@ async function sendEmptyWebPush(endpoint: string): Promise<number> {
 }
 
 export async function notifyChatRecipients(room: ChatRoom, senderId: string): Promise<void> {
-  if (!webPushPublicKey()) return;
+  if (!webPushPublicKey() && !nativePushConfigured()) return;
   try {
     const ids = await recipientIds(room, senderId);
     if (!ids.length) return;
+    await notifyNativeWorkers(ids, "chat");
+    if (!webPushPublicKey()) return;
     const { data, error } = await supabaseAdmin
       .from("solstone_chat_push_subscriptions")
       .select("endpoint,worker_id")
@@ -164,11 +167,13 @@ export async function notifyChatRecipients(room: ChatRoom, senderId: string): Pr
 
 /** Best-effort incoming-call signal for one verified active worker. */
 export async function notifyWorkerIncomingCall(workerId: string): Promise<void> {
-  if (!webPushPublicKey() || !/^\d+$/.test(workerId)) return;
+  if ((!webPushPublicKey() && !nativePushConfigured()) || !/^\d+$/.test(workerId)) return;
   try {
     const {data:worker,error:workerError}=await supabaseAdmin.from("workers")
       .select("id").eq("id",workerId).eq("active",true).maybeSingle();
     if (workerError || !worker) return;
+    await notifyNativeWorkers([workerId], "call");
+    if (!webPushPublicKey()) return;
     const {data,error}=await supabaseAdmin
       .from("solstone_chat_push_subscriptions")
       .select("endpoint").eq("worker_id",workerId).limit(20);

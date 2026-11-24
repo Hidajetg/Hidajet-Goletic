@@ -105,6 +105,20 @@ jobs:
           python3 -m pip install --user Pillow
           python3 scripts/generate_mobile_icons.py
 
+      - name: Configure Android Firebase project if available
+        env:
+          FCM_CONFIG: ${{ secrets.SOLSTONE_ANDROID_FCM_CONFIG_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "$FCM_CONFIG" ]; then
+            printf '%s' "$FCM_CONFIG" | base64 --decode > android/app/google-services.json
+            node -e 'const c=require("./android/app/google-services.json");if(!c.client?.some(x=>x.client_info?.android_client_info?.package_name==="com.solstone.baustelle"))process.exit(1)'
+            echo "SOLSTONE_NATIVE_PUSH_CONFIGURED=true" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Firebase configuration missing; this APK does not support live native push yet."
+            echo "SOLSTONE_NATIVE_PUSH_CONFIGURED=false" >> "$GITHUB_ENV"
+          fi
+
       - name: Build fallback assets
         run: npm run build
 
@@ -176,10 +190,12 @@ jobs:
           printf 'appId=com.solstone.baustelle\nversionCode=%s\nversionName=%s\ncertificateSHA256=%s\nwebOrigin=%s\n' \
             "$SOLSTONE_VERSION_CODE" "$SOLSTONE_VERSION_NAME" "$cert" "$SOLSTONE_WEB_URL" \
             > "$RUNNER_TEMP/solstone-distribution/BUILD-INFO.txt"
+          printf 'nativePushConfigured=%s\n' "$SOLSTONE_NATIVE_PUSH_CONFIGURED" >> "$RUNNER_TEMP/solstone-distribution/BUILD-INFO.txt"
           echo "### Solstone signed Android update" >> "$GITHUB_STEP_SUMMARY"
           echo "- Application ID: com.solstone.baustelle" >> "$GITHUB_STEP_SUMMARY"
           echo "- Version code: $SOLSTONE_VERSION_CODE" >> "$GITHUB_STEP_SUMMARY"
           echo "- Signature SHA-256: $cert" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Firebase Android config included: $SOLSTONE_NATIVE_PUSH_CONFIGURED" >> "$GITHUB_STEP_SUMMARY"
           echo "- Native changes require this signed APK; hosted web changes load from the server." >> "$GITHUB_STEP_SUMMARY"
           echo "- Internal test only: not a certified Google Play / App Store release." >> "$GITHUB_STEP_SUMMARY"
           echo "- Chat remains unavailable until the protected server chat schema is deployed and verified." >> "$GITHUB_STEP_SUMMARY"

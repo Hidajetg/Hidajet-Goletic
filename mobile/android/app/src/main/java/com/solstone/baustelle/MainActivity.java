@@ -25,12 +25,17 @@ import com.getcapacitor.BridgeActivity;
  * separate testing with real user workflows before production rollout.
  */
 public class MainActivity extends BridgeActivity {
+    static volatile boolean foreground = false;
+
+    @Override public void onResume() { super.onResume(); foreground = true; }
+    @Override public void onPause() { foreground = false; super.onPause(); }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             WebView.setWebContentsDebuggingEnabled(true);
         }
 
+        registerPlugin(SolstonePushPlugin.class);
         super.onCreate(savedInstanceState);
 
         if (bridge != null && bridge.getWebView() != null) {

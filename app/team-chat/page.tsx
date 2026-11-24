@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "../lib/supabase";
 import { type AppLanguage, readAppLanguage, saveAppLanguage } from "../lib/language";
 import "./team-chat.css";
+import { nativePushBridge, syncNativePush, disableNativePush } from "../lib/native-push-client";
 
 type Room = {
   id:string;kind:"private"|"site"|"announcements";label:string;siteId?:string;peerId?:string;
@@ -155,9 +156,12 @@ export default function TeamChatPage(){
     setSound(localStorage.getItem("solstone_chat_sound")!=="false");
     setVoice(localStorage.getItem("solstone_chat_voice")==="true");
     setAutoTranslate(localStorage.getItem("solstone_chat_auto_translate")!=="false");
-    const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    const native = nativePushBridge();
+    const supported = !!native || ("serviceWorker" in navigator && "PushManager" in window && "Notification" in window);
     setPushSupported(supported);
-    if (supported) {
+    if (native) {
+      void native.status().then((v) => setPushEnabled(v.enabled)).catch(() => {});
+    } else if (supported) {
       void navigator.serviceWorker.getRegistration("/").then(async (reg) => {
         if (reg) setPushEnabled(!!(await reg.pushManager.getSubscription()));
       }).catch(() => {});
@@ -317,6 +321,11 @@ export default function TeamChatPage(){
     setPushBusy(true);
     setError("");
     try {
+      if (nativePushBridge()) {
+        if (pushEnabled) { await disableNativePush(); setPushEnabled(false); }
+        else { await syncNativePush(true); setPushEnabled(true); }
+        return;
+      }
       // Safari/iOS requires permission to be requested directly from the tap,
       // before any asynchronous registration or network call.
       let permission: NotificationPermission | null = null;
@@ -420,7 +429,7 @@ export default function TeamChatPage(){
           style={{background:"#1d4ed8",color:"white",borderRadius:9,padding:"10px 12px",fontWeight:700}}>
           {pushBusy ? "…" : pushEnabled ? t.pushOff : t.pushOn}
         </button>}
-        <small>{t.warning}</small>
+        <small>{nativePushBridge() ? ({de:"Android: Benachrichtigungen über die Systemeinstellungen erlauben.",ba:"Android: dozvoli obavijesti u postavkama telefona.",uz:"Android: telefon sozlamalarida bildirishnomalarga ruxsat bering.",cz:"Android: povolte oznámení v nastavení telefonu.",en:"Android: allow notifications in system settings."}[lang]) : t.warning}</small>
       </div>}
 
       {error && <div className="tc-error" role="alert">{error}</div>}

@@ -1,43 +1,20 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { unlockNotificationAudio, playNotificationTone } from "../lib/notification-audio";
 import { supabase } from "../lib/supabase";
 
 export default function NotificationSound() {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioEnabledRef = useRef(false);
   const startedRef = useRef(false);
 
   useEffect(() => {
-    audioRef.current = new Audio("/sounds/notification.mp3");
-    audioRef.current.volume = 1;
-
-    function unlockAudio() {
-      if (!audioRef.current) return;
-
-      audioRef.current
-        .play()
-        .then(() => {
-          audioRef.current?.pause();
-          if (audioRef.current) {
-            audioRef.current.currentTime = 0;
-          }
-          audioEnabledRef.current = true;
-        })
-        .catch(() => {});
-    }
-
-    document.addEventListener("click", unlockAudio, { once: true });
-    document.addEventListener("touchstart", unlockAudio, { once: true });
+    const unlockAudio = () => unlockNotificationAudio();
+    document.addEventListener("pointerdown", unlockAudio, { passive: true });
 
     const oldTitle = document.title;
 
     function playSound() {
-      if (!audioRef.current) return;
-      if (!audioEnabledRef.current) return;
-
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {});
+      if (!playNotificationTone()) return;
 
       document.title = "🔔 Nova informacija!";
       setTimeout(() => {
@@ -53,10 +30,10 @@ export default function NotificationSound() {
           event: "INSERT",
           schema: "public",
         },
-        (payload) => {
+        () => {
           if (!startedRef.current) return;
 
-          console.log("Nova informacija:", payload.table, payload.new);
+          // Do not log potentially confidential row data.
           playSound();
         }
       )
@@ -71,8 +48,7 @@ export default function NotificationSound() {
       });
 
     return () => {
-      document.removeEventListener("click", unlockAudio);
-      document.removeEventListener("touchstart", unlockAudio);
+      document.removeEventListener("pointerdown", unlockAudio);
       supabase.removeChannel(channel);
     };
   }, []);
