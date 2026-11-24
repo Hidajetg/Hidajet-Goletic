@@ -10,6 +10,9 @@ import android.os.Environment;
 import android.webkit.CookieManager;
 import android.webkit.URLUtil;
 import android.webkit.WebView;
+import android.webkit.WebBackForwardList;
+import android.webkit.WebHistoryItem;
+import androidx.activity.OnBackPressedCallback;
 import android.widget.Toast;
 
 import com.getcapacitor.BridgeActivity;
@@ -27,6 +30,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     static volatile boolean foreground = false;
     private SolstoneUpdateChecker updater;
+    private boolean backInProgress = false;
 
     @Override public void onResume() {
         super.onResume(); foreground = true;
@@ -42,6 +46,9 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SolstonePushPlugin.class);
         super.onCreate(savedInstanceState);
         updater = new SolstoneUpdateChecker(this);
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override public void handleOnBackPressed() { handleAppBack(); }
+        });
 
         if (bridge != null && bridge.getWebView() != null) {
             bridge.getWebView().setDownloadListener(
@@ -49,6 +56,82 @@ public class MainActivity extends BridgeActivity {
                     startSystemDownload(url, userAgent, contentDisposition, mimeType)
             );
         }
+    }
+
+    /** Close the web panel first, then use WebView history. At the dashboard
+     * Back stays inside Solstone rather than accidentally closing the app. */
+    private void handleAppBack() {
+        if (backInProgress || bridge == null || bridge.getWebView() == null) return;
+        final WebView view = bridge.getWebView();
+        final String current = view.getUrl();
+        final String origin = bridge.getServerUrl();
+        if (current == null || origin == null) return;
+
+        if (!sameAppOrigin(current, origin)) {
+            navigateAppBack(view, current, origin);
+            return;
+        }
+
+        backInProgress = true;
+        // Only execute our event on the configured app origin, never an external PDF or site.
+        view.evaluateJavascript("!window.dispatchEvent(new Event('solstone-native-back',{cancelable:true}))", result -> {
+            backInProgress = false;
+            if (isFinishing() || isDestroyed() || !current.equals(view.getUrl())) return;
+            if (!"true".equals(result)) navigateAppBack(view, current, origin);
+        });
+    }
+
+    private static boolean sameAppOrigin(String candidate, String origin) {
+        if (candidate == null || origin == null) return false;
+        Uri a = Uri.parse(candidate), b = Uri.parse(origin);
+        if (!"https".equalsIgnoreCase(a.getScheme()) || !"https".equalsIgnoreCase(b.getScheme())
+                || a.getHost() == null || b.getHost() == null) return false;
+        int ap = a.getPort() == -1 ? 443 : a.getPort();
+        int bp = b.getPort() == -1 ? 443 : b.getPort();
+        return a.getHost().equalsIgnoreCase(b.getHost()) && ap == bp;
+    }
+
+    private static boolean rootPath(String path) {
+        return path == null || path.isEmpty() || "/".equals(path)
+            || "/dashboard".equals(path) || "/dashboard/".equals(path)
+            || "/login".equals(path) || "/login/".equals(path)
+            || "/login-secure".equals(path);
+    }
+
+    private void navigateAppBack(WebView view, String current, String origin) {
+        String path = Uri.parse(current).getPath();
+        if (sameAppOrigin(current, origin) && rootPath(path)) return;
+
+        WebBackForwardList history = view.copyBackForwardList();
+        int index = history.getCurrentIndex();
+        if (view.canGoBack() && index > 0) {
+            WebHistoryItem previous = history.getItemAtIndex(index - 1);
+            if (previous != null && sameAppOrigin(previous.getUrl(), origin)) {
+                String previousPath = Uri.parse(previous.getUrl()).getPath();
+                if (previousPath != null && !"/".equals(previousPath)
+                        && !previousPath.startsWith("/login")) {
+                    view.goBack();
+                    return;
+                }
+            }
+        }
+
+        // Deep links and notification launches may have no useful history.
+        // Fall back to the parent room or site, otherwise the dashboard.
+        String parent = "/dashboard";
+        if (sameAppOrigin(current, origin) && path != null) {
+            if (path.matches("/baustellen/[0-9]+/prostorije/[0-9]+/[^/]+/?")) {
+                String trimmed = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+                parent = trimmed.substring(0, trimmed.lastIndexOf('/'));
+            } else if (path.matches("/baustellen/[0-9]+/prostorije/[0-9]+/?")) {
+                parent = path.split("/")[1].equals("baustellen") ? "/baustellen/" + path.split("/")[2] + "/prostorije" : "/dashboard";
+            } else if (path.matches("/baustellen/[0-9]+/[^/]+/?")) {
+                parent = "/baustellen/" + path.split("/")[2];
+            } else if (path.matches("/baustellen/[0-9]+/?")) {
+                parent = "/baustellen";
+            }
+        }
+        view.loadUrl(Uri.parse(origin).buildUpon().path(parent).clearQuery().fragment(null).build().toString());
     }
 
     @Override public void onDestroy() {
