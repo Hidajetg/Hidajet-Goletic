@@ -1784,7 +1784,20 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
       }
 
       await waitForPrintLayout();
-      window.print();
+      const previousTitle = document.title;
+      const siteName = String(baustelle?.naziv || `Baustelle-${baustelleId}`).replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").trim() || `Baustelle-${baustelleId}`;
+      document.title = siteName;
+      const restoreTitle = () => {
+        if (document.title === siteName) document.title = previousTitle;
+      };
+      window.addEventListener("afterprint", restoreTitle, { once: true });
+      try {
+        window.print();
+      } catch (error) {
+        window.removeEventListener("afterprint", restoreTitle);
+        restoreTitle();
+        throw error;
+      }
     } catch (error: any) {
       alert(
         "PDF konnte nicht vorbereitet werden: " +
