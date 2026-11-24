@@ -350,49 +350,65 @@ export default function RoomPhotosPage() {
     setUploading(true);
     setUploadMessage("");
     const files = [...pendingFiles];
-    const failed: File[] = [];
-    const errors: string[] = [];
+    const failures: {index:number; file:File; error:string}[] = [];
     const workerName = getWorkerName();
     let saved = 0;
-    try {
-      for (let index=0; index<files.length; index++) {
-        const original = files[index];
-        setProgress(`${index+1}/${files.length} · ${original.name}`);
-        let storagePath = "";
-        let uploaded = false;
-        try {
-          const file = await preparePhoto(original);
-          const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g,"") || "jpg";
-          storagePath = `${baustelleId}/${roomId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
-          const {error: uploadError} = await supabase.storage.from("room-photos")
-            .upload(storagePath,file,{contentType:file.type,upsert:false});
-          if (uploadError) throw uploadError;
-          uploaded = true;
-          const {data: publicUrlData} = supabase.storage.from("room-photos").getPublicUrl(storagePath);
-          const {error: insertError} = await supabase.from("room_photos").insert({
-            baustelle_id:Number(baustelleId),room_id:Number(roomId),
-            image_url:publicUrlData.publicUrl,storage_path:storagePath,
-            worker_name:workerName,radnik:workerName,room_name:roomName,
-          });
-          if (insertError) throw insertError;
-          saved++;
-        } catch (error) {
-          failed.push(original);
-          errors.push(original.name + ": " + (error instanceof Error ? error.message : String((error as {message?:string})?.message || error)));
-          if (uploaded && storagePath) {
-            // An insert response can be lost after committing. Do not remove
-            // the object unless we know no gallery record references it.
+    let completed = 0;
+    let nextIndex = 0;
+    // Keep decoding/conversion serial on mobile, but overlap it with uploads.
+    let preparation: Promise<void> = Promise.resolve();
+    const uploadOne = async (index:number) => {
+      const original = files[index];
+      let storagePath = "";
+      let uploaded = false;
+      try {
+        const prepared = preparation.then(() => preparePhoto(original));
+        preparation = prepared.then(() => undefined, () => undefined);
+        const file = await prepared;
+        const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g,"") || "jpg";
+        storagePath = `${baustelleId}/${roomId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+        const {error: uploadError} = await supabase.storage.from("room-photos")
+          .upload(storagePath,file,{contentType:file.type,upsert:false});
+        if (uploadError) throw uploadError;
+        uploaded = true;
+        const {data: publicUrlData} = supabase.storage.from("room-photos").getPublicUrl(storagePath);
+        const {error: insertError} = await supabase.from("room_photos").insert({
+          baustelle_id:Number(baustelleId),room_id:Number(roomId),
+          image_url:publicUrlData.publicUrl,storage_path:storagePath,
+          worker_name:workerName,radnik:workerName,room_name:roomName,
+        });
+        if (insertError) throw insertError;
+        saved++;
+      } catch (error) {
+        // A lost insert response might still mean the record was saved.
+        if (uploaded && storagePath) {
+          try {
             const {data: existing,error: lookupError} = await supabase.from("room_photos").select("id").eq("storage_path",storagePath).limit(1);
-            if (!lookupError && existing?.length) { saved++; failed.pop(); errors.pop(); }
-            else if (!lookupError) await supabase.storage.from("room-photos").remove([storagePath]);
-          }
+            if (!lookupError && existing?.length) { saved++; return; }
+            if (!lookupError) await supabase.storage.from("room-photos").remove([storagePath]);
+          } catch { /* Keep the original object when the lookup is uncertain. */ }
         }
+        failures.push({index,file:original,error:original.name + ": " + (error instanceof Error ? error.message : String((error as {message?:string})?.message || error))});
+      } finally {
+        completed++;
+        setProgress(`${completed}/${files.length}`);
       }
+    };
+    try {
+      setProgress(`0/${files.length}`);
+      const runWorker = async () => {
+        while (nextIndex < files.length) {
+          const index = nextIndex++;
+          await uploadOne(index);
+        }
+      };
+      await Promise.all(Array.from({length:Math.min(3,files.length)}, () => runWorker()));
+      failures.sort((a,b) => a.index-b.index);
       if (saved) playNotificationSound();
-      setUploadMessage(`${saved}/${files.length} · ${ui.success}` + (errors.length ? "\n" + errors.join("\n") : ""));
+      setUploadMessage(`${saved}/${files.length} · ${ui.success}` + (failures.length ? "\n" + failures.map(f => f.error).join("\n") : ""));
       await loadPhotos();
     } finally {
-      setPendingFiles(failed);
+      setPendingFiles(failures.map(f => f.file));
       setProgress("");
       setUploading(false);
       uploadLock.current = false;
