@@ -270,9 +270,11 @@ export default function TeamChatPage(){
     try{
       let uploadId:string|null=null;
       if (file) {
-        const mime=file.type.split(";")[0] ||
-          (file.name.toLowerCase().endsWith(".pdf")?"application/pdf":"");
-        if (!mime || file.size>20*1024*1024) throw new Error("Dozvoljeno je do 20 MB.");
+        const ext=file.name.toLowerCase().split(".").pop() || "";
+        const inferred:Record<string,string>={heic:"image/heic",heif:"image/heif",jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp",pdf:"application/pdf"};
+        const reported=file.type.split(";")[0].toLowerCase();
+        const mime=(!reported || reported==="application/octet-stream" || reported==="image/heic" || reported==="image/heif") ? (inferred[ext] || reported) : reported;
+        if (!mime || !file.size) throw new Error("Ungültige Datei / Neispravna datoteka.");
         const signed=await api<{uploadId:string;path:string;token:string}>(
           "/api/team-chat/media",postBody({
             roomId:current.id,name:file.name,mime,size:file.size,
@@ -541,7 +543,7 @@ export default function TeamChatPage(){
               <div className="tc-compose-line">
                 <label className="tc-upload" title={t.attach} aria-label={t.attach}>
                   📎
-                  <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf"
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif,application/pdf"
                     onChange={(e)=>setFile(e.target.files?.[0]??null)}/>
                 </label>
                 <textarea value={text} placeholder={t.write} rows={1}
@@ -568,7 +570,7 @@ export default function TeamChatPage(){
             <strong>{preview.name}</strong>
             <button type="button" onClick={()=>setPreview(null)}>✕</button>
           </div>
-          {preview.kind==="image" && <img src={preview.url} alt={preview.name}/>}
+          {preview.kind==="image" && <><img src={preview.url} alt={preview.name}/>{/\.hei[cf]$/i.test(preview.name) && <a href={preview.url} target="_blank" rel="noopener noreferrer">{preview.name} ↗</a>}</>}
           {preview.kind==="voice" && <audio src={preview.url} controls autoPlay/>}
           {preview.kind==="pdf" && <div className="tc-preview-pdf">
             <a href={preview.url} target="_blank" rel="noopener noreferrer">{t.pdf} ↗</a>

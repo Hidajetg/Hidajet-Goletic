@@ -139,6 +139,10 @@ export const CHAT_FILE_TYPES: Record<string, { kind: "image"|"pdf"|"voice"; ext:
   "image/jpeg": { kind: "image", ext: "jpg" },
   "image/png": { kind: "image", ext: "png" },
   "image/webp": { kind: "image", ext: "webp" },
+  "image/heic": { kind: "image", ext: "heic" },
+  "image/heif": { kind: "image", ext: "heif" },
+  "image/heic-sequence": { kind: "image", ext: "heic" },
+  "image/heif-sequence": { kind: "image", ext: "heif" },
   "application/pdf": { kind: "pdf", ext: "pdf" },
   "audio/webm": { kind: "voice", ext: "webm" },
   "audio/mp4": { kind: "voice", ext: "m4a" },
@@ -148,4 +152,3 @@ export const CHAT_FILE_TYPES: Record<string, { kind: "image"|"pdf"|"voice"; ext:
   "audio/x-wav": { kind: "voice", ext: "wav" },
 };
 
-export const CHAT_MAX_FILE_BYTES = 20 * 1024 * 1024;

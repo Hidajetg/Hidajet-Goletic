@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { isSameOriginChatMutation,
-  CHAT_BUCKET,CHAT_FILE_TYPES,CHAT_MAX_FILE_BYTES,canWriteChatRoom,
+  CHAT_BUCKET,CHAT_FILE_TYPES,canWriteChatRoom,
   chatError,getAuthorizedRoom,getChatUser,
 } from "../../../lib/team-chat";
 
@@ -20,8 +20,9 @@ export async function POST(request: NextRequest) {
     const name=String(payload.name ?? "").trim().slice(0,180);
     const size=Number(payload.size);
     const type=CHAT_FILE_TYPES[mime];
-    if (!type || !name || !Number.isSafeInteger(size) || size<=0 || size>CHAT_MAX_FILE_BYTES) {
-      return chatError("Dozvoljene su slike, PDF i audio snimke do 20 MB.");
+    if (!type) return chatError("Format nije podržan. / Dateiformat wird nicht unterstützt.");
+    if (!name || !Number.isSafeInteger(size) || size<=0) {
+      return chatError("Neispravna datoteka. / Ungültige Datei.");
     }
     const room=await getAuthorizedRoom(user,roomId);
     if (!room || !canWriteChatRoom(user,room)) return chatError("Nemaš pristup razgovoru.",403);

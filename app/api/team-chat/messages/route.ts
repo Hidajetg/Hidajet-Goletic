@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       const {data:info,error:infoError} =
         await supabaseAdmin.storage.from(CHAT_BUCKET).info(upload.object_path);
       if (infoError || !info) return chatError("Datoteka još nije učitana.",409);
-      if (!info.size || info.size > upload.size_bytes || info.size > 20*1024*1024) {
+      if (!info.size || info.size > upload.size_bytes) {
         return chatError("Veličina datoteke nije ispravna.",409);
       }
       if (info.contentType && info.contentType.split(";")[0] !== upload.mime) {
