@@ -13,7 +13,7 @@ export default function SolstoneAIEntry() {
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    if (!path || path === "/" || path.startsWith("/login") || path.startsWith("/assistant")) {
+    if (path !== "/dashboard") {
       setAuthorized(false);
       return;
     }
@@ -24,7 +24,7 @@ export default function SolstoneAIEntry() {
     return () => { active = false; };
   }, [path]);
 
-  if (!authorized || !path || path === "/" || path.startsWith("/login") || path.startsWith("/assistant")) {
+  if (!authorized || path !== "/dashboard") {
     return null;
   }
 
@@ -32,12 +32,12 @@ export default function SolstoneAIEntry() {
     style={{
       position: "fixed", right: 12, bottom: 12, zIndex: 110,
       background: "#1e3a54", border: "1px solid #fdba74",
-      color: "#fff", padding: "8px 12px", borderRadius: 13,
+      color: "#fff", padding: "4px 8px", minWidth: 44, minHeight: 44, boxSizing: "border-box", borderRadius: 11,
       boxShadow: "0 4px 15px #0009", textDecoration: "none",
       fontFamily: "system-ui, sans-serif", fontWeight: 750,
-      display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.25
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1.15
     }}>
-      <span aria-hidden="true" style={{ fontSize: 21, animation: "solstoneWalk 1.2s ease-in-out infinite" }}>🚶</span>
-      <span style={{ fontSize: 11 }}>AI</span>
+      <span aria-hidden="true" style={{ fontSize: 16, animation: "solstoneWalk 1.2s ease-in-out infinite" }}>🚶</span>
+      <span style={{ fontSize: 10 }}>AI</span>
     </Link>;
 }
