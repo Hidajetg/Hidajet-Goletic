@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "../lib/supabase";
 import { type AppLanguage, readAppLanguage, saveAppLanguage } from "../lib/language";
 import "./team-chat.css";
+import { nativePushBridge, syncNativePush, disableNativePush } from "../lib/native-push-client";
 
 type Room = {
   id:string;kind:"private"|"site"|"announcements";label:string;siteId?:string;peerId?:string;
@@ -123,6 +124,9 @@ export default function TeamChatPage(){
   const [busy,setBusy]=useState(false);
   const [isRecording,setIsRecording]=useState(false);
   const [sound,setSound]=useState(true);
+  const [nativeAvailable,setNativeAvailable]=useState(false);
+  const [pushEnabled,setPushEnabled]=useState(false);
+  const [pushBusy,setPushBusy]=useState(false);
   const [voice,setVoice]=useState(false);
   const [autoTranslate,setAutoTranslate]=useState(false);
   const [showOriginal,setShowOriginal]=useState<Set<string>>(new Set());
@@ -160,6 +164,9 @@ export default function TeamChatPage(){
   useEffect(()=>{
     setLang(readAppLanguage("ba"));
     setCompact(new URLSearchParams(window.location.search).get("compact")==="1");
+    const native=nativePushBridge();
+    setNativeAvailable(!!native);
+    if(native) void native.status().then(v=>setPushEnabled(v.enabled)).catch(()=>{});
     setSound(localStorage.getItem("solstone_chat_sound")!=="false");
     setVoice(localStorage.getItem("solstone_chat_voice")==="true");
     // The user must opt in before text is sent to a third-party translator.
@@ -169,6 +176,13 @@ export default function TeamChatPage(){
     return ()=>clearInterval(interval);
   },[loadRooms]);
 
+  async function toggleNativePush(){
+    if(pushBusy)return;
+    setPushBusy(true);setError("");
+    try{if(pushEnabled){await disableNativePush();setPushEnabled(false);}else{await syncNativePush(true);setPushEnabled(true);}}
+    catch(e){setError(e instanceof Error?e.message:"Push unavailable");}
+    finally{setPushBusy(false);}
+  }
   const loadMessages=useCallback(async(roomId:string,quiet=false)=>{
     try {
       const result=await api<{
@@ -414,6 +428,7 @@ export default function TeamChatPage(){
       </header>
 
       {showChatSettings && <div className="tc-settings tc-settings-open">
+        {nativeAvailable && <button type="button" disabled={pushBusy} aria-pressed={pushEnabled} onClick={()=>void toggleNativePush()}>{pushBusy?"…":pushEnabled?t.pushOff:t.pushOn}</button>}
         <label><input type="checkbox" checked={sound}
           onChange={(e)=>settings("solstone_chat_sound",e.target.checked)}/> 🔔 {t.sound}</label>
         <label><input type="checkbox" checked={voice}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { unlockNotificationAudio, playNotificationTone } from "../lib/notification-audio";
 import { readAppLanguage, type AppLanguage } from "../lib/language";
 
 type RoomSignal = {
@@ -24,22 +25,10 @@ const LOCALES: Record<AppLanguage,string> = {
 export default function TeamChatAlerts() {
   const previous = useRef(new Map<string,string>());
   const initialized = useRef(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const unlocked = useRef(false);
 
   useEffect(() => {
-    audioRef.current = new Audio("/sounds/notification.mp3");
-    audioRef.current.volume = 0.8;
     let active = true;
-
-    const unlock = () => {
-      if (!audioRef.current || unlocked.current) return;
-      audioRef.current.play().then(() => {
-        audioRef.current?.pause();
-        if (audioRef.current) audioRef.current.currentTime = 0;
-        unlocked.current = true;
-      }).catch(() => {});
-    };
+    const unlock = () => unlockNotificationAudio();
     document.addEventListener("pointerdown",unlock,{passive:true});
 
     const announce = (sender: string) => {
@@ -47,13 +36,7 @@ export default function TeamChatAlerts() {
       const phrase = lang === "uz"
         ? sender + ": " + VOICE_MESSAGES.uz
         : VOICE_MESSAGES[lang] + " " + sender;
-      if (localStorage.getItem("solstone_chat_sound") !== "false" && unlocked.current) {
-        const audio = audioRef.current;
-        if (audio) {
-          audio.currentTime = 0;
-          audio.play().catch(() => {});
-        }
-      }
+      if (localStorage.getItem("solstone_chat_sound") !== "false") playNotificationTone();
       if (localStorage.getItem("solstone_chat_voice") === "true" &&
           typeof window.speechSynthesis !== "undefined") {
         const utterance = new SpeechSynthesisUtterance(phrase);
