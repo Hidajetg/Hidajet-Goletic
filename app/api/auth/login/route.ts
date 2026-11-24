@@ -134,58 +134,22 @@ export async function POST(request: Request) {
     );
 
     if (legacy && legacy.pin === pin) {
-      let id = legacy.id;
-      let finalName = legacy.name;
-      let role = legacy.role;
-
-      try {
-        const { data } = await supabaseAdmin
-          .from("workers")
-          .select("id, name, role, active")
-          .ilike("name", legacy.name)
-          .limit(1);
-
-        const worker = data?.[0];
-
-        if (worker) {
-          if (worker.active === false) {
-            return NextResponse.json(
-              {
-                error:
-                  "Dieser Mitarbeiter ist deaktiviert.",
-              },
-              {
-                status: 403,
-              },
-            );
-          }
-
-          id = String(worker.id);
-          finalName = String(
-            worker.name || legacy.name,
-          );
-
-          role =
-            String(worker.role || "").toLowerCase() ===
-            "admin"
-              ? "admin"
-              : legacy.role;
-        }
-      } catch (error) {
-        console.error(
-          "Legacy worker lookup:",
-          error,
-        );
+      const {data, error} = await supabaseAdmin.from("workers")
+        .select("id,name,role,active,archived_at")
+        .ilike("name", legacy.name).limit(1);
+      if (error) throw error;
+      const worker = data?.[0];
+      if (!worker || worker.active === false || worker.archived_at) {
+        return NextResponse.json({error:"Dieses Mitarbeiterkonto ist nicht aktiv."},{status:403});
       }
-
-      return createLoginResponse(
-        {
-          id,
-          name: finalName,
-          role,
-        },
-        remember,
-      );
+      const role: Role = String(worker.role).toLowerCase()==="admin" ? "admin" : "worker";
+      // If the PIN is also the verified personal PIN, issue the chat credential
+      // as part of the normal login rather than asking the user for it again.
+      const {data:credential,error:credentialError} = await supabaseAdmin.from("worker_auth")
+        .select("pin_hash").eq("worker_id",String(worker.id)).maybeSingle();
+      if (credentialError) throw credentialError;
+      const verified = !!credential?.pin_hash && await bcrypt.compare(pin,String(credential.pin_hash));
+      return createLoginResponse({id:String(worker.id),name:String(worker.name),role},remember,verified);
     }
 
     // --------------------------------------------------------
@@ -197,7 +161,7 @@ export async function POST(request: Request) {
       error: workerError,
     } = await supabaseAdmin
       .from("workers")
-      .select("id, name, role, active")
+      .select("id, name, role, active, archived_at")
       .ilike("name", name)
       .limit(1);
 
@@ -227,7 +191,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (worker.active === false) {
+    if (worker.active === false || worker.archived_at) {
       return NextResponse.json(
         {
           error: "Dieser Mitarbeiter ist deaktiviert.",

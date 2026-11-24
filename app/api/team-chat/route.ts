@@ -59,7 +59,7 @@ export async function GET() {
         : Promise.resolve({ data: [], error: null }),
       supabaseAdmin.from("solstone_chat_members").select("room_id").eq("worker_id",user.id).limit(500),
       supabaseAdmin.from("solstone_chat_rooms").select("id,kind,site_id,private_pair,created_by,created_at").limit(500),
-      supabaseAdmin.from("workers").select("id,name,role,active").eq("active",true).order("name").limit(500),
+      supabaseAdmin.from("workers").select("id,name,role,active").order("name").limit(500),
     ]);
     if (sitesError || memberError || roomsError || workersError) {
       throw sitesError || memberError || roomsError || workersError;
@@ -121,7 +121,7 @@ export async function GET() {
     }
     rooms.sort((a,b) => (b.lastAt ?? "").localeCompare(a.lastAt ?? ""));
     return NextResponse.json({
-      user, rooms, workers: (workers ?? []).map((worker) => ({
+      user, rooms, workers: (workers ?? []).filter(worker=>worker.active===true).map((worker) => ({
         id: String(worker.id), name: String(worker.name),
       })),
       unread: rooms.reduce((total,room) => total + room.unread,0),

@@ -64,7 +64,7 @@ export default function KalendarPage() {
     const workersRes = await supabase.from("workers").select("*").order("name");
 
     const activeWorkers = (workersRes.data || []).filter(
-      (w: any) => w.role !== "admin"
+      (w: any) => w.role !== "admin" && !w.archived_at
     );
 
     setWorkers(activeWorkers);

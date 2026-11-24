@@ -304,7 +304,7 @@ export default function SatiPage() {
       return;
     }
 
-    const formattedWorkers = (data || []).map((w) => ({
+    const formattedWorkers = (data || []).filter((w)=>!w.archived_at).map((w) => ({
       id: w.id,
       name: w.name || w.ime || w.radnik || "",
     }));

@@ -194,7 +194,7 @@ export default function LoginPage() {
         .order("name", { ascending: true });
 
       const dbWorkers: Worker[] = (data || [])
-        .filter((row: any) => row?.active !== false)
+        .filter((row: any) => row?.active !== false && !row?.archived_at)
         .map((row: any) => {
           const workerName = String(row?.name || "").trim();
 

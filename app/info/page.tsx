@@ -177,7 +177,7 @@ export default function InfoPage() {
       return;
     }
 
-    setWorkers(data || []);
+    setWorkers((data || []).filter((w:any)=>!w.archived_at));
   }
 
   async function loadMessages(currentWorkerId: string) {

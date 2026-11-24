@@ -11,6 +11,7 @@ type Worker = {
   name: string;
   role: WorkerRole;
   active: boolean;
+  archivedAt: string | null;
 };
 
 const ADMIN_NAMES = new Set([
@@ -69,7 +70,8 @@ export default function MitarbeiterPage() {
       id: String(row?.id ?? name),
       name: name || "Unbekannt",
       role: detectedRole,
-      active: row?.active !== false,
+      active: row?.active !== false && !row?.archived_at,
+      archivedAt: row?.archived_at || null,
     };
   }
 
@@ -80,6 +82,7 @@ export default function MitarbeiterPage() {
 
     let apiWorkers: Worker[] = [];
     let apiError = "";
+    let apiLoaded = false;
     let noAdminSession = false;
 
     try {
@@ -92,6 +95,7 @@ export default function MitarbeiterPage() {
       const data = await response.json().catch(() => ({}));
 
       if (response.ok) {
+        apiLoaded = true;
         apiWorkers = Array.isArray(data?.workers)
           ? data.workers.map(normalizeWorker)
           : [];
@@ -127,16 +131,12 @@ export default function MitarbeiterPage() {
       directError = err?.message || "Workers-Tabelle konnte nicht gelesen werden.";
     }
 
-    const source =
-      apiWorkers.length > 0
-        ? apiWorkers
-        : directWorkers.length > 0
-          ? directWorkers
-          : apiWorkers;
+    const source = apiLoaded ? apiWorkers : directWorkers;
 
     const unique = new Map<string, Worker>();
 
     for (const worker of source) {
+      if (worker.archivedAt) continue;
       const key = String(worker.id || worker.name).toLowerCase();
       unique.set(key, worker);
     }
@@ -353,6 +353,30 @@ export default function MitarbeiterPage() {
     }
   }
 
+  async function deleteWorker(worker: Worker) {
+    if (worker.active || saving || sessionWarning) return;
+    if (!window.confirm(`${worker.name} wirklich aus der Mitarbeiterliste löschen? Alle bisherigen Arbeitszeiten, Fotos, Berichte und Einträge bleiben unter dem bisherigen Namen erhalten. Der Zugang bleibt gesperrt.`)) return;
+    resetMessages();
+    setSaving(true);
+    try {
+      const response = await fetch("/api/admin/workers", {
+        method:"DELETE", credentials:"include",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({id:worker.id}),
+      });
+      const data = await response.json().catch(()=>({}));
+      if (!response.ok) {
+        if (handleAdminApiError(response,data)) return;
+        throw new Error(data?.error || "Mitarbeiter konnte nicht gelöscht werden.");
+      }
+      setWorkers(previous=>previous.filter(item=>item.id!==worker.id));
+      setSuccess(`${worker.name} wurde aus der Mitarbeiterliste gelöscht. Alle bisherigen Einträge bleiben erhalten.`);
+      await loadWorkers();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Fehler beim Löschen.");
+    } finally { setSaving(false); }
+  }
+
   function renderWorker(worker: Worker) {
     const editing = editId === worker.id;
 
@@ -482,6 +506,12 @@ export default function MitarbeiterPage() {
               >
                 {worker.active ? "Deaktivieren" : "Aktivieren"}
               </button>
+              {!worker.active && (
+                <button type="button" disabled={saving || sessionWarning}
+                  onClick={()=>void deleteWorker(worker)} style={redButtonStyle}>
+                  🗑 Löschen
+                </button>
+              )}
             </div>
           </div>
         )}

@@ -267,7 +267,7 @@ export default function RegieberichtPage() {
     });
 
     setWorkers(
-      mergedWorkers.sort((a: any, b: any) =>
+      mergedWorkers.filter((w:any)=>!w.archived_at).sort((a: any, b: any) =>
         String(a.name || "").localeCompare(String(b.name || ""))
       )
     );

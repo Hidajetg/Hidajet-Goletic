@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
-import { verifySessionToken } from "../../../lib/admin-session";
+import { getVerifiedAdmin } from "../../../lib/verified-dashboard-admin";
 
 export const runtime = "nodejs";
 
@@ -10,17 +9,7 @@ export const runtime = "nodejs";
 // ==========================================================
 
 async function getAdmin() {
-  const cookieStore = await cookies();
-
-  const token = cookieStore.get("solstone_session")?.value;
-
-  const session = verifySessionToken(token);
-
-  if (!session || session.role !== "admin") {
-    return null;
-  }
-
-  return session;
+  return getVerifiedAdmin();
 }
 
 // ==========================================================
@@ -44,7 +33,7 @@ export async function GET() {
 
     const { data, error } = await supabaseAdmin
       .from("workers")
-      .select("id, name, role, active")
+      .select("id, name, role, active, archived_at")
       .order("name", {
         ascending: true,
       });
@@ -57,7 +46,8 @@ export async function GET() {
       id: String(worker.id),
       name: worker.name,
       role: worker.role || "worker",
-      active: worker.active !== false,
+      active: worker.active !== false && !worker.archived_at,
+      archived_at: worker.archived_at || null,
     }));
 
     return NextResponse.json({
@@ -358,18 +348,22 @@ export async function PATCH(request: Request) {
     // UPDATE RADNIKA
     // ------------------------------------------------------
 
-    const { error: updateError } = await supabaseAdmin
+    const { data: updated, error: updateError } = await supabaseAdmin
       .from("workers")
       .update({
         name,
         role,
         active,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .is("archived_at", null)
+      .select("id")
+      .maybeSingle();
 
     if (updateError) {
       throw updateError;
     }
+    if (!updated) return NextResponse.json({error:"Dieses Konto wurde bereits gelöscht oder existiert nicht."},{status:409});
 
     // ------------------------------------------------------
     // AKO JE UNESEN NOVI PIN
@@ -405,5 +399,34 @@ export async function PATCH(request: Request) {
         status: 500,
       }
     );
+  }
+}
+
+// Remove a deactivated account from the staff list without deleting its
+// identity or any historical entries. Atomic condition prevents archiving
+// an account that has been reactivated in the meantime.
+export async function DELETE(request: Request) {
+  try {
+    const origin = request.headers.get("origin");
+    if (origin !== new URL(request.url).origin) {
+      return NextResponse.json({error:"Ungültige Anfrage."},{status:403});
+    }
+    const admin = await getAdmin();
+    if (!admin) return NextResponse.json({error:"Keine Berechtigung."},{status:403});
+    const body = await request.json();
+    const id = String(body?.id ?? "").trim();
+    if (!/^\d+$/.test(id)) return NextResponse.json({error:"Ungültige Mitarbeiter-ID."},{status:400});
+    if (String(admin.id) === id) return NextResponse.json({error:"Das eigene Admin-Konto kann nicht gelöscht werden."},{status:400});
+    const {data, error} = await supabaseAdmin.from("workers")
+      .update({archived_at:new Date().toISOString(), active:false})
+      .eq("id",id).eq("active",false).is("archived_at",null)
+      .select("id,name").maybeSingle();
+    if (error) throw error;
+    if (!data) return NextResponse.json({error:"Bitte zuerst deaktivieren. Das Konto wurde möglicherweise bereits gelöscht."},{status:409});
+    // All history, original names, IDs and foreign keys remain intact.
+    return NextResponse.json({success:true},{headers:{"Cache-Control":"no-store"}});
+  } catch (error) {
+    console.error("ARCHIVE WORKER ERROR:", error);
+    return NextResponse.json({error:"Mitarbeiter konnte nicht gelöscht werden."},{status:500});
   }
 }
