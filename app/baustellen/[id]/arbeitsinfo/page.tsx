@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
+
+const attachmentUi = {
+  de: { choose: "Dateien auswählen", selected: "Ausgewählt", save: "Dateien speichern", saving: "Dateien werden hochgeladen", clear: "Auswahl leeren", saved: "Dateien gespeichert", unsupported: "Nicht unterstütztes Dateiformat", empty: "Leere Datei" },
+  ba: { choose: "Odaberi datoteke", selected: "Odabrano", save: "Spremi datoteke", saving: "Datoteke se učitavaju", clear: "Poništi odabir", saved: "Datoteke spremljene", unsupported: "Nepodržan format datoteke", empty: "Prazna datoteka" },
+  en: { choose: "Choose files", selected: "Selected", save: "Save files", saving: "Uploading files", clear: "Clear selection", saved: "Files saved", unsupported: "Unsupported file format", empty: "Empty file" },
+  uz: { choose: "Fayllarni tanlash", selected: "Tanlangan", save: "Fayllarni saqlash", saving: "Fayllar yuklanmoqda", clear: "Tanlovni tozalash", saved: "Fayllar saqlandi", unsupported: "Fayl formati qo‘llab-quvvatlanmaydi", empty: "Bo‘sh fayl" },
+  cz: { choose: "Vybrat soubory", selected: "Vybráno", save: "Uložit soubory", saving: "Nahrávání souborů", clear: "Zrušit výběr", saved: "Soubory uloženy", unsupported: "Nepodporovaný formát souboru", empty: "Prázdný soubor" },
+};
 
 const workCategories = [
   {
@@ -754,13 +762,18 @@ export default function ArbeitsinfoPage() {
 
   const [showFileForm, setShowFileForm] = useState(false);
   const [fileTitle, setFileTitle] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [savingFiles, setSavingFiles] = useState(false);
+  const [fileProgress, setFileProgress] = useState("");
+  const [fileMessage, setFileMessage] = useState("");
+  const fileUploadLock = useRef(false);
 
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [noteText, setNoteText] = useState("");
 
   const t = translations[lang] || translations.de;
   const isAdmin = workerRole === "admin";
+  const fileUi = attachmentUi[lang as keyof typeof attachmentUi] || attachmentUi.de;
     useEffect(() => {
     const role = localStorage.getItem("worker_role") || "worker";
     const savedLang = localStorage.getItem("lang") || "de";
@@ -1258,8 +1271,7 @@ export default function ArbeitsinfoPage() {
     return (
       name.endsWith(".heic") ||
       name.endsWith(".heif") ||
-      file.type === "image/heic" ||
-      file.type === "image/heif"
+      /^image\/hei[cf]/i.test(file.type)
     );
   }
 
@@ -1267,6 +1279,8 @@ export default function ArbeitsinfoPage() {
     const type = String(fileItem.file_type || "").toLowerCase();
     const url = String(fileItem.file_url || "").toLowerCase();
     const title = String(fileItem.title || "").toLowerCase();
+
+    if (type === "application/pdf" || url.endsWith(".pdf")) return false;
 
     if (type.startsWith("image/") && !type.includes("heic") && !type.includes("heif")) {
       return true;
@@ -1286,73 +1300,110 @@ export default function ArbeitsinfoPage() {
     );
   }
 
-  function handleSelectedFile(file: File | null) {
-    if (!file) {
-      setSelectedFile(null);
-      return;
-    }
-
-    if (isHeicFile(file)) {
-      alert(
-        "HEIC slike se ne mogu prikazati u browseru. Molim napravi sliku kao JPG/PNG ili na iPhone uključi: Settings > Camera > Formats > Most Compatible."
-      );
-      setSelectedFile(null);
-      return;
-    }
-
-    setSelectedFile(file);
+  function handleSelectedFiles(list: FileList | null) {
+    if (!isAdmin || fileUploadLock.current || !list?.length) return;
+    const incoming = Array.from(list);
+    setFileMessage("");
+    setSelectedFiles(previous => {
+      const key = (file: File) => [file.name, file.size, file.lastModified].join(":");
+      const seen = new Set(previous.map(key));
+      return [...previous, ...incoming.filter(file => {
+        const id = key(file);
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      })];
+    });
   }
 
-  async function saveFile() {
-    if (!selectedFile) {
-      alert("Bitte Datei auswählen.");
-      return;
+  async function prepareAttachment(file: File): Promise<File> {
+    if (!file.size) throw new Error(fileUi.empty);
+    if (isHeicFile(file)) {
+      const { heicTo } = await import("heic-to");
+      const blob = await heicTo({ blob: file, type: "image/jpeg", quality: 0.95 });
+      if (!(blob instanceof Blob) || !blob.size) throw new Error("HEIC → JPEG");
+      return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+    }
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    const types: Record<string, string> = { jpg:"image/jpeg", jpeg:"image/jpeg", png:"image/png", webp:"image/webp", gif:"image/gif", pdf:"application/pdf" };
+    const type = types[ext];
+    if (!type || (file.type && file.type !== "application/octet-stream" && file.type !== type)) {
+      throw new Error(fileUi.unsupported);
+    }
+    return file.type === type ? file : new File([file], file.name, { type });
+  }
+
+  async function saveFiles() {
+    if (!isAdmin || fileUploadLock.current || !selectedFiles.length) return;
+    fileUploadLock.current = true;
+    setSavingFiles(true);
+    setFileMessage("");
+    const batch = [...selectedFiles];
+    const description = fileTitle.trim();
+    const failed: { index: number; file: File; error: string }[] = [];
+    let saved = 0;
+    let completed = 0;
+    let next = 0;
+    let preparation: Promise<void> = Promise.resolve();
+    setFileProgress(`0/${batch.length}`);
+
+    async function uploadOne(index: number) {
+      const original = batch[index];
+      let filePath = "";
+      let publicUrl = "";
+      let uploaded = false;
+      try {
+        // Decode HEIC serially on phones while allowing up to three transfers.
+        const prepared = preparation.then(() => prepareAttachment(original));
+        preparation = prepared.then(() => undefined, () => undefined);
+        const file = await prepared;
+        const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        filePath = `${baustelleId}/${Date.now()}-${crypto.randomUUID()}-${cleanName}`;
+        const { error: uploadError } = await supabase.storage
+          .from("arbeitsinfo-files")
+          .upload(filePath, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+        if (uploadError) throw uploadError;
+        uploaded = true;
+        publicUrl = supabase.storage.from("arbeitsinfo-files").getPublicUrl(filePath).data.publicUrl;
+        const { error: insertError } = await supabase.from("arbeitsinfo_files").insert({
+          baustelle_id: Number(baustelleId),
+          title: description ? (batch.length === 1 ? description : `${description} – ${original.name}`) : original.name,
+          file_url: publicUrl,
+          file_type: file.type,
+        });
+        if (insertError) throw insertError;
+        saved++;
+      } catch (error) {
+        if (uploaded && publicUrl) {
+          try {
+            const { data: existing, error: lookupError } = await supabase
+              .from("arbeitsinfo_files").select("id").eq("baustelle_id", baustelleId).eq("file_url", publicUrl).limit(1);
+            if (!lookupError && existing?.length) { saved++; return; }
+            if (!lookupError) await supabase.storage.from("arbeitsinfo-files").remove([filePath]);
+          } catch { /* Keep the stored file when the database response is uncertain. */ }
+        }
+        failed.push({ index, file: original, error: original.name + ": " + (error instanceof Error ? error.message : String((error as {message?:string})?.message || error)) });
+      } finally {
+        completed++;
+        setFileProgress(`${completed}/${batch.length}`);
+      }
     }
 
-    if (isHeicFile(selectedFile)) {
-      alert(
-        "HEIC slike se ne mogu prikazati. Molim izaberi JPG, PNG, WEBP ili PDF."
-      );
-      return;
+    try {
+      const worker = async () => {
+        while (next < batch.length) await uploadOne(next++);
+      };
+      await Promise.all(Array.from({ length: Math.min(3, batch.length) }, () => worker()));
+      failed.sort((a,b) => a.index-b.index);
+      setSelectedFiles(failed.map(item => item.file));
+      setFileMessage(`${saved}/${batch.length} · ${fileUi.saved}` + (failed.length ? "\n" + failed.map(item=>item.error).join("\n") : ""));
+      if (!failed.length) setFileTitle("");
+      if (saved) await loadFiles();
+    } finally {
+      setFileProgress("");
+      setSavingFiles(false);
+      fileUploadLock.current = false;
     }
-
-    const cleanName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const fileName = `${Date.now()}-${cleanName}`;
-    const filePath = `${baustelleId}/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("arbeitsinfo-files")
-      .upload(filePath, selectedFile, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: selectedFile.type || "application/octet-stream",
-      });
-
-    if (uploadError) {
-      alert("Fehler beim Hochladen: " + uploadError.message);
-      return;
-    }
-
-    const { data } = supabase.storage
-      .from("arbeitsinfo-files")
-      .getPublicUrl(filePath);
-
-    const { error } = await supabase.from("arbeitsinfo_files").insert({
-      baustelle_id: Number(baustelleId),
-      title: fileTitle || selectedFile.name,
-      file_url: data.publicUrl,
-      file_type: selectedFile.type || "application/octet-stream",
-    });
-
-    if (error) {
-      alert("Fehler beim Speichern der Datei: " + error.message);
-      return;
-    }
-
-    setFileTitle("");
-    setSelectedFile(null);
-    setShowFileForm(false);
-    loadFiles();
   }
 
   async function deleteFile(id: number) {
@@ -1857,6 +1908,7 @@ export default function ArbeitsinfoPage() {
           {isAdmin && (
             <button
               onClick={() => setShowFileForm(!showFileForm)}
+              disabled={savingFiles}
               style={buttonStyle}
             >
               {showFileForm ? t.close : t.addFile}
@@ -1868,23 +1920,36 @@ export default function ArbeitsinfoPage() {
           <div style={formStyle}>
             <input
               value={fileTitle}
+              disabled={savingFiles}
               onChange={(e) => setFileTitle(e.target.value)}
               placeholder={t.fileTitle}
               style={inputStyle}
             />
 
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.jpg,.jpeg,.png,.webp,.gif,.pdf"
-              onChange={(e) =>
-                handleSelectedFile(e.target.files ? e.target.files[0] : null)
-              }
-              style={inputStyle}
-            />
+            <label style={{...buttonStyle,display:"inline-block",maxWidth:"100%",boxSizing:"border-box",opacity:savingFiles?0.6:1}}>
+              {fileUi.choose}
+              <input
+                type="file"
+                accept="image/*,application/pdf,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif,.pdf"
+                multiple
+                disabled={savingFiles}
+                onChange={(e) => { handleSelectedFiles(e.currentTarget.files); e.currentTarget.value = ""; }}
+                style={{display:"none"}}
+              />
+            </label>
 
-            <button onClick={saveFile} style={saveButtonStyle}>
-              {t.saveFile}
+            {selectedFiles.length > 0 && (
+              <div style={{margin:"12px 0",overflowWrap:"anywhere"}}>
+                <strong>{fileUi.selected}: {selectedFiles.length}</strong>
+                {selectedFiles.map((file,index) => <div key={index} style={{marginTop:6}}>{file.name}</div>)}
+                {!savingFiles && <button onClick={() => {setSelectedFiles([]);setFileMessage("");}} style={{...buttonStyle,marginTop:10}}>{fileUi.clear}</button>}
+              </div>
+            )}
+            <button onClick={saveFiles} disabled={savingFiles || !selectedFiles.length} style={{...saveButtonStyle,opacity:savingFiles || !selectedFiles.length ? 0.6 : 1}}>
+              {savingFiles ? fileUi.saving : fileUi.save} ({selectedFiles.length})
             </button>
+            {fileProgress && <p role="status">{fileProgress}</p>}
+            {fileMessage && <p role="status" style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{fileMessage}</p>}
           </div>
         )}
 
@@ -1901,6 +1966,7 @@ export default function ArbeitsinfoPage() {
                     <img
                       src={file.file_url}
                       alt={file.title || "Bild"}
+                      loading="lazy"
                       style={imageStyle}
                     />
                   </a>
