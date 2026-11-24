@@ -29,6 +29,7 @@ function createLoginResponse(
     role: Role;
   },
   remember: boolean,
+  verifiedPersonalPin = false,
 ) {
   const days = remember ? 30 : 7;
 
@@ -61,6 +62,14 @@ function createLoginResponse(
   }
 
   response.cookies.set(cookieOptions);
+  // Single sign-on: only the real bcrypt login grants a scoped chat token.
+  // Clear any previous chat credential on a legacy shortcut login.
+  response.cookies.set({
+    ...cookieOptions,
+    name: "solstone_chat_auth",
+    value: verifiedPersonalPin ? createSessionToken({...user, purpose:"chat"}, days) : "",
+    ...(verifiedPersonalPin ? {} : {maxAge:0}),
+  });
 
   return response;
 }
@@ -281,6 +290,7 @@ export async function POST(request: Request) {
         role,
       },
       remember,
+      true,
     );
   } catch (error) {
     console.error("LOGIN ERROR:", error);

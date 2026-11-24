@@ -12,9 +12,8 @@ const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
 
 /**
- * Second, verified PIN for private chat. The legacy application still accepts
- * some source-code PIN shortcuts, so its signed session alone is not enough
- * to read private messages. We only mint a separate chat cookie after bcrypt.
+ * Compatibility endpoint for older cached clients. Current clients receive
+ * their scoped chat cookie automatically at the main bcrypt login.
  */
 export async function POST(request: NextRequest) {
   if (!isSameOriginChatMutation(request)) return chatError("Neispravan zahtjev.", 403);
@@ -76,6 +75,7 @@ export async function POST(request: NextRequest) {
       id:String(worker.id),
       name:String(worker.name),
       role:String(worker.role).toLowerCase()==="admin" ? "admin" : "worker",
+      purpose:"chat",
     },7);
     const response = NextResponse.json({ success:true }, {
       headers:{"Cache-Control":"no-store"},

@@ -149,7 +149,7 @@ export default function LoginPage() {
     setRememberLogin(savedRemember);
 
     loadWorkers();
-    checkSavedLogin(savedRemember);
+    checkSavedLogin(savedRemember && new URLSearchParams(window.location.search).get("reauth") !== "chat");
   }, []);
 
   function changeLanguage(next: AppLanguage) {

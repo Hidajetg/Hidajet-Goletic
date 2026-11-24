@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
 import { type AppLanguage, readAppLanguage, saveAppLanguage } from "../lib/language";
@@ -81,7 +81,7 @@ async function api<T>(url:string,init?:RequestInit):Promise<T>{
   const response=await fetch(url,{credentials:"include",cache:"no-store",...init});
   const data=await response.json().catch(()=>({}));
   if (!response.ok) {
-    if (response.status === 401 && url === "/api/team-chat") throw new Error("CHAT_PIN_REQUIRED");
+    if (response.status === 401 && url === "/api/team-chat") throw new Error("APP_LOGIN_REQUIRED");
     throw new Error(String(data.error ?? "Server error"));
   }
   return data as T;
@@ -107,9 +107,7 @@ export default function TeamChatPage(){
   const [compact,setCompact]=useState(false);
   const [showChatSettings,setShowChatSettings]=useState(false);
   const [state,setState]=useState<ChatState>("loading");
-  const [needsChatPin,setNeedsChatPin]=useState(false);
-  const [chatPin,setChatPin]=useState("");
-  const [pinBusy,setPinBusy]=useState(false);
+  const [needsAppLogin,setNeedsAppLogin]=useState(false);
   const [error,setError]=useState("");
   const [rooms,setRooms]=useState<Room[]>([]);
   const [workers,setWorkers]=useState<Worker[]>([]);
@@ -148,12 +146,15 @@ export default function TeamChatPage(){
       setRooms(payload.rooms);
       setWorkers(payload.workers);
       setMe(payload.user);
+      setNeedsAppLogin(false);
       setState("ready");
       if (!silent) setError("");
       window.dispatchEvent(new CustomEvent("solstone-chat-unread",{detail:payload.unread}));
     }catch(e){
-      if(e instanceof Error && e.message==="CHAT_PIN_REQUIRED") {
-        setNeedsChatPin(true);
+      if(e instanceof Error && e.message==="APP_LOGIN_REQUIRED") {
+        setNeedsAppLogin(true);
+        setRooms([]); setWorkers([]); setMe(null); setCurrent(null); setMessages([]);
+        setError("");
         setState("unavailable");
         return;
       }
@@ -363,56 +364,25 @@ export default function TeamChatPage(){
   },[state,rooms,current]);
 
 
-  async function unlockChat(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (pinBusy || !/^\d{4,8}$/.test(chatPin)) return;
-    setPinBusy(true);
-    setError("");
-    try {
-      await api<{success:boolean}>("/api/team-chat/auth",postBody({pin:chatPin}));
-      setChatPin("");
-      setNeedsChatPin(false);
-      setState("loading");
-      await loadRooms();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "PIN provjera nije uspjela.");
-    } finally {
-      setPinBusy(false);
-    }
-  }
-
-  // The ordinary application remains untouched. Chat requires one extra
-  // bcrypt PIN verification because legacy logins contain known PINs.
-  if (needsChatPin) {
+  // No PIN form inside chat. If an old or expired session has no verified
+  // chat credential, use the ordinary application login once.
+  if (needsAppLogin) {
+    const loginText = {
+      de: ["Bitte melde dich einmal mit deinem persönlichen PIN in der Solstone-App an. Danach öffnet sich der Chat ohne zusätzliche Anmeldung.", "Zur App-Anmeldung"],
+      ba: ["Prijavi se jednom u Solstone aplikaciju svojim ličnim PIN-om. Nakon toga chat se otvara bez dodatne prijave.", "Prijava u aplikaciju"],
+      en: ["Sign in once to the Solstone app with your personal PIN. Chat then opens without a separate login.", "App sign-in"],
+      uz: ["Solstone ilovasiga shaxsiy PIN bilan bir marta kiring. Keyin chat alohida kirishsiz ochiladi.", "Ilovaga kirish"],
+      cz: ["Přihlaste se jednou do aplikace Solstone osobním PINem. Poté se chat otevře bez dalšího přihlášení.", "Přihlášení do aplikace"],
+    }[lang];
     return <main className={"tc-root"+(compact?" tc-compact":"")}>
       <header className="tc-header">
-        <Link href="/dashboard" className="tc-back" aria-label="Nazad na početnu">←</Link>
+        <Link href="/dashboard" className="tc-back" aria-label={t.close}>←</Link>
         <h1>💬 {t.title}</h1>
       </header>
-      <form onSubmit={(event)=>void unlockChat(event)}
-        style={{maxWidth:420,margin:"48px auto",padding:22,display:"grid",gap:15,
-          background:"#172638",borderRadius:16,color:"white"}}>
-        <h2 style={{fontSize:19,fontWeight:700,margin:0}}>
-          {lang==="de"?"Team Chat: Sicherheits-PIN":lang==="en"?"Team Chat: secure PIN":"Team Chat: sigurni PIN"}
-        </h2>
-        <p style={{margin:0,fontSize:14}}>
-          {lang==="de"
-            ? "Bitte gib einmal deinen persönlichen Mitarbeiter-PIN ein, um private Nachrichten zu öffnen."
-            : lang==="en"
-              ? "Enter your personal employee PIN once to access private conversations."
-              : "Unesi svoj lični PIN za pristup privatnim porukama. Prijava u ostatak aplikacije se ne mijenja."}
-        </p>
-        <input type="password" inputMode="numeric" autoComplete="off"
-          minLength={4} maxLength={8} pattern="[0-9]{4,8}"
-          value={chatPin} onChange={(e)=>setChatPin(e.target.value)}
-          aria-label="Sigurni PIN" placeholder="PIN" required
-          style={{padding:13,borderRadius:8,background:"white",color:"#111",fontSize:18}}/>
-        {error && <p role="alert" style={{color:"#ffd1d1",margin:0}}>{error}</p>}
-        <button type="submit" disabled={pinBusy || !/^\d{4,8}$/.test(chatPin)}
-          style={{padding:13,borderRadius:9,background:"#0f8b54",color:"white",fontWeight:700}}>
-          {pinBusy?"…":lang==="de"?"Chat öffnen":lang==="en"?"Open chat":"Otvori chat"}
-        </button>
-      </form>
+      <div className="tc-empty" style={{display:"grid",gap:16,padding:20}}>
+        <p>{loginText[0]}</p>
+        <a href="/login?reauth=chat" target="_top" style={{padding:12,background:"#2563eb",borderRadius:8,color:"white",textAlign:"center"}}>{loginText[1]}</a>
+      </div>
     </main>;
   }
 

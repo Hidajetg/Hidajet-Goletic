@@ -30,10 +30,10 @@ export async function getChatUser(): Promise<ChatUser | null> {
   const store = await cookies();
   const token = store.get("solstone_session")?.value;
   const session = verifySessionToken(token);
-  // Never grant confidential chat access on the old app cookie alone:
-  // legacy logins still contain publicly documented PIN shortcuts.
+  // Chat authentication is issued automatically by the main login after
+  // verification of the personal PIN; legacy shortcut sessions cannot unlock it.
   const chatToken = store.get("solstone_chat_auth")?.value;
-  const chatSession = verifySessionToken(chatToken);
+  const chatSession = verifySessionToken(chatToken, "chat");
   if (!session || !chatSession || session.id !== chatSession.id ||
       !/^\d+$/.test(String(session.id))) return null;
 
@@ -45,7 +45,7 @@ export async function getChatUser(): Promise<ChatUser | null> {
     .eq("id", session.id)
     .maybeSingle();
 
-  if (error || !data || data.active === false || !data.name) return null;
+  if (error || !data || data.active !== true || !data.name) return null;
 
   return {
     id: String(data.id),
@@ -62,30 +62,16 @@ export function currentViennaDate() {
   return p("year") + "-" + p("month") + "-" + p("day");
 }
 
-export async function authorizedSiteIds(user: ChatUser): Promise<string[]> {
-  if (user.isAdmin) {
-    const { data, error } = await supabaseAdmin
-      .from("baustellen")
-      .select("id")
-      .eq("status", "Aktiv")
-      .limit(500);
-    if (error) throw error;
-    return (data ?? []).map((site) => String(site.id));
-  }
-
-  // Site membership follows TODAY'S actual calendar. A previous job does not
-  // allow a worker to read that site's future conversations.
-  // Exact name match only: contains/substring matches could expose other sites.
+// Active site group chats are shared by all authenticated, active employees.
+export async function authorizedSiteIds(_user: ChatUser): Promise<string[]> {
   const { data, error } = await supabaseAdmin
-    .from("work_calendar")
-    .select("baustelle_id")
-    .eq("datum", currentViennaDate())
-    .eq("worker_name", user.name)
-    .not("baustelle_id", "is", null)
-    .limit(200);
-
+    .from("baustellen")
+    .select("id")
+    .eq("status", "Aktiv")
+    .order("id")
+    .limit(500);
   if (error) throw error;
-  return Array.from(new Set((data ?? []).map((r) => String(r.baustelle_id))));
+  return (data ?? []).map((site) => String(site.id));
 }
 
 export type ChatRoom = {

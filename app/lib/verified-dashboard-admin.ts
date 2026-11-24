@@ -3,7 +3,7 @@ import { verifySessionToken } from "./admin-session";
 import { supabaseAdmin } from "./supabase-admin";
 
 /** Verify the ordinary signed application session against the active worker
- * row. Team Chat's separate PIN remains mandatory only for private chat. */
+ * row. Team Chat uses an automatically issued, separately scoped credential. */
 export async function getVerifiedAppUser() {
   const cookieStore = await cookies();
   const session = verifySessionToken(cookieStore.get("solstone_session")?.value);

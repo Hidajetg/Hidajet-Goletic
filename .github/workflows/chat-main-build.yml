@@ -48,7 +48,9 @@ jobs:
           const root=fs.readFileSync('app/layout.tsx','utf8');
           if(!auth.includes('solstone_chat_auth') || !auth.includes('session.id !== chatSession.id')) process.exit(1);
           if(!post.includes('bcrypt.compare') || !post.includes('MAX_ATTEMPTS')) process.exit(1);
-          if(!root.includes('TeamChatWidget') || !view.includes('unlockChat')) process.exit(1);
+          const login=fs.readFileSync('app/api/auth/login/route.ts','utf8');
+          const session=fs.readFileSync('app/lib/admin-session.ts','utf8');
+          if(!root.includes('TeamChatWidget') || view.includes('unlockChat') || !login.includes('verifiedPersonalPin') || !session.includes('session.purpose !== "chat"')) process.exit(1);
           if(root.includes('<SolstoneCalls') || view.includes('solstone-call-start')) process.exit(1);
           const manifest=JSON.parse(fs.readFileSync('.next/server/app-paths-manifest.json','utf8'));
           const paths=Object.keys(manifest);

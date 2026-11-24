@@ -20,7 +20,7 @@ const LOCALES: Record<AppLanguage,string> = {
 /**
  * Notifications while the web app/WebView is running.
  * Never subscribe to public Realtime rows or trust a client-supplied worker ID.
- * The server returns only authorized rooms for the signed PIN cookie.
+ * The server returns only authorized rooms for the scoped chat credential.
  */
 export default function TeamChatAlerts() {
   const previous = useRef(new Map<string,string>());

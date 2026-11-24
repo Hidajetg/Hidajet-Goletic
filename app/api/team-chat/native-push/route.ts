@@ -11,7 +11,7 @@ const noStore = {"Cache-Control":"no-store"};
 async function identity() {
   const raw=(await cookies()).get("solstone_session")?.value;
   const session=verifySessionToken(raw);
-  const chat=verifySessionToken((await cookies()).get("solstone_chat_auth")?.value);
+  const chat=verifySessionToken((await cookies()).get("solstone_chat_auth")?.value, "chat");
   const user=await getChatUser();
   return raw && session && chat && user && String(session.id)===user.id && String(chat.id)===user.id ? {raw,session:{...session,exp:Math.min(session.exp,chat.exp)},user} : null;
 }
