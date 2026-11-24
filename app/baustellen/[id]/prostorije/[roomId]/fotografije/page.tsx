@@ -1,9 +1,50 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../../lib/supabase";
+
+const photoUi: Record<string, { selected: string; send: string; clear: string; converting: string; unavailable: string; success: string }> = {
+  de: { selected:"Ausgewählt", send:"Bilder hochladen", clear:"Auswahl leeren", converting:"Bild wird vorbereitet…", unavailable:"Vorschau nicht verfügbar – Original herunterladen", success:"Bilder gespeichert" },
+  ba: { selected:"Odabrano", send:"Spremi slike", clear:"Poništi odabir", converting:"Slika se priprema…", unavailable:"Prikaz nije dostupan – preuzmi original", success:"Slike spremljene" },
+  en: { selected:"Selected", send:"Upload photos", clear:"Clear selection", converting:"Preparing image…", unavailable:"Preview unavailable – download original", success:"Photos saved" },
+  uz: { selected:"Tanlangan", send:"Rasmlarni yuklash", clear:"Tanlovni tozalash", converting:"Rasm tayyorlanmoqda…", unavailable:"Ko‘rib bo‘lmaydi – asl faylni yuklab oling", success:"Rasmlar saqlandi" },
+  cz: { selected:"Vybráno", send:"Nahrát fotografie", clear:"Zrušit výběr", converting:"Příprava obrázku…", unavailable:"Náhled není dostupný – stáhněte originál", success:"Fotografie uloženy" },
+};
+const isHeicName = (name: string) => /\.(heic|heif)(?:$|[?#])/i.test(name);
+async function jpegFromHeic(blob: Blob): Promise<Blob> {
+  const { heicTo } = await import("heic-to");
+  const converted = await heicTo({blob, type:"image/jpeg", quality:0.95});
+  if (!(converted instanceof Blob) || !converted.size) throw new Error("HEIC → JPEG");
+  return converted;
+}
+async function preparePhoto(file: File): Promise<File> {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "";
+  const mime = file.type.toLowerCase();
+  if (isHeicName(file.name) || /^image\/hei[cf]/.test(mime)) {
+    const jpeg = await jpegFromHeic(file);
+    return new File([jpeg], file.name.replace(/\.[^.]+$/, "") + ".jpg", {type:"image/jpeg"});
+  }
+  const types: Record<string,string> = {jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp",gif:"image/gif",avif:"image/avif"};
+  if (types[ext] && (!mime || mime === "application/octet-stream" || mime === types[ext])) {
+    return mime === types[ext] ? file : new File([file], file.name, {type:types[ext]});
+  }
+  // Other formats must decode successfully before a gallery entry is created.
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx || !canvas.width || !canvas.height) throw new Error("Invalid image");
+    ctx.drawImage(img,0,0);
+    const jpeg = await new Promise<Blob>((resolve,reject)=>canvas.toBlob(b=>b ? resolve(b) : reject(new Error("JPEG conversion failed")),"image/jpeg",0.95));
+    return new File([jpeg], file.name.replace(/\.[^.]+$/, "") + ".jpg", {type:"image/jpeg"});
+  } finally { URL.revokeObjectURL(url); }
+}
 
 const translations: any = {
   de: {
@@ -150,8 +191,14 @@ export default function RoomPhotosPage() {
   const [uploading, setUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [lang, setLang] = useState("de");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [progress, setProgress] = useState("");
+  const [uploadMessage, setUploadMessage] = useState("");
+  const [previews, setPreviews] = useState<Record<string,string | null>>({});
+  const uploadLock = useRef(false);
 
   const t = translations[lang] || translations.de;
+  const ui = photoUi[lang] || photoUi.de;
 
   useEffect(() => {
     const savedLang =
@@ -206,7 +253,7 @@ export default function RoomPhotosPage() {
     setPhotos(data || []);
   }
 
-  function getPhotoUrl(photo: any) {
+  function getOriginalPhotoUrl(photo: any) {
     return (
       photo?.image_url ||
       photo?.photo_url ||
@@ -216,6 +263,59 @@ export default function RoomPhotosPage() {
       photo?.foto_url ||
       ""
     );
+  }
+
+  function isLegacyHeic(photo: any) {
+    return isHeicName(String(photo?.storage_path || "")) || isHeicName(getOriginalPhotoUrl(photo));
+  }
+
+  function getPhotoUrl(photo: any) {
+    return previews[String(photo.id)] || getOriginalPhotoUrl(photo);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    const urls: string[] = [];
+    setPreviews({});
+    async function convertExisting() {
+      for (const photo of photos) {
+        if (cancelled) break;
+        if (!isLegacyHeic(photo)) continue;
+        const id = String(photo.id);
+        try {
+          const path = String(photo.storage_path || "");
+          const original = getOriginalPhotoUrl(photo);
+          const storageUrl = path ? supabase.storage.from("room-photos").getPublicUrl(path).data.publicUrl : original;
+          const response = await fetch(storageUrl);
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          const jpeg = await jpegFromHeic(await response.blob());
+          if (cancelled) break;
+          const url = URL.createObjectURL(jpeg);
+          urls.push(url);
+          setPreviews(previous => ({...previous,[id]:url}));
+        } catch {
+          if (!cancelled) setPreviews(previous => ({...previous,[id]:null}));
+        }
+      }
+    }
+    void convertExisting();
+    return () => { cancelled = true; urls.forEach(url => URL.revokeObjectURL(url)); };
+  }, [photos]);
+
+  function photoPreview(photo:any, full = false) {
+    const id = String(photo.id);
+    const legacy = isLegacyHeic(photo);
+    const src = legacy ? previews[id] : getOriginalPhotoUrl(photo);
+    if (!src) {
+      return <div style={{...(full ? fullscreenImageStyle : imageStyle),display:"grid",placeItems:"center",height:full?"55vh":"120px",textAlign:"center",padding:10}}>
+        {legacy && previews[id] === undefined ? ui.converting : ui.unavailable}
+      </div>;
+    }
+    return <img src={src} alt={full ? t.bigPhotoAlt : t.photoAlt}
+      onClick={full ? undefined : () => setSelectedPhoto(photo)}
+      style={full ? fullscreenImageStyle : imageStyle}
+      loading={full ? "eager" : "lazy"}
+      onError={event => {event.currentTarget.style.objectFit="contain";event.currentTarget.alt=ui.unavailable;}} />;
   }
 
   function getPhotoWorker(photo: any) {
@@ -229,52 +329,74 @@ export default function RoomPhotosPage() {
     );
   }
 
-  async function uploadPhotos(event: any) {
-    const files = Array.from(event.target.files || []) as File[];
-    if (files.length === 0) return;
+  function choosePhotos(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.currentTarget.files || []);
+    event.currentTarget.value = "";
+    if (!files.length || uploadLock.current) return;
+    setUploadMessage("");
+    setPendingFiles(previous => {
+      const seen = new Set(previous.map(f => [f.name,f.size,f.lastModified].join(":")));
+      return [...previous, ...files.filter(f => {
+        const key = [f.name,f.size,f.lastModified].join(":");
+        if (seen.has(key)) return false;
+        seen.add(key); return true;
+      })];
+    });
+  }
 
+  async function uploadPhotos() {
+    if (!pendingFiles.length || uploadLock.current) return;
+    uploadLock.current = true;
     setUploading(true);
-
+    setUploadMessage("");
+    const files = [...pendingFiles];
+    const failed: File[] = [];
+    const errors: string[] = [];
     const workerName = getWorkerName();
-
-    for (const file of files) {
-      const fileExt = file.name.split(".").pop();
-      const storagePath = `${baustelleId}/${roomId}/${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2)}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("room-photos")
-        .upload(storagePath, file);
-
-      if (uploadError) {
-        alert(t.uploadError + ": " + uploadError.message);
-        continue;
+    let saved = 0;
+    try {
+      for (let index=0; index<files.length; index++) {
+        const original = files[index];
+        setProgress(`${index+1}/${files.length} · ${original.name}`);
+        let storagePath = "";
+        let uploaded = false;
+        try {
+          const file = await preparePhoto(original);
+          const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g,"") || "jpg";
+          storagePath = `${baustelleId}/${roomId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+          const {error: uploadError} = await supabase.storage.from("room-photos")
+            .upload(storagePath,file,{contentType:file.type,upsert:false});
+          if (uploadError) throw uploadError;
+          uploaded = true;
+          const {data: publicUrlData} = supabase.storage.from("room-photos").getPublicUrl(storagePath);
+          const {error: insertError} = await supabase.from("room_photos").insert({
+            baustelle_id:Number(baustelleId),room_id:Number(roomId),
+            image_url:publicUrlData.publicUrl,storage_path:storagePath,
+            worker_name:workerName,radnik:workerName,room_name:roomName,
+          });
+          if (insertError) throw insertError;
+          saved++;
+        } catch (error) {
+          failed.push(original);
+          errors.push(original.name + ": " + (error instanceof Error ? error.message : String((error as {message?:string})?.message || error)));
+          if (uploaded && storagePath) {
+            // An insert response can be lost after committing. Do not remove
+            // the object unless we know no gallery record references it.
+            const {data: existing,error: lookupError} = await supabase.from("room_photos").select("id").eq("storage_path",storagePath).limit(1);
+            if (!lookupError && existing?.length) { saved++; failed.pop(); errors.pop(); }
+            else if (!lookupError) await supabase.storage.from("room-photos").remove([storagePath]);
+          }
+        }
       }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("room-photos")
-        .getPublicUrl(storagePath);
-
-      const { error: insertError } = await supabase.from("room_photos").insert({
-        baustelle_id: Number(baustelleId),
-        room_id: Number(roomId),
-        image_url: publicUrlData.publicUrl,
-        storage_path: storagePath,
-        worker_name: workerName,
-        radnik: workerName,
-        room_name: roomName,
-      });
-
-      if (insertError) {
-        alert(t.saveError + ": " + insertError.message);
-      }
+      if (saved) playNotificationSound();
+      setUploadMessage(`${saved}/${files.length} · ${ui.success}` + (errors.length ? "\n" + errors.join("\n") : ""));
+      await loadPhotos();
+    } finally {
+      setPendingFiles(failed);
+      setProgress("");
+      setUploading(false);
+      uploadLock.current = false;
     }
-
-    playNotificationSound();
-    event.target.value = "";
-    setUploading(false);
-    loadPhotos();
   }
 
   async function deletePhoto(photo: any) {
@@ -302,12 +424,14 @@ export default function RoomPhotosPage() {
     try {
       const url = getPhotoUrl(photo);
       const response = await fetch(url);
+      if (!response.ok) throw new Error("HTTP " + response.status);
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
 
       a.href = downloadUrl;
-      a.download = `foto-${roomName}-${photo.id}.jpg`;
+      const ext = previews[String(photo.id)] ? "jpg" : (String(photo.storage_path || getOriginalPhotoUrl(photo)).split(/[?#]/)[0].split(".").pop() || "jpg");
+      a.download = `foto-${roomName}-${photo.id}.${ext}`;
       document.body.appendChild(a);
       a.click();
 
@@ -365,13 +489,23 @@ export default function RoomPhotosPage() {
         {uploading ? t.uploading : t.addPhotos}
         <input
           type="file"
-          accept="image/*"
+          accept="image/*,.heic,.heif"
           multiple
-          onChange={uploadPhotos}
+          onChange={choosePhotos}
           disabled={uploading}
           style={{ display: "none" }}
         />
       </label>
+      {pendingFiles.length > 0 && (
+        <div style={{...cardStyle,padding:12,marginTop:12}}>
+          <p>{ui.selected}: {pendingFiles.length}</p>
+          {pendingFiles.map((file,index)=><div key={index} style={{overflowWrap:"anywhere",marginBottom:4}}>{file.name}</div>)}
+          <button disabled={uploading} onClick={()=>void uploadPhotos()} style={{...uploadButtonStyle,marginTop:10}}>{uploading ? t.uploading : ui.send} ({pendingFiles.length})</button>
+          {!uploading && <button onClick={()=>setPendingFiles([])} style={{...navButtonStyle,margin:8}}>{ui.clear}</button>}
+        </div>
+      )}
+      {progress && <p role="status">{progress}</p>}
+      {uploadMessage && <p role="status" style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{uploadMessage}</p>}
 
       <h2 style={galleryTitleStyle}>{t.gallery}</h2>
 
@@ -386,12 +520,7 @@ export default function RoomPhotosPage() {
 
             return (
               <div key={photo.id} style={cardStyle}>
-                <img
-                  src={url}
-                  alt={t.photoAlt}
-                  onClick={() => setSelectedPhoto(photo)}
-                  style={imageStyle}
-                />
+                {photoPreview(photo)}
 
                 <div style={{ padding: "10px" }}>
                   <p style={roomTextStyle}>{roomName}</p>
@@ -440,11 +569,7 @@ export default function RoomPhotosPage() {
             X
           </button>
 
-          <img
-            src={getPhotoUrl(selectedPhoto)}
-            alt={t.bigPhotoAlt}
-            style={fullscreenImageStyle}
-          />
+          {photoPreview(selectedPhoto, true)}
 
           <div style={fullscreenInfoStyle}>
             <p style={{ margin: "0 0 5px 0", fontWeight: "bold" }}>
