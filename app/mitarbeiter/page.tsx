@@ -27,6 +27,7 @@ export default function MitarbeiterPage() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [refreshingApp, setRefreshingApp] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -44,8 +45,24 @@ export default function MitarbeiterPage() {
   const [editRole, setEditRole] = useState<WorkerRole>("worker");
 
   useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("_solstone_refresh")) {
+      url.searchParams.delete("_solstone_refresh");
+      window.history.replaceState(window.history.state, "", url.href);
+    }
     loadWorkers();
   }, []);
+
+  function refreshApp() {
+    if (loading || saving || refreshingApp || showAdd || editId !== null) return;
+    setRefreshingApp(true);
+    // A fresh document navigation loads the current Vercel deployment, not only
+    // the employee data or the cached Next.js client router. Keep session storage,
+    // cookies and local data intact. Replace rather than add a Back history entry.
+    const url = new URL(window.location.href);
+    url.searchParams.set("_solstone_refresh", String(Date.now()));
+    window.location.replace(url.href);
+  }
 
   const admins = useMemo(
     () => workers.filter((worker) => worker.role === "admin"),
@@ -548,15 +565,15 @@ export default function MitarbeiterPage() {
             </button>
             <button
               type="button"
-              onClick={() => { setSuccess(""); void loadWorkers(); }}
-              disabled={loading || saving || showAdd || editId !== null}
-              aria-label="Mitarbeiterliste aktualisieren"
-              aria-busy={loading}
-              title={showAdd || editId !== null ? "Bitte zuerst speichern oder abbrechen" : "Mitarbeiterliste aktualisieren"}
-              style={{ ...grayButtonStyle, color: "#f97316", minHeight: 44, gap: 6, opacity: loading || saving || showAdd || editId !== null ? 0.55 : 1 }}
+              onClick={refreshApp}
+              disabled={loading || saving || refreshingApp || showAdd || editId !== null}
+              aria-label="Gesamte Solstone-App aktualisieren"
+              aria-busy={refreshingApp}
+              title={showAdd || editId !== null ? "Bitte zuerst speichern oder abbrechen" : "Neueste Solstone-Webversion laden"}
+              style={{ ...grayButtonStyle, color: "#f97316", minHeight: 44, gap: 6, opacity: loading || saving || refreshingApp || showAdd || editId !== null ? 0.55 : 1 }}
             >
               <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 11a8 8 0 1 0-2 6"/><path d="M20 4v7h-7"/></svg>
-              {loading ? "Wird geladen…" : "Aktualisieren"}
+              {refreshingApp ? "App wird aktualisiert…" : "App aktualisieren"}
             </button>
           </div>
         </div>
