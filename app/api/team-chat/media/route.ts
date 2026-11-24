@@ -38,6 +38,19 @@ export async function POST(request: NextRequest) {
       return chatError("Previše priloga. Pokušaj kasnije.",429);
     }
 
+    // Bring the existing private chat bucket into sync via the Storage API.
+    // The project's global Storage limit still applies.
+    const {data:bucket,error:bucketError}=await supabaseAdmin.storage.getBucket(CHAT_BUCKET);
+    if (bucketError || !bucket) throw bucketError ?? new Error("Chat storage unavailable");
+    const mimeTypes=Object.keys(CHAT_FILE_TYPES);
+    if (bucket.file_size_limit != null || !bucket.allowed_mime_types ||
+        mimeTypes.some((allowed)=>!bucket.allowed_mime_types?.includes(allowed))) {
+      const {error:settingsError}=await supabaseAdmin.storage.updateBucket(CHAT_BUCKET,{
+        public:false,fileSizeLimit:null,allowedMimeTypes:mimeTypes,
+      });
+      if (settingsError) throw settingsError;
+    }
+
     const objectPath=roomId+"/"+randomUUID()+"."+type.ext;
     const {data:pending,error:pendingError}=await supabaseAdmin
       .from("solstone_chat_pending_uploads")
