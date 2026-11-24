@@ -70,7 +70,7 @@ final class SolstoneUpdateChecker {
                 if(!dir.isDirectory()&&!dir.mkdirs())throw new IOException("Cache unavailable");
                 File target=new File(dir,"update-"+version+".apk");
                 if(!verified(target,version,size,digest)){
-                    File part=new File(dir,"download.part");
+                    File part=new File(dir,"download.part.apk");
                     try{
                         try(FileOutputStream out=new FileOutputStream(part)){
                             download(REPO+"download/android-v"+name+"/Solstone-Baustelle-v"+name+".apk",out,size);
