@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
@@ -1532,6 +1532,8 @@ export default function ArbeitsinfoPage() {
 
       <h1 style={titleStyle}>{t.title}</h1>
 
+      {[
+        { key: "tasks", populated: tasks.length > 0, node: (
       <div style={sectionStyle}>
         <div style={sectionHeaderStyle}>
           <h2 style={sectionTitleStyle}>📋 {t.task}</h2>
@@ -1623,10 +1625,14 @@ export default function ArbeitsinfoPage() {
           </div>
         )}
       </div>
-
-      {materialModules.map((moduleItem) => renderMaterialModule(moduleItem))}
-
-      <div style={sectionStyle}>
+        ) },
+        ...materialModules.map((moduleItem) => ({
+          key: "material-" + moduleItem.key,
+          populated: getArbeitsMaterialsForGroup(moduleItem.groupName).length > 0,
+          node: renderMaterialModule(moduleItem),
+        })),
+        { key: "tiles", populated: tiles.length > 0, node: (
+<div style={sectionStyle}>
         <div style={sectionHeaderStyle}>
           <h2 style={sectionTitleStyle}>🧱 {t.tiles}</h2>
 
@@ -1755,7 +1761,8 @@ export default function ArbeitsinfoPage() {
           </div>
         )}
       </div>
-
+        ) },
+        { key: "tools", populated: tools.length > 0, node: (
       <div style={sectionStyle}>
         <div style={sectionHeaderStyle}>
           <h2 style={sectionTitleStyle}>🛠 {t.tool}</h2>
@@ -1841,7 +1848,8 @@ export default function ArbeitsinfoPage() {
           </div>
         )}
       </div>
-
+        ) },
+        { key: "files", populated: files.length > 0, node: (
       <div style={sectionStyle}>
         <div style={sectionHeaderStyle}>
           <h2 style={sectionTitleStyle}>📎 {t.files}</h2>
@@ -1919,7 +1927,8 @@ export default function ArbeitsinfoPage() {
           </div>
         )}
       </div>
-
+        ) },
+        { key: "notes", populated: notes.length > 0, node: (
       <div style={sectionStyle}>
         <div style={sectionHeaderStyle}>
           <h2 style={sectionTitleStyle}>💡 {t.notes}</h2>
@@ -1970,6 +1979,11 @@ export default function ArbeitsinfoPage() {
           </div>
         )}
       </div>
+        ) },
+      ]
+        .filter((section) => isAdmin || section.populated)
+        .sort((a, b) => Number(b.populated) - Number(a.populated))
+        .map((section) => <Fragment key={section.key}>{section.node}</Fragment>)}
     </main>
   );
 }
