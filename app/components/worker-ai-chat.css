@@ -27,6 +27,6 @@
 .wai-send:disabled{opacity:.6;cursor:not-allowed}
 .wai-photo{color:#b7d7fa;display:flex;align-items:center;gap:7px;overflow-wrap:anywhere;margin:0 0 6px}
 .wai-notice{color:#ffcca9;margin:0 10px 6px;font-size:12px}
-.wai-launcher{position:fixed;right:20px;bottom:20px;z-index:501;background:#f97316;border:1px solid #fb923c;border-radius:20px;color:#fff;box-shadow:0 5px 20px #0008;font-weight:750;padding:11px 16px;cursor:pointer;font-family:inherit}
+.wai-launcher{position:fixed;right:20px;bottom:20px;z-index:501;background:#f97316;border:1px solid #fb923c;border-radius:20px;color:#fff;box-shadow:0 5px 20px #0008;font-weight:750;padding:6px 10px;min-width:44px;min-height:44px;font-size:12px;cursor:pointer;font-family:inherit}
 @media(max-width:430px){.wai-floating .wai-panel{right:10px;max-width:calc(100vw - 20px);bottom:68px;height:min(570px,calc(100dvh - 88px))}.wai-launcher{right:10px;bottom:12px}.wai-page .wai-panel{height:calc(100dvh - 145px);min-height:275px}}
 @media(max-height:550px){.wai-page .wai-panel{height:calc(100dvh - 120px);min-height:200px}}

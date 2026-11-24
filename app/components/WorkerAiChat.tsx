@@ -268,7 +268,7 @@ export default function WorkerAiChat({ mode = "page", verifiedName }: { mode?: M
     {open && chat}
     <button className="wai-launcher" type="button" aria-label={open ? t.close : t.reopen}
       onClick={() => setOpen(v => !v)}>
-      {open ? "✦ " + t.close : "✦ Baustelle AI"}
+      {open ? "✦ " + t.close : "✦ AI"}
     </button>
   </div>;
 }

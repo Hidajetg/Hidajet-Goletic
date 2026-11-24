@@ -133,9 +133,9 @@ export default function AdminAiFloating() {
 
   if (!opened) return (
     <button type="button" onClick={() => setOpened(true)} aria-label="Baustelle AI öffnen"
-      style={{ position: "fixed", right: 20, bottom: 20, zIndex: 500, padding: "11px 16px",
+      style={{ position: "fixed", right: 20, bottom: 20, zIndex: 500, padding: "6px 10px", minWidth: 44, minHeight: 44, fontSize: 12,
         borderRadius: 20, background: "#f97316", border: "1px solid #fb923c", color: "white",
-        boxShadow: "0 5px 20px #0008", cursor: "pointer", fontWeight: 750 }}>✦ Baustelle AI</button>
+        boxShadow: "0 5px 20px #0008", cursor: "pointer", fontWeight: 750 }}>✦ AI</button>
   );
 
   return <>
