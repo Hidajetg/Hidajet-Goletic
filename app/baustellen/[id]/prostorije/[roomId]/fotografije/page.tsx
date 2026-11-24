@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useNativeBack } from "../../../../../lib/use-native-back";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../../lib/supabase";
 
@@ -196,6 +197,12 @@ export default function RoomPhotosPage() {
   const [uploadMessage, setUploadMessage] = useState("");
   const [previews, setPreviews] = useState<Record<string,string | null>>({});
   const uploadLock = useRef(false);
+
+  useNativeBack(() => {
+    if (selectedPhoto) { setSelectedPhoto(null); return true; }
+    // Do not interrupt an in-progress multi-photo upload.
+    return uploadLock.current;
+  });
 
   const t = translations[lang] || translations.de;
   const ui = photoUi[lang] || photoUi.de;

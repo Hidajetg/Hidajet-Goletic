@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useNativeBack } from "../lib/use-native-back";
 import { type AppLanguage, readAppLanguage } from "../lib/language";
 import "./worker-ai-chat.css";
 
@@ -87,6 +88,14 @@ export default function WorkerAiChat({ mode = "page", verifiedName }: { mode?: M
   const nextId = useRef(0);
   const loadedHistory = useRef(false);
   const t = words[lang];
+
+  useNativeBack(() => {
+    if (!open) return false;
+    if (showInfo) { setShowInfo(false); return true; }
+    if (mode === "floating") { setOpen(false); return true; }
+    if (busy) return true;
+    return false;
+  });
 
   useEffect(() => {
     setLang(readAppLanguage("de"));

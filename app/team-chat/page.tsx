@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "../lib/supabase";
 import { type AppLanguage, readAppLanguage, saveAppLanguage } from "../lib/language";
 import "./team-chat.css";
+import { useNativeBack } from "../lib/use-native-back";
 import { nativePushBridge, syncNativePush, disableNativePush } from "../lib/native-push-client";
 
 type Room = {
@@ -136,6 +137,23 @@ export default function TeamChatPage(){
   const listEnd=useRef<HTMLDivElement|null>(null);
   const initialSiteSelection=useRef(false);
   const t=WORDS[lang];
+
+  useNativeBack(() => {
+    if (preview) { setPreview(null); return true; }
+    if (showChatSettings) { setShowChatSettings(false); return true; }
+    if (isRecording) { stopRecording(); return true; }
+    if (busy) return true;
+    if (current) {
+      if (text.trim() || file) {
+        const ask = {de:"Ungesendete Nachricht verwerfen?",ba:"Odbaciti neposlanu poruku?",en:"Discard unsent message?",uz:"Yuborilmagan xabar o‘chirilsinmi?",cz:"Zahodit neodeslanou zprávu?"}[lang];
+        if (!window.confirm(ask)) return true;
+      }
+      setText(""); setFile(null); setCurrent(null); setMessages([]);
+      notifyChatShell("compact");
+      return true;
+    }
+    return false;
+  });
 
   const loadRooms=useCallback(async(silent=false)=>{
     try {

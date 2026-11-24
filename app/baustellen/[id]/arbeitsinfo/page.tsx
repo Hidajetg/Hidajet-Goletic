@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
+import { useNativeBack } from "../../../lib/use-native-back";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
@@ -770,6 +771,19 @@ export default function ArbeitsinfoPage() {
 
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [noteText, setNoteText] = useState("");
+
+  useNativeBack(() => {
+    if (fileUploadLock.current) return true;
+    if (showFileForm) { setShowFileForm(false); return true; }
+    if (showNoteForm) { setShowNoteForm(false); return true; }
+    if (showToolsForm) { setShowToolsForm(false); return true; }
+    if (showTilesForm) { setShowTilesForm(false); return true; }
+    if (showTaskForm) { setShowTaskForm(false); return true; }
+    const openKeys = Object.keys(openMaterialForms).filter(key => openMaterialForms[key]);
+    const key = openKeys[openKeys.length - 1];
+    if (key) { setOpenMaterialForms((previous: any) => ({...previous,[key]:false})); return true; }
+    return false;
+  });
 
   const t = translations[lang] || translations.de;
   const isAdmin = workerRole === "admin";
