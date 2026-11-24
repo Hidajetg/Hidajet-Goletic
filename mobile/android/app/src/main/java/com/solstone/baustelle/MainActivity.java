@@ -6,6 +6,7 @@ import android.content.pm.ApplicationInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.os.Environment;
 import android.webkit.CookieManager;
 import android.webkit.URLUtil;
@@ -31,12 +32,20 @@ public class MainActivity extends BridgeActivity {
     static volatile boolean foreground = false;
     private SolstoneUpdateChecker updater;
     private boolean backInProgress = false;
+    private static final long EXIT_INTERVAL_MS = 2000L;
+    private long lastBackAt = -EXIT_INTERVAL_MS;
+    private Toast backToast;
 
     @Override public void onResume() {
         super.onResume(); foreground = true;
         if (updater != null) updater.onResume();
     }
-    @Override public void onPause() { foreground = false; super.onPause(); }
+    @Override public void onPause() {
+        foreground = false;
+        lastBackAt = -EXIT_INTERVAL_MS;
+        if (backToast != null) backToast.cancel();
+        super.onPause();
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
@@ -58,26 +67,58 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    /** Close the web panel first, then use WebView history. At the dashboard
-     * Back stays inside Solstone rather than accidentally closing the app. */
+    /** Native Back: close panels first, protect edits, then go back once.
+     * A second eligible press within two seconds backgrounds the task, not the
+     * authenticated session. Android handles the IME before this callback. */
     private void handleAppBack() {
         if (backInProgress || bridge == null || bridge.getWebView() == null) return;
         final WebView view = bridge.getWebView();
         final String current = view.getUrl();
         final String origin = bridge.getServerUrl();
         if (current == null || origin == null) return;
-
+        final long pressedAt = SystemClock.elapsedRealtime();
         if (!sameAppOrigin(current, origin)) {
+            lastBackAt = -EXIT_INTERVAL_MS;
             navigateAppBack(view, current, origin);
             return;
         }
 
         backInProgress = true;
-        // Only execute our event on the configured app origin, never an external PDF or site.
+        // Preserve the existing cancellable panel event. The web guard also
+        // consumes Back if a draft must be protected.
         view.evaluateJavascript("!window.dispatchEvent(new Event('solstone-native-back',{cancelable:true}))", result -> {
             backInProgress = false;
-            if (isFinishing() || isDestroyed() || !current.equals(view.getUrl())) return;
-            if (!"true".equals(result)) navigateAppBack(view, current, origin);
+            if (isFinishing() || isDestroyed() || !foreground || !current.equals(view.getUrl())) {
+                lastBackAt = -EXIT_INTERVAL_MS;
+                return;
+            }
+            // Fail closed if the page did not return a boolean.
+            if (!"false".equals(result)) {
+                lastBackAt = -EXIT_INTERVAL_MS;
+                if (backToast != null) backToast.cancel();
+                return;
+            }
+            if (pressedAt - lastBackAt < EXIT_INTERVAL_MS) {
+                lastBackAt = -EXIT_INTERVAL_MS;
+                if (backToast != null) backToast.cancel();
+                moveTaskToBack(true);
+                return;
+            }
+            lastBackAt = pressedAt;
+            navigateAppBack(view, current, origin);
+            if (backToast != null) backToast.cancel();
+            // Read language from the trusted web origin, without exposing any
+            // authentication data.
+            view.evaluateJavascript("(localStorage.getItem('lang')||'ba')", value -> {
+                if (!foreground || isFinishing() || isDestroyed() || lastBackAt != pressedAt) return;
+                String hint = "Pritisni ponovo za izlazak";
+                if ("\"de\"".equals(value)) hint = "Zum Beenden erneut drücken";
+                else if ("\"en\"".equals(value)) hint = "Press again to exit";
+                else if ("\"cz\"".equals(value)) hint = "Pro ukončení stiskněte znovu";
+                else if ("\"uz\"".equals(value)) hint = "Chiqish uchun yana bosing";
+                backToast = Toast.makeText(getApplicationContext(), hint, Toast.LENGTH_SHORT);
+                backToast.show();
+            });
         });
     }
 
