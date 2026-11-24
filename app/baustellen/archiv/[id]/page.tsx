@@ -1786,9 +1786,10 @@ Arbeitsstunden, Materialien, Räume, Produktivität, Regieberichte und alle ande
       await waitForPrintLayout();
       const previousTitle = document.title;
       const siteName = String(baustelle?.naziv || `Baustelle-${baustelleId}`).replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").trim() || `Baustelle-${baustelleId}`;
-      document.title = siteName;
+      const pdfTitle = `ABSCHLUSSBERICHT BAUSTELLE ${siteName}`;
+      document.title = pdfTitle;
       const restoreTitle = () => {
-        if (document.title === siteName) document.title = previousTitle;
+        if (document.title === pdfTitle) document.title = previousTitle;
       };
       window.addEventListener("afterprint", restoreTitle, { once: true });
       try {
