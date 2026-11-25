@@ -1,4 +1,6 @@
 "use client";
+import { capturePickedFiles } from "../../../lib/capture-picked-files";
+
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -324,8 +326,11 @@ export default function ProjektFotosPage() {
     });
   }, [fotos, search, filterKategorie, filterRaum, raeume]);
 
-  function onFilesSelected(files: FileList | null) {
-    const incoming = Array.from(files || []);
+  async function onFilesSelected(files: FileList | null) {
+    const selected = Array.from(files || []);
+    const captured = await capturePickedFiles(selected);
+    if (captured.errors.length) alert(captured.errors.join("\n"));
+    const incoming = captured.files;
 
     const onlyImages = incoming.filter((file) => file.type.startsWith("image/"));
 
