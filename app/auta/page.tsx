@@ -1,3 +1,4 @@
+import { capturePickedFile } from "../lib/capture-picked-files";
 "use client";
 
 import Link from "next/link";
@@ -697,7 +698,7 @@ export default function AutaPage() {
         <input
           type="file"
           accept="image/*"
-          onChange={(e) => setDamageFile(e.target.files?.[0] || null)}
+          onChange={async (e) => {const selected=Array.from(e.currentTarget.files || []);e.currentTarget.value="";try{setDamageFile(await capturePickedFile(selected));}catch(error){alert(String(error));}}}
           style={inputStyle}
         />
 
