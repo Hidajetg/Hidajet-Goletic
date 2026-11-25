@@ -851,7 +851,6 @@ export default function ProjektFotosPage() {
                   type="file"
                   accept="image/*"
                   multiple
-                  capture="environment"
                   onChange={(e) => onFilesSelected(e.target.files)}
                 />
 
