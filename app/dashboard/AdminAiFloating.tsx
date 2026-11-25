@@ -1,4 +1,6 @@
 "use client";
+import { capturePickedFile } from "../lib/capture-picked-files";
+
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
@@ -79,7 +81,10 @@ export default function AdminAiFloating() {
     window.speechSynthesis.speak(speech);
   };
 
-  const choosePhoto = (file?: File) => {
+  const choosePhoto = async (original?: File) => {
+    if (!original) return;
+    let file: File | null;
+    try { file = await capturePickedFile([original]); } catch {setNotice("Foto konnte nicht geladen werden.");return;}
     if (!file) return;
     setNotice("");
     if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 4_000_000) {
@@ -177,7 +182,7 @@ export default function AdminAiFloating() {
           }} />
         <div style={{ display: "flex", justifyContent: "space-between", gap: 4, alignItems: "center", marginTop: 5 }}>
           <div style={{ display: "flex", gap: 4 }}>
-            <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e => choosePhoto(e.target.files?.[0])} />
+            <input ref={inputRef} type="file" accept="image/*,.heic,.heif" hidden onChange={e => choosePhoto(e.target.files?.[0])} />
             <button type="button" onClick={() => inputRef.current?.click()} style={tinyButton}>📷 Foto</button>
             <button type="button" onClick={dictate} aria-label="Sprachfrage diktieren" style={tinyButton}>🎤</button>
           </div>
