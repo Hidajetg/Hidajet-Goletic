@@ -1,4 +1,6 @@
 "use client";
+import { capturePickedFile } from "../../../../lib/capture-picked-files";
+
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -585,9 +587,7 @@ export default function RoomDetailPage() {
           ref={imageInputRef}
           type="file"
           accept="image/*"
-          onChange={(e) =>
-            handleImageFile(e.target.files?.[0])
-          }
+          onChange={async (e) => {const selected=Array.from(e.currentTarget.files || []);e.currentTarget.value="";try{handleImageFile(await capturePickedFile(selected) || undefined);}catch(error){setNotesError(String(error));}}}
           style={{ display: "none" }}
         />
 
