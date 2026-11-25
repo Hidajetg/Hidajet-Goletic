@@ -118,8 +118,8 @@ function ChatPhoto({message,onOpen}:{message:Message;onOpen:()=>void}){
         });
         if(!response.ok)throw new Error("Photo unavailable");
         const payload=await response.json() as {url:string;mime?:string;name?:string};
-        const heic=/\\.hei[cf]$/i.test(message.attachment?.original_name||"") ||
-          /image\\/hei[cf]/i.test(payload.mime||"");
+        const heic=/\.hei[cf]$/i.test(message.attachment?.original_name||"") ||
+          /image\/hei[cf]/i.test(payload.mime||"");
         if(heic){
           const imageResponse=await fetch(payload.url);
           if(!imageResponse.ok)throw new Error("Photo unavailable");
