@@ -1,4 +1,6 @@
 "use client";
+import { capturePickedFiles } from "../../../lib/capture-picked-files";
+
 
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
@@ -1314,9 +1316,11 @@ export default function ArbeitsinfoPage() {
     );
   }
 
-  function handleSelectedFiles(list: FileList | null) {
+  async function handleSelectedFiles(list: FileList | null) {
     if (!isAdmin || fileUploadLock.current || !list?.length) return;
-    const incoming = Array.from(list);
+    const captured = await capturePickedFiles(Array.from(list));
+    if (captured.errors.length) setFileMessage(captured.errors.join("\n"));
+    const incoming = captured.files;
     setFileMessage("");
     setSelectedFiles(previous => {
       const key = (file: File) => [file.name, file.size, file.lastModified].join(":");
