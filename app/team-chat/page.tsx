@@ -131,7 +131,33 @@ export default function TeamChatPage(){
   const [showOriginal,setShowOriginal]=useState<Set<string>>(new Set());
   const [translations,setTranslations]=useState<Record<string,string>>({});
   const translateAttempted=useRef(new Set<string>());
-  const [preview,setPreview]=useState<{url:string;name:string;kind:string}|null>(null);
+  const [preview,setPreview]=useState<{url:string;name:string;kind:string;mime?:string}|null>(null);
+  const [previewImage,setPreviewImage]=useState<string|null>(null);
+  const [previewImageError,setPreviewImageError]=useState(false);
+  // Convert older iPhone HEIC/HEIF attachments locally for browsers without native support.
+  useEffect(()=>{
+    if(!preview || preview.kind!=="image") {return;}
+    const heic=/\.hei[cf](?:$|[?#])/i.test(preview.name) || /image\/hei[cf]/i.test(preview.mime || "");
+    if(!heic){setPreviewImage(preview.url);setPreviewImageError(false);return;}
+    let cancelled=false;
+    let objectUrl:string|null=null;
+    setPreviewImage(null);setPreviewImageError(false);
+    (async()=>{
+      try{
+        const response=await fetch(preview.url);
+        if(!response.ok) throw new Error("Image download failed");
+        const blob=await response.blob();
+        const {heicTo}=await import("heic-to");
+        const jpeg=await heicTo({blob,type:"image/jpeg",quality:0.9});
+        objectUrl=URL.createObjectURL(jpeg);
+        if(!cancelled) setPreviewImage(objectUrl);
+      }catch(error){
+        console.error("HEIC preview conversion failed:",error);
+        if(!cancelled) setPreviewImageError(true);
+      }
+    })();
+    return ()=>{cancelled=true;if(objectUrl)URL.revokeObjectURL(objectUrl);};
+  },[preview]);
   const recorder=useRef<MediaRecorder|null>(null);
   const parts=useRef<Blob[]>([]);
   const listEnd=useRef<HTMLDivElement|null>(null);
@@ -289,17 +315,26 @@ export default function TeamChatPage(){
     try{
       let uploadId:string|null=null;
       if (file) {
-        const ext=file.name.toLowerCase().split(".").pop() || "";
+        // HEIC/HEIF is not reliably rendered on Android, Windows or in webviews.
+        // Upload JPEG instead so newly sent iPhone photos work everywhere.
+        let uploadFile=file;
+        const heic=/\.hei[cf]$/i.test(file.name) || /image\/hei[cf]/i.test(file.type);
+        if(heic){
+          const {heicTo}=await import("heic-to");
+          const converted=await heicTo({blob:file,type:"image/jpeg",quality:0.9});
+          uploadFile=new File([converted],file.name.replace(/\.hei[cf]$/i,"")+".jpg",{type:"image/jpeg"});
+        }
+        const ext=uploadFile.name.toLowerCase().split(".").pop() || "";
         const inferred:Record<string,string>={heic:"image/heic",heif:"image/heif",jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp",pdf:"application/pdf"};
-        const reported=file.type.split(";")[0].toLowerCase();
+        const reported=uploadFile.type.split(";")[0].toLowerCase();
         const mime=(!reported || reported==="application/octet-stream" || reported==="image/heic" || reported==="image/heif") ? (inferred[ext] || reported) : reported;
-        if (!mime || !file.size) throw new Error("Ungültige Datei / Neispravna datoteka.");
+        if (!mime || !uploadFile.size) throw new Error("Ungültige Datei / Neispravna datoteka.");
         const signed=await api<{uploadId:string;path:string;token:string}>(
           "/api/team-chat/media",postBody({
-            roomId:current.id,name:file.name,mime,size:file.size,
+            roomId:current.id,name:uploadFile.name,mime,size:uploadFile.size,
           }));
         const {error:uploadError}=await supabase.storage.from("solstone-team-chat")
-          .uploadToSignedUrl(signed.path,signed.token,file,{contentType:mime});
+          .uploadToSignedUrl(signed.path,signed.token,uploadFile,{contentType:mime});
         if(uploadError) throw uploadError;
         uploadId=signed.uploadId;
       }
@@ -343,7 +378,7 @@ export default function TeamChatPage(){
   async function openAttachment(message:Message){
     setError("");
     try{
-      const result=await api<{url:string;kind:string;name:string}>(
+      const result=await api<{url:string;kind:string;name:string;mime?:string}>(
         "/api/team-chat/media?messageId="+encodeURIComponent(message.id));
       setPreview(result);
     }catch(e){setError(e instanceof Error?e.message:"Prilog nije dostupan.");}
@@ -558,7 +593,11 @@ export default function TeamChatPage(){
             <strong>{preview.name}</strong>
             <button type="button" onClick={()=>setPreview(null)}>✕</button>
           </div>
-          {preview.kind==="image" && <><img src={preview.url} alt={preview.name}/>{/\.hei[cf]$/i.test(preview.name) && <a href={preview.url} target="_blank" rel="noopener noreferrer">{preview.name} ↗</a>}</>}
+          {preview.kind==="image" && <>
+            {previewImage ? <img src={previewImage} alt={preview.name} onError={()=>setPreviewImageError(true)}/> :
+              !previewImageError ? <p className="tc-muted">Bild wird vorbereitet / Slika se priprema…</p> : null}
+            {previewImageError && <p className="tc-muted">Vorschau nicht verfügbar / Pregled nije dostupan. Otvori original ispod.</p>}
+          </>}
           {preview.kind==="voice" && <audio src={preview.url} controls autoPlay/>}
           {preview.kind==="pdf" && <div className="tc-preview-pdf">
             <a href={preview.url} target="_blank" rel="noopener noreferrer">{t.pdf} ↗</a>
