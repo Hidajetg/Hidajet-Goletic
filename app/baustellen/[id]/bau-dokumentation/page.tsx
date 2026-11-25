@@ -1,4 +1,6 @@
 "use client";
+import { capturePickedFiles } from "../../../lib/capture-picked-files";
+
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -265,8 +267,12 @@ export default function BauDokumentationPage() {
     setUploadingText("");
   }
 
-  function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files || []);
+  async function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
+    const selection = Array.from(event.currentTarget.files || []);
+    event.currentTarget.value = "";
+    const captured = await capturePickedFiles(selection);
+    if (captured.errors.length) alert(captured.errors.join("\n"));
+    const files = captured.files;
     const tooLarge = files.find((file) => file.size > MAX_FILE_SIZE);
 
     if (tooLarge) {
