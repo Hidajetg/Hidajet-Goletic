@@ -1,3 +1,4 @@
+import { capturePickedFile } from "../lib/capture-picked-files";
 "use client";
 
 import Link from "next/link";
@@ -101,7 +102,7 @@ export default function AdminAiEntries() {
           <strong style={{color:"#fb923c",fontSize:18}}>🤖 AI – Angebot in Arbeitsplan umwandeln</strong>
           <p style={{color:"#e5e5e5",margin:0}}>Dodaj ponudu (PDF, DOCX, JPG, PNG ili TXT) ili zalijepi njen tekst. AI priprema pregled pozicija, količina, radova i materijala kao <b>nacrt za provjeru</b>. Dokument se šalje AI servisu tek kada klikneš dugme za analizu.</p>
           <label>Datoteka ponude (do 4 MB)
-            <input type="file" accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.webp" onChange={e=>setOfferFile(e.target.files?.[0]||null)}
+            <input type="file" accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.webp" onChange={async e=>{const selected=Array.from(e.currentTarget.files || []);e.currentTarget.value="";try{setOfferFile(await capturePickedFile(selected));}catch(error){setMessage(String(error));}}}
               style={{...control,marginTop:7}}/>
           </label>
           <label>Originalni tekst ponude (neobavezno)
