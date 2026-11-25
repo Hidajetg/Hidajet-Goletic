@@ -1,4 +1,6 @@
 "use client";
+import { capturePickedFile } from "../lib/capture-picked-files";
+
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNativeBack } from "../lib/use-native-back";
@@ -169,8 +171,11 @@ export default function WorkerAiChat({ mode = "page", verifiedName }: { mode?: M
     } catch { setNotice(t.microphoneError); }
   };
 
-  const selectPhoto = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const selectPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(event.currentTarget.files || []);
+    event.currentTarget.value = "";
+    let file: File | null;
+    try { file = await capturePickedFile(picked); } catch {setNotice(t.imageError);return;}
     if (!file) return;
     if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 3_000_000) {
       setNotice(t.imageError);
@@ -255,7 +260,7 @@ export default function WorkerAiChat({ mode = "page", verifiedName }: { mode?: M
         <div className="wai-tools">
           <div className="wai-tool-group">
             <input type="file" ref={fileRef} hidden
-              accept="image/jpeg,image/png,image/webp" onChange={selectPhoto}/>
+              accept="image/*,.heic,.heif" onChange={selectPhoto}/>
             <button className="wai-small-btn" type="button" onClick={() => fileRef.current?.click()}>
               📷 {t.photo}
             </button>
