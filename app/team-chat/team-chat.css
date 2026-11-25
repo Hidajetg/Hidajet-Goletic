@@ -241,3 +241,15 @@
 .tc-root .tc-compose-line .tc-record{font-size:16px}
 .tc-root .tc-compose-line .tc-send{font-size:18px}
 .tc-root .tc-back-thread{font-size:11px}
+
+/* Inline photos in messages; tap the photo to open the existing full-size viewer. */
+.tc-photo{display:block;margin-top:8px;padding:0;max-width:100%;width:max-content;
+  overflow:hidden;border-radius:10px;border:1px solid #4b596c;
+  background:#30384a;line-height:0;text-align:left;cursor:zoom-in}
+.tc-photo img{display:block;width:auto;height:auto;max-width:min(300px,68vw);
+  max-height:260px;object-fit:contain}
+.tc-photo-placeholder{display:block;min-width:135px;max-width:240px;padding:18px 12px;
+  line-height:1.4;color:#cbd5e1;font-size:12px}
+@media(max-width:720px){
+  .tc-photo img{max-width:min(270px,72vw);max-height:240px}
+}
