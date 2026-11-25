@@ -1,5 +1,5 @@
 "use client";
-import { capturePickedFiles } from "../../../../lib/capture-picked-files";
+import { capturePickedFiles } from "../../../../../lib/capture-picked-files";
 
 
 import Link from "next/link";
