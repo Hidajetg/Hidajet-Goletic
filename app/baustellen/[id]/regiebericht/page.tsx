@@ -1,4 +1,6 @@
 "use client";
+import { capturePickedFiles } from "../../../lib/capture-picked-files";
+
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -727,10 +729,11 @@ export default function RegieberichtPage() {
     setMaterialRows((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function addPhotos(files: FileList | null) {
+  async function addPhotos(files: FileList | null) {
     if (!files || files.length === 0) return;
-
-    const newFiles = Array.from(files)
+    const captured = await capturePickedFiles(Array.from(files));
+    if (captured.errors.length) alert(captured.errors.join("\n"));
+    const newFiles = captured.files
       .filter((file) =>
         file.type.startsWith("image/") || file.type === "application/pdf"
       )

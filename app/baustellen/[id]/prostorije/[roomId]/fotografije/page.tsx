@@ -1,4 +1,6 @@
 "use client";
+import { capturePickedFiles } from "../../../../../lib/capture-picked-files";
+
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
@@ -344,14 +346,10 @@ export default function RoomPhotosPage() {
     // Some Android photo providers grant only short-lived access to the picker URI.
     // Read it while the selection is fresh, and retain independent in-memory copies.
     // This also allows the user to choose photos from multiple picker sessions.
-    const snapshots = await Promise.allSettled(files.map(async file => {
-      const bytes = await file.arrayBuffer();
-      if (!bytes.byteLength) throw new Error("Empty photo");
-      return new File([bytes],file.name,{type:file.type,lastModified:file.lastModified});
-    }));
+    const captured = await capturePickedFiles(files);
     picker.value = "";
-    const readable = snapshots.flatMap(result => result.status === "fulfilled" ? [result.value] : []);
-    const failed = snapshots.flatMap((result,index) => result.status === "rejected" ? [files[index].name] : []);
+    const readable = captured.files;
+    const failed = captured.errors;
     if (readable.length) setPendingFiles(previous => {
       const seen = new Set(previous.map(f => [f.name,f.size,f.lastModified].join(":")));
       return [...previous,...readable.filter(file => {
