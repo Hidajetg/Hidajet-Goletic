@@ -336,19 +336,33 @@ export default function RoomPhotosPage() {
     );
   }
 
-  function choosePhotos(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.currentTarget.files || []);
-    event.currentTarget.value = "";
+  async function choosePhotos(event: ChangeEvent<HTMLInputElement>) {
+    const picker = event.currentTarget;
+    const files = Array.from(picker.files || []);
     if (!files.length || uploadLock.current) return;
     setUploadMessage("");
-    setPendingFiles(previous => {
+    // Some Android photo providers grant only short-lived access to the picker URI.
+    // Read it while the selection is fresh, and retain independent in-memory copies.
+    // This also allows the user to choose photos from multiple picker sessions.
+    const snapshots = await Promise.allSettled(files.map(async file => {
+      const bytes = await file.arrayBuffer();
+      if (!bytes.byteLength) throw new Error("Empty photo");
+      return new File([bytes],file.name,{type:file.type,lastModified:file.lastModified});
+    }));
+    picker.value = "";
+    const readable = snapshots.flatMap(result => result.status === "fulfilled" ? [result.value] : []);
+    const failed = snapshots.flatMap((result,index) => result.status === "rejected" ? [files[index].name] : []);
+    if (readable.length) setPendingFiles(previous => {
       const seen = new Set(previous.map(f => [f.name,f.size,f.lastModified].join(":")));
-      return [...previous, ...files.filter(f => {
-        const key = [f.name,f.size,f.lastModified].join(":");
-        if (seen.has(key)) return false;
-        seen.add(key); return true;
+      return [...previous,...readable.filter(file => {
+        const key=[file.name,file.size,file.lastModified].join(":");
+        if(seen.has(key)) return false;
+        seen.add(key);return true;
       })];
     });
+    if (failed.length) setUploadMessage(
+      failed.join(", ") + ": Telefon nije dozvolio čitanje slike. Otvori sliku u Galeriji, sačuvaj kao JPG ili je ponovo odaberi."
+    );
   }
 
   async function uploadPhotos() {
