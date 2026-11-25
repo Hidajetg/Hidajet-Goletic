@@ -595,9 +595,7 @@ export default function RoomDetailPage() {
           ref={pdfInputRef}
           type="file"
           accept="application/pdf,.pdf"
-          onChange={(e) =>
-            handlePdfFile(e.target.files?.[0])
-          }
+          onChange={async (e) => {const selected=Array.from(e.currentTarget.files || []);e.currentTarget.value="";try{handlePdfFile(await capturePickedFile(selected) || undefined);}catch(error){setNotesError(String(error));}}}
           style={{ display: "none" }}
         />
 
