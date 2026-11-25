@@ -1,5 +1,5 @@
 "use client";
-import { capturePickedFile } from "../lib/capture-picked-files";
+import { capturePickedFile } from "../../lib/capture-picked-files";
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
