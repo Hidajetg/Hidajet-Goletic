@@ -1,3 +1,4 @@
+import { capturePickedFile } from "../lib/capture-picked-files";
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -611,7 +612,7 @@ export default function TeamChatPage(){
                 <label className="tc-upload" title={t.attach} aria-label={t.attach}>
                   📎
                   <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.heic,.heif,application/pdf"
-                    onChange={(e)=>setFile(e.target.files?.[0]??null)}/>
+                    onChange={async (e)=>{const selected=Array.from(e.currentTarget.files || []);e.currentTarget.value="";try{setFile(await capturePickedFile(selected));}catch(error){setError(String(error));}}}/>
                 </label>
                 <textarea value={text} placeholder={t.write} rows={1}
                   onChange={(e)=>setText(e.target.value)}
