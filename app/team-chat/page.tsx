@@ -103,6 +103,48 @@ function stamp(value:string,lang:AppLanguage){
   return new Date(value).toLocaleString(locale,{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
 }
 
+// Load the authorized signed media URL once per displayed photo. Older HEIC
+// uploads are converted in-memory for Android/Windows browsers.
+function ChatPhoto({message,onOpen}:{message:Message;onOpen:()=>void}){
+  const [source,setSource]=useState<string|null>(null);
+  const [failed,setFailed]=useState(false);
+  useEffect(()=>{
+    let cancelled=false;
+    let objectUrl:string|null=null;
+    const load=async()=>{
+      try{
+        const response=await fetch("/api/team-chat/media?messageId="+encodeURIComponent(message.id),{
+          credentials:"include",cache:"no-store"
+        });
+        if(!response.ok)throw new Error("Photo unavailable");
+        const payload=await response.json() as {url:string;mime?:string;name?:string};
+        const heic=/\\.hei[cf]$/i.test(message.attachment?.original_name||"") ||
+          /image\\/hei[cf]/i.test(payload.mime||"");
+        if(heic){
+          const imageResponse=await fetch(payload.url);
+          if(!imageResponse.ok)throw new Error("Photo unavailable");
+          const blob=await imageResponse.blob();
+          const {heicTo}=await import("heic-to");
+          const jpeg=await heicTo({blob,type:"image/jpeg",quality:0.85});
+          objectUrl=URL.createObjectURL(jpeg);
+          if(!cancelled)setSource(objectUrl);
+        }else if(!cancelled)setSource(payload.url);
+      }catch{
+        if(!cancelled)setFailed(true);
+      }
+    };
+    void load();
+    return ()=>{cancelled=true;if(objectUrl)URL.revokeObjectURL(objectUrl);};
+  },[message.id,message.attachment?.original_name]);
+  return <button type="button" className="tc-photo" onClick={onOpen}
+    aria-label={message.attachment?.original_name||"Foto öffnen"} title="Bild vergrößern">
+    {source && !failed?
+      <img src={source} alt={message.attachment?.original_name||"Foto"}
+        loading="lazy" onError={()=>setFailed(true)}/>:
+      <span className="tc-photo-placeholder">{failed?"🖼️ Bild öffnen":"Bild wird geladen…"}</span>}
+  </button>;
+}
+
 export default function TeamChatPage(){
   const [lang,setLang]=useState<AppLanguage>("ba");
   const [compact,setCompact]=useState(false);
@@ -546,12 +588,14 @@ export default function TeamChatPage(){
                     }}>
                     {showTranslation?t.original:t.translated}
                   </button>}
-                  {message.attachment && <button type="button" className="tc-attachment"
-                    onClick={()=>void openAttachment(message)}>
-                    {message.attachment.kind==="image"?"🖼️ "+t.photo:
-                      message.attachment.kind==="pdf"?"📄 "+t.pdf:"🎤 "+t.audio}
-                    <small>{message.attachment.original_name}</small>
-                  </button>}
+                  {message.attachment?.kind==="image" &&
+                    <ChatPhoto message={message} onOpen={()=>void openAttachment(message)}/>}
+                  {message.attachment && message.attachment.kind!=="image" &&
+                    <button type="button" className="tc-attachment"
+                      onClick={()=>void openAttachment(message)}>
+                      {message.attachment.kind==="pdf"?"📄 "+t.pdf:"🎤 "+t.audio}
+                      <small>{message.attachment.original_name}</small>
+                    </button>}
                 </article>;
               })}
               <div ref={listEnd}/>
