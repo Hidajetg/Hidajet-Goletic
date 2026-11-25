@@ -1355,7 +1355,6 @@ export default function RadnikRegiePage() {
             type="file"
             accept="image/*"
             multiple
-            capture="environment"
             onChange={async (e) => {const selected=Array.from(e.currentTarget.files || []);e.currentTarget.value="";const result=await capturePickedFiles(selected);setFotoFiles(result.files);if(result.errors.length)alert(result.errors.join("\n"));}}
           />
 
