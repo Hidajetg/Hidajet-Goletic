@@ -1,3 +1,4 @@
+import { capturePickedFiles } from "../../../../lib/capture-picked-files";
 "use client";
 
 import Link from "next/link";
@@ -1117,7 +1118,7 @@ export default function RadnikLeistungPage() {
             accept="image/*"
             multiple
             capture="environment"
-            onChange={(e) => setFotoFiles(Array.from(e.target.files || []))}
+            onChange={async (e) => {const selected=Array.from(e.currentTarget.files || []);e.currentTarget.value="";const result=await capturePickedFiles(selected);setFotoFiles(result.files);if(result.errors.length)alert(result.errors.join("\n"));}}
           />
 
           {fotoFiles.length > 0 && (
