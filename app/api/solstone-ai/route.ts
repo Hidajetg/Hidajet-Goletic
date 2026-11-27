@@ -77,7 +77,7 @@ const ADMIN_TABLES: Record<string, string> = {
 const adminCatalog = Object.entries(ADMIN_TABLES).map(([table, columns]) => table + ": " + columns).join("\n");
 const businessReadTool = {
   type: "function", name: "read_business_records",
-  description: "Read live Solstone business records, including archives and any dates. Lookup site/room/worker IDs first. Use count or sum for exact totals, group_by for breakdowns. No SQL or mutations. Columns: " + adminCatalog,
+  description: "Read live Solstone business records, including archives and any dates. Lookup site/room/worker IDs first. Use count or sum for exact totals, group_by for breakdowns. No SQL or mutations.",
   strict: true,
   parameters: {
     type: "object", additionalProperties: false,
@@ -100,7 +100,7 @@ const businessReadTool = {
 async function readBusinessRecords(raw: string, signal: AbortSignal) {
   try {
     const a = JSON.parse(raw);
-    if (!a || !Object.hasOwn(ADMIN_TABLES, a.table)) return { error: "Unknown table" };
+    if (!a || typeof a.table !== "string" || !Object.hasOwn(ADMIN_TABLES, a.table)) return { error: "Unknown table" };
     const allowed = ADMIN_TABLES[a.table].split(",");
     const valid = (c: unknown) => typeof c === "string" && allowed.includes(c);
     if (!Array.isArray(a.columns) || !a.columns.every(valid) ||
@@ -114,10 +114,11 @@ async function readBusinessRecords(raw: string, signal: AbortSignal) {
           (f.op !== "in" && f.values.length !== 1) ||
           f.values.some((v: unknown) => typeof v !== "string" || v.length > 150)) return { error: "Invalid filter" };
     }
-    const selected = a.mode === "rows" ? (a.columns.length ? a.columns : allowed) :
+    const selected: string[] = a.mode === "rows" ? (a.columns.length ? a.columns : allowed) :
       [...new Set<string>(["id", ...a.group_by, ...(a.mode === "sum" ? [a.sum_column] : [])])];
     const query = () => {
-      let q = supabaseAdmin.from(a.table).select(selected.join(","), {count: "exact"});
+      // Table/column names and operations were checked above. A dynamic runtime projection cannot use Supabase static select inference.
+      let q: any = supabaseAdmin.from(a.table).select(selected.join(","), {count: "exact"});
       for (const f of a.filters) {
         const v = f.values[0];
         if (f.op === "eq") q = q.eq(f.column, v);
@@ -157,6 +158,7 @@ async function readBusinessRecords(raw: string, signal: AbortSignal) {
     do {
       const r = await query().range(seen, seen + 499);
       if (r.error || r.count === null) return {error:"Aggregate query failed"};
+      if (seen > 0 && total !== r.count) return {error:"Records changed during aggregation; retry the query"};
       total = r.count;
       if (total > 10000) return {error:"Too many records for exact aggregation; narrow the filters", total};
       const rows = (r.data ?? []) as unknown as Record<string,unknown>[];
@@ -234,7 +236,7 @@ export async function POST(request: NextRequest) {
     try {
       if (!(await hasStrongAdminSession(request, user))) return json({error:"Za prošireni AI pristup potrebna je prijava privatnim administratorskim PIN-om od 8 cifara. Stari PIN i chat prijava nisu dozvoljeni."},403);
     } catch { return json({error:"Ne mogu potvrditi administratorsku prijavu."},503); }
-    context = "Administratorski pristup: pretraži bazu alatom read_business_records za svako poslovno pitanje. Nema vremenskog ograničenja niti samo aktivnih gradilišta.";
+    context = "Administratorski pristup: pretraži bazu alatom read_business_records za svako poslovno pitanje. Nema vremenskog ograničenja niti samo aktivnih gradilišta. Dozvoljene tabele i kolone:\n" + adminCatalog;
   } else try {
     // AI must see relevant calendar dates; on Sundays a "today only" lookup
     // falsely reports that upcoming scheduled Baustellen do not exist.
