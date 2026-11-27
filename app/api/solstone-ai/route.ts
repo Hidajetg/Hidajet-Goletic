@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
+import { createHash } from "node:crypto";
 import { verifySessionToken } from "../../lib/admin-session";
 import { currentViennaDate } from "../../lib/team-chat";
 import { getVerifiedAppUser } from "../../lib/verified-dashboard-admin";
@@ -72,7 +72,7 @@ const ADMIN_TABLES: Record<string, string> = {
   cars: "id,name,plate,registration_until",
   car_assignments: "id,car_id,worker_name,assignment_date,check_in_at,check_out_at,is_active",
   car_damages: "id,car_id,worker_name,description,status,admin_comment,created_at,resolved_at",
-  baustelle_material: "id,baustelle_id,materijal,custom_naziv,kolicina,jedinica,created_at",
+  baustelle_material: "id,baustelle_id,material_id,materijal,custom_naziv,custom_jedinica,kolicina,jedinica,created_at",
 };
 const adminCatalog = Object.entries(ADMIN_TABLES).map(([table, columns]) => table + ": " + columns).join("\n");
 const businessReadTool = {
@@ -181,16 +181,12 @@ async function readBusinessRecords(raw: string, signal: AbortSignal) {
 }
 
 async function hasStrongAdminSession(request: NextRequest, user: {id:string;name:string}) {
-  const credential = verifySessionToken(request.cookies.get("solstone_chat_auth")?.value, "chat");
+  const credential = verifySessionToken(request.cookies.get("solstone_admin_ai")?.value, "admin-ai");
   if (!credential || credential.role !== "admin" || credential.id !== user.id ||
       credential.name.trim().toLowerCase() !== user.name.trim().toLowerCase()) return false;
   const {data,error} = await supabaseAdmin.from("worker_auth").select("pin_hash").eq("worker_id",user.id).maybeSingle();
   if (error || !data?.pin_hash) return false;
-  // Do not extend access to any publicly known legacy PIN.
-  for (const legacy of ["0000","0001","1111","2222","4444"]) {
-    if (await bcrypt.compare(legacy, String(data.pin_hash))) return false;
-  }
-  return true;
+  return credential.credentialTag === createHash("sha256").update(String(data.pin_hash)).digest("hex");
 }
 
 export async function POST(request: NextRequest) {
@@ -236,7 +232,7 @@ export async function POST(request: NextRequest) {
   let context = "";
   if (user.isAdmin) {
     try {
-      if (!(await hasStrongAdminSession(request, user))) return json({error:"Za prošireni AI pristup prijavi se ponovo svojim privatnim PIN-om. Stari javni PIN nije dozvoljen."},403);
+      if (!(await hasStrongAdminSession(request, user))) return json({error:"Za prošireni AI pristup potrebna je prijava privatnim administratorskim PIN-om od 8 cifara. Stari PIN i chat prijava nisu dozvoljeni."},403);
     } catch { return json({error:"Ne mogu potvrditi administratorsku prijavu."},503); }
     context = "Administratorski pristup: pretraži bazu alatom read_business_records za svako poslovno pitanje. Nema vremenskog ograničenja niti samo aktivnih gradilišta.";
   } else try {
