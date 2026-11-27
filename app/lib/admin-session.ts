@@ -8,7 +8,8 @@ export type AppSession = {
   name: string;
   role: "admin" | "worker";
   exp: number;
-  purpose?: "chat";
+  purpose?: "chat" | "admin-ai";
+  credentialTag?: string;
 };
 
 function getSecret() {
@@ -63,7 +64,7 @@ export function createSessionToken(
 
 export function verifySessionToken(
   token?: string | null,
-  purpose: "app" | "chat" = "app",
+  purpose: "app" | "chat" | "admin-ai" = "app",
 ): AppSession | null {
   if (!token) {
     return null;
@@ -124,7 +125,7 @@ export function verifySessionToken(
     }
 
     // A normal signed session must never be replayable as a chat credential.
-    if (purpose === "chat" ? session.purpose !== "chat" : session.purpose !== undefined) return null;
+    if (purpose === "app" ? session.purpose !== undefined : session.purpose !== purpose) return null;
 
     return session;
   } catch {
