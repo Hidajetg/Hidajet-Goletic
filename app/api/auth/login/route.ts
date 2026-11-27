@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { createHash } from "node:crypto";
 
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { getVerifiedAppUser } from "../../../lib/verified-dashboard-admin";
@@ -30,6 +31,7 @@ function createLoginResponse(
   },
   remember: boolean,
   verifiedPersonalPin = false,
+  adminCredentialTag?: string,
 ) {
   const days = remember ? 30 : 7;
 
@@ -71,6 +73,13 @@ function createLoginResponse(
     ...(verifiedPersonalPin ? {} : {maxAge:0}),
   });
 
+  // Legacy PINs and normal chat credentials never authorize expanded AI.
+  response.cookies.set({
+    ...cookieOptions,
+    name: "solstone_admin_ai",
+    value: user.role === "admin" && adminCredentialTag ? createSessionToken({...user,purpose:"admin-ai",credentialTag:adminCredentialTag},1) : "",
+    maxAge: user.role === "admin" && adminCredentialTag ? 86400 : 0,
+  });
   return response;
 }
 
@@ -255,6 +264,7 @@ export async function POST(request: Request) {
       },
       remember,
       true,
+      role === "admin" && /^\d{8}$/.test(pin) ? createHash("sha256").update(String(auth.pin_hash)).digest("hex") : undefined,
     );
   } catch (error) {
     console.error("LOGIN ERROR:", error);
